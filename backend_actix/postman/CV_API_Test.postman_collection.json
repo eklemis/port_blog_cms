@@ -1,0 +1,157 @@
+{
+  "info": {
+    "_postman_id": "cv-api-test",
+    "name": "CV API Test",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create CV",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:8000/api/cv/{{user_id}}",
+          "host": ["http://localhost:8000"],
+          "path": ["api", "cv", "{{user_id}}"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"bio\": \"Software Engineer with a passion for AI.\",\n  \"photo_url\": \"https://example.com/photo.jpg\",\n  \"educations\": [\n    {\n      \"degree\": \"B.Sc. Computer Science\",\n      \"institution\": \"Tech University\",\n      \"graduation_year\": 2020\n    }\n  ],\n  \"experiences\": [\n    {\n      \"company\": \"Acme Corp\",\n      \"position\": \"Developer\",\n      \"start_date\": \"2020-01-01\",\n      \"end_date\": null,\n      \"description\": \"Developed applications.\"\n    }\n  ],\n  \"highlighted_projects\": [\n    {\n      \"id\": \"proj1\",\n      \"title\": \"Project One\",\n      \"slug\": \"project-one\",\n      \"short_description\": \"A major AI project.\"\n    }\n  ]\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 201 Created\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "pm.test(\"Response contains correct bio\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.bio).to.eql(\"Software Engineer with a passion for AI.\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Get CV",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "http://localhost:8000/api/cv/{{user_id}}",
+          "host": ["http://localhost:8000"],
+          "path": ["api", "cv", "{{user_id}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Response contains expected fields\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('bio');",
+              "    pm.expect(jsonData).to.have.property('photo_url');",
+              "    pm.expect(jsonData).to.have.property('educations');",
+              "    pm.expect(jsonData).to.have.property('experiences');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Update CV",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:8000/api/cv/{{user_id}}",
+          "host": ["http://localhost:8000"],
+          "path": ["api", "cv", "{{user_id}}"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"bio\": \"Updated bio - Senior Developer at Tech Corp.\",\n  \"photo_url\": \"https://example.com/updated-photo.jpg\",\n  \"educations\": [\n    {\n      \"degree\": \"M.Sc. Data Science\",\n      \"institution\": \"Tech University\",\n      \"graduation_year\": 2022\n    }\n  ],\n  \"experiences\": [\n    {\n      \"company\": \"Tech Corp\",\n      \"position\": \"Senior Developer\",\n      \"start_date\": \"2021-06-01\",\n      \"end_date\": null,\n      \"description\": \"Leading AI research.\"\n    }\n  ],\n  \"highlighted_projects\": [\n    {\n      \"id\": \"proj2\",\n      \"title\": \"AI Research\",\n      \"slug\": \"ai-research\",\n      \"short_description\": \"Researching AI applications.\"\n    }\n  ]\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Bio should be updated\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.bio).to.eql(\"Updated bio - Senior Developer at Tech Corp.\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Update CV - Not Found Case",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:8000/api/cv/{{non_existing_user_id}}",
+          "host": ["http://localhost:8000"],
+          "path": ["api", "cv", "{{non_existing_user_id}}"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"bio\": \"This update should fail because user doesn't exist.\",\n  \"photo_url\": \"https://example.com/fail-photo.jpg\",\n  \"educations\": [\n    {\n      \"degree\": \"M.Sc. Machine Learning\",\n      \"institution\": \"AI University\",\n      \"graduation_year\": 2023\n    }\n  ],\n  \"experiences\": [\n    {\n      \"company\": \"Unknown Corp\",\n      \"position\": \"Ghost Developer\",\n      \"start_date\": \"2022-01-01\",\n      \"end_date\": null,\n      \"description\": \"This should fail.\"\n    }\n  ],\n  \"highlighted_projects\": [\n    {\n      \"id\": \"proj404\",\n      \"title\": \"Non-Existent Project\",\n      \"slug\": \"non-existent\",\n      \"short_description\": \"This project does not exist.\"\n    }\n  ]\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 404 Not Found\", function () {",
+              "    pm.response.to.have.status(404);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "response": []
+    }
+  ]
+}

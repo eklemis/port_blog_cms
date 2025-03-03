@@ -1,9 +1,33 @@
 [package]
 name = "backend_actix"
 version = "0.1.0"
+authors = ["Eklemis Santo Ndun <eklemis.ndun@gmail.com>"]
 edition = "2021"
 
+[workspace]
+members = [".", "migration", "entity"]
+
 [dependencies]
+entity = { path = "entity" }
+migration = { path = "migration" } # depends on your needs
 actix-web = "4"
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0"
+uuid = { version = "1.12.1", features = ["v4"] }
+sea-orm = { version = "1.1.4", features = [
+    "sqlx-postgres",
+    "runtime-tokio-native-tls",
+    "uuid",
+    "macros",
+] }
+tokio = { version = "1.17.0", features = ["rt-multi-thread", "macros"] }
+async-trait = "0.1.86"
+dotenvy = "0.15.7"
+chrono = "0.4.40"
+sea-orm-migration = "0.10"
+
+[dev-dependencies]
+testcontainers = "0.15.0"
+chrono = "0.4"
+serial_test = "2.0"
+tokio = { version = "1.0", features = ["full"] }

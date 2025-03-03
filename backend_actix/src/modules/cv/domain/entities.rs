@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CVInfo {
     pub bio: String,
     pub photo_url: String,
@@ -9,14 +9,14 @@ pub struct CVInfo {
     pub highlighted_projects: Vec<HighlightedProject>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Education {
     pub degree: String,
     pub institution: String,
     pub graduation_year: i32,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Experience {
     pub company: String,
     pub position: String,
@@ -25,7 +25,7 @@ pub struct Experience {
     pub description: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HighlightedProject {
     pub id: String,
     pub title: String,
