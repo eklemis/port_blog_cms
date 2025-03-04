@@ -33,7 +33,6 @@ impl<R: CVRepository + Sync + Send> ICreateCVUseCase for CreateCVUseCase<R> {
         // Potentially, we check if a CV already exists for this user:
         let existing = self.repository.fetch_cv_by_user_id(user_id).await;
         if let Ok(_) = existing {
-            // A CV already exists
             return Err(CreateCVError::AlreadyExists);
         }
 

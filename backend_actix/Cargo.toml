@@ -29,6 +29,7 @@ rand_core = "0.6"
 password-hash = "0.5"
 argon2 = "0.5.3"
 bcrypt = "0.17.0"
+jsonwebtoken = "9.3.1"
 
 [dev-dependencies]
 testcontainers = "0.15.0"
