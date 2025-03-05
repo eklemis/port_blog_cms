@@ -2,6 +2,7 @@ use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter,
     Set,
 };
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::cv::application::ports::outgoing::{CVRepository, CVRepositoryError};
@@ -15,11 +16,11 @@ use super::sea_orm_entity::{
 
 #[derive(Debug, Clone)]
 pub struct CVRepoPostgres {
-    db: DatabaseConnection,
+    db: Arc<DatabaseConnection>,
 }
 
 impl CVRepoPostgres {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self { db }
     }
 }
@@ -29,7 +30,7 @@ impl CVRepository for CVRepoPostgres {
     async fn fetch_cv_by_user_id(&self, user_id: Uuid) -> Result<CVInfo, CVRepositoryError> {
         let result: Option<CvModel> = CvEntity::find()
             .filter(CvColumn::UserId.eq(user_id))
-            .one(&self.db)
+            .one(&*self.db)
             .await
             .map_err(|err| CVRepositoryError::DatabaseError(err.to_string()))?;
 
@@ -58,7 +59,7 @@ impl CVRepository for CVRepoPostgres {
         };
 
         let _ = CvEntity::insert(active)
-            .exec(&self.db)
+            .exec(&*self.db)
             .await
             .map_err(|err| CVRepositoryError::DatabaseError(err.to_string()))?;
 
@@ -68,7 +69,7 @@ impl CVRepository for CVRepoPostgres {
         // Find existing CV
         let existing_model = CvEntity::find()
             .filter(CvColumn::UserId.eq(user_id))
-            .one(&self.db)
+            .one(&*self.db)
             .await
             .map_err(|err| CVRepositoryError::DatabaseError(err.to_string()))?
             .ok_or(CVRepositoryError::NotFound)?;
@@ -94,7 +95,7 @@ impl CVRepository for CVRepoPostgres {
 
         // Perform update
         let updated_model = active_model
-            .update(&self.db)
+            .update(&*self.db)
             .await
             .map_err(|err| CVRepositoryError::DatabaseError(err.to_string()))?;
 
@@ -103,256 +104,282 @@ impl CVRepository for CVRepoPostgres {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::cv::application::ports::outgoing::{CVRepository, CVRepositoryError};
-//     use crate::cv::domain::entities::{CVInfo, Education, Experience, HighlightedProject};
-//     use ::sea_orm::prelude::*;
-//     use ::sea_orm::{Database, DatabaseConnection, Statement};
-//     use dotenvy::dotenv;
-//     use migration::{Migrator, MigratorTrait};
-//     use tokio;
-//     use uuid::Uuid;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cv::domain::entities::{Education, Experience, HighlightedProject};
+    use chrono::Utc;
+    use sea_orm::{DatabaseBackend, MockDatabase, MockExecResult};
 
-//     // Helper: Connect to the test database.
-//     async fn setup_test_db() -> DatabaseConnection {
-//         dotenv().ok();
-//         let db_url =
-//             std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL must be set for tests");
-//         let conn = Database::connect(&db_url)
-//             .await
-//             .expect("Failed to connect to test database");
-//         // Run migrations so that the cv table is created.
-//         Migrator::up(&conn, None).await.expect("Migration failed");
-//         conn
-//     }
+    // Helper function to create a test CV model
+    fn create_test_cv_model(user_id: Uuid) -> CvModel {
+        let now = Utc::now();
+        let fixed_offset_now = now.fixed_offset();
 
-//     // Helper: Truncate the 'cv' table to start fresh.
-//     async fn truncate_cv_table(conn: &DatabaseConnection) {
-//         // Using raw SQL to truncate the table
-//         let stmt = Statement::from_string(
-//             conn.get_database_backend(),
-//             "TRUNCATE TABLE cv RESTART IDENTITY CASCADE".to_owned(),
-//         );
-//         match conn.execute(stmt).await {
-//             Ok(_) => {}
-//             Err(err) => {
-//                 let err_str = err.to_string();
-//                 println!("Error:{:?}", &err);
-//                 if err_str.contains("relation \"cv\" does not exist") {
-//                     println!("Table cv does not exist, skipping truncation.");
-//                 } else {
-//                     panic!("Failed to truncate cv table: {:?}", err);
-//                 }
-//             }
-//         }
-//     }
+        CvModel {
+            user_id,
+            bio: "Test bio".to_string(),
+            photo_url: "https://example.com/photo.jpg".to_string(),
+            educations_json: serde_json::to_value(vec![Education {
+                degree: "B.Sc. Computer Science".to_string(),
+                institution: "Test University".to_string(),
+                graduation_year: 2020,
+            }])
+            .unwrap(),
+            experiences_json: serde_json::to_value(vec![Experience {
+                company: "Test Corp".to_string(),
+                position: "Developer".to_string(),
+                start_date: "2020-01-01".to_string(),
+                end_date: None,
+                description: "Test description".to_string(),
+            }])
+            .unwrap(),
+            highlighted_projects_json: serde_json::to_value(vec![HighlightedProject {
+                id: "proj1".to_string(),
+                title: "Test Project".to_string(),
+                slug: "test-project".to_string(),
+                short_description: "Short description".to_string(),
+            }])
+            .unwrap(),
+            created_at: fixed_offset_now,
+            updated_at: fixed_offset_now,
+        }
+    }
 
-//     // Helper: Create a sample CVInfo for testing.
-//     fn sample_cv_info(bio: &str, photo_url: &str) -> CVInfo {
-//         CVInfo {
-//             bio: bio.to_owned(),
-//             photo_url: photo_url.to_owned(),
-//             educations: vec![Education {
-//                 degree: "B.Sc. Computer Science".to_owned(),
-//                 institution: "Tech University".to_owned(),
-//                 graduation_year: 2020,
-//             }],
-//             experiences: vec![Experience {
-//                 company: "Acme Corp".to_owned(),
-//                 position: "Developer".to_owned(),
-//                 start_date: "2020-01-01".to_owned(),
-//                 end_date: None,
-//                 description: "Did some work".to_owned(),
-//             }],
-//             highlighted_projects: vec![HighlightedProject {
-//                 id: "proj1".to_owned(),
-//                 title: "Project One".to_owned(),
-//                 slug: "project-one".to_owned(),
-//                 short_description: "Short description".to_owned(),
-//             }],
-//         }
-//     }
+    // Helper function to create a test CV info domain object
+    fn create_test_cv_info() -> CVInfo {
+        CVInfo {
+            bio: "Test bio".to_string(),
+            photo_url: "https://example.com/photo.jpg".to_string(),
+            educations: vec![Education {
+                degree: "B.Sc. Computer Science".to_string(),
+                institution: "Test University".to_string(),
+                graduation_year: 2020,
+            }],
+            experiences: vec![Experience {
+                company: "Test Corp".to_string(),
+                position: "Developer".to_string(),
+                start_date: "2020-01-01".to_string(),
+                end_date: None,
+                description: "Test description".to_string(),
+            }],
+            highlighted_projects: vec![HighlightedProject {
+                id: "proj1".to_string(),
+                title: "Test Project".to_string(),
+                slug: "test-project".to_string(),
+                short_description: "Short description".to_string(),
+            }],
+        }
+    }
 
-//     // Test: Create a new CV, then fetch it.
-//     #[tokio::test]
-//     async fn test_create_and_fetch_cv() {
-//         let conn = setup_test_db().await;
-//         let repo = CVRepoPostgres::new(conn.clone());
-//         truncate_cv_table(&conn).await;
-//         let user_id = Uuid::new_v4();
-//         let cv_data = sample_cv_info("Test bio", "https://example.com/test.jpg");
+    #[tokio::test]
+    async fn test_fetch_cv_by_user_id_found() {
+        // Arrange
+        let user_id = Uuid::new_v4();
+        let cv_model = create_test_cv_model(user_id);
 
-//         // Act: Create the CV.
-//         let create_result = repo.create_cv(user_id, cv_data.clone()).await;
-//         assert!(create_result.is_ok(), "Expected CV creation to succeed");
-//         let created_cv = create_result.unwrap();
-//         assert_eq!(created_cv.bio, "Test bio");
-//         assert_eq!(created_cv.photo_url, "https://example.com/test.jpg");
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![cv_model.clone()]])
+            .into_connection();
 
-//         // Act: Fetch the same CV.
-//         let fetch_result = repo.fetch_cv_by_user_id(user_id).await;
-//         assert!(fetch_result.is_ok(), "Expected CV fetch to succeed");
-//         let fetched_cv = fetch_result.unwrap();
-//         assert_eq!(fetched_cv.bio, "Test bio");
+        let repo = CVRepoPostgres::new(Arc::new(db));
 
-//         // Clean up.
-//         truncate_cv_table(&conn).await;
-//     }
+        // Act
+        let result = repo.fetch_cv_by_user_id(user_id).await;
 
-//     // Test: Create CV duplicate handling.
-//     #[tokio::test]
-//     async fn test_create_cv_duplicate() {
-//         let conn = setup_test_db().await;
-//         truncate_cv_table(&conn).await;
-//         let repo = CVRepoPostgres::new(conn.clone());
-//         let user_id = Uuid::new_v4();
-//         let cv_data = sample_cv_info("Duplicate bio", "https://example.com/duplicate.jpg");
+        // Assert
+        assert!(result.is_ok(), "Expected fetch_cv_by_user_id to succeed");
+        let cv_info = result.unwrap();
+        assert_eq!(cv_info.bio, "Test bio");
+        assert_eq!(cv_info.photo_url, "https://example.com/photo.jpg");
+        assert_eq!(cv_info.educations.len(), 1);
+        assert_eq!(cv_info.educations[0].degree, "B.Sc. Computer Science");
+        assert_eq!(cv_info.experiences.len(), 1);
+        assert_eq!(cv_info.experiences[0].company, "Test Corp");
+        assert_eq!(cv_info.highlighted_projects.len(), 1);
+        assert_eq!(cv_info.highlighted_projects[0].title, "Test Project");
+    }
 
-//         // First creation should succeed.
-//         let res1 = repo.create_cv(user_id, cv_data.clone()).await;
-//         assert!(res1.is_ok(), "First CV creation should succeed");
+    #[tokio::test]
+    async fn test_fetch_cv_by_user_id_not_found() {
+        // Arrange
+        let user_id = Uuid::new_v4();
 
-//         // Second creation for the same user_id should fail (simulate duplicate key).
-//         let res2 = repo.create_cv(user_id, cv_data).await;
-//         assert!(res2.is_err(), "Duplicate CV creation should fail");
-//         match res2 {
-//             Err(CVRepositoryError::DatabaseError(msg)) => {
-//                 assert!(
-//                     msg.to_lowercase().contains("duplicate")
-//                         || msg.to_lowercase().contains("already exists"),
-//                     "Error message should indicate duplicate key"
-//                 );
-//             }
-//             _ => panic!("Expected a DatabaseError for duplicate key"),
-//         }
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![Vec::<CvModel>::new()]) // Empty result
+            .into_connection();
 
-//         truncate_cv_table(&conn).await;
-//     }
+        let repo = CVRepoPostgres::new(Arc::new(db));
 
-//     // Test: Fetch CV when no record exists.
-//     #[tokio::test]
-//     async fn test_fetch_cv_not_found() {
-//         let conn = setup_test_db().await;
-//         truncate_cv_table(&conn).await;
-//         let repo = CVRepoPostgres::new(conn.clone());
-//         let user_id = Uuid::new_v4();
+        // Act
+        let result = repo.fetch_cv_by_user_id(user_id).await;
 
-//         let result = repo.fetch_cv_by_user_id(user_id).await;
-//         match result {
-//             Err(CVRepositoryError::NotFound) => (),
-//             _ => panic!("Expected NotFound error when no CV exists"),
-//         }
+        // Assert
+        assert!(
+            matches!(result, Err(CVRepositoryError::NotFound)),
+            "Expected NotFound error, got {:?}",
+            result
+        );
+    }
 
-//         truncate_cv_table(&conn).await;
-//     }
+    #[tokio::test]
+    async fn test_create_cv_success() {
+        // Arrange
+        let user_id = Uuid::new_v4();
+        let cv_info = create_test_cv_info();
 
-//     // Test: Update an existing CV successfully.
-//     #[tokio::test]
-//     async fn test_update_cv_success() {
-//         let conn = setup_test_db().await;
-//         truncate_cv_table(&conn).await;
-//         let repo = CVRepoPostgres::new(conn.clone());
-//         let user_id = Uuid::new_v4();
-//         let initial_cv = sample_cv_info("Initial bio", "https://example.com/initial.jpg");
+        // Create a model that would be returned after insert
+        let now = Utc::now();
+        let fixed_offset_now = now.fixed_offset();
+        let inserted_model = CvModel {
+            user_id,
+            bio: cv_info.bio.clone(),
+            photo_url: cv_info.photo_url.clone(),
+            educations_json: serde_json::to_value(&cv_info.educations).unwrap(),
+            experiences_json: serde_json::to_value(&cv_info.experiences).unwrap(),
+            highlighted_projects_json: serde_json::to_value(&cv_info.highlighted_projects).unwrap(),
+            created_at: fixed_offset_now,
+            updated_at: fixed_offset_now,
+        };
 
-//         // Create the CV.
-//         let _ = repo
-//             .create_cv(user_id, initial_cv)
-//             .await
-//             .expect("CV creation failed");
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            // In SeaORM, the insert operation might need a query result
+            // for the inserted model, especially if it's returning the model
+            .append_query_results(vec![vec![inserted_model]])
+            .append_exec_results(vec![MockExecResult {
+                last_insert_id: 1,
+                rows_affected: 1,
+            }])
+            .into_connection();
 
-//         // Prepare updated data.
-//         let updated_cv = sample_cv_info("Updated bio", "https://example.com/updated.jpg");
+        let repo = CVRepoPostgres::new(Arc::new(db));
 
-//         // Act: Update the CV.
-//         let result = repo.update_cv(user_id, updated_cv.clone()).await;
-//         assert!(result.is_ok(), "Expected update_cv to succeed");
-//         let updated_result = result.unwrap();
-//         assert_eq!(updated_result.bio, "Updated bio");
-//         assert_eq!(updated_result.photo_url, "https://example.com/updated.jpg");
+        // Act
+        let result = repo.create_cv(user_id, cv_info.clone()).await;
 
-//         // Fetch to confirm.
-//         let fetched = repo.fetch_cv_by_user_id(user_id).await;
-//         assert!(fetched.is_ok(), "Expected fetch after update to succeed");
-//         let fetched_cv = fetched.unwrap();
-//         assert_eq!(fetched_cv.bio, "Updated bio");
+        // Assert
+        assert!(
+            result.is_ok(),
+            "Expected create_cv to succeed, got {:?}",
+            result
+        );
+        let created_cv = result.unwrap();
+        assert_eq!(created_cv.bio, cv_info.bio);
+        assert_eq!(created_cv.photo_url, cv_info.photo_url);
+        assert_eq!(created_cv.educations.len(), cv_info.educations.len());
+        assert_eq!(created_cv.experiences.len(), cv_info.experiences.len());
+        assert_eq!(
+            created_cv.highlighted_projects.len(),
+            cv_info.highlighted_projects.len()
+        );
+    }
 
-//         truncate_cv_table(&conn).await;
-//     }
+    #[tokio::test]
+    async fn test_update_cv_success() {
+        // Arrange
+        let user_id = Uuid::new_v4();
+        let existing_cv_model = create_test_cv_model(user_id);
+        let updated_cv_info = CVInfo {
+            bio: "Updated bio".to_string(),
+            photo_url: "https://example.com/updated.jpg".to_string(),
+            educations: vec![Education {
+                degree: "M.Sc. Computer Science".to_string(),
+                institution: "Advanced University".to_string(),
+                graduation_year: 2022,
+            }],
+            experiences: vec![Experience {
+                company: "Advanced Corp".to_string(),
+                position: "Senior Developer".to_string(),
+                start_date: "2022-01-01".to_string(),
+                end_date: None,
+                description: "Advanced work".to_string(),
+            }],
+            highlighted_projects: vec![HighlightedProject {
+                id: "proj2".to_string(),
+                title: "Advanced Project".to_string(),
+                slug: "advanced-project".to_string(),
+                short_description: "Advanced description".to_string(),
+            }],
+        };
 
-//     // Test: Update CV for a non-existent user.
-//     #[tokio::test]
-//     async fn test_update_cv_not_found() {
-//         let conn = setup_test_db().await;
-//         truncate_cv_table(&conn).await;
-//         let repo = CVRepoPostgres::new(conn.clone());
-//         let user_id = Uuid::new_v4();
-//         let updated_cv = sample_cv_info("Updated bio", "https://example.com/updated.jpg");
+        // Create an updated model that will be returned after update
+        let mut updated_model = existing_cv_model.clone();
+        updated_model.bio = "Updated bio".to_string();
+        updated_model.photo_url = "https://example.com/updated.jpg".to_string();
+        updated_model.educations_json = serde_json::to_value(&updated_cv_info.educations).unwrap();
+        updated_model.experiences_json =
+            serde_json::to_value(&updated_cv_info.experiences).unwrap();
+        updated_model.highlighted_projects_json =
+            serde_json::to_value(&updated_cv_info.highlighted_projects).unwrap();
+        updated_model.updated_at = Utc::now().fixed_offset();
 
-//         let result = repo.update_cv(user_id, updated_cv).await;
-//         match result {
-//             Err(CVRepositoryError::NotFound) => (),
-//             _ => panic!("Expected NotFound error when updating non-existent CV"),
-//         }
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            // First query - find existing CV
+            .append_query_results(vec![vec![existing_cv_model]])
+            // Second query - return updated model after update
+            .append_query_results(vec![vec![updated_model.clone()]])
+            // Exec result for the update operation
+            .append_exec_results(vec![MockExecResult {
+                last_insert_id: 0,
+                rows_affected: 1,
+            }])
+            .into_connection();
 
-//         truncate_cv_table(&conn).await;
-//     }
+        let repo = CVRepoPostgres::new(Arc::new(db));
 
-//     // Test: Simulate a DB error during update by dropping the table.
-//     #[tokio::test]
-//     async fn test_update_cv_db_error() {
-//         let conn = setup_test_db().await;
-//         truncate_cv_table(&conn).await;
-//         let repo = CVRepoPostgres::new(conn.clone());
-//         let user_id = Uuid::new_v4();
-//         let initial_cv = sample_cv_info("Initial bio", "https://example.com/initial.jpg");
+        // Act
+        let result = repo.update_cv(user_id, updated_cv_info.clone()).await;
 
-//         // Create a CV first.
-//         repo.create_cv(user_id, initial_cv)
-//             .await
-//             .expect("CV creation failed");
+        // Assert
+        assert!(
+            result.is_ok(),
+            "Expected update_cv to succeed, got {:?}",
+            result
+        );
+        let updated_cv = result.unwrap();
+        assert_eq!(updated_cv.bio, "Updated bio");
+        assert_eq!(updated_cv.photo_url, "https://example.com/updated.jpg");
+        assert_eq!(updated_cv.educations.len(), 1);
+        assert_eq!(updated_cv.educations[0].degree, "M.Sc. Computer Science");
+        assert_eq!(updated_cv.experiences.len(), 1);
+        assert_eq!(updated_cv.experiences[0].company, "Advanced Corp");
+        assert_eq!(updated_cv.highlighted_projects.len(), 1);
+        assert_eq!(updated_cv.highlighted_projects[0].title, "Advanced Project");
+    }
 
-//         // Simulate DB error: rename the table instead of dropping it.
-//         let rename_result = conn
-//             .execute(Statement::from_string(
-//                 conn.get_database_backend(),
-//                 "ALTER TABLE cv RENAME TO cv_backup".to_owned(),
-//             ))
-//             .await;
-//         assert!(
-//             rename_result.is_ok(),
-//             "Expected table to be renamed for simulation"
-//         );
+    #[tokio::test]
+    async fn test_update_cv_not_found() {
+        // Arrange
+        let user_id = Uuid::new_v4();
+        let cv_info = create_test_cv_info();
 
-//         let updated_cv = sample_cv_info("Updated bio", "https://example.com/updated.jpg");
-//         let result = repo.update_cv(user_id, updated_cv).await;
-//         match result {
-//             Err(CVRepositoryError::DatabaseError(msg)) => {
-//                 assert!(
-//                     msg.to_lowercase().contains("does not exist")
-//                         || msg.to_lowercase().contains("relation")
-//                         || msg.to_lowercase().contains("not found"),
-//                     "Expected error message about missing table, got: {}",
-//                     msg
-//                 );
-//             }
-//             _ => panic!("Expected DatabaseError due to missing table"),
-//         }
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![Vec::<CvModel>::new()]) // Empty result
+            .into_connection();
 
-//         // Restore the table by renaming it back.
-//         let restore_result = conn
-//             .execute(Statement::from_string(
-//                 conn.get_database_backend(),
-//                 "ALTER TABLE cv_backup RENAME TO cv".to_owned(),
-//             ))
-//             .await;
-//         assert!(
-//             restore_result.is_ok(),
-//             "Failed to restore cv table after simulation"
-//         );
+        let repo = CVRepoPostgres::new(Arc::new(db));
 
-//         truncate_cv_table(&conn).await;
-//     }
-// }
+        // Act
+        let result = repo.update_cv(user_id, cv_info).await;
+
+        // Assert
+        assert!(
+            matches!(result, Err(CVRepositoryError::NotFound)),
+            "Expected NotFound error, got {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_instance_can_be_cloned() {
+        // Arrange
+        let db = MockDatabase::new(DatabaseBackend::Postgres).into_connection();
+        let repo = CVRepoPostgres::new(Arc::new(db));
+
+        // Act
+        let _ = repo.clone();
+
+        // Assert - if it compiles, the test passes since Arc is working
+        assert!(true);
+    }
+}
