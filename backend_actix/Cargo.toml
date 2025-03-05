@@ -19,6 +19,7 @@ sea-orm = { version = "1.1.4", features = [
     "runtime-tokio-native-tls",
     "uuid",
     "macros",
+    "mock",
 ] }
 tokio = { version = "1.17.0", features = ["rt-multi-thread", "macros"] }
 async-trait = "0.1.86"
@@ -30,9 +31,12 @@ password-hash = "0.5"
 argon2 = "0.5.3"
 bcrypt = "0.17.0"
 jsonwebtoken = "9.3.1"
+redis = { version = "0.29.1", features = ["tokio-comp", "connection-manager"] }
+lettre = { version = "0.11.14", features = ["tokio1", "tokio1-native-tls"] }
 
 [dev-dependencies]
 testcontainers = "0.15.0"
 chrono = "0.4"
 serial_test = "2.0"
 tokio = { version = "1.0", features = ["full"] }
+mockall = "0.13.1"

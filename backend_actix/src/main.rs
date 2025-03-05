@@ -11,6 +11,11 @@ use crate::cv::adapter::outgoing::repository::CVRepoPostgres;
 use crate::cv::application::use_cases::create_cv::CreateCVUseCase;
 use crate::cv::application::use_cases::fetch_cv::FetchCVUseCase;
 use crate::cv::application::use_cases::update_cv::UpdateCVUseCase;
+
+// Email Service
+use crate::email::adapter::outgoing::smtp_sender::SmtpEmailSender;
+use crate::email::application::services::email_service::EmailService;
+
 use actix_web::{web, App, HttpServer};
 use sea_orm::{Database, DatabaseConnection};
 use std::env;
@@ -22,6 +27,7 @@ pub struct AppState {
     pub create_cv_use_case: CreateCVUseCase<CVRepoPostgres>,
     pub update_cv_use_case: UpdateCVUseCase<CVRepoPostgres>,
     pub create_user_use_case: CreateUserUseCase<UserQueryPostgres, UserRepositoryPostgres>,
+    pub email_service: EmailService,
 }
 
 #[actix_web::main]
@@ -31,6 +37,11 @@ async fn start() -> std::io::Result<()> {
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set in .env file");
     let host = env::var("HOST").expect("HOST is not set in .env file");
     let port = env::var("PORT").expect("PORT is not set in .env file");
+    // get env for email service
+    let smtp_server = std::env::var("SMTP_SERVER").expect("SMTP_SERVER not set");
+    let smtp_user = std::env::var("SMTP_USERNAME").expect("SMTP_USERNAME not set");
+    let smtp_pass = std::env::var("SMTP_PASSWORD").expect("SMTP_PASSWORD not set");
+    let from_email = std::env::var("EMAIL_FROM").expect("EMAIL_FROM not set");
 
     // 1. establish connection to database
     let conn: DatabaseConnection = Database::connect(&db_url)
@@ -50,12 +61,17 @@ async fn start() -> std::io::Result<()> {
     let password_hasher = PasswordHashingService::new(HashingAlgorithm::Argon2);
     let create_user_use_case = CreateUserUseCase::new(user_query, user_repo, password_hasher);
 
+    // Setup email service
+    let smtp_sender = SmtpEmailSender::new(&smtp_server, &smtp_user, &smtp_pass, &from_email);
+    let email_service = EmailService::new(Arc::new(smtp_sender));
+
     // 3) build app state
     let state = AppState {
         fetch_cv_use_case,
         create_cv_use_case,
         update_cv_use_case,
         create_user_use_case,
+        email_service,
     };
 
     // 4) Start the server
