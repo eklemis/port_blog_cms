@@ -1,6 +1,7 @@
 use super::{
     argon2_hasher::Argon2Hasher, bcrypt_hasher::BcryptHasher, password_hasher::PasswordHasher,
 };
+use std::fmt;
 use std::sync::Arc;
 use tokio::task;
 
@@ -21,6 +22,13 @@ impl Clone for PasswordHashingService {
     }
 }
 
+impl fmt::Debug for PasswordHashingService {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PasswordHashingService")
+            .field("hasher", &"<dyn PasswordHasher>")
+            .finish()
+    }
+}
 impl PasswordHashingService {
     pub fn new(algorithm: HashingAlgorithm) -> Self {
         let hasher: Arc<dyn PasswordHasher + Send + Sync> = match algorithm {
@@ -29,7 +37,12 @@ impl PasswordHashingService {
         };
         Self { hasher }
     }
-
+    /// Create a hashing service with a **custom** password hasher (for testing)
+    pub fn with_hasher<H: PasswordHasher + Send + Sync + 'static>(hasher: H) -> Self {
+        Self {
+            hasher: Arc::new(hasher),
+        }
+    }
     pub async fn hash_password(&self, password: String) -> Result<String, String> {
         let hasher = Arc::clone(&self.hasher);
         task::spawn_blocking(move || hasher.hash_password(&password))
