@@ -13,6 +13,7 @@ pub trait UserRepository {
     ) -> Result<(), UserRepositoryError>;
 
     async fn delete_user(&self, user_id: Uuid) -> Result<(), UserRepositoryError>;
+    async fn soft_delete_user(&self, user_id: Uuid) -> Result<(), UserRepositoryError>;
 }
 
 #[derive(Debug)]

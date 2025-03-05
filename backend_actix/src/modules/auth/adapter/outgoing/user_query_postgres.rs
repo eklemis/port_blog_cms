@@ -59,6 +59,8 @@ impl UserQueryPostgres {
             password_hash: model.password_hash,
             created_at: model.created_at.with_timezone(&Utc),
             updated_at: model.created_at.with_timezone(&Utc),
+            is_verified: model.is_verified,
+            is_deleted: model.is_deleted,
         }
     }
 }
@@ -84,6 +86,8 @@ mod tests {
             password_hash: "hashed_password".to_string(),
             created_at: fixed_offset_now,
             updated_at: fixed_offset_now,
+            is_verified: false,
+            is_deleted: false,
         }
     }
 
@@ -192,6 +196,8 @@ mod tests {
             password_hash: "hashed_password".to_string(),
             created_at: fixed_offset_now,
             updated_at: fixed_offset_now,
+            is_verified: false,
+            is_deleted: false,
         };
 
         // Act

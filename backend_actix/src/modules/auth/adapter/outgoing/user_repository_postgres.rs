@@ -31,6 +31,8 @@ impl UserRepositoryPostgres {
             password_hash: model.password_hash,
             created_at: model.created_at.with_timezone(&chrono::Utc), // Convert FixedOffset → Utc
             updated_at: model.updated_at.with_timezone(&chrono::Utc), // Convert FixedOffset → Utc
+            is_verified: false,
+            is_deleted: false,
         }
     }
 }
@@ -43,8 +45,10 @@ impl UserRepository for UserRepositoryPostgres {
             username: Set(user.username),
             email: Set(user.email),
             password_hash: Set(user.password_hash),
-            created_at: Set(user.created_at.into()), // Convert Utc → FixedOffset
-            updated_at: Set(user.updated_at.into()), // Convert Utc → FixedOffset
+            created_at: Set(user.created_at.into()),
+            updated_at: Set(user.updated_at.into()),
+            is_verified: Set(false),
+            is_deleted: Set(false),
         };
 
         let inserted = active_user.insert(&*self.db).await.map_err(|e| {
@@ -98,6 +102,24 @@ impl UserRepository for UserRepositoryPostgres {
 
         Ok(())
     }
+    async fn soft_delete_user(&self, user_id: Uuid) -> Result<(), UserRepositoryError> {
+        let user = UserEntity::find()
+            .filter(UserColumn::Id.eq(user_id))
+            .one(&*self.db)
+            .await
+            .map_err(|e| UserRepositoryError::DatabaseError(e.to_string()))?
+            .ok_or(UserRepositoryError::UserNotFound)?;
+
+        let mut active_user: UserActiveModel = user.into();
+        active_user.is_deleted = Set(true); // ✅ Mark user as deleted
+
+        active_user
+            .update(&*self.db)
+            .await
+            .map_err(|e| UserRepositoryError::DatabaseError(e.to_string()))?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -117,6 +139,8 @@ mod tests {
             password_hash: "hashed_password".to_string(),
             created_at: now,
             updated_at: now,
+            is_verified: false,
+            is_deleted: false,
         }
     }
 
@@ -137,6 +161,8 @@ mod tests {
             password_hash: user.password_hash.clone(),
             created_at: to_naive_datetime(user.created_at),
             updated_at: to_naive_datetime(user.updated_at),
+            is_verified: false,
+            is_deleted: false,
         };
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)
@@ -175,6 +201,8 @@ mod tests {
             password_hash: user.password_hash.clone(),
             created_at: to_naive_datetime(user.created_at),
             updated_at: to_naive_datetime(user.updated_at),
+            is_verified: false,
+            is_deleted: false,
         };
 
         // Create an updated mock user (with the new password)
@@ -185,6 +213,8 @@ mod tests {
             password_hash: new_password_hash.clone(),
             created_at: to_naive_datetime(user.created_at),
             updated_at: to_naive_datetime(Utc::now()), // Use fresh timestamp for updated_at
+            is_verified: false,
+            is_deleted: false,
         };
 
         // In SeaORM Mock, we need to provide all expected query results
@@ -243,6 +273,8 @@ mod tests {
             password_hash: user.password_hash.clone(),
             created_at: to_naive_datetime(user.created_at),
             updated_at: to_naive_datetime(user.updated_at),
+            is_verified: false,
+            is_deleted: false,
         };
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)
@@ -294,6 +326,8 @@ mod tests {
             password_hash: "hashed_password".to_string(),
             created_at: fix_off_now,
             updated_at: fix_off_now,
+            is_verified: false,
+            is_deleted: false,
         };
 
         // Act

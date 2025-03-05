@@ -12,7 +12,9 @@ pub struct Model {
     pub email: String,
     pub password_hash: String,
     pub created_at: DateTimeWithTimeZone,
-    pub updated_at: DateTimeWithTimeZone, // Added updated_at column
+    pub updated_at: DateTimeWithTimeZone,
+    pub is_verified: bool, // ✅ Added for email verification
+    pub is_deleted: bool,  // ✅ Added for soft delete
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

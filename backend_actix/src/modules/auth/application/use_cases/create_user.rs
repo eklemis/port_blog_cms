@@ -89,6 +89,8 @@ where
             password_hash,
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
+            is_verified: false,
+            is_deleted: false,
         };
 
         // 5️⃣ **Persist the user in the database**
@@ -173,6 +175,9 @@ mod tests {
         async fn delete_user(&self, _user_id: Uuid) -> Result<(), UserRepositoryError> {
             unimplemented!()
         }
+        async fn soft_delete_user(&self, _user_id: Uuid) -> Result<(), UserRepositoryError> {
+            unimplemented!()
+        }
     }
 
     /// Mock Password Hasher
@@ -226,6 +231,8 @@ mod tests {
                 password_hash: "hashed_password".to_string(),
                 created_at: chrono::Utc::now(),
                 updated_at: chrono::Utc::now(),
+                is_verified: false,
+                is_deleted: false,
             }),
             ..Default::default()
         };
@@ -260,6 +267,8 @@ mod tests {
                 password_hash: "hashed_password".to_string(),
                 created_at: chrono::Utc::now(),
                 updated_at: chrono::Utc::now(),
+                is_verified: false,
+                is_deleted: false,
             }),
             ..Default::default()
         };
