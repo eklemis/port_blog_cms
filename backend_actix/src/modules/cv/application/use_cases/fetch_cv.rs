@@ -24,7 +24,7 @@ impl<R: CVRepository> FetchCVUseCase<R> {
 }
 
 #[async_trait::async_trait]
-pub trait IFetchCVUseCase {
+pub trait IFetchCVUseCase: Send + Sync {
     async fn execute(&self, user_id: Uuid) -> Result<CVInfo, FetchCVError>;
 }
 

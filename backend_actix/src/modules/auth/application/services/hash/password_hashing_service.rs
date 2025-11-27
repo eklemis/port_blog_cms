@@ -14,6 +14,7 @@ pub struct PasswordHashingService {
     hasher: Arc<dyn PasswordHasher + Send + Sync>,
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Clone for PasswordHashingService {
     fn clone(&self) -> Self {
         Self {
@@ -22,6 +23,7 @@ impl Clone for PasswordHashingService {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl fmt::Debug for PasswordHashingService {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("PasswordHashingService")
@@ -32,7 +34,7 @@ impl fmt::Debug for PasswordHashingService {
 impl PasswordHashingService {
     pub fn new(algorithm: HashingAlgorithm) -> Self {
         let hasher: Arc<dyn PasswordHasher + Send + Sync> = match algorithm {
-            HashingAlgorithm::Argon2 => Arc::new(Argon2Hasher),
+            HashingAlgorithm::Argon2 => Arc::new(Argon2Hasher::new()),
             HashingAlgorithm::Bcrypt => Arc::new(BcryptHasher),
         };
         Self { hasher }

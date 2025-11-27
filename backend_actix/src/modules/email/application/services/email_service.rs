@@ -24,3 +24,39 @@ impl EmailService {
         self.sender.send_email(to, subject, body).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use async_trait::async_trait;
+    use mockall::{mock, predicate::*};
+    use std::sync::Arc;
+
+    // Mock EmailSender trait
+    mock! {
+        pub EmailSenderMock {}
+        #[async_trait]
+        impl EmailSender for EmailSenderMock {
+            async fn send_email(&self, to: &str, subject: &str, body: &str) -> Result<(), String>;
+        }
+    }
+
+    #[test]
+    fn test_email_service_debug_format() {
+        // Create a mock EmailSender
+        let mock_sender = Arc::new(MockEmailSenderMock::new()) as Arc<dyn EmailSender + Send + Sync>;
+
+        // Create EmailService instance
+        let email_service = EmailService::new(mock_sender);
+
+        // Format using Debug
+        let debug_output = format!("{:?}", email_service);
+
+        // Verify the output matches the expected Debug format
+        assert_eq!(
+            debug_output,
+            "EmailService { sender: \"<dyn EmailSender>\" }",
+            "Unexpected Debug output: got {}", debug_output
+        );
+    }
+}

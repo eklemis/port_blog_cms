@@ -11,7 +11,7 @@ pub enum CreateCVError {
 
 /// An interface for the create CV use case
 #[async_trait]
-pub trait ICreateCVUseCase {
+pub trait ICreateCVUseCase: Send + Sync {
     async fn execute(&self, user_id: Uuid, cv_data: CVInfo) -> Result<CVInfo, CreateCVError>;
 }
 
@@ -187,6 +187,65 @@ mod tests {
                 assert_eq!(msg, "DB insert failed");
             }
             _ => panic!("Expected RepositoryError"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_create_cv_unknown_repository_error() {
+        // Arrange: Mock repository that returns a non-DatabaseError variant
+        #[derive(Default)]
+        struct MockCVRepositoryUnknownError;
+
+        #[async_trait]
+        impl CVRepository for MockCVRepositoryUnknownError {
+            async fn fetch_cv_by_user_id(
+                &self,
+                _user_id: Uuid,
+            ) -> Result<CVInfo, CVRepositoryError> {
+                Err(CVRepositoryError::NotFound)
+            }
+
+            async fn create_cv(
+                &self,
+                _user_id: Uuid,
+                _cv_data: CVInfo,
+            ) -> Result<CVInfo, CVRepositoryError> {
+                // Return NotFound instead of DatabaseError to trigger catch-all
+                Err(CVRepositoryError::NotFound)
+            }
+
+            async fn update_cv(
+                &self,
+                _user_id: Uuid,
+                _cv_data: CVInfo,
+            ) -> Result<CVInfo, CVRepositoryError> {
+                unimplemented!()
+            }
+        }
+
+        let mock_repo = MockCVRepositoryUnknownError;
+        let use_case = CreateCVUseCase::new(mock_repo);
+
+        // Act
+        let user_id = Uuid::new_v4();
+        let new_cv_data = CVInfo {
+            bio: "My new bio".to_string(),
+            photo_url: "https://example.com/photo.jpg".to_string(),
+            educations: vec![],
+            experiences: vec![],
+            highlighted_projects: vec![],
+        };
+        let result = use_case.execute(user_id, new_cv_data).await;
+
+        // Assert - Should return RepositoryError with "Unknown repo error"
+        match result {
+            Err(CreateCVError::RepositoryError(msg)) => {
+                assert_eq!(msg, "Unknown repo error");
+            }
+            _ => panic!(
+                "Expected RepositoryError with 'Unknown repo error', got: {:?}",
+                result
+            ),
         }
     }
 }

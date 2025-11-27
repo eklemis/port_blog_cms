@@ -1,3 +1,9 @@
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
+
+[profile.test]
+opt-level=0
+
 [package]
 name = "backend_actix"
 version = "0.1.0"
@@ -8,8 +14,6 @@ edition = "2021"
 members = [".", "migration", "entity"]
 
 [dependencies]
-entity = { path = "entity" }
-migration = { path = "migration" } # depends on your needs
 actix-web = "4"
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0"
@@ -35,8 +39,6 @@ redis = { version = "0.29.1", features = ["tokio-comp", "connection-manager"] }
 lettre = { version = "0.11.14", features = ["tokio1", "tokio1-native-tls"] }
 
 [dev-dependencies]
-testcontainers = "0.15.0"
 chrono = "0.4"
-serial_test = "2.0"
 tokio = { version = "1.0", features = ["full"] }
 mockall = "0.13.1"
