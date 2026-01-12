@@ -107,7 +107,7 @@ impl CVRepository for CVRepoPostgres {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cv::domain::entities::{Education, Experience, HighlightedProject};
+    use crate::cv::domain::entities::{CoreSkill, Education, Experience, HighlightedProject};
     use chrono::Utc;
     use sea_orm::{DatabaseBackend, MockDatabase, MockExecResult};
 
@@ -119,7 +119,13 @@ mod tests {
         CvModel {
             user_id,
             bio: "Test bio".to_string(),
+            role: "Test role".to_string(),
             photo_url: "https://example.com/photo.jpg".to_string(),
+            core_skills_json: serde_json::to_value(vec![CoreSkill {
+                title: "Rust".to_string(),
+                description: "System programming".to_string(),
+            }])
+            .unwrap(),
             educations_json: serde_json::to_value(vec![Education {
                 degree: "B.Sc. Computer Science".to_string(),
                 institution: "Test University".to_string(),
@@ -129,9 +135,12 @@ mod tests {
             experiences_json: serde_json::to_value(vec![Experience {
                 company: "Test Corp".to_string(),
                 position: "Developer".to_string(),
+                location: "Jakarta, Indonesia".to_string(),
                 start_date: "2020-01-01".to_string(),
                 end_date: None,
                 description: "Test description".to_string(),
+                tasks: vec![],
+                achievements: vec![],
             }])
             .unwrap(),
             highlighted_projects_json: serde_json::to_value(vec![HighlightedProject {
@@ -150,7 +159,9 @@ mod tests {
     fn create_test_cv_info() -> CVInfo {
         CVInfo {
             bio: "Test bio".to_string(),
+            role: "Test role".to_string(),
             photo_url: "https://example.com/photo.jpg".to_string(),
+            core_skills: vec![],
             educations: vec![Education {
                 degree: "B.Sc. Computer Science".to_string(),
                 institution: "Test University".to_string(),
@@ -159,9 +170,12 @@ mod tests {
             experiences: vec![Experience {
                 company: "Test Corp".to_string(),
                 position: "Developer".to_string(),
+                location: "Jakarta, Indonesia".to_string(),
                 start_date: "2020-01-01".to_string(),
                 end_date: None,
                 description: "Test description".to_string(),
+                tasks: vec![],
+                achievements: vec![],
             }],
             highlighted_projects: vec![HighlightedProject {
                 id: "proj1".to_string(),
@@ -234,7 +248,9 @@ mod tests {
         let inserted_model = CvModel {
             user_id,
             bio: cv_info.bio.clone(),
+            role: cv_info.role.clone(),
             photo_url: cv_info.photo_url.clone(),
+            core_skills_json: serde_json::to_value(&cv_info.core_skills).unwrap(),
             educations_json: serde_json::to_value(&cv_info.educations).unwrap(),
             experiences_json: serde_json::to_value(&cv_info.experiences).unwrap(),
             highlighted_projects_json: serde_json::to_value(&cv_info.highlighted_projects).unwrap(),
@@ -281,7 +297,9 @@ mod tests {
         let existing_cv_model = create_test_cv_model(user_id);
         let updated_cv_info = CVInfo {
             bio: "Updated bio".to_string(),
+            role: "Test role".to_string(),
             photo_url: "https://example.com/updated.jpg".to_string(),
+            core_skills: vec![],
             educations: vec![Education {
                 degree: "M.Sc. Computer Science".to_string(),
                 institution: "Advanced University".to_string(),
@@ -290,9 +308,12 @@ mod tests {
             experiences: vec![Experience {
                 company: "Advanced Corp".to_string(),
                 position: "Senior Developer".to_string(),
+                location: "Jakarta, Indonesia".to_string(),
                 start_date: "2022-01-01".to_string(),
                 end_date: None,
                 description: "Advanced work".to_string(),
+                tasks: vec![],
+                achievements: vec![],
             }],
             highlighted_projects: vec![HighlightedProject {
                 id: "proj2".to_string(),

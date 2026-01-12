@@ -35,6 +35,7 @@ pub struct AppState {
 }
 
 #[actix_web::main]
+#[cfg(not(tarpaulin_include))]
 async fn start() -> std::io::Result<()> {
     // get env vars
     dotenvy::dotenv().ok();
@@ -104,6 +105,7 @@ async fn start() -> std::io::Result<()> {
     .await
 }
 
+#[cfg(not(tarpaulin_include))]
 fn init_routes(cfg: &mut web::ServiceConfig) {
     // CV
     cfg.service(crate::cv::adapter::incoming::routes::get_cv_handler);
@@ -114,6 +116,7 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::auth::adapter::incoming::routes::verify_user_email_handler);
 }
 
+#[cfg(not(tarpaulin_include))]
 fn main() {
     if let Err(e) = start() {
         eprintln!("Error starting app: {e}");

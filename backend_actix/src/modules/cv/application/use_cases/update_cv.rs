@@ -3,7 +3,7 @@ use crate::cv::domain::entities::CVInfo;
 use async_trait::async_trait;
 use uuid::Uuid;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum UpdateCVError {
     CVNotFound,
     RepositoryError(String),
@@ -94,8 +94,10 @@ mod tests {
     async fn test_update_cv_success() {
         // Arrange: an existing CV is present.
         let existing_cv = CVInfo {
+            role: "Software Engineer".to_string(),
             bio: "Old bio".to_string(),
             photo_url: "https://example.com/old.jpg".to_string(),
+            core_skills: vec![],
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],
@@ -108,8 +110,10 @@ mod tests {
         let user_id = Uuid::new_v4();
 
         let new_cv = CVInfo {
+            role: "Software Engineer".to_string(),
             bio: "Updated bio".to_string(),
             photo_url: "https://example.com/new.jpg".to_string(),
+            core_skills: vec![],
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],
@@ -136,8 +140,10 @@ mod tests {
         let user_id = Uuid::new_v4();
 
         let new_cv = CVInfo {
+            role: "Software Engineer".to_string(),
             bio: "Updated bio".to_string(),
             photo_url: "https://example.com/new.jpg".to_string(),
+            core_skills: vec![],
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],
@@ -157,12 +163,15 @@ mod tests {
     async fn test_update_cv_db_error() {
         // Arrange: an existing CV is present, but update is forced to fail.
         let existing_cv = CVInfo {
-            bio: "Old bio".to_string(),
-            photo_url: "https://example.com/old.jpg".to_string(),
+            role: "Software Engineer".to_string(),
+            bio: "Updated bio".to_string(),
+            photo_url: "https://example.com/new.jpg".to_string(),
+            core_skills: vec![],
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],
         };
+
         let mock_repo = MockCVRepository {
             existing_cv: Some(existing_cv),
             should_fail_update: true,
@@ -171,8 +180,10 @@ mod tests {
         let user_id = Uuid::new_v4();
 
         let new_cv = CVInfo {
+            role: "Software Engineer".to_string(),
             bio: "Updated bio".to_string(),
             photo_url: "https://example.com/new.jpg".to_string(),
+            core_skills: vec![],
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],

@@ -1,7 +1,7 @@
-use crate::cv::application::use_cases::create_cv::{CreateCVError, ICreateCVUseCase};
-use crate::cv::application::use_cases::fetch_cv::{FetchCVError, IFetchCVUseCase};
-use crate::cv::application::use_cases::update_cv::{IUpdateCVUseCase, UpdateCVError};
-use crate::cv::domain::entities::{CVInfo, Education, Experience, HighlightedProject};
+use crate::cv::application::use_cases::create_cv::CreateCVError;
+use crate::cv::application::use_cases::fetch_cv::FetchCVError;
+use crate::cv::application::use_cases::update_cv::UpdateCVError;
+use crate::cv::domain::entities::{CVInfo, CoreSkill, Education, Experience, HighlightedProject};
 use crate::AppState;
 use actix_web::{get, post, put, web, HttpResponse, Responder};
 use uuid::Uuid;
@@ -25,32 +25,37 @@ pub async fn get_cv_handler(
     }
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct CreateCVRequest {
+    pub role: String,
     pub bio: String,
     pub photo_url: String,
+    pub core_skills: Vec<CoreSkill>,
     pub educations: Vec<EducationRequest>,
     pub experiences: Vec<ExperienceRequest>,
     pub highlighted_projects: Vec<HighlightedProjectRequest>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct EducationRequest {
     pub degree: String,
     pub institution: String,
     pub graduation_year: i32,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct ExperienceRequest {
     pub company: String,
     pub position: String,
+    pub location: String,
     pub start_date: String,
     pub end_date: Option<String>,
     pub description: String,
+    pub tasks: Vec<String>,
+    pub achievements: Vec<String>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct HighlightedProjectRequest {
     pub id: String,
     pub title: String,
@@ -68,8 +73,17 @@ pub async fn create_cv_handler(
 
     // Map the request fields to domain objects
     let cv_data = CVInfo {
+        role: req.role.clone(),
         bio: req.bio.clone(),
         photo_url: req.photo_url.clone(),
+        core_skills: req
+            .core_skills
+            .iter()
+            .map(|e| CoreSkill {
+                title: e.title.clone(),
+                description: e.description.clone(),
+            })
+            .collect(),
         educations: req
             .educations
             .iter()
@@ -85,9 +99,12 @@ pub async fn create_cv_handler(
             .map(|exp| Experience {
                 company: exp.company.clone(),
                 position: exp.position.clone(),
+                location: exp.location.clone(),
                 start_date: exp.start_date.clone(),
                 end_date: exp.end_date.clone(),
                 description: exp.description.clone(),
+                tasks: exp.tasks.clone(),
+                achievements: exp.achievements.clone(),
             })
             .collect(),
         highlighted_projects: req
@@ -110,10 +127,12 @@ pub async fn create_cv_handler(
     }
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct UpdateCVRequest {
     pub bio: String,
+    pub role: String,
     pub photo_url: String,
+    pub core_skills: Vec<CoreSkill>,
     pub educations: Vec<EducationRequest>,
     pub experiences: Vec<ExperienceRequest>,
     pub highlighted_projects: Vec<HighlightedProjectRequest>,
@@ -129,7 +148,16 @@ pub async fn update_cv_handler(
 
     let cv_data = CVInfo {
         bio: req.bio.clone(),
+        role: req.role.clone(),
         photo_url: req.photo_url.clone(),
+        core_skills: req
+            .core_skills
+            .iter()
+            .map(|e| CoreSkill {
+                title: e.title.clone(),
+                description: e.description.clone(),
+            })
+            .collect(),
         educations: req
             .educations
             .iter()
@@ -145,9 +173,12 @@ pub async fn update_cv_handler(
             .map(|exp| Experience {
                 company: exp.company.clone(),
                 position: exp.position.clone(),
+                location: exp.location.clone(),
                 start_date: exp.start_date.clone(),
                 end_date: exp.end_date.clone(),
                 description: exp.description.clone(),
+                tasks: exp.tasks.clone(),
+                achievements: exp.achievements.clone(),
             })
             .collect(),
         highlighted_projects: req
@@ -172,17 +203,16 @@ pub async fn update_cv_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cv::domain::entities::CVInfo;
+    use crate::cv::application::use_cases::create_cv::{CreateCVError, ICreateCVUseCase};
+    use crate::cv::application::use_cases::fetch_cv::{FetchCVError, IFetchCVUseCase};
+    use crate::cv::application::use_cases::update_cv::{IUpdateCVUseCase, UpdateCVError};
+    use crate::cv::domain::entities::{CVInfo, Education};
+    use crate::modules::auth::application::domain::entities::User;
     use crate::modules::auth::application::use_cases::create_user::{
         CreateUserError, ICreateUserUseCase,
     };
     use crate::modules::auth::application::use_cases::verify_user_email::{
         IVerifyUserEmailUseCase, VerifyUserEmailError,
-    };
-    use crate::modules::cv::application::use_cases::{
-        create_cv::{CreateCVError, ICreateCVUseCase},
-        fetch_cv::{FetchCVError, IFetchCVUseCase},
-        update_cv::{IUpdateCVUseCase, UpdateCVError},
     };
     use actix_web::{test, web, App};
     use async_trait::async_trait;
@@ -233,7 +263,9 @@ mod tests {
             // Default success case
             Ok(CVInfo {
                 bio: "Default bio".to_string(),
+                role: "Data Engineer".to_string(),
                 photo_url: "https://example.com/photo.jpg".to_string(),
+                core_skills: vec![],
                 educations: vec![],
                 experiences: vec![],
                 highlighted_projects: vec![],
@@ -368,18 +400,24 @@ mod tests {
         })
     }
 
-    // ==================== FETCH CV TESTS ====================
+    // ==================== GET CV TESTS ====================
 
     #[actix_web::test]
-    async fn test_fetch_cv_handler_success() {
+    async fn test_get_cv_handler_success() {
         let fetch_uc = MockFetchCVUseCase::new();
         let create_uc = MockCreateCVUseCase::new();
         let update_uc = MockUpdateCVUseCase::new();
 
         let expected_cv = CVInfo {
-            bio: "Software Engineer".to_string(),
+            bio: "Software Engineer with 5 years of experience".to_string(),
+            role: "Software Engineer".to_string(),
             photo_url: "https://example.com/photo.jpg".to_string(),
-            educations: vec![],
+            core_skills: vec![],
+            educations: vec![Education {
+                degree: "Bachelor of Computer Science".to_string(),
+                institution: "MIT".to_string(),
+                graduation_year: 2018,
+            }],
             experiences: vec![],
             highlighted_projects: vec![],
         };
@@ -388,10 +426,7 @@ mod tests {
         let app_state = create_test_app_state(fetch_uc, create_uc, update_uc);
 
         let user_id = Uuid::new_v4();
-        let app = test::init_service(
-            App::new().app_data(app_state).service(fetch_cv_handler), // Your CV route handler
-        )
-        .await;
+        let app = test::init_service(App::new().app_data(app_state).service(get_cv_handler)).await;
 
         let req = test::TestRequest::get()
             .uri(&format!("/api/cv/{}", user_id))
@@ -402,20 +437,20 @@ mod tests {
 
         let body: CVInfo = test::read_body_json(resp).await;
         assert_eq!(body.bio, expected_cv.bio);
+        assert_eq!(body.educations.len(), 1);
     }
 
     #[actix_web::test]
-    async fn test_fetch_cv_handler_not_found() {
+    async fn test_get_cv_handler_not_found() {
         let fetch_uc = MockFetchCVUseCase::new();
         let create_uc = MockCreateCVUseCase::new();
         let update_uc = MockUpdateCVUseCase::new();
 
-        fetch_uc.set_error(FetchCVError::NotFound).await;
+        fetch_uc.set_error(FetchCVError::CVNotFound).await;
         let app_state = create_test_app_state(fetch_uc, create_uc, update_uc);
 
         let user_id = Uuid::new_v4();
-        let app =
-            test::init_service(App::new().app_data(app_state).service(fetch_cv_handler)).await;
+        let app = test::init_service(App::new().app_data(app_state).service(get_cv_handler)).await;
 
         let req = test::TestRequest::get()
             .uri(&format!("/api/cv/{}", user_id))
@@ -426,19 +461,20 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_fetch_cv_handler_database_error() {
+    async fn test_get_cv_handler_repository_error() {
         let fetch_uc = MockFetchCVUseCase::new();
         let create_uc = MockCreateCVUseCase::new();
         let update_uc = MockUpdateCVUseCase::new();
 
         fetch_uc
-            .set_error(FetchCVError::RepositoryError("DB error".to_string()))
+            .set_error(FetchCVError::RepositoryError(
+                "Database connection failed".to_string(),
+            ))
             .await;
         let app_state = create_test_app_state(fetch_uc, create_uc, update_uc);
 
         let user_id = Uuid::new_v4();
-        let app =
-            test::init_service(App::new().app_data(app_state).service(fetch_cv_handler)).await;
+        let app = test::init_service(App::new().app_data(app_state).service(get_cv_handler)).await;
 
         let req = test::TestRequest::get()
             .uri(&format!("/api/cv/{}", user_id))
@@ -446,6 +482,10 @@ mod tests {
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 500);
+
+        let body = test::read_body(resp).await;
+        let body_str = String::from_utf8(body.to_vec()).unwrap();
+        assert!(body_str.contains("Database connection failed"));
     }
 
     // ==================== CREATE CV TESTS ====================
@@ -458,7 +498,9 @@ mod tests {
 
         let new_cv = CVInfo {
             bio: "New bio".to_string(),
+            role: "New role".to_string(),
             photo_url: "https://example.com/new.jpg".to_string(),
+            core_skills: vec![],
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],
@@ -473,7 +515,15 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri(&format!("/api/cv/{}", user_id))
-            .set_json(&new_cv)
+            .set_json(CreateCVRequest {
+                bio: "New bio".to_string(),
+                role: "New role".to_string(),
+                photo_url: "https://example.com/new.jpg".to_string(),
+                core_skills: vec![],
+                educations: vec![],
+                experiences: vec![],
+                highlighted_projects: vec![],
+            })
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -493,24 +543,28 @@ mod tests {
         let app_state = create_test_app_state(fetch_uc, create_uc, update_uc);
 
         let user_id = Uuid::new_v4();
-        let new_cv = CVInfo {
-            bio: "New bio".to_string(),
-            photo_url: "https://example.com/new.jpg".to_string(),
-            educations: vec![],
-            experiences: vec![],
-            highlighted_projects: vec![],
-        };
-
         let app =
             test::init_service(App::new().app_data(app_state).service(create_cv_handler)).await;
 
         let req = test::TestRequest::post()
             .uri(&format!("/api/cv/{}", user_id))
-            .set_json(&new_cv)
+            .set_json(CreateCVRequest {
+                bio: "New bio".to_string(),
+                role: "New role".to_string(),
+                photo_url: "https://example.com/new.jpg".to_string(),
+                core_skills: vec![],
+                educations: vec![],
+                experiences: vec![],
+                highlighted_projects: vec![],
+            })
             .to_request();
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 409); // Conflict
+
+        let body = test::read_body(resp).await;
+        let body_str = String::from_utf8(body.to_vec()).unwrap();
+        assert_eq!(body_str, "CV already exists");
     }
 
     #[actix_web::test]
@@ -520,29 +574,35 @@ mod tests {
         let update_uc = MockUpdateCVUseCase::new();
 
         create_uc
-            .set_error(CreateCVError::RepositoryError("DB error".to_string()))
+            .set_error(CreateCVError::RepositoryError(
+                "DB insert failed".to_string(),
+            ))
             .await;
         let app_state = create_test_app_state(fetch_uc, create_uc, update_uc);
 
         let user_id = Uuid::new_v4();
-        let new_cv = CVInfo {
-            bio: "New bio".to_string(),
-            photo_url: "https://example.com/new.jpg".to_string(),
-            educations: vec![],
-            experiences: vec![],
-            highlighted_projects: vec![],
-        };
-
         let app =
             test::init_service(App::new().app_data(app_state).service(create_cv_handler)).await;
 
         let req = test::TestRequest::post()
             .uri(&format!("/api/cv/{}", user_id))
-            .set_json(&new_cv)
+            .set_json(CreateCVRequest {
+                bio: "New bio".to_string(),
+                role: "New role".to_string(),
+                photo_url: "https://example.com/new.jpg".to_string(),
+                core_skills: vec![],
+                educations: vec![],
+                experiences: vec![],
+                highlighted_projects: vec![],
+            })
             .to_request();
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 500);
+
+        let body = test::read_body(resp).await;
+        let body_str = String::from_utf8(body.to_vec()).unwrap();
+        assert!(body_str.contains("DB insert failed"));
     }
 
     // ==================== UPDATE CV TESTS ====================
@@ -554,8 +614,10 @@ mod tests {
         let update_uc = MockUpdateCVUseCase::new();
 
         let updated_cv = CVInfo {
-            bio: "Updated bio".to_string(),
-            photo_url: "https://example.com/updated.jpg".to_string(),
+            bio: "New bio".to_string(),
+            role: "New role".to_string(),
+            photo_url: "https://example.com/new.jpg".to_string(),
+            core_skills: vec![],
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],
@@ -570,7 +632,15 @@ mod tests {
 
         let req = test::TestRequest::put()
             .uri(&format!("/api/cv/{}", user_id))
-            .set_json(&updated_cv)
+            .set_json(UpdateCVRequest {
+                bio: "New bio".to_string(),
+                role: "New role".to_string(),
+                photo_url: "https://example.com/new.jpg".to_string(),
+                core_skills: vec![],
+                educations: vec![],
+                experiences: vec![],
+                highlighted_projects: vec![],
+            })
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -586,28 +656,32 @@ mod tests {
         let create_uc = MockCreateCVUseCase::new();
         let update_uc = MockUpdateCVUseCase::new();
 
-        update_uc.set_error(UpdateCVError::NotFound).await;
+        update_uc.set_error(UpdateCVError::CVNotFound).await;
         let app_state = create_test_app_state(fetch_uc, create_uc, update_uc);
 
         let user_id = Uuid::new_v4();
-        let updated_cv = CVInfo {
-            bio: "Updated bio".to_string(),
-            photo_url: "https://example.com/updated.jpg".to_string(),
-            educations: vec![],
-            experiences: vec![],
-            highlighted_projects: vec![],
-        };
-
         let app =
             test::init_service(App::new().app_data(app_state).service(update_cv_handler)).await;
 
         let req = test::TestRequest::put()
             .uri(&format!("/api/cv/{}", user_id))
-            .set_json(&updated_cv)
+            .set_json(UpdateCVRequest {
+                bio: "Updated bio".to_string(),
+                role: "New role".to_string(),
+                photo_url: "https://example.com/updated.jpg".to_string(),
+                core_skills: vec![],
+                educations: vec![],
+                experiences: vec![],
+                highlighted_projects: vec![],
+            })
             .to_request();
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 404);
+
+        let body = test::read_body(resp).await;
+        let body_str = String::from_utf8(body.to_vec()).unwrap();
+        assert_eq!(body_str, "CV not found");
     }
 
     #[actix_web::test]
@@ -617,28 +691,34 @@ mod tests {
         let update_uc = MockUpdateCVUseCase::new();
 
         update_uc
-            .set_error(UpdateCVError::RepositoryError("DB error".to_string()))
+            .set_error(UpdateCVError::RepositoryError(
+                "DB update failed".to_string(),
+            ))
             .await;
         let app_state = create_test_app_state(fetch_uc, create_uc, update_uc);
 
         let user_id = Uuid::new_v4();
-        let updated_cv = CVInfo {
-            bio: "Updated bio".to_string(),
-            photo_url: "https://example.com/updated.jpg".to_string(),
-            educations: vec![],
-            experiences: vec![],
-            highlighted_projects: vec![],
-        };
-
         let app =
             test::init_service(App::new().app_data(app_state).service(update_cv_handler)).await;
 
         let req = test::TestRequest::put()
             .uri(&format!("/api/cv/{}", user_id))
-            .set_json(&updated_cv)
+            .set_json(UpdateCVRequest {
+                bio: "Updated bio".to_string(),
+                role: "Data Engineer".to_string(),
+                photo_url: "https://example.com/updated.jpg".to_string(),
+                core_skills: vec![],
+                educations: vec![],
+                experiences: vec![],
+                highlighted_projects: vec![],
+            })
             .to_request();
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 500);
+
+        let body = test::read_body(resp).await;
+        let body_str = String::from_utf8(body.to_vec()).unwrap();
+        assert!(body_str.contains("DB update failed"));
     }
 }

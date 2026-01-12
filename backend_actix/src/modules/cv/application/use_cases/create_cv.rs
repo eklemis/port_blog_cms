@@ -3,7 +3,7 @@ use crate::cv::domain::entities::CVInfo;
 use async_trait::async_trait;
 use uuid::Uuid;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CreateCVError {
     AlreadyExists, //Only allow 1 CV per user and it's found
     RepositoryError(String),
@@ -83,8 +83,10 @@ mod tests {
                 ))
             } else {
                 Ok(CVInfo {
+                    role: cv_data.role,
                     bio: cv_data.bio,
                     photo_url: cv_data.photo_url,
+                    core_skills: cv_data.core_skills,
                     educations: cv_data.educations,
                     experiences: cv_data.experiences,
                     highlighted_projects: cv_data.highlighted_projects,
@@ -113,18 +115,22 @@ mod tests {
         // Act
         let user_id = Uuid::new_v4();
         let new_cv_data = CVInfo {
+            role: "Software Engineer".to_string(),
             bio: "My new bio".to_string(),
-            photo_url: "https://example.com/photo.jpg".to_string(),
+            photo_url: "https://example.com/old.jpg".to_string(),
+            core_skills: vec![],
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],
         };
+
         let result = use_case.execute(user_id, new_cv_data.clone()).await;
 
         // Assert
         assert!(result.is_ok());
         let created_cv = result.unwrap();
         assert_eq!(created_cv.bio, "My new bio");
+        assert_eq!(created_cv.role, "Software Engineer");
         // other checks...
     }
 
@@ -133,8 +139,10 @@ mod tests {
         // Arrange: user already has a CV
         let mock_repo = MockCVRepository {
             existing_cv: Some(CVInfo {
-                bio: "Existing CV...".to_string(),
-                photo_url: "https://example.com/existing.jpg".to_string(),
+                role: "Software Engineer".to_string(),
+                bio: "Old bio".to_string(),
+                photo_url: "https://example.com/old.jpg".to_string(),
+                core_skills: vec![],
                 educations: vec![],
                 experiences: vec![],
                 highlighted_projects: vec![],
@@ -146,8 +154,10 @@ mod tests {
         // Act
         let user_id = Uuid::new_v4();
         let new_cv_data = CVInfo {
-            bio: "My new bio".to_string(),
-            photo_url: "https://example.com/photo.jpg".to_string(),
+            role: "Software Engineer".to_string(),
+            bio: "Old bio".to_string(),
+            photo_url: "https://example.com/old.jpg".to_string(),
+            core_skills: vec![],
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],
@@ -173,8 +183,10 @@ mod tests {
         // Act
         let user_id = Uuid::new_v4();
         let new_cv_data = CVInfo {
-            bio: "My new bio".to_string(),
-            photo_url: "https://example.com/photo.jpg".to_string(),
+            role: "Software Engineer".to_string(),
+            bio: "Old bio".to_string(),
+            photo_url: "https://example.com/old.jpg".to_string(),
+            core_skills: vec![],
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],
@@ -229,8 +241,10 @@ mod tests {
         // Act
         let user_id = Uuid::new_v4();
         let new_cv_data = CVInfo {
-            bio: "My new bio".to_string(),
-            photo_url: "https://example.com/photo.jpg".to_string(),
+            role: "Software Engineer".to_string(),
+            bio: "Old bio".to_string(),
+            photo_url: "https://example.com/old.jpg".to_string(),
+            core_skills: vec![],
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],

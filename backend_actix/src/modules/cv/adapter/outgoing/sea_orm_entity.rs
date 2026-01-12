@@ -1,4 +1,4 @@
-use crate::cv::domain::entities::{CVInfo, Education, Experience, HighlightedProject};
+use crate::cv::domain::entities::{CVInfo, CoreSkill, Education, Experience, HighlightedProject};
 use sea_orm::entity::prelude::*;
 use serde_json;
 use serde_json::Value as JsonValue;
@@ -12,8 +12,10 @@ pub struct Model {
     pub user_id: Uuid,
 
     pub bio: String,
+    pub role: String,
     pub photo_url: String,
 
+    pub core_skills_json: JsonValue,
     pub educations_json: JsonValue,
     pub experiences_json: JsonValue,
     pub highlighted_projects_json: JsonValue,
@@ -25,6 +27,8 @@ pub struct Model {
 impl Model {
     pub fn to_domain(&self) -> CVInfo {
         // If you stored these as JSON arrays/objects:
+        let core_skills: Vec<CoreSkill> =
+            serde_json::from_value(self.core_skills_json.clone()).unwrap_or_default();
         let educations: Vec<Education> =
             serde_json::from_value(self.educations_json.clone()).unwrap_or_default();
         let experiences: Vec<Experience> =
@@ -34,7 +38,9 @@ impl Model {
 
         CVInfo {
             bio: self.bio.clone(),
+            role: self.role.clone(),
             photo_url: self.photo_url.clone(),
+            core_skills,
             educations,
             experiences,
             highlighted_projects,

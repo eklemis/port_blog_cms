@@ -1,5 +1,5 @@
 use sea_orm_migration::prelude::*;
-use sea_orm_migration::schema::{json, string};
+use sea_orm_migration::schema::{json, string, uuid};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -12,7 +12,14 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Cv::Table)
                     .if_not_exists()
-                    .col(ColumnDef::new(Cv::UserId).uuid().not_null().primary_key())
+                    .col(
+                        ColumnDef::new(Cv::Id)
+                            .uuid()
+                            .not_null()
+                            .primary_key()
+                            .extra("DEFAULT gen_random_uuid()".to_owned()),
+                    )
+                    .col(uuid(Cv::UserId).not_null())
                     .col(string(Cv::Bio).not_null())
                     .col(string(Cv::PhotoUrl).not_null())
                     .col(json(Cv::EducationsJson).not_null())
@@ -32,6 +39,17 @@ impl MigrationTrait for Migration {
                     )
                     .to_owned(),
             )
+            .await?;
+
+        // Add index on UserId for better query performance
+        manager
+            .create_index(
+                Index::create()
+                    .table(Cv::Table)
+                    .name("idx_cv_user_id")
+                    .col(Cv::UserId)
+                    .to_owned(),
+            )
             .await
     }
 
@@ -45,6 +63,7 @@ impl MigrationTrait for Migration {
 #[derive(Iden)]
 enum Cv {
     Table,
+    Id,
     UserId,
     Bio,
     PhotoUrl,

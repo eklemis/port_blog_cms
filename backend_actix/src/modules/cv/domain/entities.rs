@@ -2,11 +2,18 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CVInfo {
+    pub role: String,
     pub bio: String,
     pub photo_url: String,
+    pub core_skills: Vec<CoreSkill>,
     pub educations: Vec<Education>,
     pub experiences: Vec<Experience>,
     pub highlighted_projects: Vec<HighlightedProject>,
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CoreSkill {
+    pub title: String,
+    pub description: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -20,9 +27,12 @@ pub struct Education {
 pub struct Experience {
     pub company: String,
     pub position: String,
+    pub location: String,
     pub start_date: String, // For simplicity; or consider chrono::NaiveDate
     pub end_date: Option<String>,
     pub description: String,
+    pub tasks: Vec<String>,
+    pub achievements: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

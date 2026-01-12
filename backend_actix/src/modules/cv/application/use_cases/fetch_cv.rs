@@ -2,7 +2,7 @@ use crate::cv::application::ports::outgoing::{CVRepository, CVRepositoryError};
 use crate::cv::domain::entities::CVInfo;
 use uuid::Uuid;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum FetchCVError {
     CVNotFound,
     RepositoryError(String),
@@ -94,8 +94,10 @@ mod tests {
         // Arrange: Create a mock with a valid CVInfo
         let mock_repo = MockCVRepository {
             cv_info: Some(CVInfo {
+                role: "Software Engineer".to_string(),
                 bio: "Mocked CV data...".to_string(),
-                photo_url: "https://example.com/me.jpg".to_string(),
+                photo_url: "https://example.com/old.jpg".to_string(),
+                core_skills: vec![],
                 educations: vec![],
                 experiences: vec![],
                 highlighted_projects: vec![],
