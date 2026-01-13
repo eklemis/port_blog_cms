@@ -2,7 +2,7 @@ use crate::cv::application::ports::outgoing::{CreateCVData, UpdateCVData};
 use crate::cv::application::use_cases::create_cv::CreateCVError;
 use crate::cv::application::use_cases::fetch_cv::FetchCVError;
 use crate::cv::application::use_cases::update_cv::UpdateCVError;
-use crate::cv::domain::entities::{CVInfo, CoreSkill, Education, Experience, HighlightedProject};
+use crate::cv::domain::entities::{CoreSkill, Education, Experience, HighlightedProject};
 use crate::AppState;
 use actix_web::{get, post, put, web, HttpResponse, Responder};
 use uuid::Uuid;
@@ -123,7 +123,9 @@ pub async fn create_cv_handler(
     // Call the use case
     match data.create_cv_use_case.execute(user_id, cv_data).await {
         Ok(created) => HttpResponse::Created().json(created),
-        Err(CreateCVError::AlreadyExists) => HttpResponse::Conflict().body("CV already exists"),
+
+        Err(CreateCVError::UserNotFound) => HttpResponse::NotFound().body("User not found"),
+
         Err(CreateCVError::RepositoryError(e)) => HttpResponse::InternalServerError().body(e),
     }
 }
@@ -562,40 +564,6 @@ mod tests {
 
         let body: CVInfo = test::read_body_json(resp).await;
         assert_eq!(body.bio, new_cv.bio);
-    }
-
-    #[actix_web::test]
-    async fn test_create_cv_handler_already_exists() {
-        let fetch_uc = MockFetchCVUseCase::new();
-        let create_uc = MockCreateCVUseCase::new();
-        let update_uc = MockUpdateCVUseCase::new();
-
-        create_uc.set_error(CreateCVError::AlreadyExists).await;
-        let app_state = create_test_app_state(fetch_uc, create_uc, update_uc);
-
-        let user_id = Uuid::new_v4();
-        let app =
-            test::init_service(App::new().app_data(app_state).service(create_cv_handler)).await;
-
-        let req = test::TestRequest::post()
-            .uri(&format!("/api/cv/{}", user_id))
-            .set_json(CreateCVRequest {
-                bio: "New bio".to_string(),
-                role: "New role".to_string(),
-                photo_url: "https://example.com/new.jpg".to_string(),
-                core_skills: vec![],
-                educations: vec![],
-                experiences: vec![],
-                highlighted_projects: vec![],
-            })
-            .to_request();
-
-        let resp = test::call_service(&app, req).await;
-        assert_eq!(resp.status(), 409); // Conflict
-
-        let body = test::read_body(resp).await;
-        let body_str = String::from_utf8(body.to_vec()).unwrap();
-        assert_eq!(body_str, "CV already exists");
     }
 
     #[actix_web::test]
