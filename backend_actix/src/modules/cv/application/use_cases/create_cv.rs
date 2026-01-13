@@ -54,15 +54,18 @@ mod tests {
 
     #[derive(Default)]
     struct MockCVRepository {
-        pub existing_cv: Option<CVInfo>,
+        pub existing_cvs: Vec<CVInfo>,
         pub should_fail_on_create: bool,
     }
 
     #[async_trait]
     impl CVRepository for MockCVRepository {
-        async fn fetch_cv_by_user_id(&self, _user_id: Uuid) -> Result<CVInfo, CVRepositoryError> {
-            if let Some(ref cv) = self.existing_cv {
-                Ok(cv.clone())
+        async fn fetch_cv_by_user_id(
+            &self,
+            _user_id: Uuid,
+        ) -> Result<Vec<CVInfo>, CVRepositoryError> {
+            if self.existing_cvs.len() > 0 {
+                Ok(self.existing_cvs.clone())
             } else {
                 Err(CVRepositoryError::NotFound)
             }
@@ -103,7 +106,7 @@ mod tests {
     async fn test_create_cv_success() {
         // Arrange
         let mock_repo = MockCVRepository {
-            existing_cv: None, // No existing CV
+            existing_cvs: Vec::new(), // No existing CV
             should_fail_on_create: false,
         };
         let use_case = CreateCVUseCase::new(mock_repo);
@@ -134,7 +137,7 @@ mod tests {
     async fn test_create_cv_db_error() {
         // Arrange: Database fails on create
         let mock_repo = MockCVRepository {
-            existing_cv: None,
+            existing_cvs: Vec::new(),
             should_fail_on_create: true,
         };
         let use_case = CreateCVUseCase::new(mock_repo);
@@ -172,7 +175,7 @@ mod tests {
             async fn fetch_cv_by_user_id(
                 &self,
                 _user_id: Uuid,
-            ) -> Result<CVInfo, CVRepositoryError> {
+            ) -> Result<Vec<CVInfo>, CVRepositoryError> {
                 Err(CVRepositoryError::NotFound)
             }
 

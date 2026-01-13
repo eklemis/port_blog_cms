@@ -50,18 +50,20 @@ mod tests {
     // Define a simple mock repository for update tests.
     #[derive(Default)]
     struct MockCVRepository {
-        pub existing_cv: Option<CVInfo>,
+        pub existing_cvs: Vec<CVInfo>,
         pub should_fail_update: bool,
     }
 
     #[async_trait]
     impl CVRepository for MockCVRepository {
-        async fn fetch_cv_by_user_id(&self, _user_id: Uuid) -> Result<CVInfo, CVRepositoryError> {
-            if let Some(ref cv) = self.existing_cv {
-                Ok(cv.clone())
-            } else {
-                Err(CVRepositoryError::NotFound)
+        async fn fetch_cv_by_user_id(
+            &self,
+            _user_id: Uuid,
+        ) -> Result<Vec<CVInfo>, CVRepositoryError> {
+            if self.existing_cvs.is_empty() {
+                return Err(CVRepositoryError::NotFound);
             }
+            Ok(self.existing_cvs.clone())
         }
 
         async fn create_cv(
@@ -81,7 +83,7 @@ mod tests {
                 Err(CVRepositoryError::DatabaseError(
                     "Update failed".to_string(),
                 ))
-            } else if self.existing_cv.is_none() {
+            } else if self.existing_cvs.is_empty() {
                 Err(CVRepositoryError::NotFound)
             } else {
                 // Simulate a successful update by returning the new cv_data.
@@ -103,7 +105,7 @@ mod tests {
             highlighted_projects: vec![],
         };
         let mock_repo = MockCVRepository {
-            existing_cv: Some(existing_cv),
+            existing_cvs: vec![existing_cv],
             should_fail_update: false,
         };
         let use_case = UpdateCVUseCase::new(mock_repo);
@@ -133,7 +135,7 @@ mod tests {
     async fn test_update_cv_not_found() {
         // Arrange: no existing CV in the repository.
         let mock_repo = MockCVRepository {
-            existing_cv: None,
+            existing_cvs: Vec::new(),
             should_fail_update: false,
         };
         let use_case = UpdateCVUseCase::new(mock_repo);
@@ -173,7 +175,7 @@ mod tests {
         };
 
         let mock_repo = MockCVRepository {
-            existing_cv: Some(existing_cv),
+            existing_cvs: vec![existing_cv],
             should_fail_update: true,
         };
         let use_case = UpdateCVUseCase::new(mock_repo);

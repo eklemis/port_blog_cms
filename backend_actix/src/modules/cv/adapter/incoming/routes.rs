@@ -249,7 +249,7 @@ mod tests {
 
     #[async_trait]
     impl IFetchCVUseCase for MockFetchCVUseCase {
-        async fn execute(&self, _user_id: Uuid) -> Result<CVInfo, FetchCVError> {
+        async fn execute(&self, _user_id: Uuid) -> Result<Vec<CVInfo>, FetchCVError> {
             let error = self.should_fail.lock().await;
             if let Some(err) = error.as_ref() {
                 return Err(err.clone());
@@ -257,11 +257,11 @@ mod tests {
 
             let cv = self.cv.lock().await;
             if let Some(c) = cv.as_ref() {
-                return Ok(c.clone());
+                return Ok(vec![c.clone()]);
             }
 
-            // Default success case
-            Ok(CVInfo {
+            // Default success case - return a vector with one CV
+            Ok(vec![CVInfo {
                 bio: "Default bio".to_string(),
                 role: "Data Engineer".to_string(),
                 photo_url: "https://example.com/photo.jpg".to_string(),
@@ -269,7 +269,7 @@ mod tests {
                 educations: vec![],
                 experiences: vec![],
                 highlighted_projects: vec![],
-            })
+            }])
         }
     }
 
@@ -435,9 +435,10 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 200);
 
-        let body: CVInfo = test::read_body_json(resp).await;
-        assert_eq!(body.bio, expected_cv.bio);
-        assert_eq!(body.educations.len(), 1);
+        let body: Vec<CVInfo> = test::read_body_json(resp).await;
+        assert_eq!(body.len(), 1, "Expected exactly one CV");
+        assert_eq!(body[0].bio, expected_cv.bio);
+        assert_eq!(body[0].educations.len(), 1);
     }
 
     #[actix_web::test]

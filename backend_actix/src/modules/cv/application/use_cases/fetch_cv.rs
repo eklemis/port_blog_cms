@@ -25,14 +25,14 @@ impl<R: CVRepository> FetchCVUseCase<R> {
 
 #[async_trait::async_trait]
 pub trait IFetchCVUseCase: Send + Sync {
-    async fn execute(&self, user_id: Uuid) -> Result<CVInfo, FetchCVError>;
+    async fn execute(&self, user_id: Uuid) -> Result<Vec<CVInfo>, FetchCVError>;
 }
 
 #[async_trait::async_trait]
 impl<R: CVRepository + Sync + Send> IFetchCVUseCase for FetchCVUseCase<R> {
-    async fn execute(&self, user_id: Uuid) -> Result<CVInfo, FetchCVError> {
+    async fn execute(&self, user_id: Uuid) -> Result<Vec<CVInfo>, FetchCVError> {
         match self.repository.fetch_cv_by_user_id(user_id).await {
-            Ok(cv_info) => Ok(cv_info),
+            Ok(cvs) => Ok(cvs),
             Err(CVRepositoryError::NotFound) => Err(FetchCVError::CVNotFound),
             Err(CVRepositoryError::DatabaseError(e)) => Err(FetchCVError::RepositoryError(e)),
         }
@@ -52,22 +52,27 @@ mod tests {
     // A simple mock repository struct
     #[derive(Default)]
     struct MockCVRepository {
-        pub cv_info: Option<CVInfo>,
+        pub cv_infos: Vec<CVInfo>,
         pub should_fail_db: bool,
     }
 
     #[async_trait]
     impl CVRepository for MockCVRepository {
-        async fn fetch_cv_by_user_id(&self, _user_id: Uuid) -> Result<CVInfo, CVRepositoryError> {
+        async fn fetch_cv_by_user_id(
+            &self,
+            _user_id: Uuid,
+        ) -> Result<Vec<CVInfo>, CVRepositoryError> {
             if self.should_fail_db {
-                Err(CVRepositoryError::DatabaseError(
+                return Err(CVRepositoryError::DatabaseError(
                     "DB connection failed".to_string(),
-                ))
-            } else if let Some(ref cv) = self.cv_info {
-                Ok(cv.clone())
-            } else {
-                Err(CVRepositoryError::NotFound)
+                ));
             }
+
+            if self.cv_infos.is_empty() {
+                return Err(CVRepositoryError::NotFound);
+            }
+
+            Ok(self.cv_infos.clone())
         }
         async fn create_cv(
             &self,
@@ -91,9 +96,9 @@ mod tests {
     // Test: successful fetch
     #[tokio::test]
     async fn test_fetch_cv_success() {
-        // Arrange: Create a mock with a valid CVInfo
+        // Arrange: Create a mock with valid CVInfo
         let mock_repo = MockCVRepository {
-            cv_info: Some(CVInfo {
+            cv_infos: vec![CVInfo {
                 role: "Software Engineer".to_string(),
                 bio: "Mocked CV data...".to_string(),
                 photo_url: "https://example.com/old.jpg".to_string(),
@@ -101,7 +106,7 @@ mod tests {
                 educations: vec![],
                 experiences: vec![],
                 highlighted_projects: vec![],
-            }),
+            }],
             should_fail_db: false,
         };
         let use_case = FetchCVUseCase::new(mock_repo);
@@ -110,18 +115,19 @@ mod tests {
         let user_id = Uuid::new_v4();
         let result = use_case.execute(user_id).await;
 
-        // Assert: We expect a successful result
+        // Assert: We expect a successful result with one CV
         assert!(result.is_ok());
-        let cv_info = result.unwrap();
-        assert_eq!(cv_info.bio, "Mocked CV data...");
+        let cv_infos = result.unwrap();
+        assert_eq!(cv_infos.len(), 1, "Expected exactly one CV");
+        assert_eq!(cv_infos[0].bio, "Mocked CV data...");
     }
 
     // Test: CV not found
     #[tokio::test]
     async fn test_fetch_cv_not_found() {
-        // Arrange: The mock's cv_info is None
+        // Arrange: The mock's cv_infos is an empty vector
         let mock_repo = MockCVRepository {
-            cv_info: None,
+            cv_infos: vec![],
             should_fail_db: false,
         };
         let use_case = FetchCVUseCase::new(mock_repo);
@@ -142,7 +148,7 @@ mod tests {
     async fn test_fetch_cv_db_error() {
         // Arrange: The mock simulates a DB failure
         let mock_repo = MockCVRepository {
-            cv_info: None,
+            cv_infos: vec![],
             should_fail_db: true,
         };
         let use_case = FetchCVUseCase::new(mock_repo);

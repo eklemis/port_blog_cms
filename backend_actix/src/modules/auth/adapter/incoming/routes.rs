@@ -168,7 +168,7 @@ mod tests {
     struct StubFetchCVUseCase;
     #[async_trait]
     impl IFetchCVUseCase for StubFetchCVUseCase {
-        async fn execute(&self, _id: Uuid) -> Result<CVInfo, FetchCVError> {
+        async fn execute(&self, _id: Uuid) -> Result<Vec<CVInfo>, FetchCVError> {
             unimplemented!("Not used in these tests")
         }
     }

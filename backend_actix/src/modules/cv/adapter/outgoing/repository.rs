@@ -27,21 +27,22 @@ impl CVRepoPostgres {
 
 #[async_trait]
 impl CVRepository for CVRepoPostgres {
-    async fn fetch_cv_by_user_id(&self, user_id: Uuid) -> Result<CVInfo, CVRepositoryError> {
-        let result: Option<CvModel> = CvEntity::find()
+    async fn fetch_cv_by_user_id(&self, user_id: Uuid) -> Result<Vec<CVInfo>, CVRepositoryError> {
+        let models: Vec<CvModel> = CvEntity::find()
             .filter(CvColumn::UserId.eq(user_id))
-            .one(&*self.db)
+            .all(&*self.db)
             .await
             .map_err(|err| CVRepositoryError::DatabaseError(err.to_string()))?;
 
-        match result {
-            Some(model) => {
-                let cv_info = model.to_domain();
-                Ok(cv_info)
-            }
-            None => Err(CVRepositoryError::NotFound),
+        if models.is_empty() {
+            return Err(CVRepositoryError::NotFound);
         }
+
+        let cv_infos: Vec<CVInfo> = models.into_iter().map(|model| model.to_domain()).collect();
+
+        Ok(cv_infos)
     }
+
     async fn create_cv(&self, user_id: Uuid, cv_data: CVInfo) -> Result<CVInfo, CVRepositoryError> {
         // Convert domain CVInfo -> SeaORM ActiveModel
         let active = CvActiveModel {
@@ -210,7 +211,12 @@ mod tests {
 
         // Assert
         assert!(result.is_ok(), "Expected fetch_cv_by_user_id to succeed");
-        let cv_info = result.unwrap();
+        let cv_infos = result.unwrap();
+
+        // Since the method returns Vec<CVInfo>, we need to check the vector
+        assert_eq!(cv_infos.len(), 1, "Expected exactly one CV");
+
+        let cv_info = &cv_infos[0];
         assert_eq!(cv_info.bio, "Test bio");
         assert_eq!(cv_info.photo_url, "https://example.com/photo.jpg");
         assert_eq!(cv_info.educations.len(), 1);
@@ -219,6 +225,27 @@ mod tests {
         assert_eq!(cv_info.experiences[0].company, "Test Corp");
         assert_eq!(cv_info.highlighted_projects.len(), 1);
         assert_eq!(cv_info.highlighted_projects[0].title, "Test Project");
+    }
+    #[tokio::test]
+    async fn test_fetch_cv_by_user_id_multiple_cvs() {
+        // Arrange
+        let user_id = Uuid::new_v4();
+        let cv_model_1 = create_test_cv_model(user_id);
+        let cv_model_2 = create_test_cv_model(user_id);
+
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![cv_model_1.clone(), cv_model_2.clone()]])
+            .into_connection();
+
+        let repo = CVRepoPostgres::new(Arc::new(db));
+
+        // Act
+        let result = repo.fetch_cv_by_user_id(user_id).await;
+
+        // Assert
+        assert!(result.is_ok(), "Expected fetch_cv_by_user_id to succeed");
+        let cv_infos = result.unwrap();
+        assert_eq!(cv_infos.len(), 2, "Expected two CVs for the user");
     }
 
     #[tokio::test]
