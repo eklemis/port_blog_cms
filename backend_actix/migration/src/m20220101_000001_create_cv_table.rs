@@ -20,11 +20,13 @@ impl MigrationTrait for Migration {
                             .extra("DEFAULT gen_random_uuid()".to_owned()),
                     )
                     .col(uuid(Cv::UserId).not_null())
+                    .col(string(Cv::Role).not_null())
                     .col(string(Cv::Bio).not_null())
                     .col(string(Cv::PhotoUrl).not_null())
-                    .col(json(Cv::EducationsJson).not_null())
-                    .col(json(Cv::ExperiencesJson).not_null())
-                    .col(json(Cv::HighlightedProjectsJson).not_null())
+                    .col(json(Cv::CoreSkills).not_null())
+                    .col(json(Cv::Educations).not_null())
+                    .col(json(Cv::Experiences).not_null())
+                    .col(json(Cv::HighlightedProjects).not_null())
                     .col(
                         ColumnDef::new(Cv::CreatedAt)
                             .timestamp_with_time_zone()
@@ -65,11 +67,13 @@ enum Cv {
     Table,
     Id,
     UserId,
+    Role,
     Bio,
     PhotoUrl,
-    EducationsJson,
-    ExperiencesJson,
-    HighlightedProjectsJson,
+    CoreSkills,
+    Educations,
+    Experiences,
+    HighlightedProjects,
     CreatedAt,
     UpdatedAt,
 }

@@ -15,10 +15,10 @@ pub struct Model {
     pub role: String,
     pub photo_url: String,
 
-    pub core_skills_json: JsonValue,
-    pub educations_json: JsonValue,
-    pub experiences_json: JsonValue,
-    pub highlighted_projects_json: JsonValue,
+    pub core_skills: JsonValue,
+    pub educations: JsonValue,
+    pub experiences: JsonValue,
+    pub highlighted_projects: JsonValue,
 
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
@@ -28,13 +28,13 @@ impl Model {
     pub fn to_domain(&self) -> CVInfo {
         // If you stored these as JSON arrays/objects:
         let core_skills: Vec<CoreSkill> =
-            serde_json::from_value(self.core_skills_json.clone()).unwrap_or_default();
+            serde_json::from_value(self.core_skills.clone()).unwrap_or_default();
         let educations: Vec<Education> =
-            serde_json::from_value(self.educations_json.clone()).unwrap_or_default();
+            serde_json::from_value(self.educations.clone()).unwrap_or_default();
         let experiences: Vec<Experience> =
-            serde_json::from_value(self.experiences_json.clone()).unwrap_or_default();
+            serde_json::from_value(self.experiences.clone()).unwrap_or_default();
         let highlighted_projects: Vec<HighlightedProject> =
-            serde_json::from_value(self.highlighted_projects_json.clone()).unwrap_or_default();
+            serde_json::from_value(self.highlighted_projects.clone()).unwrap_or_default();
 
         CVInfo {
             bio: self.bio.clone(),

@@ -46,13 +46,16 @@ impl CVRepository for CVRepoPostgres {
         // Convert domain CVInfo -> SeaORM ActiveModel
         let active = CvActiveModel {
             user_id: Set(user_id),
+            role: Set(cv_data.role.clone()),
             bio: Set(cv_data.bio.clone()),
             photo_url: Set(cv_data.photo_url.clone()),
-            educations_json: Set(serde_json::to_value(&cv_data.educations)
+            core_skills: Set(serde_json::to_value(&cv_data.core_skills)
                 .map_err(|e| CVRepositoryError::DatabaseError(e.to_string()))?),
-            experiences_json: Set(serde_json::to_value(&cv_data.experiences)
+            educations: Set(serde_json::to_value(&cv_data.educations)
                 .map_err(|e| CVRepositoryError::DatabaseError(e.to_string()))?),
-            highlighted_projects_json: Set(serde_json::to_value(&cv_data.highlighted_projects)
+            experiences: Set(serde_json::to_value(&cv_data.experiences)
+                .map_err(|e| CVRepositoryError::DatabaseError(e.to_string()))?),
+            highlighted_projects: Set(serde_json::to_value(&cv_data.highlighted_projects)
                 .map_err(|e| CVRepositoryError::DatabaseError(e.to_string()))?),
             // set any timestamps or other columns...
             ..Default::default()
@@ -77,16 +80,20 @@ impl CVRepository for CVRepoPostgres {
         // Convert to ActiveModel and update fields
         let mut active_model = existing_model.into_active_model();
 
+        active_model.role = Set(cv_data.role.clone());
         active_model.bio = Set(cv_data.bio.clone());
         active_model.photo_url = Set(cv_data.photo_url.clone());
 
-        active_model.educations_json = Set(serde_json::to_value(&cv_data.educations)
+        active_model.core_skills = Set(serde_json::to_value(&cv_data.core_skills)
+            .map_err(|e| CVRepositoryError::DatabaseError((e.to_string())))?);
+
+        active_model.educations = Set(serde_json::to_value(&cv_data.educations)
             .map_err(|e| CVRepositoryError::DatabaseError(e.to_string()))?);
 
-        active_model.experiences_json = Set(serde_json::to_value(&cv_data.experiences)
+        active_model.experiences = Set(serde_json::to_value(&cv_data.experiences)
             .map_err(|e| CVRepositoryError::DatabaseError(e.to_string()))?);
 
-        active_model.highlighted_projects_json =
+        active_model.highlighted_projects =
             Set(serde_json::to_value(&cv_data.highlighted_projects)
                 .map_err(|e| CVRepositoryError::DatabaseError(e.to_string()))?);
 
@@ -121,18 +128,18 @@ mod tests {
             bio: "Test bio".to_string(),
             role: "Test role".to_string(),
             photo_url: "https://example.com/photo.jpg".to_string(),
-            core_skills_json: serde_json::to_value(vec![CoreSkill {
+            core_skills: serde_json::to_value(vec![CoreSkill {
                 title: "Rust".to_string(),
                 description: "System programming".to_string(),
             }])
             .unwrap(),
-            educations_json: serde_json::to_value(vec![Education {
+            educations: serde_json::to_value(vec![Education {
                 degree: "B.Sc. Computer Science".to_string(),
                 institution: "Test University".to_string(),
                 graduation_year: 2020,
             }])
             .unwrap(),
-            experiences_json: serde_json::to_value(vec![Experience {
+            experiences: serde_json::to_value(vec![Experience {
                 company: "Test Corp".to_string(),
                 position: "Developer".to_string(),
                 location: "Jakarta, Indonesia".to_string(),
@@ -143,7 +150,7 @@ mod tests {
                 achievements: vec![],
             }])
             .unwrap(),
-            highlighted_projects_json: serde_json::to_value(vec![HighlightedProject {
+            highlighted_projects: serde_json::to_value(vec![HighlightedProject {
                 id: "proj1".to_string(),
                 title: "Test Project".to_string(),
                 slug: "test-project".to_string(),
@@ -250,10 +257,10 @@ mod tests {
             bio: cv_info.bio.clone(),
             role: cv_info.role.clone(),
             photo_url: cv_info.photo_url.clone(),
-            core_skills_json: serde_json::to_value(&cv_info.core_skills).unwrap(),
-            educations_json: serde_json::to_value(&cv_info.educations).unwrap(),
-            experiences_json: serde_json::to_value(&cv_info.experiences).unwrap(),
-            highlighted_projects_json: serde_json::to_value(&cv_info.highlighted_projects).unwrap(),
+            core_skills: serde_json::to_value(&cv_info.core_skills).unwrap(),
+            educations: serde_json::to_value(&cv_info.educations).unwrap(),
+            experiences: serde_json::to_value(&cv_info.experiences).unwrap(),
+            highlighted_projects: serde_json::to_value(&cv_info.highlighted_projects).unwrap(),
             created_at: fixed_offset_now,
             updated_at: fixed_offset_now,
         };
@@ -325,12 +332,13 @@ mod tests {
 
         // Create an updated model that will be returned after update
         let mut updated_model = existing_cv_model.clone();
+        updated_model.role = "updated role".to_string();
         updated_model.bio = "Updated bio".to_string();
         updated_model.photo_url = "https://example.com/updated.jpg".to_string();
-        updated_model.educations_json = serde_json::to_value(&updated_cv_info.educations).unwrap();
-        updated_model.experiences_json =
-            serde_json::to_value(&updated_cv_info.experiences).unwrap();
-        updated_model.highlighted_projects_json =
+        updated_model.core_skills = serde_json::to_value(&updated_cv_info.core_skills).unwrap();
+        updated_model.educations = serde_json::to_value(&updated_cv_info.educations).unwrap();
+        updated_model.experiences = serde_json::to_value(&updated_cv_info.experiences).unwrap();
+        updated_model.highlighted_projects =
             serde_json::to_value(&updated_cv_info.highlighted_projects).unwrap();
         updated_model.updated_at = Utc::now().fixed_offset();
 
