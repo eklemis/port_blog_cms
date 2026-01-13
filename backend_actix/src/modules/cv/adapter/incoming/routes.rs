@@ -1,3 +1,4 @@
+use crate::cv::application::ports::outgoing::{CreateCVData, UpdateCVData};
 use crate::cv::application::use_cases::create_cv::CreateCVError;
 use crate::cv::application::use_cases::fetch_cv::FetchCVError;
 use crate::cv::application::use_cases::update_cv::UpdateCVError;
@@ -11,7 +12,7 @@ pub async fn get_cv_handler(
     path: web::Path<Uuid>,
     data: web::Data<AppState>, // The state from .app_data(...)
 ) -> impl Responder {
-    let user_id = path.into_inner();
+    let user_id = path.into_inner().to_string();
     // 1) Call the existing use case from AppState
     let result = data.fetch_cv_use_case.execute(user_id).await;
 
@@ -69,10 +70,10 @@ pub async fn create_cv_handler(
     req: web::Json<CreateCVRequest>,
     data: web::Data<AppState>,
 ) -> impl Responder {
-    let user_id = path.into_inner();
+    let user_id = path.into_inner().to_string();
 
     // Map the request fields to domain objects
-    let cv_data = CVInfo {
+    let cv_data = CreateCVData {
         role: req.role.clone(),
         bio: req.bio.clone(),
         photo_url: req.photo_url.clone(),
@@ -144,9 +145,9 @@ pub async fn update_cv_handler(
     req: web::Json<UpdateCVRequest>,
     data: web::Data<AppState>,
 ) -> impl Responder {
-    let user_id = path.into_inner();
+    let user_id = path.into_inner().to_string();
 
-    let cv_data = CVInfo {
+    let cv_data = UpdateCVData {
         bio: req.bio.clone(),
         role: req.role.clone(),
         photo_url: req.photo_url.clone(),
@@ -249,7 +250,7 @@ mod tests {
 
     #[async_trait]
     impl IFetchCVUseCase for MockFetchCVUseCase {
-        async fn execute(&self, _user_id: Uuid) -> Result<Vec<CVInfo>, FetchCVError> {
+        async fn execute(&self, _user_id: String) -> Result<Vec<CVInfo>, FetchCVError> {
             let error = self.should_fail.lock().await;
             if let Some(err) = error.as_ref() {
                 return Err(err.clone());
@@ -262,6 +263,7 @@ mod tests {
 
             // Default success case - return a vector with one CV
             Ok(vec![CVInfo {
+                id: Uuid::new_v4().to_string(),
                 bio: "Default bio".to_string(),
                 role: "Data Engineer".to_string(),
                 photo_url: "https://example.com/photo.jpg".to_string(),
@@ -300,7 +302,11 @@ mod tests {
 
     #[async_trait]
     impl ICreateCVUseCase for MockCreateCVUseCase {
-        async fn execute(&self, _user_id: Uuid, cv_data: CVInfo) -> Result<CVInfo, CreateCVError> {
+        async fn execute(
+            &self,
+            _user_id: String,
+            cv_data: CreateCVData,
+        ) -> Result<CVInfo, CreateCVError> {
             let error = self.should_fail.lock().await;
             if let Some(err) = error.as_ref() {
                 return Err(err.clone());
@@ -311,8 +317,17 @@ mod tests {
                 return Ok(c.clone());
             }
 
-            // Return the provided CV data
-            Ok(cv_data)
+            // Convert CreateCVData to CVInfo by adding a generated ID
+            Ok(CVInfo {
+                id: Uuid::new_v4().to_string(), // Generate new ID
+                role: cv_data.role,
+                bio: cv_data.bio,
+                photo_url: cv_data.photo_url,
+                core_skills: cv_data.core_skills,
+                educations: cv_data.educations,
+                experiences: cv_data.experiences,
+                highlighted_projects: cv_data.highlighted_projects,
+            })
         }
     }
 
@@ -343,7 +358,11 @@ mod tests {
 
     #[async_trait]
     impl IUpdateCVUseCase for MockUpdateCVUseCase {
-        async fn execute(&self, _user_id: Uuid, cv_data: CVInfo) -> Result<CVInfo, UpdateCVError> {
+        async fn execute(
+            &self,
+            cv_id: String,
+            cv_data: UpdateCVData,
+        ) -> Result<CVInfo, UpdateCVError> {
             let error = self.should_fail.lock().await;
             if let Some(err) = error.as_ref() {
                 return Err(err.clone());
@@ -354,8 +373,17 @@ mod tests {
                 return Ok(c.clone());
             }
 
-            // Return the updated CV data
-            Ok(cv_data)
+            // Convert UpdateCVData to CVInfo, using the provided cv_id
+            Ok(CVInfo {
+                id: cv_id, // Use the CV ID passed to the method
+                role: cv_data.role,
+                bio: cv_data.bio,
+                photo_url: cv_data.photo_url,
+                core_skills: cv_data.core_skills,
+                educations: cv_data.educations,
+                experiences: cv_data.experiences,
+                highlighted_projects: cv_data.highlighted_projects,
+            })
         }
     }
 
@@ -409,6 +437,7 @@ mod tests {
         let update_uc = MockUpdateCVUseCase::new();
 
         let expected_cv = CVInfo {
+            id: Uuid::new_v4().to_string(),
             bio: "Software Engineer with 5 years of experience".to_string(),
             role: "Software Engineer".to_string(),
             photo_url: "https://example.com/photo.jpg".to_string(),
@@ -498,6 +527,7 @@ mod tests {
         let update_uc = MockUpdateCVUseCase::new();
 
         let new_cv = CVInfo {
+            id: Uuid::new_v4().to_string(),
             bio: "New bio".to_string(),
             role: "New role".to_string(),
             photo_url: "https://example.com/new.jpg".to_string(),
@@ -615,6 +645,7 @@ mod tests {
         let update_uc = MockUpdateCVUseCase::new();
 
         let updated_cv = CVInfo {
+            id: Uuid::new_v4().to_string(),
             bio: "New bio".to_string(),
             role: "New role".to_string(),
             photo_url: "https://example.com/new.jpg".to_string(),

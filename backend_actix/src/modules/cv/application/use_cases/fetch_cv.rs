@@ -1,6 +1,5 @@
 use crate::cv::application::ports::outgoing::{CVRepository, CVRepositoryError};
 use crate::cv::domain::entities::CVInfo;
-use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub enum FetchCVError {
@@ -25,12 +24,12 @@ impl<R: CVRepository> FetchCVUseCase<R> {
 
 #[async_trait::async_trait]
 pub trait IFetchCVUseCase: Send + Sync {
-    async fn execute(&self, user_id: Uuid) -> Result<Vec<CVInfo>, FetchCVError>;
+    async fn execute(&self, user_id: String) -> Result<Vec<CVInfo>, FetchCVError>;
 }
 
 #[async_trait::async_trait]
 impl<R: CVRepository + Sync + Send> IFetchCVUseCase for FetchCVUseCase<R> {
-    async fn execute(&self, user_id: Uuid) -> Result<Vec<CVInfo>, FetchCVError> {
+    async fn execute(&self, user_id: String) -> Result<Vec<CVInfo>, FetchCVError> {
         match self.repository.fetch_cv_by_user_id(user_id).await {
             Ok(cvs) => Ok(cvs),
             Err(CVRepositoryError::NotFound) => Err(FetchCVError::CVNotFound),
@@ -42,12 +41,14 @@ impl<R: CVRepository + Sync + Send> IFetchCVUseCase for FetchCVUseCase<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cv::application::ports::outgoing::{CVRepository, CVRepositoryError};
+    use crate::cv::application::ports::outgoing::{
+        CVRepository, CVRepositoryError, CreateCVData, UpdateCVData,
+    };
     use crate::cv::application::use_cases::fetch_cv::{FetchCVError, FetchCVUseCase};
     use crate::cv::domain::entities::CVInfo;
     use async_trait::async_trait;
     use tokio;
-    use uuid::Uuid;
+    use uuid;
 
     // A simple mock repository struct
     #[derive(Default)]
@@ -60,7 +61,7 @@ mod tests {
     impl CVRepository for MockCVRepository {
         async fn fetch_cv_by_user_id(
             &self,
-            _user_id: Uuid,
+            _user_id: String,
         ) -> Result<Vec<CVInfo>, CVRepositoryError> {
             if self.should_fail_db {
                 return Err(CVRepositoryError::DatabaseError(
@@ -76,8 +77,8 @@ mod tests {
         }
         async fn create_cv(
             &self,
-            _user_id: Uuid,
-            _cv_data: CVInfo,
+            _user_id: String,
+            _cv_data: CreateCVData,
         ) -> Result<CVInfo, CVRepositoryError> {
             unimplemented!()
             // or return something like:
@@ -85,8 +86,8 @@ mod tests {
         }
         async fn update_cv(
             &self,
-            _user_id: Uuid,
-            _cv_data: CVInfo,
+            _user_id: String,
+            _cv_data: UpdateCVData,
         ) -> Result<CVInfo, CVRepositoryError> {
             // Temporary stub so that tests compile
             unimplemented!()
@@ -97,8 +98,10 @@ mod tests {
     #[tokio::test]
     async fn test_fetch_cv_success() {
         // Arrange: Create a mock with valid CVInfo
+        let user_id = uuid::Uuid::new_v4().to_string();
         let mock_repo = MockCVRepository {
             cv_infos: vec![CVInfo {
+                id: user_id.clone(),
                 role: "Software Engineer".to_string(),
                 bio: "Mocked CV data...".to_string(),
                 photo_url: "https://example.com/old.jpg".to_string(),
@@ -112,7 +115,6 @@ mod tests {
         let use_case = FetchCVUseCase::new(mock_repo);
 
         // Act: Execute with some dummy user ID
-        let user_id = Uuid::new_v4();
         let result = use_case.execute(user_id).await;
 
         // Assert: We expect a successful result with one CV
@@ -133,7 +135,7 @@ mod tests {
         let use_case = FetchCVUseCase::new(mock_repo);
 
         // Act
-        let user_id = Uuid::new_v4();
+        let user_id = uuid::Uuid::new_v4().to_string();
         let result = use_case.execute(user_id).await;
 
         // Assert
@@ -154,7 +156,7 @@ mod tests {
         let use_case = FetchCVUseCase::new(mock_repo);
 
         // Act
-        let user_id = Uuid::new_v4();
+        let user_id = uuid::Uuid::new_v4().to_string();
         let result = use_case.execute(user_id).await;
 
         // Assert

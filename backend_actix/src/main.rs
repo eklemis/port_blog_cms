@@ -11,7 +11,7 @@ use crate::auth::application::use_cases::{
     create_user::{CreateUserUseCase, ICreateUserUseCase},
     verify_user_email::{IVerifyUserEmailUseCase, VerifyUserEmailUseCase},
 };
-use crate::cv::adapter::outgoing::repository::CVRepoPostgres;
+use crate::cv::adapter::outgoing::cv_repo_postgres::CVRepoPostgres;
 use crate::cv::application::use_cases::create_cv::{CreateCVUseCase, ICreateCVUseCase};
 use crate::cv::application::use_cases::fetch_cv::{FetchCVUseCase, IFetchCVUseCase};
 use crate::cv::application::use_cases::update_cv::{IUpdateCVUseCase, UpdateCVUseCase};

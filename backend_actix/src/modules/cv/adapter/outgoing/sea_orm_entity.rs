@@ -1,4 +1,5 @@
-use crate::cv::domain::entities::{CVInfo, CoreSkill, Education, Experience, HighlightedProject};
+use crate::cv::application::ports::outgoing::CreateCVData;
+use crate::cv::domain::entities::CVInfo;
 use sea_orm::entity::prelude::*;
 use serde_json;
 use serde_json::Value as JsonValue;
@@ -9,8 +10,9 @@ use uuid::Uuid;
 #[sea_orm(table_name = "cv")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub user_id: Uuid,
+    pub id: Uuid,
 
+    pub user_id: Uuid,
     pub bio: String,
     pub role: String,
     pub photo_url: String,
@@ -26,25 +28,31 @@ pub struct Model {
 
 impl Model {
     pub fn to_domain(&self) -> CVInfo {
-        // If you stored these as JSON arrays/objects:
-        let core_skills: Vec<CoreSkill> =
-            serde_json::from_value(self.core_skills.clone()).unwrap_or_default();
-        let educations: Vec<Education> =
-            serde_json::from_value(self.educations.clone()).unwrap_or_default();
-        let experiences: Vec<Experience> =
-            serde_json::from_value(self.experiences.clone()).unwrap_or_default();
-        let highlighted_projects: Vec<HighlightedProject> =
-            serde_json::from_value(self.highlighted_projects.clone()).unwrap_or_default();
-
         CVInfo {
-            bio: self.bio.clone(),
+            id: self.id.to_string(), // Convert Uuid to String
             role: self.role.clone(),
+            bio: self.bio.clone(),
             photo_url: self.photo_url.clone(),
-            core_skills,
-            educations,
-            experiences,
-            highlighted_projects,
-            // etc.
+            core_skills: serde_json::from_value(self.core_skills.clone()).unwrap_or_default(),
+            educations: serde_json::from_value(self.educations.clone()).unwrap_or_default(),
+            experiences: serde_json::from_value(self.experiences.clone()).unwrap_or_default(),
+            highlighted_projects: serde_json::from_value(self.highlighted_projects.clone())
+                .unwrap_or_default(),
+        }
+    }
+    pub fn from_create_data(user_id: Uuid, cv: &CreateCVData) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            user_id,
+            role: cv.role.clone(),
+            bio: cv.bio.clone(),
+            photo_url: cv.photo_url.clone(),
+            core_skills: serde_json::to_value(&cv.core_skills).unwrap(),
+            educations: serde_json::to_value(&cv.educations).unwrap(),
+            experiences: serde_json::to_value(&cv.experiences).unwrap(),
+            highlighted_projects: serde_json::to_value(&cv.highlighted_projects).unwrap(),
+            created_at: chrono::Utc::now().into(),
+            updated_at: chrono::Utc::now().into(),
         }
     }
 }

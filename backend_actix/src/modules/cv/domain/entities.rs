@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CVInfo {
+    pub id: String,
     pub role: String,
     pub bio: String,
     pub photo_url: String,

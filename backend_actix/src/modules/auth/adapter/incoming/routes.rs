@@ -85,6 +85,7 @@ pub async fn verify_user_email_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cv::application::ports::outgoing::{CreateCVData, UpdateCVData};
     use crate::cv::domain::entities::CVInfo;
     use crate::modules::auth::application::domain::entities::User;
     use crate::modules::auth::application::use_cases::create_user::{
@@ -168,7 +169,7 @@ mod tests {
     struct StubFetchCVUseCase;
     #[async_trait]
     impl IFetchCVUseCase for StubFetchCVUseCase {
-        async fn execute(&self, _id: Uuid) -> Result<Vec<CVInfo>, FetchCVError> {
+        async fn execute(&self, _id: String) -> Result<Vec<CVInfo>, FetchCVError> {
             unimplemented!("Not used in these tests")
         }
     }
@@ -177,7 +178,7 @@ mod tests {
     struct StubCreateCVUseCase;
     #[async_trait]
     impl ICreateCVUseCase for StubCreateCVUseCase {
-        async fn execute(&self, _id: Uuid, _cv: CVInfo) -> Result<CVInfo, CreateCVError> {
+        async fn execute(&self, _id: String, _cv: CreateCVData) -> Result<CVInfo, CreateCVError> {
             unimplemented!("Not used in these tests")
         }
     }
@@ -186,7 +187,7 @@ mod tests {
     struct StubUpdateCVUseCase;
     #[async_trait]
     impl IUpdateCVUseCase for StubUpdateCVUseCase {
-        async fn execute(&self, _id: Uuid, _cv: CVInfo) -> Result<CVInfo, UpdateCVError> {
+        async fn execute(&self, _id: String, _cv: UpdateCVData) -> Result<CVInfo, UpdateCVError> {
             unimplemented!("Not used in these tests")
         }
     }

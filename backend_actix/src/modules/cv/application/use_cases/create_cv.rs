@@ -1,7 +1,6 @@
-use crate::cv::application::ports::outgoing::{CVRepository, CVRepositoryError};
+use crate::cv::application::ports::outgoing::{CVRepository, CVRepositoryError, CreateCVData};
 use crate::cv::domain::entities::CVInfo;
 use async_trait::async_trait;
-use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub enum CreateCVError {
@@ -12,7 +11,11 @@ pub enum CreateCVError {
 /// An interface for the create CV use case
 #[async_trait]
 pub trait ICreateCVUseCase: Send + Sync {
-    async fn execute(&self, user_id: Uuid, cv_data: CVInfo) -> Result<CVInfo, CreateCVError>;
+    async fn execute(
+        &self,
+        user_id: String,
+        cv_data: CreateCVData,
+    ) -> Result<CVInfo, CreateCVError>;
 }
 
 /// Concrete implementation of the create CV use case
@@ -29,7 +32,11 @@ impl<R: CVRepository> CreateCVUseCase<R> {
 
 #[async_trait]
 impl<R: CVRepository + Sync + Send> ICreateCVUseCase for CreateCVUseCase<R> {
-    async fn execute(&self, user_id: Uuid, cv_data: CVInfo) -> Result<CVInfo, CreateCVError> {
+    async fn execute(
+        &self,
+        user_id: String,
+        cv_data: CreateCVData,
+    ) -> Result<CVInfo, CreateCVError> {
         // Now, users are allowed to have more than one cv
 
         // Attempt creation
@@ -46,7 +53,7 @@ impl<R: CVRepository + Sync + Send> ICreateCVUseCase for CreateCVUseCase<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cv::application::ports::outgoing::{CVRepository, CVRepositoryError};
+    use crate::cv::application::ports::outgoing::{CVRepository, CVRepositoryError, UpdateCVData};
     use crate::cv::domain::entities::CVInfo;
     use async_trait::async_trait;
     use tokio;
@@ -62,7 +69,7 @@ mod tests {
     impl CVRepository for MockCVRepository {
         async fn fetch_cv_by_user_id(
             &self,
-            _user_id: Uuid,
+            _user_id: String,
         ) -> Result<Vec<CVInfo>, CVRepositoryError> {
             if self.existing_cvs.len() > 0 {
                 Ok(self.existing_cvs.clone())
@@ -73,8 +80,8 @@ mod tests {
 
         async fn create_cv(
             &self,
-            _user_id: Uuid,
-            cv_data: CVInfo,
+            _user_id: String,
+            cv_data: CreateCVData,
         ) -> Result<CVInfo, CVRepositoryError> {
             if self.should_fail_on_create {
                 Err(CVRepositoryError::DatabaseError(
@@ -82,6 +89,7 @@ mod tests {
                 ))
             } else {
                 Ok(CVInfo {
+                    id: Uuid::new_v4().to_string(),
                     role: cv_data.role,
                     bio: cv_data.bio,
                     photo_url: cv_data.photo_url,
@@ -94,8 +102,8 @@ mod tests {
         }
         async fn update_cv(
             &self,
-            _user_id: Uuid,
-            _cv_data: CVInfo,
+            _user_id: String,
+            _cv_data: UpdateCVData,
         ) -> Result<CVInfo, CVRepositoryError> {
             // Temporary stub so that tests compile
             unimplemented!()
@@ -112,8 +120,8 @@ mod tests {
         let use_case = CreateCVUseCase::new(mock_repo);
 
         // Act
-        let user_id = Uuid::new_v4();
-        let new_cv_data = CVInfo {
+        let user_id = Uuid::new_v4().to_string();
+        let new_cv_data = CreateCVData {
             role: "Software Engineer".to_string(),
             bio: "My new bio".to_string(),
             photo_url: "https://example.com/old.jpg".to_string(),
@@ -143,8 +151,8 @@ mod tests {
         let use_case = CreateCVUseCase::new(mock_repo);
 
         // Act
-        let user_id = Uuid::new_v4();
-        let new_cv_data = CVInfo {
+        let user_id = Uuid::new_v4().to_string();
+        let new_cv_data = CreateCVData {
             role: "Software Engineer".to_string(),
             bio: "Old bio".to_string(),
             photo_url: "https://example.com/old.jpg".to_string(),
@@ -174,15 +182,15 @@ mod tests {
         impl CVRepository for MockCVRepositoryUnknownError {
             async fn fetch_cv_by_user_id(
                 &self,
-                _user_id: Uuid,
+                _user_id: String,
             ) -> Result<Vec<CVInfo>, CVRepositoryError> {
                 Err(CVRepositoryError::NotFound)
             }
 
             async fn create_cv(
                 &self,
-                _user_id: Uuid,
-                _cv_data: CVInfo,
+                _user_id: String,
+                _cv_data: CreateCVData,
             ) -> Result<CVInfo, CVRepositoryError> {
                 // Return NotFound instead of DatabaseError to trigger catch-all
                 Err(CVRepositoryError::NotFound)
@@ -190,8 +198,8 @@ mod tests {
 
             async fn update_cv(
                 &self,
-                _user_id: Uuid,
-                _cv_data: CVInfo,
+                _user_id: String,
+                _cv_data: UpdateCVData,
             ) -> Result<CVInfo, CVRepositoryError> {
                 unimplemented!()
             }
@@ -201,8 +209,8 @@ mod tests {
         let use_case = CreateCVUseCase::new(mock_repo);
 
         // Act
-        let user_id = Uuid::new_v4();
-        let new_cv_data = CVInfo {
+        let user_id = Uuid::new_v4().to_string();
+        let new_cv_data = CreateCVData {
             role: "Software Engineer".to_string(),
             bio: "Old bio".to_string(),
             photo_url: "https://example.com/old.jpg".to_string(),
