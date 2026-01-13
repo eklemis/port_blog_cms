@@ -30,11 +30,7 @@ impl<R: CVRepository> CreateCVUseCase<R> {
 #[async_trait]
 impl<R: CVRepository + Sync + Send> ICreateCVUseCase for CreateCVUseCase<R> {
     async fn execute(&self, user_id: Uuid, cv_data: CVInfo) -> Result<CVInfo, CreateCVError> {
-        // Potentially, we check if a CV already exists for this user:
-        let existing = self.repository.fetch_cv_by_user_id(user_id).await;
-        if let Ok(_) = existing {
-            return Err(CreateCVError::AlreadyExists);
-        }
+        // Now, users are allowed to have more than one cv
 
         // Attempt creation
         match self.repository.create_cv(user_id, cv_data).await {
@@ -132,43 +128,6 @@ mod tests {
         assert_eq!(created_cv.bio, "My new bio");
         assert_eq!(created_cv.role, "Software Engineer");
         // other checks...
-    }
-
-    #[tokio::test]
-    async fn test_create_cv_already_exists() {
-        // Arrange: user already has a CV
-        let mock_repo = MockCVRepository {
-            existing_cv: Some(CVInfo {
-                role: "Software Engineer".to_string(),
-                bio: "Old bio".to_string(),
-                photo_url: "https://example.com/old.jpg".to_string(),
-                core_skills: vec![],
-                educations: vec![],
-                experiences: vec![],
-                highlighted_projects: vec![],
-            }),
-            should_fail_on_create: false,
-        };
-        let use_case = CreateCVUseCase::new(mock_repo);
-
-        // Act
-        let user_id = Uuid::new_v4();
-        let new_cv_data = CVInfo {
-            role: "Software Engineer".to_string(),
-            bio: "Old bio".to_string(),
-            photo_url: "https://example.com/old.jpg".to_string(),
-            core_skills: vec![],
-            educations: vec![],
-            experiences: vec![],
-            highlighted_projects: vec![],
-        };
-        let result = use_case.execute(user_id, new_cv_data).await;
-
-        // Assert
-        match result {
-            Err(CreateCVError::AlreadyExists) => (),
-            _ => panic!("Expected AlreadyExists error"),
-        }
     }
 
     #[tokio::test]
