@@ -4,6 +4,7 @@ use uuid::Uuid;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CVInfo {
     pub id: Uuid,
+    pub user_id: Uuid,
     pub role: String,
     pub bio: String,
     pub photo_url: String,

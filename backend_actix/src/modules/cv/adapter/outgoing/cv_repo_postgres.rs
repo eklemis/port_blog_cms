@@ -34,6 +34,14 @@ impl CVRepository for CVRepoPostgres {
 
         Ok(models.into_iter().map(|m| m.to_domain()).collect())
     }
+    async fn fetch_cv_by_id(&self, cv_id: Uuid) -> Result<Option<CVInfo>, CVRepositoryError> {
+        let model: Option<CvModel> = CvEntity::find_by_id(cv_id)
+            .one(&*self.db)
+            .await
+            .map_err(|err| CVRepositoryError::DatabaseError(err.to_string()))?;
+
+        Ok(model.map(|m| m.to_domain()))
+    }
 
     async fn create_cv(
         &self,

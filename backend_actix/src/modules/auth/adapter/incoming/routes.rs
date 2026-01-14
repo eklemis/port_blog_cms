@@ -86,6 +86,9 @@ pub async fn verify_user_email_handler(
 mod tests {
     use super::*;
     use crate::cv::application::ports::outgoing::{CreateCVData, UpdateCVData};
+    use crate::cv::application::use_cases::fetch_cv_by_id::{
+        FetchCVByIdError, IFetchCVByIdUseCase,
+    };
     use crate::cv::domain::entities::CVInfo;
     use crate::modules::auth::application::domain::entities::User;
     use crate::modules::auth::application::use_cases::create_user::{
@@ -96,7 +99,7 @@ mod tests {
     };
     use crate::modules::cv::application::use_cases::{
         create_cv::{CreateCVError, ICreateCVUseCase},
-        fetch_cv::{FetchCVError, IFetchCVUseCase},
+        fetch_user_cvs::{FetchCVError, IFetchCVUseCase},
         update_cv::{IUpdateCVUseCase, UpdateCVError},
     };
     use actix_web::{test, web, App};
@@ -173,6 +176,15 @@ mod tests {
             unimplemented!("Not used in these tests")
         }
     }
+    #[derive(Default)]
+    struct StubFetchCVByIdUseCase;
+
+    #[async_trait::async_trait]
+    impl IFetchCVByIdUseCase for StubFetchCVByIdUseCase {
+        async fn execute(&self, _user_id: Uuid, _cv_id: Uuid) -> Result<CVInfo, FetchCVByIdError> {
+            unimplemented!("Not used in these tests")
+        }
+    }
 
     #[derive(Default)]
     struct StubCreateCVUseCase;
@@ -231,6 +243,7 @@ mod tests {
     ) -> web::Data<AppState> {
         web::Data::new(AppState {
             fetch_cv_use_case: Arc::new(StubFetchCVUseCase::default()),
+            fetch_cv_by_id_use_case: Arc::new(StubFetchCVByIdUseCase::default()),
             create_cv_use_case: Arc::new(StubCreateCVUseCase::default()),
             update_cv_use_case: Arc::new(StubUpdateCVUseCase::default()),
             create_user_use_case: Arc::new(create_user_uc),

@@ -30,6 +30,7 @@ impl Model {
     pub fn to_domain(&self) -> CVInfo {
         CVInfo {
             id: self.id,
+            user_id: self.user_id,
             role: self.role.clone(),
             bio: self.bio.clone(),
             photo_url: self.photo_url.clone(),

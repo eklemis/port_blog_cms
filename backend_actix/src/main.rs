@@ -13,7 +13,8 @@ use crate::auth::application::use_cases::{
 };
 use crate::cv::adapter::outgoing::cv_repo_postgres::CVRepoPostgres;
 use crate::cv::application::use_cases::create_cv::{CreateCVUseCase, ICreateCVUseCase};
-use crate::cv::application::use_cases::fetch_cv::{FetchCVUseCase, IFetchCVUseCase};
+use crate::cv::application::use_cases::fetch_cv_by_id::IFetchCVByIdUseCase;
+use crate::cv::application::use_cases::fetch_user_cvs::{FetchCVUseCase, IFetchCVUseCase};
 use crate::cv::application::use_cases::update_cv::{IUpdateCVUseCase, UpdateCVUseCase};
 
 // Email Service
@@ -28,6 +29,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct AppState {
     pub fetch_cv_use_case: Arc<dyn IFetchCVUseCase + Send + Sync>,
+    pub fetch_cv_by_id_use_case: Arc<dyn IFetchCVByIdUseCase + Send + Sync>,
     pub create_cv_use_case: Arc<dyn ICreateCVUseCase + Send + Sync>,
     pub update_cv_use_case: Arc<dyn IUpdateCVUseCase + Send + Sync>,
     pub create_user_use_case: Arc<dyn ICreateUserUseCase + Send + Sync>,
@@ -38,6 +40,8 @@ pub struct AppState {
 #[cfg(not(tarpaulin_include))]
 async fn start() -> std::io::Result<()> {
     // get env vars
+
+    use crate::cv::application::use_cases::fetch_cv_by_id::FetchCVByIdUseCase;
     dotenvy::dotenv().ok();
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set in .env file");
     let host = env::var("HOST").expect("HOST is not set in .env file");
@@ -62,6 +66,7 @@ async fn start() -> std::io::Result<()> {
     let user_query = UserQueryPostgres::new(Arc::clone(&db_arc));
     let repo = CVRepoPostgres::new(Arc::clone(&db_arc));
     let fetch_cv_use_case = FetchCVUseCase::new(repo.clone(), user_query.clone());
+    let fetch_cv_by_id_use_case = FetchCVByIdUseCase::new(repo.clone(), user_query.clone());
     let create_cv_use_case = CreateCVUseCase::new(repo.clone(), user_query.clone());
     let update_cv_use_case = UpdateCVUseCase::new(repo.clone());
 
@@ -89,6 +94,7 @@ async fn start() -> std::io::Result<()> {
     // 3) Build app state - wrap each use case in Arc::new()
     let state = AppState {
         fetch_cv_use_case: Arc::new(fetch_cv_use_case),
+        fetch_cv_by_id_use_case: Arc::new(fetch_cv_by_id_use_case),
         create_cv_use_case: Arc::new(create_cv_use_case),
         update_cv_use_case: Arc::new(update_cv_use_case),
         create_user_use_case: Arc::new(create_user_use_case),

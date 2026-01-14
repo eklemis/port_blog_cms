@@ -1,6 +1,7 @@
 use crate::cv::application::ports::outgoing::{CreateCVData, UpdateCVData};
 use crate::cv::application::use_cases::create_cv::CreateCVError;
-use crate::cv::application::use_cases::fetch_cv::FetchCVError;
+use crate::cv::application::use_cases::fetch_cv_by_id::FetchCVByIdError;
+use crate::cv::application::use_cases::fetch_user_cvs::FetchCVError;
 use crate::cv::application::use_cases::update_cv::UpdateCVError;
 use crate::cv::domain::entities::{CoreSkill, Education, Experience, HighlightedProject};
 use crate::cv::domain::CVInfo;
@@ -23,6 +24,26 @@ pub async fn get_cv_handler(
         Err(FetchCVError::UserNotFound) => HttpResponse::NotFound().finish(),
 
         Err(FetchCVError::RepositoryError(err)) => HttpResponse::InternalServerError().body(err),
+    }
+}
+
+#[get("/api/cv/{user_id}/{cv_id}")]
+pub async fn get_cv_by_id_handler(
+    path: web::Path<(Uuid, Uuid)>,
+    data: web::Data<AppState>,
+) -> impl Responder {
+    let (user_id, cv_id) = path.into_inner();
+
+    match data.fetch_cv_by_id_use_case.execute(user_id, cv_id).await {
+        Ok(cv) => HttpResponse::Ok().json(cv),
+
+        Err(FetchCVByIdError::UserNotFound) => HttpResponse::NotFound().finish(),
+
+        Err(FetchCVByIdError::CVNotFound) => HttpResponse::NotFound().finish(),
+
+        Err(FetchCVByIdError::RepositoryError(err)) => {
+            HttpResponse::InternalServerError().body(err)
+        }
     }
 }
 
@@ -207,7 +228,8 @@ pub async fn update_cv_handler(
 mod tests {
     use super::*;
     use crate::cv::application::use_cases::create_cv::{CreateCVError, ICreateCVUseCase};
-    use crate::cv::application::use_cases::fetch_cv::{FetchCVError, IFetchCVUseCase};
+    use crate::cv::application::use_cases::fetch_cv_by_id::IFetchCVByIdUseCase;
+    use crate::cv::application::use_cases::fetch_user_cvs::{FetchCVError, IFetchCVUseCase};
     use crate::cv::application::use_cases::update_cv::{IUpdateCVUseCase, UpdateCVError};
     use crate::cv::domain::entities::{CVInfo, Education};
     use crate::modules::auth::application::domain::entities::User;
@@ -250,6 +272,21 @@ mod tests {
         }
     }
 
+    #[derive(Clone)]
+    struct MockFetchCVByIdUseCase {
+        should_fail: Arc<Mutex<Option<FetchCVByIdError>>>,
+        cv: Arc<Mutex<Option<CVInfo>>>,
+    }
+
+    impl MockFetchCVByIdUseCase {
+        fn new() -> Self {
+            Self {
+                should_fail: Arc::new(Mutex::new(None)),
+                cv: Arc::new(Mutex::new(None)),
+            }
+        }
+    }
+
     #[async_trait]
     impl IFetchCVUseCase for MockFetchCVUseCase {
         async fn execute(&self, _user_id: Uuid) -> Result<Vec<CVInfo>, FetchCVError> {
@@ -266,6 +303,7 @@ mod tests {
             // Default success case - return a vector with one CV
             Ok(vec![CVInfo {
                 id: Uuid::new_v4(),
+                user_id: Uuid::new_v4(),
                 bio: "Default bio".to_string(),
                 role: "Data Engineer".to_string(),
                 photo_url: "https://example.com/photo.jpg".to_string(),
@@ -321,7 +359,8 @@ mod tests {
 
             // Convert CreateCVData to CVInfo by adding a generated ID
             Ok(CVInfo {
-                id: Uuid::new_v4(), // Generate new ID
+                id: Uuid::new_v4(),
+                user_id: Uuid::new_v4(),
                 role: cv_data.role,
                 bio: cv_data.bio,
                 photo_url: cv_data.photo_url,
@@ -358,6 +397,21 @@ mod tests {
         }
     }
 
+    #[async_trait::async_trait]
+    impl IFetchCVByIdUseCase for MockFetchCVByIdUseCase {
+        async fn execute(&self, _user_id: Uuid, _cv_id: Uuid) -> Result<CVInfo, FetchCVByIdError> {
+            if let Some(err) = self.should_fail.lock().await.clone() {
+                return Err(err);
+            }
+
+            if let Some(cv) = self.cv.lock().await.clone() {
+                return Ok(cv);
+            }
+
+            panic!("MockFetchCVByIdUseCase called without configured result");
+        }
+    }
+
     #[async_trait]
     impl IUpdateCVUseCase for MockUpdateCVUseCase {
         async fn execute(
@@ -377,7 +431,8 @@ mod tests {
 
             // Convert UpdateCVData to CVInfo, using the provided cv_id
             Ok(CVInfo {
-                id: cv_id, // Use the CV ID passed to the method
+                id: cv_id,
+                user_id: Uuid::new_v4(),
                 role: cv_data.role,
                 bio: cv_data.bio,
                 photo_url: cv_data.photo_url,
@@ -418,11 +473,13 @@ mod tests {
     // Helper to create test AppState
     fn create_test_app_state(
         fetch_cv_uc: MockFetchCVUseCase,
+        fetch_cv_by_id_uc: MockFetchCVByIdUseCase,
         create_cv_uc: MockCreateCVUseCase,
         update_cv_uc: MockUpdateCVUseCase,
     ) -> web::Data<AppState> {
         web::Data::new(AppState {
             fetch_cv_use_case: Arc::new(fetch_cv_uc),
+            fetch_cv_by_id_use_case: Arc::new(fetch_cv_by_id_uc),
             create_cv_use_case: Arc::new(create_cv_uc),
             update_cv_use_case: Arc::new(update_cv_uc),
             create_user_use_case: Arc::new(StubCreateUserUseCase::default()),
@@ -435,11 +492,13 @@ mod tests {
     #[actix_web::test]
     async fn test_get_cv_handler_success() {
         let fetch_uc = MockFetchCVUseCase::new();
+        let fetch_cv_by_id_uc = MockFetchCVByIdUseCase::new();
         let create_uc = MockCreateCVUseCase::new();
         let update_uc = MockUpdateCVUseCase::new();
 
         let expected_cv = CVInfo {
             id: Uuid::new_v4(),
+            user_id: Uuid::new_v4(),
             bio: "Software Engineer with 5 years of experience".to_string(),
             role: "Software Engineer".to_string(),
             photo_url: "https://example.com/photo.jpg".to_string(),
@@ -454,7 +513,7 @@ mod tests {
         };
 
         fetch_uc.set_success(expected_cv.clone()).await;
-        let app_state = create_test_app_state(fetch_uc, create_uc, update_uc);
+        let app_state = create_test_app_state(fetch_uc, fetch_cv_by_id_uc, create_uc, update_uc);
 
         let user_id = Uuid::new_v4();
         let app = test::init_service(App::new().app_data(app_state).service(get_cv_handler)).await;
@@ -495,6 +554,7 @@ mod tests {
     #[actix_web::test]
     async fn test_get_cv_handler_repository_error() {
         let fetch_uc = MockFetchCVUseCase::new();
+        let fetch_cv_by_id_uc = MockFetchCVByIdUseCase::new();
         let create_uc = MockCreateCVUseCase::new();
         let update_uc = MockUpdateCVUseCase::new();
 
@@ -503,7 +563,7 @@ mod tests {
                 "Database connection failed".to_string(),
             ))
             .await;
-        let app_state = create_test_app_state(fetch_uc, create_uc, update_uc);
+        let app_state = create_test_app_state(fetch_uc, fetch_cv_by_id_uc, create_uc, update_uc);
 
         let user_id = Uuid::new_v4();
         let app = test::init_service(App::new().app_data(app_state).service(get_cv_handler)).await;
@@ -525,11 +585,13 @@ mod tests {
     #[actix_web::test]
     async fn test_create_cv_handler_success() {
         let fetch_uc = MockFetchCVUseCase::new();
+        let fetch_cv_by_id_uc = MockFetchCVByIdUseCase::new();
         let create_uc = MockCreateCVUseCase::new();
         let update_uc = MockUpdateCVUseCase::new();
 
         let new_cv = CVInfo {
             id: Uuid::new_v4(),
+            user_id: Uuid::new_v4(),
             bio: "New bio".to_string(),
             role: "New role".to_string(),
             photo_url: "https://example.com/new.jpg".to_string(),
@@ -540,7 +602,7 @@ mod tests {
         };
 
         create_uc.set_success(new_cv.clone()).await;
-        let app_state = create_test_app_state(fetch_uc, create_uc, update_uc);
+        let app_state = create_test_app_state(fetch_uc, fetch_cv_by_id_uc, create_uc, update_uc);
 
         let user_id = Uuid::new_v4();
         let app =
@@ -569,6 +631,7 @@ mod tests {
     #[actix_web::test]
     async fn test_create_cv_handler_repository_error() {
         let fetch_uc = MockFetchCVUseCase::new();
+        let fetch_cv_by_id_uc = MockFetchCVByIdUseCase::new();
         let create_uc = MockCreateCVUseCase::new();
         let update_uc = MockUpdateCVUseCase::new();
 
@@ -577,7 +640,7 @@ mod tests {
                 "DB insert failed".to_string(),
             ))
             .await;
-        let app_state = create_test_app_state(fetch_uc, create_uc, update_uc);
+        let app_state = create_test_app_state(fetch_uc, fetch_cv_by_id_uc, create_uc, update_uc);
 
         let user_id = Uuid::new_v4();
         let app =
@@ -609,11 +672,13 @@ mod tests {
     #[actix_web::test]
     async fn test_update_cv_handler_success() {
         let fetch_uc = MockFetchCVUseCase::new();
+        let fetch_cv_by_id_uc = MockFetchCVByIdUseCase::new();
         let create_uc = MockCreateCVUseCase::new();
         let update_uc = MockUpdateCVUseCase::new();
 
         let updated_cv = CVInfo {
             id: Uuid::new_v4(),
+            user_id: Uuid::new_v4(),
             bio: "New bio".to_string(),
             role: "New role".to_string(),
             photo_url: "https://example.com/new.jpg".to_string(),
@@ -624,7 +689,7 @@ mod tests {
         };
 
         update_uc.set_success(updated_cv.clone()).await;
-        let app_state = create_test_app_state(fetch_uc, create_uc, update_uc);
+        let app_state = create_test_app_state(fetch_uc, fetch_cv_by_id_uc, create_uc, update_uc);
 
         let user_id = Uuid::new_v4();
         let app =
@@ -653,11 +718,12 @@ mod tests {
     #[actix_web::test]
     async fn test_update_cv_handler_not_found() {
         let fetch_uc = MockFetchCVUseCase::new();
+        let fetch_cv_by_id_uc = MockFetchCVByIdUseCase::new();
         let create_uc = MockCreateCVUseCase::new();
         let update_uc = MockUpdateCVUseCase::new();
 
         update_uc.set_error(UpdateCVError::CVNotFound).await;
-        let app_state = create_test_app_state(fetch_uc, create_uc, update_uc);
+        let app_state = create_test_app_state(fetch_uc, fetch_cv_by_id_uc, create_uc, update_uc);
 
         let user_id = Uuid::new_v4();
         let app =
@@ -687,6 +753,7 @@ mod tests {
     #[actix_web::test]
     async fn test_update_cv_handler_repository_error() {
         let fetch_uc = MockFetchCVUseCase::new();
+        let fetch_cv_by_id_uc = MockFetchCVByIdUseCase::new();
         let create_uc = MockCreateCVUseCase::new();
         let update_uc = MockUpdateCVUseCase::new();
 
@@ -695,7 +762,7 @@ mod tests {
                 "DB update failed".to_string(),
             ))
             .await;
-        let app_state = create_test_app_state(fetch_uc, create_uc, update_uc);
+        let app_state = create_test_app_state(fetch_uc, fetch_cv_by_id_uc, create_uc, update_uc);
 
         let user_id = Uuid::new_v4();
         let app =

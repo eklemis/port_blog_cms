@@ -66,6 +66,9 @@ mod tests {
             }
             Ok(self.existing_cvs.clone())
         }
+        async fn fetch_cv_by_id(&self, _cv_id: Uuid) -> Result<Option<CVInfo>, CVRepositoryError> {
+            unimplemented!()
+        }
 
         async fn create_cv(
             &self,
@@ -80,7 +83,8 @@ mod tests {
 
             // Convert CreateCVData to CVInfo by adding a generated ID
             Ok(CVInfo {
-                id: Uuid::new_v4(), // Generate new ID
+                id: Uuid::new_v4(),
+                user_id: Uuid::new_v4(),
                 role: cv_data.role,
                 bio: cv_data.bio,
                 photo_url: cv_data.photo_url,
@@ -111,7 +115,8 @@ mod tests {
 
             // Convert UpdateCVData to CVInfo, keeping the same ID
             Ok(CVInfo {
-                id: existing_cv.id.clone(), // Keep the same ID
+                id: existing_cv.id.clone(),
+                user_id: Uuid::new_v4(),
                 role: cv_data.role,
                 bio: cv_data.bio,
                 photo_url: cv_data.photo_url,
@@ -129,6 +134,7 @@ mod tests {
         let cv_id = Uuid::new_v4();
         let existing_cv = CVInfo {
             id: cv_id,
+            user_id: Uuid::new_v4(),
             role: "Software Engineer".to_string(),
             bio: "Old bio".to_string(),
             photo_url: "https://example.com/old.jpg".to_string(),
@@ -157,7 +163,7 @@ mod tests {
         };
 
         // Act - pass the CV ID (not user ID) and UpdateCVData
-        let result = use_case.execute(cv_id.clone(), update_data).await;
+        let result = use_case.execute(cv_id, update_data).await;
 
         // Assert
         assert!(result.is_ok());
@@ -208,6 +214,7 @@ mod tests {
         let cv_id = Uuid::new_v4();
         let existing_cv = CVInfo {
             id: cv_id,
+            user_id: Uuid::new_v4(),
             role: "Software Engineer".to_string(),
             bio: "Old bio".to_string(),
             photo_url: "https://example.com/old.jpg".to_string(),

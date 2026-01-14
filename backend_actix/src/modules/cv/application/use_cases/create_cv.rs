@@ -95,6 +95,9 @@ mod tests {
         ) -> Result<Vec<CVInfo>, CVRepositoryError> {
             Ok(vec![])
         }
+        async fn fetch_cv_by_id(&self, _cv_id: Uuid) -> Result<Option<CVInfo>, CVRepositoryError> {
+            unimplemented!()
+        }
 
         async fn create_cv(
             &self,
@@ -110,6 +113,7 @@ mod tests {
             } else {
                 Ok(CVInfo {
                     id: Uuid::new_v4(),
+                    user_id: Uuid::new_v4(),
                     role: cv_data.role,
                     bio: cv_data.bio,
                     photo_url: cv_data.photo_url,

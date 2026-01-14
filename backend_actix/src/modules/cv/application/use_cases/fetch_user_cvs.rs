@@ -82,7 +82,7 @@ mod tests {
     use crate::cv::application::ports::outgoing::{
         CVRepository, CVRepositoryError, CreateCVData, UpdateCVData,
     };
-    use crate::cv::application::use_cases::fetch_cv::{FetchCVError, FetchCVUseCase};
+    use crate::cv::application::use_cases::fetch_user_cvs::{FetchCVError, FetchCVUseCase};
     use crate::cv::domain::entities::CVInfo;
     use async_trait::async_trait;
     use chrono::Utc;
@@ -115,6 +115,10 @@ mod tests {
 
             Ok(self.cv_infos.clone())
         }
+        async fn fetch_cv_by_id(&self, _cv_id: Uuid) -> Result<Option<CVInfo>, CVRepositoryError> {
+            unimplemented!()
+        }
+
         async fn create_cv(
             &self,
             _user_id: Uuid,
@@ -169,7 +173,8 @@ mod tests {
 
         let mock_repo = MockCVRepository {
             cv_infos: vec![CVInfo {
-                id: Uuid::new_v4(), // CV ID, not user ID
+                id: Uuid::new_v4(),
+                user_id: Uuid::new_v4(),
                 role: "Software Engineer".to_string(),
                 bio: "Mocked CV data...".to_string(),
                 photo_url: "https://example.com/old.jpg".to_string(),
