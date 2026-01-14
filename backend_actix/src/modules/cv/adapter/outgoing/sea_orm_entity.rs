@@ -29,7 +29,7 @@ pub struct Model {
 impl Model {
     pub fn to_domain(&self) -> CVInfo {
         CVInfo {
-            id: self.id.to_string(), // Convert Uuid to String
+            id: self.id,
             role: self.role.clone(),
             bio: self.bio.clone(),
             photo_url: self.photo_url.clone(),

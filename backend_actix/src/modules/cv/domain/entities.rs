@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CVInfo {
-    pub id: String,
+    pub id: Uuid,
     pub role: String,
     pub bio: String,
     pub photo_url: String,

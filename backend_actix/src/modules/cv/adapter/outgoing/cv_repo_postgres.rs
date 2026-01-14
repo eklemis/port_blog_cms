@@ -25,33 +25,22 @@ impl CVRepoPostgres {
 
 #[async_trait]
 impl CVRepository for CVRepoPostgres {
-    async fn fetch_cv_by_user_id(&self, user_id: String) -> Result<Vec<CVInfo>, CVRepositoryError> {
-        let user_uuid = Uuid::parse_str(&user_id)
-            .map_err(|e| CVRepositoryError::DatabaseError(format!("Invalid user ID: {}", e)))?;
-
+    async fn fetch_cv_by_user_id(&self, user_id: Uuid) -> Result<Vec<CVInfo>, CVRepositoryError> {
         let models: Vec<CvModel> = CvEntity::find()
-            .filter(CvColumn::UserId.eq(user_uuid))
+            .filter(CvColumn::UserId.eq(user_id))
             .all(&*self.db)
             .await
             .map_err(|err| CVRepositoryError::DatabaseError(err.to_string()))?;
-
-        if models.is_empty() {
-            return Err(CVRepositoryError::NotFound);
-        }
 
         Ok(models.into_iter().map(|m| m.to_domain()).collect())
     }
 
     async fn create_cv(
         &self,
-        user_id: String,
+        user_id: Uuid,
         cv_data: CreateCVData,
     ) -> Result<CVInfo, CVRepositoryError> {
-        // Convert String to Uuid for database operation
-        let user_uuid = Uuid::parse_str(&user_id)
-            .map_err(|e| CVRepositoryError::DatabaseError(format!("Invalid user ID: {}", e)))?;
-
-        let model = CvModel::from_create_data(user_uuid, &cv_data);
+        let model = CvModel::from_create_data(user_id, &cv_data);
 
         let active_model: CvActiveModel = model.into();
 
@@ -65,15 +54,11 @@ impl CVRepository for CVRepoPostgres {
 
     async fn update_cv(
         &self,
-        cv_id: String,
+        cv_id: Uuid,
         cv_data: UpdateCVData,
     ) -> Result<CVInfo, CVRepositoryError> {
-        // Convert String to Uuid for database operation
-        let cv_uuid = Uuid::parse_str(&cv_id)
-            .map_err(|e| CVRepositoryError::DatabaseError(format!("Invalid CV ID: {}", e)))?;
-
         // Find existing CV
-        let existing = CvEntity::find_by_id(cv_uuid)
+        let existing = CvEntity::find_by_id(cv_id)
             .one(&*self.db)
             .await
             .map_err(|err| CVRepositoryError::DatabaseError(err.to_string()))?
@@ -155,7 +140,7 @@ mod tests {
     // Helper function to create a test CV info domain object
     fn create_test_cv_info() -> CVInfo {
         CVInfo {
-            id: "550e8400-e29b-41d4-a716-446655440000".to_string(), // Add id field as String
+            id: Uuid::new_v4(),
             bio: "Test bio".to_string(),
             role: "Test role".to_string(),
             photo_url: "https://example.com/photo.jpg".to_string(),
@@ -188,9 +173,9 @@ mod tests {
     }
 
     // Optional: Helper function to create test CV info with specific id
-    fn create_test_cv_info_with_id(id: &str) -> CVInfo {
+    fn create_test_cv_info_with_id(id: Uuid) -> CVInfo {
         CVInfo {
-            id: id.to_string(),
+            id: id,
             bio: "Test bio".to_string(),
             role: "Test role".to_string(),
             photo_url: "https://example.com/photo.jpg".to_string(),
@@ -225,9 +210,8 @@ mod tests {
     #[tokio::test]
     async fn test_fetch_cv_by_user_id_found() {
         // Arrange
-        let user_uuid = Uuid::new_v4();
-        let user_id = user_uuid.to_string(); // Convert to String for domain layer
-        let cv_model = create_test_cv_model(user_uuid);
+        let user_id = Uuid::new_v4(); // Convert to String for domain layer
+        let cv_model = create_test_cv_model(user_id);
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_results(vec![vec![cv_model.clone()]])
@@ -246,7 +230,7 @@ mod tests {
         assert_eq!(cv_infos.len(), 1, "Expected exactly one CV");
 
         let cv_info = &cv_infos[0];
-        assert_eq!(cv_info.id, cv_model.id.to_string()); // Assert ID is returned correctly
+        assert_eq!(cv_info.id, cv_model.id); // Assert ID is returned correctly
         assert_eq!(cv_info.bio, "Test bio");
         assert_eq!(cv_info.role, "Test role");
         assert_eq!(cv_info.photo_url, "https://example.com/photo.jpg");
@@ -275,7 +259,7 @@ mod tests {
         let repo = CVRepoPostgres::new(Arc::new(db));
 
         // Act
-        let result = repo.fetch_cv_by_user_id(user_id.to_string()).await;
+        let result = repo.fetch_cv_by_user_id(user_id).await;
 
         // Assert
         assert!(result.is_ok(), "Expected fetch_cv_by_user_id to succeed");
@@ -286,8 +270,7 @@ mod tests {
     #[tokio::test]
     async fn test_fetch_cv_by_user_id_not_found() {
         // Arrange
-        let user_uuid = Uuid::new_v4();
-        let user_id = user_uuid.to_string();
+        let user_id = Uuid::new_v4();
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_results(vec![Vec::<CvModel>::new()]) // Empty result
@@ -299,18 +282,16 @@ mod tests {
         let result = repo.fetch_cv_by_user_id(user_id).await;
 
         // Assert
-        assert!(
-            matches!(result, Err(CVRepositoryError::NotFound)),
-            "Expected NotFound error, got {:?}",
-            result
-        );
+        assert!(result.is_ok(), "Expected Ok result, got {:?}", result);
+
+        let cvs = result.unwrap();
+        assert!(cvs.is_empty(), "Expected empty CV list, got {:?}", cvs);
     }
 
     #[tokio::test]
     async fn test_create_cv_success() {
         // Arrange
-        let user_uuid = Uuid::new_v4();
-        let user_id = user_uuid.to_string(); // Convert to String for domain layer
+        let user_id = Uuid::new_v4();
         let cv_id = Uuid::new_v4();
 
         // Use CreateCVData instead of CVInfo
@@ -350,7 +331,7 @@ mod tests {
         let fixed_offset_now = now.fixed_offset();
         let inserted_model = CvModel {
             id: cv_id,
-            user_id: user_uuid,
+            user_id: user_id,
             bio: cv_data.bio.clone(),
             role: cv_data.role.clone(),
             photo_url: cv_data.photo_url.clone(),
@@ -369,7 +350,7 @@ mod tests {
         let repo = CVRepoPostgres::new(Arc::new(db));
 
         // Act
-        let result = repo.create_cv(user_id.clone(), cv_data.clone()).await;
+        let result = repo.create_cv(user_id, cv_data.clone()).await;
 
         // Assert
         assert!(
@@ -380,7 +361,7 @@ mod tests {
         let created_cv = result.unwrap();
 
         // Verify the ID is returned and matches
-        assert_eq!(created_cv.id, cv_id.to_string());
+        assert_eq!(created_cv.id, cv_id);
         assert_eq!(created_cv.bio, cv_data.bio);
         assert_eq!(created_cv.role, cv_data.role);
         assert_eq!(created_cv.photo_url, cv_data.photo_url);
@@ -396,12 +377,11 @@ mod tests {
     #[tokio::test]
     async fn test_update_cv_success() {
         // Arrange
-        let user_uuid = Uuid::new_v4();
-        let cv_uuid = Uuid::new_v4();
-        let cv_id = cv_uuid.to_string(); // Convert to String for domain layer
+        let user_id = Uuid::new_v4();
+        let cv_id = Uuid::new_v4();
 
-        let mut existing_cv_model = create_test_cv_model(user_uuid);
-        existing_cv_model.id = cv_uuid; // Set the CV ID
+        let mut existing_cv_model = create_test_cv_model(user_id);
+        existing_cv_model.id = cv_id; // Set the CV ID
 
         // Use UpdateCVData instead of CVInfo
         let updated_cv_data = UpdateCVData {
@@ -462,7 +442,7 @@ mod tests {
         let repo = CVRepoPostgres::new(Arc::new(db));
 
         // Act
-        let result = repo.update_cv(cv_id.clone(), updated_cv_data.clone()).await;
+        let result = repo.update_cv(cv_id, updated_cv_data.clone()).await;
 
         // Assert
         assert!(
@@ -490,7 +470,7 @@ mod tests {
     #[tokio::test]
     async fn test_update_cv_not_found() {
         // Arrange
-        let cv_id = Uuid::new_v4().to_string(); // Use CV ID as String
+        let cv_id = Uuid::new_v4(); // Use CV ID as String
 
         // Use UpdateCVData instead of CVInfo
         let cv_data = UpdateCVData {

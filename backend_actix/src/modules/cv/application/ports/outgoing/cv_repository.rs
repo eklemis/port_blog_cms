@@ -2,6 +2,7 @@
 use crate::cv::domain::entities::{CVInfo, CoreSkill, Education, Experience, HighlightedProject};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub enum CVRepositoryError {
@@ -11,15 +12,15 @@ pub enum CVRepositoryError {
 
 #[async_trait]
 pub trait CVRepository: Send + Sync {
-    async fn fetch_cv_by_user_id(&self, user_id: String) -> Result<Vec<CVInfo>, CVRepositoryError>;
+    async fn fetch_cv_by_user_id(&self, user_id: Uuid) -> Result<Vec<CVInfo>, CVRepositoryError>;
     async fn create_cv(
         &self,
-        user_id: String,
+        user_id: Uuid,
         cv_data: CreateCVData,
     ) -> Result<CVInfo, CVRepositoryError>;
     async fn update_cv(
         &self,
-        cv_id: String,
+        cv_id: Uuid,
         cv_data: UpdateCVData,
     ) -> Result<CVInfo, CVRepositoryError>;
 }

@@ -169,7 +169,7 @@ mod tests {
     struct StubFetchCVUseCase;
     #[async_trait]
     impl IFetchCVUseCase for StubFetchCVUseCase {
-        async fn execute(&self, _id: String) -> Result<Vec<CVInfo>, FetchCVError> {
+        async fn execute(&self, _id: Uuid) -> Result<Vec<CVInfo>, FetchCVError> {
             unimplemented!("Not used in these tests")
         }
     }
@@ -178,7 +178,7 @@ mod tests {
     struct StubCreateCVUseCase;
     #[async_trait]
     impl ICreateCVUseCase for StubCreateCVUseCase {
-        async fn execute(&self, _id: String, _cv: CreateCVData) -> Result<CVInfo, CreateCVError> {
+        async fn execute(&self, _id: Uuid, _cv: CreateCVData) -> Result<CVInfo, CreateCVError> {
             unimplemented!("Not used in these tests")
         }
     }
@@ -187,7 +187,7 @@ mod tests {
     struct StubUpdateCVUseCase;
     #[async_trait]
     impl IUpdateCVUseCase for StubUpdateCVUseCase {
-        async fn execute(&self, _id: String, _cv: UpdateCVData) -> Result<CVInfo, UpdateCVError> {
+        async fn execute(&self, _id: Uuid, _cv: UpdateCVData) -> Result<CVInfo, UpdateCVError> {
             unimplemented!("Not used in these tests")
         }
     }

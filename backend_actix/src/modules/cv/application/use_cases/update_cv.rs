@@ -1,6 +1,7 @@
 use crate::cv::application::ports::outgoing::{CVRepository, CVRepositoryError, UpdateCVData};
 use crate::cv::domain::entities::CVInfo;
 use async_trait::async_trait;
+use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub enum UpdateCVError {
@@ -10,11 +11,7 @@ pub enum UpdateCVError {
 
 #[async_trait]
 pub trait IUpdateCVUseCase: Send + Sync {
-    async fn execute(
-        &self,
-        user_id: String,
-        cv_data: UpdateCVData,
-    ) -> Result<CVInfo, UpdateCVError>;
+    async fn execute(&self, user_id: Uuid, cv_data: UpdateCVData) -> Result<CVInfo, UpdateCVError>;
 }
 
 #[derive(Debug, Clone)]
@@ -30,11 +27,7 @@ impl<R: CVRepository> UpdateCVUseCase<R> {
 
 #[async_trait]
 impl<R: CVRepository + Sync + Send> IUpdateCVUseCase for UpdateCVUseCase<R> {
-    async fn execute(
-        &self,
-        user_id: String,
-        cv_data: UpdateCVData,
-    ) -> Result<CVInfo, UpdateCVError> {
+    async fn execute(&self, user_id: Uuid, cv_data: UpdateCVData) -> Result<CVInfo, UpdateCVError> {
         self.repository
             .update_cv(user_id, cv_data)
             .await
@@ -66,7 +59,7 @@ mod tests {
     impl CVRepository for MockCVRepository {
         async fn fetch_cv_by_user_id(
             &self,
-            _user_id: String,
+            _user_id: Uuid,
         ) -> Result<Vec<CVInfo>, CVRepositoryError> {
             if self.existing_cvs.is_empty() {
                 return Err(CVRepositoryError::NotFound);
@@ -76,7 +69,7 @@ mod tests {
 
         async fn create_cv(
             &self,
-            _user_id: String,
+            _user_id: Uuid,
             cv_data: CreateCVData,
         ) -> Result<CVInfo, CVRepositoryError> {
             if self.should_fail_create {
@@ -87,7 +80,7 @@ mod tests {
 
             // Convert CreateCVData to CVInfo by adding a generated ID
             Ok(CVInfo {
-                id: Uuid::new_v4().to_string(), // Generate new ID
+                id: Uuid::new_v4(), // Generate new ID
                 role: cv_data.role,
                 bio: cv_data.bio,
                 photo_url: cv_data.photo_url,
@@ -100,7 +93,7 @@ mod tests {
 
         async fn update_cv(
             &self,
-            cv_id: String, // Changed parameter name to cv_id for clarity
+            cv_id: Uuid, // Changed parameter name to cv_id for clarity
             cv_data: UpdateCVData,
         ) -> Result<CVInfo, CVRepositoryError> {
             if self.should_fail_update {
@@ -157,9 +150,9 @@ mod tests {
     #[tokio::test]
     async fn test_update_cv_success() {
         // Arrange: an existing CV is present with a known ID
-        let cv_id = Uuid::new_v4().to_string();
+        let cv_id = Uuid::new_v4();
         let existing_cv = CVInfo {
-            id: cv_id.clone(),
+            id: cv_id,
             role: "Software Engineer".to_string(),
             bio: "Old bio".to_string(),
             photo_url: "https://example.com/old.jpg".to_string(),
@@ -210,7 +203,7 @@ mod tests {
         let use_case = UpdateCVUseCase::new(mock_repo);
 
         // Use a CV ID that doesn't exist
-        let non_existent_cv_id = Uuid::new_v4().to_string();
+        let non_existent_cv_id = Uuid::new_v4();
 
         // Create UpdateCVData (no id field)
         let update_data = UpdateCVData {
@@ -236,9 +229,9 @@ mod tests {
     #[tokio::test]
     async fn test_update_cv_db_error() {
         // Arrange: an existing CV is present with a known ID, but update is forced to fail
-        let cv_id = Uuid::new_v4().to_string();
+        let cv_id = Uuid::new_v4();
         let existing_cv = CVInfo {
-            id: cv_id.clone(),
+            id: cv_id,
             role: "Software Engineer".to_string(),
             bio: "Old bio".to_string(),
             photo_url: "https://example.com/old.jpg".to_string(),
