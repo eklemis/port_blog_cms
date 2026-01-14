@@ -153,10 +153,10 @@ mod tests {
                 Ok(None)
             }
         }
-        async fn find_by_email(&self, email: &str) -> Result<Option<User>, String> {
+        async fn find_by_email(&self, _email: &str) -> Result<Option<User>, String> {
             unimplemented!()
         }
-        async fn find_by_username(&self, username: &str) -> Result<Option<User>, String> {
+        async fn find_by_username(&self, _username: &str) -> Result<Option<User>, String> {
             unimplemented!()
         }
     }

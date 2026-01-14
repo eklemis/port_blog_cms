@@ -122,31 +122,7 @@ mod tests {
             })
         }
     }
-    // Helper for tests
-    impl MockCVRepository {
-        fn new() -> Self {
-            Self {
-                existing_cvs: vec![],
-                should_fail_update: false,
-                should_fail_create: false,
-            }
-        }
 
-        fn with_existing_cvs(mut self, cvs: Vec<CVInfo>) -> Self {
-            self.existing_cvs = cvs;
-            self
-        }
-
-        fn with_update_failure(mut self) -> Self {
-            self.should_fail_update = true;
-            self
-        }
-
-        fn with_create_failure(mut self) -> Self {
-            self.should_fail_create = true;
-            self
-        }
-    }
     #[tokio::test]
     async fn test_update_cv_success() {
         // Arrange: an existing CV is present with a known ID
