@@ -547,9 +547,7 @@ mod tests {
 
         // Mock repository that will restore the user
         #[derive(Default)]
-        struct MockUserRepositoryWithRestore {
-            restored_user: Option<User>,
-        }
+        struct MockUserRepositoryWithRestore;
 
         #[async_trait]
         impl UserRepository for MockUserRepositoryWithRestore {

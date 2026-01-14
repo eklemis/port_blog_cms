@@ -109,24 +109,6 @@ mod tests {
         };
         JwtService::new(config)
     }
-    // Test setup helper
-    fn setup_use_case() -> (
-        VerifyUserEmailUseCase<MockUserRepositoryMock>,
-        MockUserRepositoryMock,
-        JwtService,
-    ) {
-        let repository = MockUserRepositoryMock::new();
-        let config = JwtConfig {
-            secret_key: "testsecretkey".to_string(),
-            issuer: "testapp".to_string(),
-            access_token_expiry: 3600,
-            refresh_token_expiry: 86400,
-        };
-        let jwt_service = JwtService::new(config);
-        let use_case =
-            VerifyUserEmailUseCase::new(MockUserRepositoryMock::new(), jwt_service.clone());
-        (use_case, repository, jwt_service)
-    }
 
     #[tokio::test]
     async fn test_verify_user_email_success() {
