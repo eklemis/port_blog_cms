@@ -85,7 +85,7 @@ pub struct HighlightedProjectRequest {
     pub short_description: String,
 }
 
-#[post("/api/cv/{user_id}")]
+#[post("/api/cvs/{user_id}")]
 pub async fn create_cv_handler(
     path: web::Path<Uuid>,
     req: web::Json<CreateCVRequest>,
@@ -162,7 +162,7 @@ pub struct UpdateCVRequest {
     pub highlighted_projects: Vec<HighlightedProjectRequest>,
 }
 
-#[put("/api/cv/{user_id}")]
+#[put("/api/cvs/{user_id}")]
 pub async fn update_cv_handler(
     path: web::Path<Uuid>,
     req: web::Json<UpdateCVRequest>,
@@ -715,7 +715,7 @@ mod tests {
             test::init_service(App::new().app_data(app_state).service(create_cv_handler)).await;
 
         let req = test::TestRequest::post()
-            .uri(&format!("/api/cv/{}", user_id))
+            .uri(&format!("/api/cvs/{}", user_id))
             .set_json(CreateCVRequest {
                 bio: "New bio".to_string(),
                 role: "New role".to_string(),
@@ -753,7 +753,7 @@ mod tests {
             test::init_service(App::new().app_data(app_state).service(create_cv_handler)).await;
 
         let req = test::TestRequest::post()
-            .uri(&format!("/api/cv/{}", user_id))
+            .uri(&format!("/api/cvs/{}", user_id))
             .set_json(CreateCVRequest {
                 bio: "New bio".to_string(),
                 role: "New role".to_string(),
@@ -802,7 +802,7 @@ mod tests {
             test::init_service(App::new().app_data(app_state).service(update_cv_handler)).await;
 
         let req = test::TestRequest::put()
-            .uri(&format!("/api/cv/{}", user_id))
+            .uri(&format!("/api/cvs/{}", user_id))
             .set_json(UpdateCVRequest {
                 bio: "New bio".to_string(),
                 role: "New role".to_string(),
@@ -836,7 +836,7 @@ mod tests {
             test::init_service(App::new().app_data(app_state).service(update_cv_handler)).await;
 
         let req = test::TestRequest::put()
-            .uri(&format!("/api/cv/{}", user_id))
+            .uri(&format!("/api/cvs/{}", user_id))
             .set_json(UpdateCVRequest {
                 bio: "Updated bio".to_string(),
                 role: "New role".to_string(),
@@ -875,7 +875,7 @@ mod tests {
             test::init_service(App::new().app_data(app_state).service(update_cv_handler)).await;
 
         let req = test::TestRequest::put()
-            .uri(&format!("/api/cv/{}", user_id))
+            .uri(&format!("/api/cvs/{}", user_id))
             .set_json(UpdateCVRequest {
                 bio: "Updated bio".to_string(),
                 role: "Data Engineer".to_string(),
