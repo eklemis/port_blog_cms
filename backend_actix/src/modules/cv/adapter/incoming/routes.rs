@@ -9,7 +9,7 @@ use crate::AppState;
 use actix_web::{get, post, put, web, HttpResponse, Responder};
 use uuid::Uuid;
 
-#[get("/api/cv/{user_id}")]
+#[get("/api/cvs/{user_id}")]
 pub async fn get_cv_handler(
     path: web::Path<Uuid>,
     data: web::Data<AppState>, // The state from .app_data(...)
@@ -27,7 +27,7 @@ pub async fn get_cv_handler(
     }
 }
 
-#[get("/api/cv/{user_id}/{cv_id}")]
+#[get("/api/cvs/{user_id}/{cv_id}")]
 pub async fn get_cv_by_id_handler(
     path: web::Path<(Uuid, Uuid)>,
     data: web::Data<AppState>,
@@ -519,7 +519,7 @@ mod tests {
         let app = test::init_service(App::new().app_data(app_state).service(get_cv_handler)).await;
 
         let req = test::TestRequest::get()
-            .uri(&format!("/api/cv/{}", user_id))
+            .uri(&format!("/api/cvs/{}", user_id))
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -530,26 +530,6 @@ mod tests {
         assert_eq!(body[0].bio, expected_cv.bio);
         assert_eq!(body[0].educations.len(), 1);
     }
-
-    // #[actix_web::test]
-    // async fn test_get_cv_handler_not_found() {
-    //     let fetch_uc = MockFetchCVUseCase::new();
-    //     let create_uc = MockCreateCVUseCase::new();
-    //     let update_uc = MockUpdateCVUseCase::new();
-
-    //     fetch_uc.set_error(FetchCVError::CVNotFound).await;
-    //     let app_state = create_test_app_state(fetch_uc, create_uc, update_uc);
-
-    //     let user_id = Uuid::new_v4();
-    //     let app = test::init_service(App::new().app_data(app_state).service(get_cv_handler)).await;
-
-    //     let req = test::TestRequest::get()
-    //         .uri(&format!("/api/cv/{}", user_id))
-    //         .to_request();
-
-    //     let resp = test::call_service(&app, req).await;
-    //     assert_eq!(resp.status(), 404);
-    // }
 
     #[actix_web::test]
     async fn test_get_cv_handler_repository_error() {
@@ -569,7 +549,7 @@ mod tests {
         let app = test::init_service(App::new().app_data(app_state).service(get_cv_handler)).await;
 
         let req = test::TestRequest::get()
-            .uri(&format!("/api/cv/{}", user_id))
+            .uri(&format!("/api/cvs/{}", user_id))
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -578,6 +558,132 @@ mod tests {
         let body = test::read_body(resp).await;
         let body_str = String::from_utf8(body.to_vec()).unwrap();
         assert!(body_str.contains("Database connection failed"));
+    }
+
+    // ================== GET SINGLE CV TESTS ==================
+    #[actix_web::test]
+    async fn test_get_cv_by_id_handler_success() {
+        let fetch_uc = MockFetchCVUseCase::new();
+        let fetch_cv_by_id_uc = MockFetchCVByIdUseCase::new();
+        let create_uc = MockCreateCVUseCase::new();
+        let update_uc = MockUpdateCVUseCase::new();
+
+        let user_id = Uuid::new_v4();
+        let cv_id = Uuid::new_v4();
+
+        let expected_cv = CVInfo {
+            id: cv_id,
+            user_id,
+            bio: "Senior Backend Engineer".to_string(),
+            role: "Backend Engineer".to_string(),
+            photo_url: "https://example.com/photo.jpg".to_string(),
+            core_skills: vec![],
+            educations: vec![],
+            experiences: vec![],
+            highlighted_projects: vec![],
+        };
+
+        *fetch_cv_by_id_uc.cv.lock().await = Some(expected_cv.clone());
+
+        let app_state = create_test_app_state(fetch_uc, fetch_cv_by_id_uc, create_uc, update_uc);
+
+        let app =
+            test::init_service(App::new().app_data(app_state).service(get_cv_by_id_handler)).await;
+
+        let req = test::TestRequest::get()
+            .uri(&format!("/api/cvs/{}/{}", user_id, cv_id))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 200);
+
+        let body: CVInfo = test::read_body_json(resp).await;
+        assert_eq!(body.id, cv_id);
+        assert_eq!(body.bio, expected_cv.bio);
+    }
+
+    #[actix_web::test]
+    async fn test_get_cv_by_id_handler_user_not_found() {
+        let fetch_uc = MockFetchCVUseCase::new();
+        let fetch_cv_by_id_uc = MockFetchCVByIdUseCase::new();
+        let create_uc = MockCreateCVUseCase::new();
+        let update_uc = MockUpdateCVUseCase::new();
+
+        fetch_cv_by_id_uc
+            .should_fail
+            .lock()
+            .await
+            .replace(FetchCVByIdError::UserNotFound);
+
+        let app_state = create_test_app_state(fetch_uc, fetch_cv_by_id_uc, create_uc, update_uc);
+
+        let app =
+            test::init_service(App::new().app_data(app_state).service(get_cv_by_id_handler)).await;
+
+        let req = test::TestRequest::get()
+            .uri(&format!("/api/cvs/{}/{}", Uuid::new_v4(), Uuid::new_v4()))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 404);
+    }
+
+    #[actix_web::test]
+    async fn test_get_cv_by_id_handler_cv_not_found() {
+        let fetch_uc = MockFetchCVUseCase::new();
+        let fetch_cv_by_id_uc = MockFetchCVByIdUseCase::new();
+        let create_uc = MockCreateCVUseCase::new();
+        let update_uc = MockUpdateCVUseCase::new();
+
+        fetch_cv_by_id_uc
+            .should_fail
+            .lock()
+            .await
+            .replace(FetchCVByIdError::CVNotFound);
+
+        let app_state = create_test_app_state(fetch_uc, fetch_cv_by_id_uc, create_uc, update_uc);
+
+        let app =
+            test::init_service(App::new().app_data(app_state).service(get_cv_by_id_handler)).await;
+
+        let req = test::TestRequest::get()
+            .uri(&format!("/api/cvs/{}/{}", Uuid::new_v4(), Uuid::new_v4()))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 404);
+    }
+
+    #[actix_web::test]
+    async fn test_get_cv_by_id_handler_repository_error() {
+        let fetch_uc = MockFetchCVUseCase::new();
+        let fetch_cv_by_id_uc = MockFetchCVByIdUseCase::new();
+        let create_uc = MockCreateCVUseCase::new();
+        let update_uc = MockUpdateCVUseCase::new();
+
+        fetch_cv_by_id_uc
+            .should_fail
+            .lock()
+            .await
+            .replace(FetchCVByIdError::RepositoryError(
+                "DB read failed".to_string(),
+            ));
+
+        let app_state = create_test_app_state(fetch_uc, fetch_cv_by_id_uc, create_uc, update_uc);
+
+        let app =
+            test::init_service(App::new().app_data(app_state).service(get_cv_by_id_handler)).await;
+
+        let req = test::TestRequest::get()
+            .uri(&format!("/api/cvs/{}/{}", Uuid::new_v4(), Uuid::new_v4()))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 500);
+
+        let body = test::read_body(resp).await;
+        let body_str = String::from_utf8(body.to_vec()).unwrap();
+        assert!(body_str.contains("DB read failed"));
     }
 
     // ==================== CREATE CV TESTS ====================
