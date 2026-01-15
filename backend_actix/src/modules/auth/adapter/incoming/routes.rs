@@ -85,10 +85,11 @@ pub async fn verify_user_email_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cv::application::ports::outgoing::{CreateCVData, UpdateCVData};
+    use crate::cv::application::ports::outgoing::{CreateCVData, PatchCVData, UpdateCVData};
     use crate::cv::application::use_cases::fetch_cv_by_id::{
         FetchCVByIdError, IFetchCVByIdUseCase,
     };
+    use crate::cv::application::use_cases::patch_cv::{IPatchCVUseCase, PatchCVError};
     use crate::cv::domain::entities::CVInfo;
     use crate::modules::auth::application::domain::entities::User;
     use crate::modules::auth::application::use_cases::create_user::{
@@ -208,6 +209,22 @@ mod tests {
             unimplemented!("Not used in these tests")
         }
     }
+
+    #[derive(Default, Clone)]
+    struct StubPatchCVUseCase;
+
+    #[async_trait::async_trait]
+    impl IPatchCVUseCase for StubPatchCVUseCase {
+        async fn execute(
+            &self,
+            _user_id: Uuid,
+            _cv_id: Uuid,
+            _data: PatchCVData,
+        ) -> Result<CVInfo, PatchCVError> {
+            unimplemented!("Patch CV is not used in auth route tests")
+        }
+    }
+
     // Mock Verify User Email Use Case
     #[derive(Clone)]
     struct MockVerifyUserEmailUseCase {
@@ -251,6 +268,7 @@ mod tests {
             fetch_cv_by_id_use_case: Arc::new(StubFetchCVByIdUseCase::default()),
             create_cv_use_case: Arc::new(StubCreateCVUseCase::default()),
             update_cv_use_case: Arc::new(StubUpdateCVUseCase::default()),
+            patch_cv_use_case: Arc::new(StubPatchCVUseCase::default()),
             create_user_use_case: Arc::new(create_user_uc),
             verify_user_email_use_case: Arc::new(verify_email_uc),
         })

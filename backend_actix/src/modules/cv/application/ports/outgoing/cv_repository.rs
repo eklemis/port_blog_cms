@@ -40,3 +40,15 @@ pub struct CreateCVData {
 
 // Separate struct for updating CV
 pub type UpdateCVData = CreateCVData;
+
+#[derive(Debug, Clone)]
+pub struct PatchCVData {
+    pub bio: Option<String>,
+    pub role: Option<String>,
+    pub photo_url: Option<String>,
+
+    pub core_skills: Option<Vec<CoreSkill>>,
+    pub educations: Option<Vec<Education>>,
+    pub experiences: Option<Vec<Experience>>,
+    pub highlighted_projects: Option<Vec<HighlightedProject>>,
+}

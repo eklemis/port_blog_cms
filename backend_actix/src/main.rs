@@ -15,6 +15,7 @@ use crate::cv::adapter::outgoing::cv_repo_postgres::CVRepoPostgres;
 use crate::cv::application::use_cases::create_cv::{CreateCVUseCase, ICreateCVUseCase};
 use crate::cv::application::use_cases::fetch_cv_by_id::IFetchCVByIdUseCase;
 use crate::cv::application::use_cases::fetch_user_cvs::{FetchCVUseCase, IFetchCVUseCase};
+use crate::cv::application::use_cases::patch_cv::{IPatchCVUseCase, PatchCVUseCase};
 use crate::cv::application::use_cases::update_cv::{IUpdateCVUseCase, UpdateCVUseCase};
 
 // Email Service
@@ -32,6 +33,7 @@ pub struct AppState {
     pub fetch_cv_by_id_use_case: Arc<dyn IFetchCVByIdUseCase + Send + Sync>,
     pub create_cv_use_case: Arc<dyn ICreateCVUseCase + Send + Sync>,
     pub update_cv_use_case: Arc<dyn IUpdateCVUseCase + Send + Sync>,
+    pub patch_cv_use_case: Arc<dyn IPatchCVUseCase + Send + Sync>,
     pub create_user_use_case: Arc<dyn ICreateUserUseCase + Send + Sync>,
     pub verify_user_email_use_case: Arc<dyn IVerifyUserEmailUseCase + Send + Sync>,
 }
@@ -69,6 +71,7 @@ async fn start() -> std::io::Result<()> {
     let fetch_cv_by_id_use_case = FetchCVByIdUseCase::new(repo.clone(), user_query.clone());
     let create_cv_use_case = CreateCVUseCase::new(repo.clone(), user_query.clone());
     let update_cv_use_case = UpdateCVUseCase::new(repo.clone());
+    let patch_cv_use_case = PatchCVUseCase::new(repo.clone());
 
     // Setup aut services
     let jwt_service = JwtService::new(JwtConfig::from_env());
@@ -97,6 +100,7 @@ async fn start() -> std::io::Result<()> {
         fetch_cv_by_id_use_case: Arc::new(fetch_cv_by_id_use_case),
         create_cv_use_case: Arc::new(create_cv_use_case),
         update_cv_use_case: Arc::new(update_cv_use_case),
+        patch_cv_use_case: Arc::new(patch_cv_use_case),
         create_user_use_case: Arc::new(create_user_use_case),
         verify_user_email_use_case: Arc::new(verify_user_email_use_case),
     };
