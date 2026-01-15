@@ -199,7 +199,12 @@ mod tests {
     struct StubUpdateCVUseCase;
     #[async_trait]
     impl IUpdateCVUseCase for StubUpdateCVUseCase {
-        async fn execute(&self, _id: Uuid, _cv: UpdateCVData) -> Result<CVInfo, UpdateCVError> {
+        async fn execute(
+            &self,
+            _user_id: Uuid,
+            _id: Uuid,
+            _cv: UpdateCVData,
+        ) -> Result<CVInfo, UpdateCVError> {
             unimplemented!("Not used in these tests")
         }
     }

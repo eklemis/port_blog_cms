@@ -162,13 +162,13 @@ pub struct UpdateCVRequest {
     pub highlighted_projects: Vec<HighlightedProjectRequest>,
 }
 
-#[put("/api/cvs/{user_id}")]
+#[put("/api/cvs/{user_id}/{cv_id}")]
 pub async fn update_cv_handler(
-    path: web::Path<Uuid>,
+    path: web::Path<(Uuid, Uuid)>,
     req: web::Json<UpdateCVRequest>,
     data: web::Data<AppState>,
 ) -> impl Responder {
-    let user_id = path.into_inner();
+    let (user_id, cv_id) = path.into_inner();
 
     let cv_data = UpdateCVData {
         bio: req.bio.clone(),
@@ -217,9 +217,17 @@ pub async fn update_cv_handler(
             .collect(),
     };
 
-    match data.update_cv_use_case.execute(user_id, cv_data).await {
+    match data
+        .update_cv_use_case
+        .execute(user_id, cv_id, cv_data)
+        .await
+    {
         Ok(updated) => HttpResponse::Ok().json(updated),
+
+        Err(UpdateCVError::UserNotFound) => HttpResponse::NotFound().body("User not found"),
+
         Err(UpdateCVError::CVNotFound) => HttpResponse::NotFound().body("CV not found"),
+
         Err(UpdateCVError::RepositoryError(e)) => HttpResponse::InternalServerError().body(e),
     }
 }
@@ -416,6 +424,7 @@ mod tests {
     impl IUpdateCVUseCase for MockUpdateCVUseCase {
         async fn execute(
             &self,
+            _user_id: Uuid,
             cv_id: Uuid,
             cv_data: UpdateCVData,
         ) -> Result<CVInfo, UpdateCVError> {
@@ -802,7 +811,7 @@ mod tests {
             test::init_service(App::new().app_data(app_state).service(update_cv_handler)).await;
 
         let req = test::TestRequest::put()
-            .uri(&format!("/api/cvs/{}", user_id))
+            .uri(&format!("/api/cvs/{}/{}", user_id, updated_cv.id))
             .set_json(UpdateCVRequest {
                 bio: "New bio".to_string(),
                 role: "New role".to_string(),
@@ -835,8 +844,9 @@ mod tests {
         let app =
             test::init_service(App::new().app_data(app_state).service(update_cv_handler)).await;
 
+        let cv_id = Uuid::new_v4();
         let req = test::TestRequest::put()
-            .uri(&format!("/api/cvs/{}", user_id))
+            .uri(&format!("/api/cvs/{}/{}", user_id, cv_id))
             .set_json(UpdateCVRequest {
                 bio: "Updated bio".to_string(),
                 role: "New role".to_string(),
@@ -874,8 +884,9 @@ mod tests {
         let app =
             test::init_service(App::new().app_data(app_state).service(update_cv_handler)).await;
 
+        let cv_id = Uuid::new_v4();
         let req = test::TestRequest::put()
-            .uri(&format!("/api/cvs/{}", user_id))
+            .uri(&format!("/api/cvs/{}/{}", user_id, cv_id))
             .set_json(UpdateCVRequest {
                 bio: "Updated bio".to_string(),
                 role: "Data Engineer".to_string(),

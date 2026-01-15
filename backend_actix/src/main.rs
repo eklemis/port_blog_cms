@@ -116,6 +116,7 @@ async fn start() -> std::io::Result<()> {
 fn init_routes(cfg: &mut web::ServiceConfig) {
     // CV
     cfg.service(crate::cv::adapter::incoming::routes::get_cv_handler);
+    cfg.service(crate::cv::adapter::incoming::routes::get_cv_by_id_handler);
     cfg.service(crate::cv::adapter::incoming::routes::create_cv_handler);
     cfg.service(crate::cv::adapter::incoming::routes::update_cv_handler);
     // Auth
