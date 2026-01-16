@@ -103,7 +103,6 @@ mod patch_tests {
     struct MockCVRepository {
         pub existing_cvs: Vec<CVInfo>,
         pub should_fail_update: bool,
-        pub should_fail_create: bool,
     }
 
     #[async_trait]
@@ -187,7 +186,6 @@ mod patch_tests {
         let mock_repo = MockCVRepository {
             existing_cvs: vec![existing_cv.clone()],
             should_fail_update: false,
-            should_fail_create: false,
         };
 
         let use_case = PatchCVUseCase::new(mock_repo);
@@ -226,7 +224,6 @@ mod patch_tests {
         let mock_repo = MockCVRepository {
             existing_cvs: vec![],
             should_fail_update: false,
-            should_fail_create: false,
         };
 
         let use_case = PatchCVUseCase::new(mock_repo);
@@ -271,7 +268,6 @@ mod patch_tests {
         let mock_repo = MockCVRepository {
             existing_cvs: vec![existing_cv],
             should_fail_update: false,
-            should_fail_create: false,
         };
 
         let use_case = PatchCVUseCase::new(mock_repo);
@@ -318,7 +314,6 @@ mod patch_tests {
         let mock_repo = MockCVRepository {
             existing_cvs: vec![existing_cv],
             should_fail_update: true,
-            should_fail_create: false,
         };
 
         let use_case = PatchCVUseCase::new(mock_repo);
