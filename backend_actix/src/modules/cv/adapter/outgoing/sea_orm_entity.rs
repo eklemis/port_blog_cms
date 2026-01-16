@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 // This is the SeaORM model that directly represents the "cv" table
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-#[sea_orm(table_name = "cv")]
+#[sea_orm(table_name = "resumes")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: Uuid,
@@ -24,6 +24,8 @@ pub struct Model {
 
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
+
+    pub is_deleted: bool,
 }
 
 impl Model {
@@ -54,6 +56,7 @@ impl Model {
             highlighted_projects: serde_json::to_value(&cv.highlighted_projects).unwrap(),
             created_at: chrono::Utc::now().into(),
             updated_at: chrono::Utc::now().into(),
+            is_deleted: false,
         }
     }
 }

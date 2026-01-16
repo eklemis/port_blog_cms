@@ -37,6 +37,18 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
+                    .col(
+                        ColumnDef::new(Users::IsVerified)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Users::IsDeleted)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
                     .to_owned(),
             )
             .await
@@ -58,4 +70,6 @@ enum Users {
     PasswordHash,
     CreatedAt,
     UpdatedAt,
+    IsVerified,
+    IsDeleted,
 }

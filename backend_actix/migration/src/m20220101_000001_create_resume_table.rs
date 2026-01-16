@@ -10,46 +10,51 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(Cv::Table)
+                    .table(Resumes::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(Cv::Id)
+                        ColumnDef::new(Resumes::Id)
                             .uuid()
                             .not_null()
                             .primary_key()
-                            .extra("DEFAULT gen_random_uuid()".to_owned()),
+                            .default(Expr::cust("gen_random_uuid()")),
                     )
-                    .col(uuid(Cv::UserId).not_null())
-                    .col(string(Cv::Role).not_null())
-                    .col(string(Cv::Bio).not_null())
-                    .col(string(Cv::PhotoUrl).not_null())
-                    .col(json(Cv::CoreSkills).not_null())
-                    .col(json(Cv::Educations).not_null())
-                    .col(json(Cv::Experiences).not_null())
-                    .col(json(Cv::HighlightedProjects).not_null())
+                    .col(uuid(Resumes::UserId).not_null())
+                    .col(string(Resumes::Role).not_null())
+                    .col(string(Resumes::Bio).not_null())
+                    .col(string(Resumes::PhotoUrl).not_null())
+                    .col(json(Resumes::CoreSkills).not_null())
+                    .col(json(Resumes::Educations).not_null())
+                    .col(json(Resumes::Experiences).not_null())
+                    .col(json(Resumes::HighlightedProjects).not_null())
                     .col(
-                        ColumnDef::new(Cv::CreatedAt)
+                        ColumnDef::new(Resumes::CreatedAt)
                             .timestamp_with_time_zone()
                             .not_null()
-                            .extra("DEFAULT now()".to_owned()),
+                            .default(Expr::cust("now()")),
                     )
                     .col(
-                        ColumnDef::new(Cv::UpdatedAt)
+                        ColumnDef::new(Resumes::UpdatedAt)
                             .timestamp_with_time_zone()
                             .not_null()
-                            .extra("DEFAULT now()".to_owned()),
+                            .default(Expr::cust("now()")),
+                    )
+                    .col(
+                        ColumnDef::new(Resumes::IsDeleted)
+                            .boolean()
+                            .not_null()
+                            .default(false),
                     )
                     .to_owned(),
             )
             .await?;
 
-        // Add index on UserId for better query performance
         manager
             .create_index(
                 Index::create()
-                    .table(Cv::Table)
+                    .table(Resumes::Table)
                     .name("idx_cv_user_id")
-                    .col(Cv::UserId)
+                    .col(Resumes::UserId)
                     .to_owned(),
             )
             .await
@@ -57,13 +62,13 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().table(Cv::Table).to_owned())
+            .drop_table(Table::drop().table(Resumes::Table).to_owned())
             .await
     }
 }
 
 #[derive(Iden)]
-enum Cv {
+enum Resumes {
     Table,
     Id,
     UserId,
@@ -76,4 +81,5 @@ enum Cv {
     HighlightedProjects,
     CreatedAt,
     UpdatedAt,
+    IsDeleted,
 }

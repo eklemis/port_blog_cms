@@ -34,6 +34,7 @@ impl CVRepository for CVRepoPostgres {
 
         Ok(models.into_iter().map(|m| m.to_domain()).collect())
     }
+
     async fn fetch_cv_by_id(&self, cv_id: Uuid) -> Result<Option<CVInfo>, CVRepositoryError> {
         let model: Option<CvModel> = CvEntity::find_by_id(cv_id)
             .one(&*self.db)
@@ -142,6 +143,7 @@ mod tests {
             .unwrap(),
             created_at: fixed_offset_now,
             updated_at: fixed_offset_now,
+            is_deleted: false,
         }
     }
 
@@ -279,6 +281,7 @@ mod tests {
             highlighted_projects: serde_json::to_value(&cv_data.highlighted_projects).unwrap(),
             created_at: fixed_offset_now,
             updated_at: fixed_offset_now,
+            is_deleted: false,
         };
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)
