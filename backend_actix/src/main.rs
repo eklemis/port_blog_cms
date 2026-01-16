@@ -23,9 +23,10 @@ use crate::email::adapter::outgoing::smtp_sender::SmtpEmailSender;
 use crate::email::application::services::EmailService;
 
 use actix_web::{web, App, HttpServer};
-use sea_orm::{Database, DatabaseConnection};
+use sea_orm::{ConnectOptions, Database};
 use std::env;
 use std::sync::Arc;
+use std::time::Duration;
 
 #[cfg(test)]
 mod tests;
@@ -61,9 +62,24 @@ async fn start() -> std::io::Result<()> {
     println!("Server run on:{}", server_url);
 
     // 1. establish connection to database
-    let conn: DatabaseConnection = Database::connect(&db_url)
+    let mut opt = ConnectOptions::new(db_url);
+    opt
+        // Core pool sizing
+        .max_connections(50)
+        .min_connections(10)
+        // Timeouts (fail fast instead of piling up)
+        .connect_timeout(Duration::from_secs(5))
+        .acquire_timeout(Duration::from_secs(5))
+        // Hygiene
+        .idle_timeout(Duration::from_secs(300))
+        .max_lifetime(Duration::from_secs(1800))
+        // Noise reduction
+        .sqlx_logging(false);
+
+    let conn = Database::connect(opt)
         .await
         .expect("Failed to connect to database");
+
     let db_arc = Arc::new(conn);
 
     // 2) Create repository and use case
