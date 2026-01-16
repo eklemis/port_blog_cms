@@ -20,7 +20,8 @@ impl Argon2Hasher {
             salt_override: None,
         }
     }
-    // test-only
+
+    #[cfg(test)]
     pub fn with_salt(salt: SaltString) -> Self {
         Self {
             argon2: Argon2::default(),
