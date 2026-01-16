@@ -6,7 +6,6 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub enum PatchCVError {
-    UserNotFound,
     CVNotFound,
     RepositoryError(String),
 }

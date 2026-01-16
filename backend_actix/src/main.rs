@@ -83,11 +83,10 @@ async fn start() -> std::io::Result<()> {
     let db_arc = Arc::new(conn);
 
     // 2) Create repository and use case
-    let user_query = UserQueryPostgres::new(Arc::clone(&db_arc));
     let cv_repo = CVRepoPostgres::new(Arc::clone(&db_arc));
-    let fetch_cv_use_case = FetchCVUseCase::new(cv_repo.clone(), user_query.clone());
-    let fetch_cv_by_id_use_case = FetchCVByIdUseCase::new(cv_repo.clone(), user_query.clone());
-    let create_cv_use_case = CreateCVUseCase::new(cv_repo.clone(), user_query.clone());
+    let fetch_cv_use_case = FetchCVUseCase::new(cv_repo.clone());
+    let fetch_cv_by_id_use_case = FetchCVByIdUseCase::new(cv_repo.clone());
+    let create_cv_use_case = CreateCVUseCase::new(cv_repo.clone());
     let update_cv_use_case = UpdateCVUseCase::new(cv_repo.clone());
     let patch_cv_use_case = PatchCVUseCase::new(cv_repo.clone());
 

@@ -1,33 +1,27 @@
-use crate::auth::application::ports::outgoing::UserQuery;
 use crate::cv::application::ports::outgoing::{CVRepository, CVRepositoryError};
 use crate::cv::domain::entities::CVInfo;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub enum FetchCVByIdError {
-    UserNotFound,
     CVNotFound,
     RepositoryError(String),
 }
 
 #[derive(Debug, Clone)]
-pub struct FetchCVByIdUseCase<R, U>
+pub struct FetchCVByIdUseCase<R>
 where
     R: CVRepository,
-    U: UserQuery,
 {
     cv_repository: R,
-    user_query: U,
 }
-impl<R, U> FetchCVByIdUseCase<R, U>
+impl<R> FetchCVByIdUseCase<R>
 where
     R: CVRepository,
-    U: UserQuery,
 {
-    pub fn new(repository: R, query: U) -> Self {
+    pub fn new(repository: R) -> Self {
         Self {
             cv_repository: repository,
-            user_query: query,
         }
     }
 }
@@ -38,23 +32,11 @@ pub trait IFetchCVByIdUseCase: Send + Sync {
 }
 
 #[async_trait::async_trait]
-impl<R, U> IFetchCVByIdUseCase for FetchCVByIdUseCase<R, U>
+impl<R> IFetchCVByIdUseCase for FetchCVByIdUseCase<R>
 where
     R: CVRepository + Send + Sync,
-    U: UserQuery + Send + Sync,
 {
     async fn execute(&self, user_id: Uuid, cv_id: Uuid) -> Result<CVInfo, FetchCVByIdError> {
-        // 1️⃣ Check user existence
-        let user = self
-            .user_query
-            .find_by_id(user_id)
-            .await
-            .map_err(FetchCVByIdError::RepositoryError)?;
-
-        if user.is_none() {
-            return Err(FetchCVByIdError::UserNotFound);
-        }
-
         // 2️⃣ Fetch CV by ID
         let cv = self
             .cv_repository
@@ -84,7 +66,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
     use uuid::Uuid;
 
     #[derive(Clone)]
@@ -128,54 +109,6 @@ mod tests {
         }
     }
 
-    #[derive(Clone)]
-    struct MockUserQuery {
-        user_exists: bool,
-        should_fail: bool,
-    }
-
-    #[async_trait::async_trait]
-    impl UserQuery for MockUserQuery {
-        async fn find_by_id(
-            &self,
-            user_id: Uuid,
-        ) -> Result<Option<crate::auth::application::domain::entities::User>, String> {
-            if self.should_fail {
-                return Err("user query failed".to_string());
-            }
-
-            if self.user_exists {
-                let now = Utc::now();
-                Ok(Some(crate::auth::application::domain::entities::User {
-                    id: user_id,
-                    username: "testuser".to_string(),
-                    email: "test@example.com".to_string(),
-                    password_hash: "hashed_password".to_string(),
-                    created_at: now,
-                    updated_at: now,
-                    is_verified: false,
-                    is_deleted: false,
-                }))
-            } else {
-                Ok(None)
-            }
-        }
-
-        async fn find_by_email(
-            &self,
-            _email: &str,
-        ) -> Result<Option<crate::auth::application::domain::entities::User>, String> {
-            Ok(None)
-        }
-
-        async fn find_by_username(
-            &self,
-            _username: &str,
-        ) -> Result<Option<crate::auth::application::domain::entities::User>, String> {
-            Ok(None)
-        }
-    }
-
     fn sample_cv(user_id: Uuid) -> CVInfo {
         CVInfo {
             id: Uuid::new_v4(),
@@ -191,37 +124,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn user_not_found() {
-        let use_case = FetchCVByIdUseCase::new(
-            MockCVRepository {
-                cv: None,
-                should_fail: false,
-            },
-            MockUserQuery {
-                user_exists: false,
-                should_fail: false,
-            },
-        );
-
-        let result = use_case.execute(Uuid::new_v4(), Uuid::new_v4()).await;
-
-        assert!(matches!(result, Err(FetchCVByIdError::UserNotFound)));
-    }
-
-    #[tokio::test]
     async fn cv_not_found() {
         let user_id = Uuid::new_v4();
 
-        let use_case = FetchCVByIdUseCase::new(
-            MockCVRepository {
-                cv: None,
-                should_fail: false,
-            },
-            MockUserQuery {
-                user_exists: true,
-                should_fail: false,
-            },
-        );
+        let use_case = FetchCVByIdUseCase::new(MockCVRepository {
+            cv: None,
+            should_fail: false,
+        });
 
         let result = use_case.execute(user_id, Uuid::new_v4()).await;
 
@@ -233,16 +142,10 @@ mod tests {
         let user_id = Uuid::new_v4();
         let other_user_id = Uuid::new_v4();
 
-        let use_case = FetchCVByIdUseCase::new(
-            MockCVRepository {
-                cv: Some(sample_cv(other_user_id)),
-                should_fail: false,
-            },
-            MockUserQuery {
-                user_exists: true,
-                should_fail: false,
-            },
-        );
+        let use_case = FetchCVByIdUseCase::new(MockCVRepository {
+            cv: Some(sample_cv(other_user_id)),
+            should_fail: false,
+        });
 
         let result = use_case.execute(user_id, Uuid::new_v4()).await;
 
@@ -254,16 +157,10 @@ mod tests {
         let user_id = Uuid::new_v4();
         let cv = sample_cv(user_id);
 
-        let use_case = FetchCVByIdUseCase::new(
-            MockCVRepository {
-                cv: Some(cv.clone()),
-                should_fail: false,
-            },
-            MockUserQuery {
-                user_exists: true,
-                should_fail: false,
-            },
-        );
+        let use_case = FetchCVByIdUseCase::new(MockCVRepository {
+            cv: Some(cv.clone()),
+            should_fail: false,
+        });
 
         let result = use_case.execute(user_id, cv.id).await;
 
@@ -273,16 +170,10 @@ mod tests {
 
     #[tokio::test]
     async fn user_query_failure() {
-        let use_case = FetchCVByIdUseCase::new(
-            MockCVRepository {
-                cv: None,
-                should_fail: false,
-            },
-            MockUserQuery {
-                user_exists: false,
-                should_fail: true,
-            },
-        );
+        let use_case = FetchCVByIdUseCase::new(MockCVRepository {
+            cv: None,
+            should_fail: false,
+        });
 
         let result = use_case.execute(Uuid::new_v4(), Uuid::new_v4()).await;
 
@@ -293,16 +184,10 @@ mod tests {
     async fn repository_failure() {
         let user_id = Uuid::new_v4();
 
-        let use_case = FetchCVByIdUseCase::new(
-            MockCVRepository {
-                cv: None,
-                should_fail: true,
-            },
-            MockUserQuery {
-                user_exists: true,
-                should_fail: false,
-            },
-        );
+        let use_case = FetchCVByIdUseCase::new(MockCVRepository {
+            cv: None,
+            should_fail: true,
+        });
 
         let result = use_case.execute(user_id, Uuid::new_v4()).await;
 

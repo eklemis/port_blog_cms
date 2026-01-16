@@ -1,4 +1,3 @@
-use crate::auth::application::ports::outgoing::UserQuery;
 use crate::cv::application::ports::outgoing::{CVRepository, CVRepositoryError, CreateCVData};
 use crate::cv::domain::entities::CVInfo;
 use async_trait::async_trait;
@@ -6,7 +5,6 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub enum CreateCVError {
-    UserNotFound,
     RepositoryError(String),
 }
 
@@ -17,45 +15,28 @@ pub trait ICreateCVUseCase: Send + Sync {
 }
 
 /// Concrete implementation of the create CV use case
-pub struct CreateCVUseCase<R, U>
+pub struct CreateCVUseCase<R>
 where
     R: CVRepository,
-    U: UserQuery,
 {
     cv_repository: R,
-    user_query: U,
 }
 
-impl<R, U> CreateCVUseCase<R, U>
+impl<R> CreateCVUseCase<R>
 where
     R: CVRepository,
-    U: UserQuery,
 {
-    pub fn new(cv_repository: R, user_query: U) -> Self {
-        Self {
-            cv_repository,
-            user_query,
-        }
+    pub fn new(cv_repository: R) -> Self {
+        Self { cv_repository }
     }
 }
 
 #[async_trait]
-impl<R, U> ICreateCVUseCase for CreateCVUseCase<R, U>
+impl<R> ICreateCVUseCase for CreateCVUseCase<R>
 where
     R: CVRepository + Sync + Send,
-    U: UserQuery + Sync + Send,
 {
     async fn execute(&self, user_id: Uuid, cv_data: CreateCVData) -> Result<CVInfo, CreateCVError> {
-        let user = self
-            .user_query
-            .find_by_id(user_id)
-            .await
-            .map_err(CreateCVError::RepositoryError)?;
-
-        if user.is_none() {
-            return Err(CreateCVError::UserNotFound);
-        }
-
         self.cv_repository
             .create_cv(user_id, cv_data)
             .await
@@ -178,9 +159,8 @@ mod tests {
     #[tokio::test]
     async fn test_create_cv_success() {
         let cv_repo = MockCVRepository::default();
-        let user_query = MockUserQuery { user_exists: true };
 
-        let use_case = CreateCVUseCase::new(cv_repo, user_query);
+        let use_case = CreateCVUseCase::new(cv_repo);
 
         let user_id = Uuid::new_v4();
         let new_cv_data = CreateCVData {
@@ -207,9 +187,8 @@ mod tests {
             should_fail_on_create: true,
             return_unknown_error: false,
         };
-        let user_query = MockUserQuery { user_exists: true };
 
-        let use_case = CreateCVUseCase::new(cv_repo, user_query);
+        let use_case = CreateCVUseCase::new(cv_repo);
 
         let user_id = Uuid::new_v4();
         let cv_data = CreateCVData {
@@ -238,9 +217,8 @@ mod tests {
             should_fail_on_create: false,
             return_unknown_error: true,
         };
-        let user_query = MockUserQuery { user_exists: true };
 
-        let use_case = CreateCVUseCase::new(cv_repo, user_query);
+        let use_case = CreateCVUseCase::new(cv_repo);
 
         let user_id = Uuid::new_v4();
         let cv_data = CreateCVData {
@@ -260,36 +238,6 @@ mod tests {
                 assert_eq!(msg, "Unknown repo error");
             }
             _ => panic!("Expected RepositoryError with 'Unknown repo error'"),
-        }
-    }
-
-    // -----------------------------
-    // NEW (REQUIRED) TEST
-    // -----------------------------
-
-    #[tokio::test]
-    async fn test_create_cv_user_not_found() {
-        let cv_repo = MockCVRepository::default();
-        let user_query = MockUserQuery { user_exists: false };
-
-        let use_case = CreateCVUseCase::new(cv_repo, user_query);
-
-        let user_id = Uuid::new_v4();
-        let cv_data = CreateCVData {
-            role: "Software Engineer".to_string(),
-            bio: "Bio".to_string(),
-            photo_url: "url".to_string(),
-            core_skills: vec![],
-            educations: vec![],
-            experiences: vec![],
-            highlighted_projects: vec![],
-        };
-
-        let result = use_case.execute(user_id, cv_data).await;
-
-        match result {
-            Err(CreateCVError::UserNotFound) => {}
-            _ => panic!("Expected UserNotFound error"),
         }
     }
 }

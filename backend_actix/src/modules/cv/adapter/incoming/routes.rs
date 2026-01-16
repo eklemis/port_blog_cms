@@ -24,8 +24,6 @@ pub async fn get_cv_handler(
 
         Err(FetchCVError::NoCVs) => HttpResponse::Ok().json(Vec::<CVInfo>::new()),
 
-        Err(FetchCVError::UserNotFound) => HttpResponse::NotFound().finish(),
-
         Err(FetchCVError::RepositoryError(err)) => HttpResponse::InternalServerError().body(err),
     }
 }
@@ -39,8 +37,6 @@ pub async fn get_cv_by_id_handler(
 
     match data.fetch_cv_by_id_use_case.execute(user_id, cv_id).await {
         Ok(cv) => HttpResponse::Ok().json(cv),
-
-        Err(FetchCVByIdError::UserNotFound) => HttpResponse::NotFound().finish(),
 
         Err(FetchCVByIdError::CVNotFound) => HttpResponse::NotFound().finish(),
 
@@ -148,8 +144,6 @@ pub async fn create_cv_handler(
     match data.create_cv_use_case.execute(user_id, cv_data).await {
         Ok(created) => HttpResponse::Created().json(created),
 
-        Err(CreateCVError::UserNotFound) => HttpResponse::NotFound().body("User not found"),
-
         Err(CreateCVError::RepositoryError(e)) => HttpResponse::InternalServerError().body(e),
     }
 }
@@ -227,8 +221,6 @@ pub async fn update_cv_handler(
     {
         Ok(updated) => HttpResponse::Ok().json(updated),
 
-        Err(UpdateCVError::UserNotFound) => HttpResponse::NotFound().body("User not found"),
-
         Err(UpdateCVError::CVNotFound) => HttpResponse::NotFound().body("CV not found"),
 
         Err(UpdateCVError::RepositoryError(e)) => HttpResponse::InternalServerError().body(e),
@@ -279,7 +271,6 @@ pub async fn patch_cv_handler(
         .await
     {
         Ok(cv) => HttpResponse::Ok().json(cv),
-        Err(PatchCVError::UserNotFound) => HttpResponse::NotFound().body("User not found"),
         Err(PatchCVError::CVNotFound) => HttpResponse::NotFound().finish(),
         Err(PatchCVError::RepositoryError(e)) => HttpResponse::InternalServerError().body(e),
     }
@@ -660,36 +651,6 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_get_cv_by_id_handler_user_not_found() {
-        // Arrange
-        let fetch_cv_by_id_uc = {
-            let uc = MockFetchCVByIdUseCase::new();
-            uc.should_fail
-                .lock()
-                .await
-                .replace(FetchCVByIdError::UserNotFound);
-            uc
-        };
-
-        let app_state = TestAppStateBuilder::default()
-            .with_fetch_cv_by_id(fetch_cv_by_id_uc)
-            .build();
-
-        let app =
-            test::init_service(App::new().app_data(app_state).service(get_cv_by_id_handler)).await;
-
-        // Act
-        let req = test::TestRequest::get()
-            .uri(&format!("/api/cvs/{}/{}", Uuid::new_v4(), Uuid::new_v4()))
-            .to_request();
-
-        let resp = test::call_service(&app, req).await;
-
-        // Assert
-        assert_eq!(resp.status(), 404);
-    }
-
-    #[actix_web::test]
     async fn test_get_cv_by_id_handler_cv_not_found() {
         // Arrange
         let fetch_cv_by_id_uc = {
@@ -1067,38 +1028,6 @@ mod tests {
 
         // Assert
         assert_eq!(resp.status(), 404);
-    }
-
-    #[actix_web::test]
-    async fn test_patch_cv_handler_user_not_found() {
-        // Arrange
-        let patch_uc = MockPatchCvUseCase::new();
-        patch_uc.set_error(PatchCVError::UserNotFound).await;
-
-        let app_state = TestAppStateBuilder::default()
-            .with_patch_cv(patch_uc)
-            .build();
-
-        let user_id = Uuid::new_v4();
-        let cv_id = Uuid::new_v4();
-
-        let app =
-            test::init_service(App::new().app_data(app_state).service(patch_cv_handler)).await;
-
-        // Act
-        let req = test::TestRequest::patch()
-            .uri(&format!("/api/cvs/{}/{}", user_id, cv_id))
-            .set_json(serde_json::json!({ "bio": "test" }))
-            .to_request();
-
-        let resp = test::call_service(&app, req).await;
-
-        // Assert
-        assert_eq!(resp.status(), 404);
-
-        let body = test::read_body(resp).await;
-        let body_str = String::from_utf8(body.to_vec()).unwrap();
-        assert_eq!(body_str, "User not found");
     }
 
     #[actix_web::test]
