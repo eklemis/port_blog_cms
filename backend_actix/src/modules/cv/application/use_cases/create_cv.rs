@@ -52,8 +52,6 @@ mod tests {
     use super::*;
     use crate::cv::application::ports::outgoing::{CVRepository, CVRepositoryError, UpdateCVData};
     use crate::cv::domain::entities::CVInfo;
-    use crate::modules::auth::application::domain::entities::User;
-    use crate::modules::auth::application::ports::outgoing::UserQuery;
     use async_trait::async_trait;
     use tokio;
     use uuid::Uuid;
@@ -112,43 +110,6 @@ mod tests {
             _cv_data: UpdateCVData,
         ) -> Result<CVInfo, CVRepositoryError> {
             unimplemented!()
-        }
-    }
-
-    // -----------------------------
-    // Mock UserQuery
-    // -----------------------------
-
-    #[derive(Default)]
-    struct MockUserQuery {
-        pub user_exists: bool,
-    }
-
-    #[async_trait]
-    impl UserQuery for MockUserQuery {
-        async fn find_by_id(&self, user_id: Uuid) -> Result<Option<User>, String> {
-            if self.user_exists {
-                Ok(Some(User {
-                    id: user_id,
-                    username: "deleted_user".to_string(),
-                    email: "deleted@example.com".to_string(),
-                    password_hash: "old_hash".to_string(),
-                    created_at: chrono::Utc::now(),
-                    updated_at: chrono::Utc::now(),
-                    is_verified: false,
-                    is_deleted: false,
-                }))
-            } else {
-                Ok(None)
-            }
-        }
-
-        async fn find_by_email(&self, _email: &str) -> Result<Option<User>, String> {
-            Ok(None)
-        }
-
-        async fn find_by_username(&self, _username: &str) -> Result<Option<User>, String> {
-            Ok(None)
         }
     }
 
