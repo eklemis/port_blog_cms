@@ -13,7 +13,7 @@ use crate::auth::application::use_cases::{
 };
 use crate::cv::adapter::outgoing::cv_repo_postgres::CVRepoPostgres;
 use crate::cv::application::use_cases::create_cv::{CreateCVUseCase, ICreateCVUseCase};
-use crate::cv::application::use_cases::fetch_cv_by_id::IFetchCVByIdUseCase;
+use crate::cv::application::use_cases::fetch_cv_by_id::{FetchCVByIdUseCase, IFetchCVByIdUseCase};
 use crate::cv::application::use_cases::fetch_user_cvs::{FetchCVUseCase, IFetchCVUseCase};
 use crate::cv::application::use_cases::patch_cv::{IPatchCVUseCase, PatchCVUseCase};
 use crate::cv::application::use_cases::update_cv::{IUpdateCVUseCase, UpdateCVUseCase};
@@ -26,6 +26,9 @@ use actix_web::{web, App, HttpServer};
 use sea_orm::{Database, DatabaseConnection};
 use std::env;
 use std::sync::Arc;
+
+#[cfg(test)]
+mod tests;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -42,9 +45,8 @@ pub struct AppState {
 #[cfg(not(tarpaulin_include))]
 async fn start() -> std::io::Result<()> {
     // get env vars
-
-    use crate::cv::application::use_cases::fetch_cv_by_id::FetchCVByIdUseCase;
     dotenvy::dotenv().ok();
+
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set in .env file");
     let host = env::var("HOST").expect("HOST is not set in .env file");
     let port = env::var("PORT").expect("PORT is not set in .env file");
@@ -66,12 +68,12 @@ async fn start() -> std::io::Result<()> {
 
     // 2) Create repository and use case
     let user_query = UserQueryPostgres::new(Arc::clone(&db_arc));
-    let repo = CVRepoPostgres::new(Arc::clone(&db_arc));
-    let fetch_cv_use_case = FetchCVUseCase::new(repo.clone(), user_query.clone());
-    let fetch_cv_by_id_use_case = FetchCVByIdUseCase::new(repo.clone(), user_query.clone());
-    let create_cv_use_case = CreateCVUseCase::new(repo.clone(), user_query.clone());
-    let update_cv_use_case = UpdateCVUseCase::new(repo.clone());
-    let patch_cv_use_case = PatchCVUseCase::new(repo.clone());
+    let cv_repo = CVRepoPostgres::new(Arc::clone(&db_arc));
+    let fetch_cv_use_case = FetchCVUseCase::new(cv_repo.clone(), user_query.clone());
+    let fetch_cv_by_id_use_case = FetchCVByIdUseCase::new(cv_repo.clone(), user_query.clone());
+    let create_cv_use_case = CreateCVUseCase::new(cv_repo.clone(), user_query.clone());
+    let update_cv_use_case = UpdateCVUseCase::new(cv_repo.clone());
+    let patch_cv_use_case = PatchCVUseCase::new(cv_repo.clone());
 
     // Setup aut services
     let jwt_service = JwtService::new(JwtConfig::from_env());
@@ -123,6 +125,7 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::cv::adapter::incoming::routes::get_cv_by_id_handler);
     cfg.service(crate::cv::adapter::incoming::routes::create_cv_handler);
     cfg.service(crate::cv::adapter::incoming::routes::update_cv_handler);
+    cfg.service(crate::cv::adapter::incoming::routes::patch_cv_handler);
     // Auth
     cfg.service(crate::auth::adapter::incoming::routes::create_user_handler);
     cfg.service(crate::auth::adapter::incoming::routes::verify_user_email_handler);

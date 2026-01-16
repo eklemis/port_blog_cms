@@ -85,12 +85,7 @@ pub async fn verify_user_email_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cv::application::ports::outgoing::{CreateCVData, PatchCVData, UpdateCVData};
-    use crate::cv::application::use_cases::fetch_cv_by_id::{
-        FetchCVByIdError, IFetchCVByIdUseCase,
-    };
-    use crate::cv::application::use_cases::patch_cv::{IPatchCVUseCase, PatchCVError};
-    use crate::cv::domain::entities::CVInfo;
+
     use crate::modules::auth::application::domain::entities::User;
     use crate::modules::auth::application::use_cases::create_user::{
         CreateUserError, ICreateUserUseCase,
@@ -98,12 +93,9 @@ mod tests {
     use crate::modules::auth::application::use_cases::verify_user_email::{
         IVerifyUserEmailUseCase, VerifyUserEmailError,
     };
-    use crate::modules::cv::application::use_cases::{
-        create_cv::{CreateCVError, ICreateCVUseCase},
-        fetch_user_cvs::{FetchCVError, IFetchCVUseCase},
-        update_cv::{IUpdateCVUseCase, UpdateCVError},
-    };
-    use actix_web::{test, web, App};
+
+    use crate::tests::support::app_state_builder::TestAppStateBuilder;
+    use actix_web::{test, App};
     use async_trait::async_trait;
     use chrono::DateTime;
     use chrono::Utc;
@@ -168,62 +160,6 @@ mod tests {
             })
         }
     }
-    // Stub implementations for other use cases (just to satisfy AppState)
-    #[derive(Default)]
-    struct StubFetchCVUseCase;
-    #[async_trait]
-    impl IFetchCVUseCase for StubFetchCVUseCase {
-        async fn execute(&self, _id: Uuid) -> Result<Vec<CVInfo>, FetchCVError> {
-            unimplemented!("Not used in these tests")
-        }
-    }
-    #[derive(Default)]
-    struct StubFetchCVByIdUseCase;
-
-    #[async_trait::async_trait]
-    impl IFetchCVByIdUseCase for StubFetchCVByIdUseCase {
-        async fn execute(&self, _user_id: Uuid, _cv_id: Uuid) -> Result<CVInfo, FetchCVByIdError> {
-            unimplemented!("Not used in these tests")
-        }
-    }
-
-    #[derive(Default)]
-    struct StubCreateCVUseCase;
-    #[async_trait]
-    impl ICreateCVUseCase for StubCreateCVUseCase {
-        async fn execute(&self, _id: Uuid, _cv: CreateCVData) -> Result<CVInfo, CreateCVError> {
-            unimplemented!("Not used in these tests")
-        }
-    }
-
-    #[derive(Default)]
-    struct StubUpdateCVUseCase;
-    #[async_trait]
-    impl IUpdateCVUseCase for StubUpdateCVUseCase {
-        async fn execute(
-            &self,
-            _user_id: Uuid,
-            _id: Uuid,
-            _cv: UpdateCVData,
-        ) -> Result<CVInfo, UpdateCVError> {
-            unimplemented!("Not used in these tests")
-        }
-    }
-
-    #[derive(Default, Clone)]
-    struct StubPatchCVUseCase;
-
-    #[async_trait::async_trait]
-    impl IPatchCVUseCase for StubPatchCVUseCase {
-        async fn execute(
-            &self,
-            _user_id: Uuid,
-            _cv_id: Uuid,
-            _data: PatchCVData,
-        ) -> Result<CVInfo, PatchCVError> {
-            unimplemented!("Patch CV is not used in auth route tests")
-        }
-    }
 
     // Mock Verify User Email Use Case
     #[derive(Clone)]
@@ -258,22 +194,6 @@ mod tests {
         }
     }
 
-    // Helper to create test AppState
-    fn create_test_app_state(
-        create_user_uc: MockCreateUserUseCase,
-        verify_email_uc: MockVerifyUserEmailUseCase,
-    ) -> web::Data<AppState> {
-        web::Data::new(AppState {
-            fetch_cv_use_case: Arc::new(StubFetchCVUseCase::default()),
-            fetch_cv_by_id_use_case: Arc::new(StubFetchCVByIdUseCase::default()),
-            create_cv_use_case: Arc::new(StubCreateCVUseCase::default()),
-            update_cv_use_case: Arc::new(StubUpdateCVUseCase::default()),
-            patch_cv_use_case: Arc::new(StubPatchCVUseCase::default()),
-            create_user_use_case: Arc::new(create_user_uc),
-            verify_user_email_use_case: Arc::new(verify_email_uc),
-        })
-    }
-
     // ==================== CREATE USER TESTS ====================
     #[derive(Deserialize, Serialize)]
     struct UserResponse {
@@ -289,7 +209,6 @@ mod tests {
     #[actix_web::test]
     async fn test_create_user_handler_success() {
         let mock_uc = MockCreateUserUseCase::new();
-        let verify_uc = MockVerifyUserEmailUseCase::new();
 
         let expected_user = User {
             id: Uuid::new_v4(),
@@ -303,7 +222,9 @@ mod tests {
         };
 
         mock_uc.set_success(expected_user.clone()).await;
-        let app_state = create_test_app_state(mock_uc, verify_uc);
+        let app_state = TestAppStateBuilder::default()
+            .with_create_user(mock_uc)
+            .build();
 
         let app =
             test::init_service(App::new().app_data(app_state).service(create_user_handler)).await;
@@ -333,7 +254,10 @@ mod tests {
         mock_uc
             .set_error(CreateUserError::UsernameAlreadyExists)
             .await;
-        let app_state = create_test_app_state(mock_uc, verify_uc);
+        let app_state = TestAppStateBuilder::default()
+            .with_create_user(mock_uc)
+            .with_verify_user_email(verify_uc)
+            .build();
 
         let app =
             test::init_service(App::new().app_data(app_state).service(create_user_handler)).await;
@@ -361,7 +285,10 @@ mod tests {
         let verify_uc = MockVerifyUserEmailUseCase::new();
 
         mock_uc.set_error(CreateUserError::EmailAlreadyExists).await;
-        let app_state = create_test_app_state(mock_uc, verify_uc);
+        let app_state = TestAppStateBuilder::default()
+            .with_create_user(mock_uc)
+            .with_verify_user_email(verify_uc)
+            .build();
 
         let app =
             test::init_service(App::new().app_data(app_state).service(create_user_handler)).await;
@@ -391,7 +318,10 @@ mod tests {
         mock_uc
             .set_error(CreateUserError::HashingFailed("bcrypt error".to_string()))
             .await;
-        let app_state = create_test_app_state(mock_uc, verify_uc);
+        let app_state = TestAppStateBuilder::default()
+            .with_create_user(mock_uc)
+            .with_verify_user_email(verify_uc)
+            .build();
 
         let app =
             test::init_service(App::new().app_data(app_state).service(create_user_handler)).await;
@@ -415,15 +345,18 @@ mod tests {
 
     #[actix_web::test]
     async fn test_create_user_handler_repository_error() {
-        let mock_uc = MockCreateUserUseCase::new();
+        let create_uc = MockCreateUserUseCase::new();
         let verify_uc = MockVerifyUserEmailUseCase::new();
 
-        mock_uc
+        create_uc
             .set_error(CreateUserError::RepositoryError(
                 "Database connection failed".to_string(),
             ))
             .await;
-        let app_state = create_test_app_state(mock_uc, verify_uc);
+        let app_state = TestAppStateBuilder::default()
+            .with_create_user(create_uc)
+            .with_verify_user_email(verify_uc)
+            .build();
 
         let app =
             test::init_service(App::new().app_data(app_state).service(create_user_handler)).await;
@@ -450,10 +383,14 @@ mod tests {
     #[actix_web::test]
     async fn test_verify_user_email_handler_success() {
         let create_uc = MockCreateUserUseCase::new();
-        let mock_uc = MockVerifyUserEmailUseCase::new();
+        let verify_uc = MockVerifyUserEmailUseCase::new();
 
-        mock_uc.set_success().await;
-        let app_state = create_test_app_state(create_uc, mock_uc);
+        verify_uc.set_success().await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_create_user(create_uc)
+            .with_verify_user_email(verify_uc)
+            .build();
 
         let app = test::init_service(
             App::new()
@@ -476,10 +413,16 @@ mod tests {
     #[actix_web::test]
     async fn test_verify_user_email_handler_token_expired() {
         let create_uc = MockCreateUserUseCase::new();
-        let mock_uc = MockVerifyUserEmailUseCase::new();
+        let verify_uc = MockVerifyUserEmailUseCase::new();
 
-        mock_uc.set_error(VerifyUserEmailError::TokenExpired).await;
-        let app_state = create_test_app_state(create_uc, mock_uc);
+        verify_uc
+            .set_error(VerifyUserEmailError::TokenExpired)
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_create_user(create_uc)
+            .with_verify_user_email(verify_uc)
+            .build();
 
         let app = test::init_service(
             App::new()
@@ -502,10 +445,16 @@ mod tests {
     #[actix_web::test]
     async fn test_verify_user_email_handler_token_invalid() {
         let create_uc = MockCreateUserUseCase::new();
-        let mock_uc = MockVerifyUserEmailUseCase::new();
+        let verify_uc = MockVerifyUserEmailUseCase::new();
 
-        mock_uc.set_error(VerifyUserEmailError::TokenInvalid).await;
-        let app_state = create_test_app_state(create_uc, mock_uc);
+        verify_uc
+            .set_error(VerifyUserEmailError::TokenInvalid)
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_create_user(create_uc)
+            .with_verify_user_email(verify_uc)
+            .build();
 
         let app = test::init_service(
             App::new()
@@ -528,10 +477,16 @@ mod tests {
     #[actix_web::test]
     async fn test_verify_user_email_handler_user_not_found() {
         let create_uc = MockCreateUserUseCase::new();
-        let mock_uc = MockVerifyUserEmailUseCase::new();
+        let verify_uc = MockVerifyUserEmailUseCase::new();
 
-        mock_uc.set_error(VerifyUserEmailError::UserNotFound).await;
-        let app_state = create_test_app_state(create_uc, mock_uc);
+        verify_uc
+            .set_error(VerifyUserEmailError::UserNotFound)
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_create_user(create_uc)
+            .with_verify_user_email(verify_uc)
+            .build();
 
         let app = test::init_service(
             App::new()
@@ -554,10 +509,16 @@ mod tests {
     #[actix_web::test]
     async fn test_verify_user_email_handler_database_error() {
         let create_uc = MockCreateUserUseCase::new();
-        let mock_uc = MockVerifyUserEmailUseCase::new();
+        let verify_uc = MockVerifyUserEmailUseCase::new();
 
-        mock_uc.set_error(VerifyUserEmailError::DatabaseError).await;
-        let app_state = create_test_app_state(create_uc, mock_uc);
+        verify_uc
+            .set_error(VerifyUserEmailError::DatabaseError)
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_create_user(create_uc)
+            .with_verify_user_email(verify_uc)
+            .build();
 
         let app = test::init_service(
             App::new()
@@ -580,9 +541,12 @@ mod tests {
     #[actix_web::test]
     async fn test_verify_user_email_handler_missing_token() {
         let create_uc = MockCreateUserUseCase::new();
-        let mock_uc = MockVerifyUserEmailUseCase::new();
+        let verify_uc = MockVerifyUserEmailUseCase::new();
 
-        let app_state = create_test_app_state(create_uc, mock_uc);
+        let app_state = TestAppStateBuilder::default()
+            .with_create_user(create_uc)
+            .with_verify_user_email(verify_uc)
+            .build();
 
         let app = test::init_service(
             App::new()
