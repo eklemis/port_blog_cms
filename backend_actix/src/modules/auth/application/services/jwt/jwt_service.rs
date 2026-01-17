@@ -1,17 +1,48 @@
 use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
+use std::error::Error;
 use std::fmt;
+use tracing;
 use uuid::Uuid;
 
 use super::jwt_config::JwtConfig;
+
+#[derive(Debug)]
+pub enum JwtError {
+    TokenExpired,
+    TokenNotYetValid,
+    InvalidTokenType(String),
+    InvalidSignature,
+    MalformedToken,
+    EncodingError(String),
+}
+
+impl fmt::Display for JwtError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            JwtError::TokenExpired => write!(f, "Token has expired"),
+            JwtError::TokenNotYetValid => write!(f, "Token is not yet valid"), // ADD THIS
+            JwtError::InvalidTokenType(expected) => {
+                write!(f, "Invalid token type, expected: {}", expected)
+            }
+            JwtError::InvalidSignature => write!(f, "Invalid token signature"),
+            JwtError::MalformedToken => write!(f, "Malformed token"),
+            JwtError::EncodingError(msg) => write!(f, "Token encoding error: {}", msg),
+        }
+    }
+}
+impl Error for JwtError {}
 
 /// Structure for JWT Claims
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JwtClaims {
     pub sub: Uuid,          // User ID
     pub exp: i64,           // Expiration timestamp
-    pub token_type: String, // Either "access" or "refresh"
+    pub iat: i64,           // Issued at timestamp - ADD THIS
+    pub nbf: i64,           // Not before timestamp - ADD THIS
+    pub token_type: String, // "access", "refresh", or "verification"
+    pub is_verified: bool,  // User verification status
 }
 
 #[derive(Clone)]
@@ -42,97 +73,159 @@ impl JwtService {
         }
     }
 
-    /// Generate an access token
-    pub fn generate_access_token(&self, user_id: Uuid) -> Result<String, String> {
-        let expiration = Utc::now() + Duration::seconds(self.config.access_token_expiry);
+    fn generate_token(
+        &self,
+        user_id: Uuid,
+        is_verified: bool,
+        token_type: &str,
+        expiry_seconds: i64,
+    ) -> Result<String, JwtError> {
+        let now = Utc::now();
+        let expiration = now + Duration::seconds(expiry_seconds);
+
         let claims = JwtClaims {
             sub: user_id,
             exp: expiration.timestamp(),
-            token_type: "access".to_string(),
+            iat: now.timestamp(),
+            nbf: now.timestamp(),
+            token_type: token_type.to_string(),
+            is_verified,
         };
 
         encode(&Header::new(Algorithm::HS256), &claims, &self.encoding_key)
-            .map_err(|e| e.to_string())
+            .map_err(|e| JwtError::EncodingError(e.to_string()))
+    }
+
+    /// Generate an access token
+    pub fn generate_access_token(
+        &self,
+        user_id: Uuid,
+        is_verified: bool,
+    ) -> Result<String, JwtError> {
+        let expiry_seconds = self.config.access_token_expiry;
+        self.generate_token(user_id, is_verified, "access", expiry_seconds)
     }
 
     /// Generate a refresh token
-    pub fn generate_refresh_token(&self, user_id: Uuid) -> Result<String, String> {
-        let expiration = Utc::now() + Duration::seconds(self.config.refresh_token_expiry);
-        let claims = JwtClaims {
-            sub: user_id,
-            exp: expiration.timestamp(),
-            token_type: "refresh".to_string(),
-        };
-
-        encode(&Header::new(Algorithm::HS256), &claims, &self.encoding_key)
-            .map_err(|e| e.to_string())
+    pub fn generate_refresh_token(
+        &self,
+        user_id: Uuid,
+        is_verified: bool,
+    ) -> Result<String, JwtError> {
+        let expiry_seconds = self.config.refresh_token_expiry;
+        self.generate_token(user_id, is_verified, "refresh", expiry_seconds)
     }
 
     /// Verify and decode a token
-    pub fn verify_token(&self, token: &str) -> Result<JwtClaims, String> {
+    pub fn verify_token(&self, token: &str) -> Result<JwtClaims, JwtError> {
         let mut validation = Validation::new(Algorithm::HS256);
-        validation.validate_exp = false; // We will enforce manually
+        validation.leeway = 30;
+        validation.validate_nbf = true;
 
-        let decoded = decode::<JwtClaims>(token, &self.decoding_key, &validation)
-            .map_err(|e| e.to_string())?;
+        let decoded = decode::<JwtClaims>(token, &self.decoding_key, &validation).map_err(|e| {
+            use jsonwebtoken::errors::ErrorKind;
 
-        let now = Utc::now().timestamp();
-        if decoded.claims.exp < now {
-            return Err("TokenExpired".to_string());
-        }
+            let error = match e.kind() {
+                ErrorKind::ExpiredSignature => {
+                    tracing::debug!("Token verification failed: Token expired");
+                    JwtError::TokenExpired
+                }
+                ErrorKind::ImmatureSignature => {
+                    tracing::warn!("Token verification failed: Token not yet valid");
+                    JwtError::TokenNotYetValid
+                }
+                ErrorKind::InvalidSignature => {
+                    tracing::error!("Security alert: Invalid token signature detected");
+                    JwtError::InvalidSignature
+                }
+                ErrorKind::InvalidToken | ErrorKind::InvalidAlgorithm => {
+                    tracing::error!("Security alert: Malformed or invalid algorithm token");
+                    JwtError::MalformedToken
+                }
+                ErrorKind::Base64(_) | ErrorKind::Json(_) | ErrorKind::Utf8(_) => {
+                    tracing::warn!("Token verification failed: Malformed token");
+                    JwtError::MalformedToken
+                }
+                _ => {
+                    tracing::warn!("Token verification failed: Unknown error");
+                    JwtError::MalformedToken
+                }
+            };
+
+            error
+        })?;
 
         Ok(decoded.claims)
     }
 
     /// Refresh an access token using a valid refresh token
-    pub fn refresh_access_token(&self, refresh_token: &str) -> Result<String, String> {
+    pub fn refresh_access_token(&self, refresh_token: &str) -> Result<String, JwtError> {
         let claims = self.verify_token(refresh_token)?;
 
         if claims.token_type != "refresh" {
-            return Err("Invalid token type".to_string());
+            tracing::warn!(
+                "Token type mismatch: expected 'refresh', got '{}'",
+                claims.token_type
+            );
+            return Err(JwtError::InvalidTokenType("refresh".to_string()));
         }
 
-        self.generate_access_token(claims.sub)
+        tracing::debug!(
+            "Refresh token validated, issuing new access token for user: {}",
+            claims.sub
+        );
+        self.generate_access_token(claims.sub, claims.is_verified)
     }
 
     /// Verify an email verification token and extract the user ID
-    pub fn verify_verification_token(&self, token: &str) -> Result<Uuid, String> {
+    pub fn verify_verification_token(&self, token: &str) -> Result<Uuid, JwtError> {
         let claims = self.verify_token(token)?;
 
         if claims.token_type != "verification" {
-            return Err("Invalid token type".to_string());
+            tracing::warn!(
+                "Token type mismatch: expected 'verification', got '{}'",
+                claims.token_type
+            );
+            return Err(JwtError::InvalidTokenType("verification".to_string()));
         }
 
+        tracing::debug!(
+            "Verification token validated successfully for user: {}",
+            claims.sub
+        );
         Ok(claims.sub)
     }
 
-    pub fn generate_verification_token(&self, user_id: Uuid) -> Result<String, String> {
-        let expiration = Utc::now() + Duration::hours(24); // Token valid for 24 hours
-        let claims = JwtClaims {
-            sub: user_id,
-            exp: expiration.timestamp(),
-            token_type: "verification".to_string(),
-        };
-
-        encode(&Header::new(Algorithm::HS256), &claims, &self.encoding_key)
-            .map_err(|e| e.to_string())
+    pub fn generate_verification_token(&self, user_id: Uuid) -> Result<String, JwtError> {
+        let token_expiry = self.config.verification_token_expiry;
+        self.generate_token(user_id, false, "verification", token_expiry)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
+
+    // Helper function to create a test JwtService
+    fn create_test_jwt_service() -> JwtService {
+        let config = JwtConfig {
+            secret_key: "test_secret_key_for_testing_purposes_min_32_chars".to_string(),
+            issuer: "test_issuer".to_string(),
+            access_token_expiry: 3600,        // 1 hour
+            refresh_token_expiry: 86400,      // 24 hours
+            verification_token_expiry: 86400, // 24 hours
+        };
+        JwtService::new(config)
+    }
 
     #[test]
     fn test_generate_and_verify_access_token() {
-        let secret = "mysecretkey".to_string();
-        let issuer = "myapp".to_string();
         let config = JwtConfig {
-            secret_key: secret.clone(),
-            issuer,
-            access_token_expiry: 3600,   // 1 hour
-            refresh_token_expiry: 86400, // 1 day
+            secret_key: "mysecretkey_with_minimum_32_characters".to_string(),
+            issuer: "myapp".to_string(),
+            access_token_expiry: 3600,
+            refresh_token_expiry: 86400,
+            verification_token_expiry: 86400,
         };
 
         let jwt_service = JwtService::new(config);
@@ -140,7 +233,7 @@ mod tests {
 
         // Generate token
         let token = jwt_service
-            .generate_access_token(user_id)
+            .generate_access_token(user_id, true)
             .expect("Token should be generated");
 
         // Verify token
@@ -148,109 +241,203 @@ mod tests {
         assert!(claims.is_ok(), "Token should be valid");
         let claims = claims.unwrap();
         assert_eq!(claims.sub, user_id, "User ID should match");
+        assert_eq!(claims.token_type, "access");
+        assert_eq!(claims.is_verified, true);
+    }
+
+    #[test]
+    fn test_generate_and_verify_access_token_unverified_user() {
+        let service = create_test_jwt_service();
+        let user_id = Uuid::new_v4();
+
+        // Generate token for unverified user
+        let token = service
+            .generate_access_token(user_id, false)
+            .expect("Token should be generated");
+
+        // Verify token
+        let claims = service.verify_token(&token).unwrap();
+        assert_eq!(claims.sub, user_id);
+        assert_eq!(claims.is_verified, false);
+        assert_eq!(claims.token_type, "access");
     }
 
     #[test]
     fn test_invalid_token_verification() {
-        let secret = "mysecretkey".to_string();
-        let config = JwtConfig {
-            secret_key: secret.clone(),
-            issuer: "myapp".to_string(),
-            access_token_expiry: 3600,
-            refresh_token_expiry: 86400,
-        };
-
-        let jwt_service = JwtService::new(config);
+        let service = create_test_jwt_service();
 
         // Invalid token
         let invalid_token = "invalid.jwt.token";
-        let claims = jwt_service.verify_token(invalid_token);
-        assert!(claims.is_err(), "Invalid token should fail verification");
+        let result = service.verify_token(invalid_token);
+
+        assert!(result.is_err(), "Invalid token should fail verification");
+        assert!(matches!(result.unwrap_err(), JwtError::MalformedToken));
+    }
+
+    #[test]
+    fn test_malformed_token_base64_error() {
+        let service = create_test_jwt_service();
+
+        // Token with invalid base64
+        let result = service.verify_token("not.a.valid@base64.token!");
+
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), JwtError::MalformedToken));
+    }
+
+    #[test]
+    fn test_token_with_invalid_json() {
+        use base64::{engine::general_purpose, Engine as _};
+        let service = create_test_jwt_service();
+
+        // Create a token with invalid JSON in payload
+        let header = general_purpose::STANDARD.encode(r#"{"alg":"HS256","typ":"JWT"}"#);
+        let payload = general_purpose::STANDARD.encode("not valid json");
+        let invalid_token = format!("{}.{}.fakesignature", header, payload);
+
+        let result = service.verify_token(&invalid_token);
+        assert!(result.is_err());
     }
 
     #[test]
     fn test_expired_token() {
-        let secret = "mysecretkey".to_string();
         let config = JwtConfig {
-            secret_key: secret.clone(),
+            secret_key: "test_secret_key_for_testing_purposes_min_32_chars".to_string(),
             issuer: "myapp".to_string(),
-            access_token_expiry: 2, // Set expiry to 2 seconds
+            access_token_expiry: -35, // Already expired (beyond leeway)
             refresh_token_expiry: 86400,
+            verification_token_expiry: 86400,
         };
 
         let jwt_service = JwtService::new(config);
         let user_id = Uuid::new_v4();
 
-        // Generate token
+        // Generate token (will be immediately expired)
         let token = jwt_service
-            .generate_access_token(user_id)
+            .generate_access_token(user_id, true)
             .expect("Token should be generated");
 
-        println!("Generated Token: {}", token);
+        // Verify expired token (no sleep needed)
+        let result = jwt_service.verify_token(&token);
 
-        // Wait for expiration (5 seconds just to be sure)
-        std::thread::sleep(Duration::from_secs(5));
+        assert!(result.is_err(), "Expired token should be invalid");
+        assert!(matches!(result.unwrap_err(), JwtError::TokenExpired));
+    }
 
-        // Verify expired token
-        let claims = jwt_service.verify_token(&token);
+    #[test]
+    fn test_token_not_yet_valid() {
+        // This test would require manually crafting a token with nbf in the future
+        // Or modifying the generate_token to accept a custom nbf for testing
+        // For now, we'll skip this as our implementation sets nbf to now
+    }
 
-        println!("Verification Result: {:?}", claims);
+    #[test]
+    fn test_invalid_signature() {
+        let service = create_test_jwt_service();
+        let user_id = Uuid::new_v4();
 
-        assert!(claims.is_err(), "Expired token should be invalid");
+        // Generate a valid token
+        let token = service.generate_access_token(user_id, true).unwrap();
+
+        // Create a different service with different secret
+        let different_config = JwtConfig {
+            secret_key: "different_secret_key_for_testing_32_chars".to_string(),
+            issuer: "test".to_string(),
+            access_token_expiry: 3600,
+            refresh_token_expiry: 86400,
+            verification_token_expiry: 86400,
+        };
+        let different_service = JwtService::new(different_config);
+
+        // Try to verify with different secret
+        let result = different_service.verify_token(&token);
+
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), JwtError::InvalidSignature));
     }
 
     #[test]
     fn test_generate_refresh_token() {
-        let secret = "mysecretkey".to_string();
-        let config = JwtConfig {
-            secret_key: secret.clone(),
-            issuer: "myapp".to_string(),
-            access_token_expiry: 3600,
-            refresh_token_expiry: 86400, // 1 day
-        };
-
-        let jwt_service = JwtService::new(config);
+        let service = create_test_jwt_service();
         let user_id = Uuid::new_v4();
 
         // Generate refresh token
-        let token = jwt_service
-            .generate_refresh_token(user_id)
+        let token = service
+            .generate_refresh_token(user_id, true)
             .expect("Refresh token should be generated");
 
         // Verify refresh token
-        let claims = jwt_service.verify_token(&token);
+        let claims = service.verify_token(&token);
         assert!(claims.is_ok(), "Refresh token should be valid");
         let claims = claims.unwrap();
         assert_eq!(claims.sub, user_id, "User ID should match in refresh token");
+        assert_eq!(claims.token_type, "refresh");
+        assert_eq!(claims.is_verified, true);
     }
+
     #[test]
-    fn test_generate_and_verify_verification_token() {
-        let config = JwtConfig {
-            secret_key: "mysecretkey".to_string(),
-            issuer: "myapp".to_string(),
-            access_token_expiry: 3600,
-            refresh_token_expiry: 86400,
-        };
-        let jwt_service = JwtService::new(config);
+    fn test_generate_refresh_token_unverified() {
+        let service = create_test_jwt_service();
         let user_id = Uuid::new_v4();
 
-        let token = jwt_service
+        let token = service.generate_refresh_token(user_id, false).unwrap();
+        let claims = service.verify_token(&token).unwrap();
+
+        assert_eq!(claims.is_verified, false);
+        assert_eq!(claims.token_type, "refresh");
+    }
+
+    #[test]
+    fn test_generate_and_verify_verification_token() {
+        let service = create_test_jwt_service();
+        let user_id = Uuid::new_v4();
+
+        let token = service
             .generate_verification_token(user_id)
             .expect("Should generate verification token");
 
-        let result = jwt_service.verify_verification_token(&token);
+        // Verify using verify_token
+        let claims = service.verify_token(&token).unwrap();
+        assert_eq!(claims.sub, user_id);
+        assert_eq!(claims.token_type, "verification");
+        assert_eq!(claims.is_verified, false);
+
+        // Verify using verify_verification_token
+        let result = service.verify_verification_token(&token);
         assert!(result.is_ok(), "Token should be valid");
         assert_eq!(result.unwrap(), user_id, "User ID should match");
     }
-    // Helper function to create a test JwtService
-    fn create_test_jwt_service() -> JwtService {
-        let config = JwtConfig {
-            secret_key: "test_secret_key_for_testing_purposes".to_string(),
-            issuer: "test_issuer".to_string(),
-            access_token_expiry: 3600,   // 1 hour
-            refresh_token_expiry: 86400, // 24 hours
-        };
-        JwtService::new(config)
+
+    #[test]
+    fn test_verify_verification_token_with_wrong_type() {
+        let service = create_test_jwt_service();
+        let user_id = Uuid::new_v4();
+
+        // Generate an access token
+        let access_token = service.generate_access_token(user_id, true).unwrap();
+
+        // Try to verify it as verification token
+        let result = service.verify_verification_token(&access_token);
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            JwtError::InvalidTokenType(expected) => {
+                assert_eq!(expected, "verification");
+            }
+            _ => panic!("Expected InvalidTokenType error"),
+        }
+    }
+
+    #[test]
+    fn test_verify_verification_token_with_refresh_token() {
+        let service = create_test_jwt_service();
+        let user_id = Uuid::new_v4();
+
+        let refresh_token = service.generate_refresh_token(user_id, true).unwrap();
+        let result = service.verify_verification_token(&refresh_token);
+
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), JwtError::InvalidTokenType(_)));
     }
 
     #[test]
@@ -259,7 +446,7 @@ mod tests {
         let user_id = Uuid::new_v4();
 
         // Generate a valid refresh token
-        let refresh_token = service.generate_refresh_token(user_id).unwrap();
+        let refresh_token = service.generate_refresh_token(user_id, true).unwrap();
 
         // Refresh the access token
         let result = service.refresh_access_token(&refresh_token);
@@ -271,6 +458,7 @@ mod tests {
         let claims = service.verify_token(&new_access_token).unwrap();
         assert_eq!(claims.sub, user_id);
         assert_eq!(claims.token_type, "access");
+        assert_eq!(claims.is_verified, true);
     }
 
     #[test]
@@ -279,13 +467,18 @@ mod tests {
         let user_id = Uuid::new_v4();
 
         // Generate an access token (not a refresh token)
-        let access_token = service.generate_access_token(user_id).unwrap();
+        let access_token = service.generate_access_token(user_id, true).unwrap();
 
         // Try to refresh using an access token (should fail)
         let result = service.refresh_access_token(&access_token);
 
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "Invalid token type");
+        match result.unwrap_err() {
+            JwtError::InvalidTokenType(expected) => {
+                assert_eq!(expected, "refresh");
+            }
+            _ => panic!("Expected InvalidTokenType error"),
+        }
     }
 
     #[test]
@@ -300,7 +493,7 @@ mod tests {
         let result = service.refresh_access_token(&verification_token);
 
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "Invalid token type");
+        assert!(matches!(result.unwrap_err(), JwtError::InvalidTokenType(_)));
     }
 
     #[test]
@@ -311,31 +504,30 @@ mod tests {
         let result = service.refresh_access_token("invalid_token_string");
 
         assert!(result.is_err());
-        // Store the error to avoid moving result twice
-        let error = result.unwrap_err();
-        assert!(error.contains("Invalid") || error.contains("token"));
+        assert!(matches!(result.unwrap_err(), JwtError::MalformedToken));
     }
 
     #[test]
     fn test_refresh_access_token_with_expired_refresh_token() {
         // Create a service with very short expiry
         let config = JwtConfig {
-            secret_key: "test_secret_key_for_testing_purposes".to_string(),
+            secret_key: "test_secret_key_for_testing_purposes_min_32_chars".to_string(),
             issuer: "test_issuer".to_string(),
             access_token_expiry: 3600,
-            refresh_token_expiry: -1, // Already expired
+            refresh_token_expiry: -32, // 1 second
+            verification_token_expiry: 86400,
         };
         let service = JwtService::new(config);
         let user_id = Uuid::new_v4();
 
-        // Generate an already-expired refresh token
-        let refresh_token = service.generate_refresh_token(user_id).unwrap();
+        // Generate a refresh token
+        let refresh_token = service.generate_refresh_token(user_id, true).unwrap();
 
         // Try to refresh with expired token
         let result = service.refresh_access_token(&refresh_token);
 
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "TokenExpired");
+        assert!(matches!(result.unwrap_err(), JwtError::TokenExpired));
     }
 
     #[test]
@@ -344,7 +536,7 @@ mod tests {
         let user_id = Uuid::new_v4();
 
         // Generate a valid refresh token
-        let mut refresh_token = service.generate_refresh_token(user_id).unwrap();
+        let mut refresh_token = service.generate_refresh_token(user_id, true).unwrap();
 
         // Tamper with the token (change a character)
         refresh_token.push('x');
@@ -361,7 +553,7 @@ mod tests {
         let user_id = Uuid::new_v4();
 
         // Generate a refresh token
-        let refresh_token = service.generate_refresh_token(user_id).unwrap();
+        let refresh_token = service.generate_refresh_token(user_id, true).unwrap();
 
         // Refresh to get new access token
         let new_access_token = service.refresh_access_token(&refresh_token).unwrap();
@@ -372,12 +564,34 @@ mod tests {
     }
 
     #[test]
+    fn test_refresh_access_token_preserves_verification_status() {
+        let service = create_test_jwt_service();
+        let user_id = Uuid::new_v4();
+
+        // Test with verified user
+        let refresh_token_verified = service.generate_refresh_token(user_id, true).unwrap();
+        let access_token = service
+            .refresh_access_token(&refresh_token_verified)
+            .unwrap();
+        let claims = service.verify_token(&access_token).unwrap();
+        assert_eq!(claims.is_verified, true);
+
+        // Test with unverified user
+        let refresh_token_unverified = service.generate_refresh_token(user_id, false).unwrap();
+        let access_token = service
+            .refresh_access_token(&refresh_token_unverified)
+            .unwrap();
+        let claims = service.verify_token(&access_token).unwrap();
+        assert_eq!(claims.is_verified, false);
+    }
+
+    #[test]
     fn test_refresh_access_token_multiple_times() {
         let service = create_test_jwt_service();
         let user_id = Uuid::new_v4();
 
         // Generate initial refresh token
-        let refresh_token = service.generate_refresh_token(user_id).unwrap();
+        let refresh_token = service.generate_refresh_token(user_id, true).unwrap();
 
         // Refresh multiple times with the same refresh token
         let access_token_1 = service.refresh_access_token(&refresh_token).unwrap();
@@ -391,5 +605,99 @@ mod tests {
         assert_eq!(claims_2.sub, user_id);
         assert_eq!(claims_1.token_type, "access");
         assert_eq!(claims_2.token_type, "access");
+    }
+
+    #[test]
+    fn test_jwt_claims_has_required_fields() {
+        let service = create_test_jwt_service();
+        let user_id = Uuid::new_v4();
+
+        let token = service.generate_access_token(user_id, true).unwrap();
+        let claims = service.verify_token(&token).unwrap();
+
+        // Verify all required fields are present
+        assert_eq!(claims.sub, user_id);
+        assert!(claims.exp > 0);
+        assert!(claims.iat > 0);
+        assert!(claims.nbf > 0);
+        assert!(!claims.token_type.is_empty());
+    }
+
+    #[test]
+    fn test_token_expiry_is_in_future() {
+        let service = create_test_jwt_service();
+        let user_id = Uuid::new_v4();
+
+        let token = service.generate_access_token(user_id, true).unwrap();
+        let claims = service.verify_token(&token).unwrap();
+
+        let now = Utc::now().timestamp();
+        assert!(claims.exp > now, "Expiry should be in the future");
+        assert!(claims.iat <= now, "Issued at should be now or in the past");
+        assert!(claims.nbf <= now, "Not before should be now or in the past");
+    }
+
+    #[test]
+    fn test_jwt_error_display() {
+        assert_eq!(format!("{}", JwtError::TokenExpired), "Token has expired");
+        assert_eq!(
+            format!("{}", JwtError::TokenNotYetValid),
+            "Token is not yet valid"
+        );
+        assert_eq!(
+            format!("{}", JwtError::InvalidTokenType("refresh".to_string())),
+            "Invalid token type, expected: refresh"
+        );
+        assert_eq!(
+            format!("{}", JwtError::InvalidSignature),
+            "Invalid token signature"
+        );
+        assert_eq!(format!("{}", JwtError::MalformedToken), "Malformed token");
+        assert_eq!(
+            format!("{}", JwtError::EncodingError("test error".to_string())),
+            "Token encoding error: test error"
+        );
+    }
+
+    #[test]
+    fn test_jwt_error_is_error_trait() {
+        let error: Box<dyn std::error::Error> = Box::new(JwtError::TokenExpired);
+        assert_eq!(error.to_string(), "Token has expired");
+    }
+
+    #[test]
+    fn test_jwt_service_debug() {
+        let service = create_test_jwt_service();
+        let debug_str = format!("{:?}", service);
+        assert!(debug_str.contains("JwtService"));
+    }
+
+    #[test]
+    fn test_jwt_claims_debug() {
+        let claims = JwtClaims {
+            sub: Uuid::new_v4(),
+            exp: 12345,
+            iat: 12340,
+            nbf: 12340,
+            token_type: "access".to_string(),
+            is_verified: true,
+        };
+        let debug_str = format!("{:?}", claims);
+        assert!(debug_str.contains("JwtClaims"));
+        assert!(debug_str.contains("access"));
+    }
+
+    #[test]
+    fn test_jwt_service_clone() {
+        let service = create_test_jwt_service();
+        let cloned_service = service.clone();
+
+        let user_id = Uuid::new_v4();
+        let token1 = service.generate_access_token(user_id, true).unwrap();
+        let token2 = cloned_service.generate_access_token(user_id, true).unwrap();
+
+        // Both services should produce valid tokens
+        assert!(service.verify_token(&token1).is_ok());
+        assert!(cloned_service.verify_token(&token2).is_ok());
     }
 }

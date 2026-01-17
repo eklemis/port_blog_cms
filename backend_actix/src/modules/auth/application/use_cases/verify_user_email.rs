@@ -1,4 +1,4 @@
-use crate::auth::application::services::jwt::JwtService;
+use crate::auth::application::services::jwt::{JwtError, JwtService};
 use crate::modules::auth::application::ports::outgoing::{
     user_repository::UserRepository, UserRepositoryError,
 };
@@ -44,12 +44,12 @@ where
     R: UserRepository + Send + Sync,
 {
     async fn execute(&self, token: &str) -> Result<(), VerifyUserEmailError> {
-        // Decode and validate token
+        // Decode and validate token (logging handled in JWT service)
         let user_id = self
             .jwt_service
             .verify_verification_token(token)
-            .map_err(|e| match e.as_str() {
-                "TokenExpired" => VerifyUserEmailError::TokenExpired,
+            .map_err(|e| match e {
+                JwtError::TokenExpired => VerifyUserEmailError::TokenExpired,
                 _ => VerifyUserEmailError::TokenInvalid,
             })?;
 
@@ -63,6 +63,7 @@ where
                 _ => VerifyUserEmailError::DatabaseError,
             })?;
 
+        tracing::info!("User email verified successfully: {}", user_id);
         Ok(())
     }
 }
@@ -84,28 +85,27 @@ mod tests {
         pub UserRepositoryMock {}
         #[async_trait]
         impl UserRepository for UserRepositoryMock {
-                async fn create_user(&self, user: User) -> Result<User, UserRepositoryError>;
-
-                async fn update_password(
-                    &self,
-                    user_id: Uuid,
-                    new_password_hash: String,
-                ) -> Result<(), UserRepositoryError>;
-
-                async fn delete_user(&self, user_id: Uuid) -> Result<(), UserRepositoryError>;
-                async fn soft_delete_user(&self, user_id: Uuid) -> Result<(), UserRepositoryError>;
-                async fn restore_user(&self, user_id: Uuid) -> Result<User, UserRepositoryError>;
-                async fn activate_user(&self, user_id: Uuid) -> Result<(), UserRepositoryError>;
+            async fn create_user(&self, user: User) -> Result<User, UserRepositoryError>;
+            async fn update_password(
+                &self,
+                user_id: Uuid,
+                new_password_hash: String,
+            ) -> Result<(), UserRepositoryError>;
+            async fn delete_user(&self, user_id: Uuid) -> Result<(), UserRepositoryError>;
+            async fn soft_delete_user(&self, user_id: Uuid) -> Result<(), UserRepositoryError>;
+            async fn restore_user(&self, user_id: Uuid) -> Result<User, UserRepositoryError>;
+            async fn activate_user(&self, user_id: Uuid) -> Result<(), UserRepositoryError>;
         }
     }
 
     // Helper function to create JWT service
     fn create_jwt_service() -> JwtService {
         let config = JwtConfig {
-            secret_key: "testsecretkey".to_string(),
+            secret_key: "testsecretkey_min_32_characters_long".to_string(),
             issuer: "testapp".to_string(),
             access_token_expiry: 3600,
             refresh_token_expiry: 86400,
+            verification_token_expiry: 86400,
         };
         JwtService::new(config)
     }
@@ -150,17 +150,21 @@ mod tests {
         let repository = MockUserRepositoryMock::new();
         let user_id = Uuid::new_v4();
 
-        // Manually create an expired verification token
+        let now = Utc::now();
+        // Manually create an expired verification token (beyond leeway)
         let expired_claims = JwtClaims {
             sub: user_id,
-            exp: (Utc::now() - Duration::seconds(10)).timestamp(), // Expired 10 seconds ago
+            exp: (now - Duration::seconds(60)).timestamp(), // Expired 60 seconds ago (beyond 30s leeway)
+            iat: (now - Duration::hours(25)).timestamp(),   // Issued 25 hours ago
+            nbf: (now - Duration::hours(25)).timestamp(),   // Not before 25 hours ago
             token_type: "verification".to_string(),
+            is_verified: false,
         };
 
         let expired_token = encode(
             &Header::new(Algorithm::HS256),
             &expired_claims,
-            &EncodingKey::from_secret("testsecretkey".as_bytes()),
+            &EncodingKey::from_secret("testsecretkey_min_32_characters_long".as_bytes()),
         )
         .expect("Should encode expired token");
 
@@ -204,7 +208,7 @@ mod tests {
         let jwt_service = create_jwt_service();
 
         let access_token = jwt_service
-            .generate_access_token(user_id)
+            .generate_access_token(user_id, true)
             .expect("Should generate access token");
 
         // Create use case (no repository expectations needed since token validation fails first)
@@ -217,6 +221,82 @@ mod tests {
         assert!(
             matches!(result, Err(VerifyUserEmailError::TokenInvalid)),
             "Expected TokenInvalid, got {:?}",
+            result
+        );
+    }
+
+    #[tokio::test]
+    async fn test_verify_user_email_with_refresh_token() {
+        let repository = MockUserRepositoryMock::new();
+        let user_id = Uuid::new_v4();
+        let jwt_service = create_jwt_service();
+
+        let refresh_token = jwt_service
+            .generate_refresh_token(user_id, true)
+            .expect("Should generate refresh token");
+
+        // Create use case
+        let use_case = VerifyUserEmailUseCase::new(repository, jwt_service);
+
+        // Execute use case
+        let result = use_case.execute(&refresh_token).await;
+
+        // Assert token invalid error (wrong token type)
+        assert!(
+            matches!(result, Err(VerifyUserEmailError::TokenInvalid)),
+            "Expected TokenInvalid for refresh token, got {:?}",
+            result
+        );
+    }
+
+    #[tokio::test]
+    async fn test_verify_user_email_with_invalid_signature() {
+        let repository = MockUserRepositoryMock::new();
+        let user_id = Uuid::new_v4();
+
+        // Create token with one secret
+        let config1 = JwtConfig {
+            secret_key: "first_secret_key_min_32_characters_long".to_string(),
+            issuer: "testapp".to_string(),
+            access_token_expiry: 3600,
+            refresh_token_expiry: 86400,
+            verification_token_expiry: 86400,
+        };
+        let jwt_service1 = JwtService::new(config1);
+
+        let token = jwt_service1
+            .generate_verification_token(user_id)
+            .expect("Should generate token");
+
+        // Try to verify with different secret
+        let jwt_service2 = create_jwt_service();
+        let use_case = VerifyUserEmailUseCase::new(repository, jwt_service2);
+
+        // Execute use case
+        let result = use_case.execute(&token).await;
+
+        // Assert token invalid error (signature mismatch)
+        assert!(
+            matches!(result, Err(VerifyUserEmailError::TokenInvalid)),
+            "Expected TokenInvalid for signature mismatch, got {:?}",
+            result
+        );
+    }
+
+    #[tokio::test]
+    async fn test_verify_user_email_with_malformed_token() {
+        let repository = MockUserRepositoryMock::new();
+        let malformed_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.bm90X3ZhbGlkX2pzb24.fakesig";
+
+        let use_case = VerifyUserEmailUseCase::new(repository, create_jwt_service());
+
+        // Execute use case
+        let result = use_case.execute(malformed_token).await;
+
+        // Assert token invalid error
+        assert!(
+            matches!(result, Err(VerifyUserEmailError::TokenInvalid)),
+            "Expected TokenInvalid for malformed token, got {:?}",
             result
         );
     }
@@ -310,6 +390,32 @@ mod tests {
         assert!(
             matches!(result, Err(VerifyUserEmailError::DatabaseError)),
             "Expected DatabaseError, got {:?}",
+            result
+        );
+    }
+
+    #[tokio::test]
+    async fn test_verify_user_email_with_tampered_token() {
+        let repository = MockUserRepositoryMock::new();
+        let user_id = Uuid::new_v4();
+        let jwt_service = create_jwt_service();
+
+        let mut valid_token = jwt_service
+            .generate_verification_token(user_id)
+            .expect("Should generate verification token");
+
+        // Tamper with the token
+        valid_token.push('x');
+
+        let use_case = VerifyUserEmailUseCase::new(repository, jwt_service);
+
+        // Execute use case
+        let result = use_case.execute(&valid_token).await;
+
+        // Assert token invalid error
+        assert!(
+            matches!(result, Err(VerifyUserEmailError::TokenInvalid)),
+            "Expected TokenInvalid for tampered token, got {:?}",
             result
         );
     }

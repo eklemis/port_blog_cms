@@ -3,6 +3,7 @@ use crate::modules::auth::application::use_cases::create_user::CreateUserError;
 use crate::AppState;
 use actix_web::{post, web, HttpRequest, HttpResponse, Responder};
 use serde::Deserialize;
+use tracing::{error, info, warn};
 
 /// **📥 Request Structure for Creating a User**
 #[derive(serde::Serialize, Deserialize)]
@@ -20,6 +21,12 @@ pub async fn create_user_handler(
 ) -> impl Responder {
     let use_case = &data.create_user_use_case;
 
+    info!(
+        username = %req.username,
+        email = %req.email,
+        "User registration attempt"
+    );
+
     let result = use_case
         .execute(
             req.username.clone(),
@@ -29,18 +36,113 @@ pub async fn create_user_handler(
         .await;
 
     match result {
-        Ok(user) => HttpResponse::Created().json(user),
+        Ok(user) => {
+            info!(
+                user_id = %user.id,
+                username = %user.username,
+                email = %user.email,
+                "User created successfully"
+            );
+
+            HttpResponse::Created().json(serde_json::json!({
+                "message": "User created successfully. Please check your email to verify your account.",
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "is_verified": user.is_verified,
+                    "created_at": user.created_at,
+                }
+            }))
+        }
+
         Err(CreateUserError::UsernameAlreadyExists) => {
-            HttpResponse::Conflict().body("Username already exists")
+            warn!(
+                username = %req.username,
+                "Registration failed: Username already exists"
+            );
+
+            HttpResponse::Conflict().json(serde_json::json!({
+                "error": "Username already exists"
+            }))
         }
+
         Err(CreateUserError::EmailAlreadyExists) => {
-            HttpResponse::Conflict().body("Email already exists")
+            warn!(
+                email = %req.email,
+                "Registration failed: Email already exists"
+            );
+
+            HttpResponse::Conflict().json(serde_json::json!({
+                "error": "Email already exists"
+            }))
         }
-        Err(CreateUserError::HashingFailed(e)) => {
-            HttpResponse::InternalServerError().body(format!("Password hashing failed: {}", e))
+
+        Err(CreateUserError::InvalidInput(ref msg)) => {
+            warn!(
+                username = %req.username,
+                email = %req.email,
+                error = %msg,
+                "Registration failed: Invalid input"
+            );
+
+            HttpResponse::BadRequest().json(serde_json::json!({
+                "error": "Invalid input",
+                "message": msg
+            }))
         }
-        Err(CreateUserError::RepositoryError(e)) => {
-            HttpResponse::InternalServerError().body(format!("Database error: {}", e))
+
+        Err(CreateUserError::HashingFailed(ref e)) => {
+            error!(
+                username = %req.username,
+                error = %e,
+                "Password hashing failed"
+            );
+
+            HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Internal server error"
+            }))
+        }
+
+        Err(CreateUserError::TokenGenerationFailed(ref e)) => {
+            error!(
+                username = %req.username,
+                email = %req.email,
+                error = %e,
+                "Verification token generation failed"
+            );
+
+            HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Internal server error"
+            }))
+        }
+
+        Err(CreateUserError::EmailSendFailed(ref e)) => {
+            error!(
+                email = %req.email,
+                error = %e,
+                "Failed to send verification email"
+            );
+
+            // User was created but email failed - still return success
+            // but log the error for investigation
+            HttpResponse::Created().json(serde_json::json!({
+                "message": "User created successfully, but verification email could not be sent. Please contact support.",
+                "warning": "Email delivery failed"
+            }))
+        }
+
+        Err(CreateUserError::RepositoryError(ref e)) => {
+            error!(
+                username = %req.username,
+                email = %req.email,
+                error = %e,
+                "Database error during user creation"
+            );
+
+            HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Internal server error"
+            }))
         }
     }
 }
@@ -196,16 +298,27 @@ mod tests {
 
     // ==================== CREATE USER TESTS ====================
     #[derive(Deserialize, Serialize)]
-    struct UserResponse {
+    struct CreateUserSuccessResponse {
+        pub message: String,
+        pub user: UserDto,
+    }
+
+    #[derive(Deserialize, Serialize)]
+    struct UserDto {
         pub id: Uuid,
         pub username: String,
         pub email: String,
-        pub password_hash: String,
-        pub created_at: DateTime<Utc>,
-        pub updated_at: DateTime<Utc>,
         pub is_verified: bool,
-        pub is_deleted: bool,
+        pub created_at: DateTime<Utc>,
     }
+
+    #[derive(Deserialize, Serialize)]
+    struct ErrorResponse {
+        pub error: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub message: Option<String>,
+    }
+
     #[actix_web::test]
     async fn test_create_user_handler_success() {
         let mock_uc = MockCreateUserUseCase::new();
@@ -241,22 +354,22 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 201);
 
-        let body: UserResponse = test::read_body_json(resp).await;
-        assert_eq!(body.username, expected_user.username);
-        assert_eq!(body.email, expected_user.email);
+        let body: CreateUserSuccessResponse = test::read_body_json(resp).await;
+        assert_eq!(body.user.username, expected_user.username);
+        assert_eq!(body.user.email, expected_user.email);
+        assert_eq!(body.user.is_verified, false);
+        assert!(body.message.contains("Please check your email"));
     }
 
     #[actix_web::test]
     async fn test_create_user_handler_username_already_exists() {
         let mock_uc = MockCreateUserUseCase::new();
-        let verify_uc = MockVerifyUserEmailUseCase::new();
 
         mock_uc
             .set_error(CreateUserError::UsernameAlreadyExists)
             .await;
         let app_state = TestAppStateBuilder::default()
             .with_create_user(mock_uc)
-            .with_verify_user_email(verify_uc)
             .build();
 
         let app =
@@ -274,20 +387,17 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 409); // Conflict
 
-        let body = test::read_body(resp).await;
-        let body_str = String::from_utf8(body.to_vec()).unwrap();
-        assert_eq!(body_str, "Username already exists");
+        let body: ErrorResponse = test::read_body_json(resp).await;
+        assert_eq!(body.error, "Username already exists");
     }
 
     #[actix_web::test]
     async fn test_create_user_handler_email_already_exists() {
         let mock_uc = MockCreateUserUseCase::new();
-        let verify_uc = MockVerifyUserEmailUseCase::new();
 
         mock_uc.set_error(CreateUserError::EmailAlreadyExists).await;
         let app_state = TestAppStateBuilder::default()
             .with_create_user(mock_uc)
-            .with_verify_user_email(verify_uc)
             .build();
 
         let app =
@@ -305,22 +415,53 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 409); // Conflict
 
-        let body = test::read_body(resp).await;
-        let body_str = String::from_utf8(body.to_vec()).unwrap();
-        assert_eq!(body_str, "Email already exists");
+        let body: ErrorResponse = test::read_body_json(resp).await;
+        assert_eq!(body.error, "Email already exists");
+    }
+
+    #[actix_web::test]
+    async fn test_create_user_handler_invalid_input() {
+        let mock_uc = MockCreateUserUseCase::new();
+
+        mock_uc
+            .set_error(CreateUserError::InvalidInput(
+                "Username must be 3-50 characters".to_string(),
+            ))
+            .await;
+        let app_state = TestAppStateBuilder::default()
+            .with_create_user(mock_uc)
+            .build();
+
+        let app =
+            test::init_service(App::new().app_data(app_state).service(create_user_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/register")
+            .set_json(CreateUserRequest {
+                username: "ab".to_string(), // Too short
+                email: "test@example.com".to_string(),
+                password: "password123".to_string(),
+            })
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 400); // Bad Request
+
+        let body: ErrorResponse = test::read_body_json(resp).await;
+        assert_eq!(body.error, "Invalid input");
+        assert!(body.message.is_some());
+        assert!(body.message.unwrap().contains("3-50 characters"));
     }
 
     #[actix_web::test]
     async fn test_create_user_handler_hashing_failed() {
         let mock_uc = MockCreateUserUseCase::new();
-        let verify_uc = MockVerifyUserEmailUseCase::new();
 
         mock_uc
             .set_error(CreateUserError::HashingFailed("bcrypt error".to_string()))
             .await;
         let app_state = TestAppStateBuilder::default()
             .with_create_user(mock_uc)
-            .with_verify_user_email(verify_uc)
             .build();
 
         let app =
@@ -338,24 +479,90 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 500); // Internal Server Error
 
-        let body = test::read_body(resp).await;
-        let body_str = String::from_utf8(body.to_vec()).unwrap();
-        assert!(body_str.contains("Password hashing failed"));
+        let body: ErrorResponse = test::read_body_json(resp).await;
+        assert_eq!(body.error, "Internal server error");
+        // Note: We don't expose the internal error details to the client
     }
 
     #[actix_web::test]
-    async fn test_create_user_handler_repository_error() {
-        let create_uc = MockCreateUserUseCase::new();
-        let verify_uc = MockVerifyUserEmailUseCase::new();
+    async fn test_create_user_handler_token_generation_failed() {
+        let mock_uc = MockCreateUserUseCase::new();
 
-        create_uc
+        mock_uc
+            .set_error(CreateUserError::TokenGenerationFailed(
+                "JWT encoding failed".to_string(),
+            ))
+            .await;
+        let app_state = TestAppStateBuilder::default()
+            .with_create_user(mock_uc)
+            .build();
+
+        let app =
+            test::init_service(App::new().app_data(app_state).service(create_user_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/register")
+            .set_json(CreateUserRequest {
+                username: "testuser".to_string(),
+                email: "test@example.com".to_string(),
+                password: "password123".to_string(),
+            })
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 500); // Internal Server Error
+
+        let body: ErrorResponse = test::read_body_json(resp).await;
+        assert_eq!(body.error, "Internal server error");
+    }
+
+    #[actix_web::test]
+    async fn test_create_user_handler_email_send_failed() {
+        let mock_uc = MockCreateUserUseCase::new();
+
+        mock_uc
+            .set_error(CreateUserError::EmailSendFailed(
+                "SMTP connection failed".to_string(),
+            ))
+            .await;
+        let app_state = TestAppStateBuilder::default()
+            .with_create_user(mock_uc)
+            .build();
+
+        let app =
+            test::init_service(App::new().app_data(app_state).service(create_user_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/register")
+            .set_json(CreateUserRequest {
+                username: "testuser".to_string(),
+                email: "test@example.com".to_string(),
+                password: "password123".to_string(),
+            })
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 201); // Still Created (user exists)
+
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert!(body["message"]
+            .as_str()
+            .unwrap()
+            .contains("verification email could not be sent"));
+        assert_eq!(body["warning"].as_str().unwrap(), "Email delivery failed");
+    }
+
+    #[actix_web::test]
+    async fn test_create_user_handler_database_error() {
+        let mock_uc = MockCreateUserUseCase::new();
+
+        mock_uc
             .set_error(CreateUserError::RepositoryError(
                 "Database connection failed".to_string(),
             ))
             .await;
         let app_state = TestAppStateBuilder::default()
-            .with_create_user(create_uc)
-            .with_verify_user_email(verify_uc)
+            .with_create_user(mock_uc)
             .build();
 
         let app =
@@ -373,9 +580,8 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 500); // Internal Server Error
 
-        let body = test::read_body(resp).await;
-        let body_str = String::from_utf8(body.to_vec()).unwrap();
-        assert!(body_str.contains("Database error"));
+        let body: ErrorResponse = test::read_body_json(resp).await;
+        assert_eq!(body.error, "Internal server error");
     }
 
     // ==================== VERIFY EMAIL TESTS ====================

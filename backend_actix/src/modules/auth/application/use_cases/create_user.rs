@@ -11,10 +11,13 @@ use uuid::Uuid;
 // Possible errors for creating a user
 #[derive(Debug, Clone)]
 pub enum CreateUserError {
+    InvalidInput(String),
     UsernameAlreadyExists,
     EmailAlreadyExists,
     HashingFailed(String),
     RepositoryError(String),
+    EmailSendFailed(String),
+    TokenGenerationFailed(String),
 }
 
 // Interface for CreateUser use case
@@ -65,6 +68,64 @@ where
             email_service,
         }
     }
+    fn validate_input(username: &str, email: &str, password: &str) -> Result<(), CreateUserError> {
+        // Username validation
+        if username.trim().is_empty() {
+            return Err(CreateUserError::InvalidInput(
+                "Username cannot be empty".to_string(),
+            ));
+        }
+        if username.len() < 3 || username.len() > 50 {
+            return Err(CreateUserError::InvalidInput(
+                "Username must be 3-50 characters".to_string(),
+            ));
+        }
+
+        // Email validation
+        if email.trim().is_empty() || !email.contains('@') {
+            return Err(CreateUserError::InvalidInput(
+                "Invalid email format".to_string(),
+            ));
+        }
+
+        // Password validation
+        if password.len() < 8 {
+            return Err(CreateUserError::InvalidInput(
+                "Password must be at least 8 characters".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+    fn create_verification_email(
+        &self,
+        username: &str,
+        verification_token: &str,
+    ) -> (String, String) {
+        let verification_link = format!(
+            "{}/api/auth/email-verification/{}",
+            self.app_url, verification_token
+        );
+
+        let subject = "Verify Your Email".to_string();
+        let html_body = format!(
+            r#"
+            <p>Hi {},</p>
+            <p>Welcome to Ekstion! We're excited to have you on board.</p>
+            <p>To complete your registration, click the button below:</p>
+            <p>
+                <a href="{}" style="display: inline-block; padding: 10px 20px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 5px;">
+                    Verify Your Email
+                </a>
+            </p>
+            <p><strong>Note:</strong> This link is valid for 24 hours.</p>
+            <p>Thanks,<br>The Ekstion Team</p>
+            "#,
+            username, verification_link
+        );
+
+        (subject, html_body)
+    }
 }
 
 #[async_trait]
@@ -79,6 +140,13 @@ where
         email: String,
         password: String,
     ) -> Result<User, CreateUserError> {
+        // 0️⃣ **Validate input**
+        Self::validate_input(&username, &email, &password)?;
+
+        // Sanitize inputs to prevent injection attacks
+        let username = username.trim().to_lowercase();
+        let email = email.trim().to_lowercase();
+
         // 1️⃣ **Check if username already exists**
         if let Ok(Some(_)) = self.query.find_by_username(&username).await {
             return Err(CreateUserError::UsernameAlreadyExists);
@@ -102,8 +170,8 @@ where
         // 3️⃣ **Hash password**
         let password_hash = self
             .password_hasher
-            .hash_password(password)
-            .await
+            .hash_password(password.clone()) // Note: takes owned String
+            .await // Add .await
             .map_err(|e| CreateUserError::HashingFailed(e))?;
 
         // 4️⃣ **Create User Entity**
@@ -125,42 +193,16 @@ where
                 let verification_token = self
                     .jwt_service
                     .generate_verification_token(user.id)
-                    .map_err(|e| CreateUserError::RepositoryError(e.to_string()))?;
+                    .map_err(|e| CreateUserError::TokenGenerationFailed(e.to_string()))?;
 
                 // 2️⃣ Send verification email
                 #[cfg(not(tarpaulin_include))]
-                let verification_link = format!(
-                    "{}/api/auth/email-verification/{}",
-                    self.app_url, verification_token
-                );
-                let html_body = format!(
-                    r#"
-                    <p>Hi {},</p>
-                    <p>Welcome to Ekstion! We're excited to have you on board.</p>
-                    <p>
-                        To complete your registration, click the button below:
-                    </p>
-                    <p>
-                        <a href="{}" style="
-                            display: inline-block;
-                            padding: 10px 20px;
-                            background-color: #007BFF;
-                            color: white;
-                            text-decoration: none;
-                            border-radius: 5px;
-                        ">Verify Your Email</a>
-                    </p>
-                    <p>
-                        <strong>Note:</strong> This link is valid for only 1 hour. If it expires, you'll need to register again.
-                    </p>
-                    <p>Thanks,<br>The Ekstion Team</p>
-                    "#,
-                    &user.username, verification_link
-                );
+                let (subject, html_body) =
+                    self.create_verification_email(&user.username, &verification_token);
                 self.email_service
-                    .send_email(&user.email, "Verify Your Email", &html_body)
+                    .send_email(&user.email, &subject, &html_body)
                     .await
-                    .map_err(|e| CreateUserError::RepositoryError(e.to_string()))?;
+                    .map_err(|e| CreateUserError::EmailSendFailed(e.to_string()))?;
 
                 Ok(user)
             }
@@ -286,6 +328,32 @@ mod tests {
         async fn send_email(&self, _to: &str, _subject: &str, _body: &str) -> Result<(), String> {
             Ok(())
         }
+    }
+
+    // Helper function to create a test use case with default mocks
+    fn create_test_use_case() -> CreateUserUseCase<MockUserQuery, MockUserRepository> {
+        let query = MockUserQuery::default();
+        let repository = MockUserRepository::default();
+        let password_hasher = PasswordHashingService::with_hasher(MockPasswordHasher);
+        let jwt_service = JwtService::new(JwtConfig {
+            secret_key: "test_secret_key_min_32_characters_long".to_string(),
+            issuer: "testapp".to_string(),
+            access_token_expiry: 3600,
+            refresh_token_expiry: 86400,
+            verification_token_expiry: 86400,
+        });
+        let sender = Arc::new(MockEmailSender::default());
+        let email_service = EmailService::new(sender);
+        let app_url = String::from("http://localhost:8080");
+
+        CreateUserUseCase::new(
+            query,
+            repository,
+            password_hasher,
+            jwt_service,
+            email_service,
+            app_url,
+        )
     }
 
     #[tokio::test]
@@ -750,7 +818,7 @@ mod tests {
         // Arrange
         let query = MockUserQuery::default();
 
-        // Mock repository that returns a non-DatabaseError variant
+        // Mock repository that returns a non-RepositoryError variant
         #[derive(Default)]
         struct MockUserRepositoryUnknownError;
 
@@ -816,5 +884,50 @@ mod tests {
         if let Err(CreateUserError::RepositoryError(msg)) = result {
             assert_eq!(msg, "Unknown repository error");
         }
+    }
+
+    #[tokio::test]
+    async fn test_create_user_invalid_username_too_short() {
+        let use_case = create_test_use_case();
+
+        let result = use_case
+            .execute(
+                "ab".to_string(),
+                "test@example.com".to_string(),
+                "password123".to_string(),
+            )
+            .await;
+
+        assert!(matches!(result, Err(CreateUserError::InvalidInput(_))));
+    }
+
+    #[tokio::test]
+    async fn test_create_user_invalid_email() {
+        let use_case = create_test_use_case();
+
+        let result = use_case
+            .execute(
+                "username".to_string(),
+                "invalid-email".to_string(),
+                "password123".to_string(),
+            )
+            .await;
+
+        assert!(matches!(result, Err(CreateUserError::InvalidInput(_))));
+    }
+
+    #[tokio::test]
+    async fn test_create_user_password_too_short() {
+        let use_case = create_test_use_case();
+
+        let result = use_case
+            .execute(
+                "username".to_string(),
+                "test@example.com".to_string(),
+                "short".to_string(),
+            )
+            .await;
+
+        assert!(matches!(result, Err(CreateUserError::InvalidInput(_))));
     }
 }
