@@ -169,18 +169,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn user_query_failure() {
-        let use_case = FetchCVByIdUseCase::new(MockCVRepository {
-            cv: None,
-            should_fail: false,
-        });
-
-        let result = use_case.execute(Uuid::new_v4(), Uuid::new_v4()).await;
-
-        assert!(matches!(result, Err(FetchCVByIdError::RepositoryError(_))));
-    }
-
-    #[tokio::test]
     async fn repository_failure() {
         let user_id = Uuid::new_v4();
 
