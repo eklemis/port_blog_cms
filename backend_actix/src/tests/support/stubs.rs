@@ -1,17 +1,21 @@
 use async_trait::async_trait;
 use uuid::Uuid;
 
-use crate::cv::application::use_cases::{
-    create_cv::{CreateCVError, ICreateCVUseCase},
-    fetch_cv_by_id::{FetchCVByIdError, IFetchCVByIdUseCase},
-    fetch_user_cvs::{FetchCVError, IFetchCVUseCase},
-    patch_cv::{IPatchCVUseCase, PatchCVError},
-    update_cv::{IUpdateCVUseCase, UpdateCVError},
-};
 use crate::cv::domain::entities::CVInfo;
+use crate::{
+    auth::application::use_cases::login_user::{LoginError, LoginRequest, LoginUserResponse},
+    cv::application::use_cases::{
+        create_cv::{CreateCVError, ICreateCVUseCase},
+        fetch_cv_by_id::{FetchCVByIdError, IFetchCVByIdUseCase},
+        fetch_user_cvs::{FetchCVError, IFetchCVUseCase},
+        patch_cv::{IPatchCVUseCase, PatchCVError},
+        update_cv::{IUpdateCVUseCase, UpdateCVError},
+    },
+};
 
 use crate::auth::application::use_cases::{
     create_user::{CreateUserError, ICreateUserUseCase},
+    login_user::ILoginUserUseCase,
     verify_user_email::{IVerifyUserEmailUseCase, VerifyUserEmailError},
 };
 
@@ -103,5 +107,15 @@ pub struct StubVerifyUserEmailUseCase;
 impl IVerifyUserEmailUseCase for StubVerifyUserEmailUseCase {
     async fn execute(&self, _token: &str) -> Result<(), VerifyUserEmailError> {
         unimplemented!("Not used in this test")
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct StubLoginUserUseCase;
+
+#[async_trait]
+impl ILoginUserUseCase for StubLoginUserUseCase {
+    async fn execute(&self, _request: LoginRequest) -> Result<LoginUserResponse, LoginError> {
+        unimplemented!()
     }
 }

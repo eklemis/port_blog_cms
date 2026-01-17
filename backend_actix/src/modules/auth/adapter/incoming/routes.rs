@@ -1,4 +1,7 @@
-use crate::auth::application::use_cases::verify_user_email::VerifyUserEmailError;
+use crate::auth::application::use_cases::login_user::LoginError;
+use crate::auth::application::use_cases::{
+    login_user::LoginRequest, verify_user_email::VerifyUserEmailError,
+};
 use crate::modules::auth::application::use_cases::create_user::CreateUserError;
 use crate::AppState;
 use actix_web::{post, web, HttpRequest, HttpResponse, Responder};
@@ -148,7 +151,7 @@ pub async fn create_user_handler(
 }
 
 /// **🚀 Verify User Email API Endpoint**
-#[actix_web::post("/api/auth/email-verification/{token}")]
+#[actix_web::get("/api/auth/email-verification/{token}")]
 pub async fn verify_user_email_handler(
     req: HttpRequest,
     data: web::Data<AppState>,
@@ -184,10 +187,90 @@ pub async fn verify_user_email_handler(
     }
 }
 
+/// **🔐 Login User API Endpoint**
+#[post("/api/auth/login")]
+pub async fn login_user_handler(
+    req: web::Json<LoginRequest>, // ✅ Directly deserialize validated request!
+    data: web::Data<AppState>,
+) -> impl Responder {
+    let use_case = &data.login_user_use_case;
+    let request = req.into_inner();
+
+    info!(email = %request.email(), "Login attempt");
+
+    let result = use_case.execute(request).await;
+
+    match result {
+        Ok(response) => {
+            info!(
+                user_id = %response.user.id,
+                email = %response.user.email,
+                "User logged in successfully"
+            );
+
+            HttpResponse::Ok().json(serde_json::json!({
+                "access_token": response.access_token,
+                "refresh_token": response.refresh_token,
+                "user": {
+                    "id": response.user.id,
+                    "username": response.user.username,
+                    "email": response.user.email,
+                    "is_verified": response.user.is_verified,
+                }
+            }))
+        }
+
+        Err(LoginError::InvalidCredentials) => {
+            warn!("Login failed: Invalid credentials");
+            HttpResponse::Unauthorized().json(serde_json::json!({
+                "error": "Invalid email or password"
+            }))
+        }
+
+        Err(LoginError::UserNotVerified) => {
+            warn!("Login failed: User not verified");
+            HttpResponse::Forbidden().json(serde_json::json!({
+                "error": "Email not verified. Please check your email to verify your account."
+            }))
+        }
+
+        Err(LoginError::UserDeleted) => {
+            warn!("Login failed: User deleted");
+            HttpResponse::Forbidden().json(serde_json::json!({
+                "error": "This account has been deleted"
+            }))
+        }
+
+        Err(LoginError::PasswordVerificationFailed(ref e)) => {
+            error!(error = %e, "Password verification failed");
+            HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Internal server error"
+            }))
+        }
+
+        Err(LoginError::TokenGenerationFailed(ref e)) => {
+            error!(error = %e, "Token generation failed");
+            HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Internal server error"
+            }))
+        }
+
+        Err(LoginError::QueryError(ref e)) => {
+            error!(error = %e, "Database query failed");
+            HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Internal server error"
+            }))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    use crate::auth::application::use_cases::login_user::{
+        ILoginUserUseCase, LoginUserResponse, UserInfo,
+    };
     use crate::modules::auth::application::domain::entities::User;
     use crate::modules::auth::application::use_cases::create_user::{
         CreateUserError, ICreateUserUseCase,
@@ -605,7 +688,7 @@ mod tests {
         )
         .await;
 
-        let req = test::TestRequest::post()
+        let req = test::TestRequest::get()
             .uri("/api/auth/email-verification/valid_token_123")
             .to_request();
 
@@ -637,7 +720,7 @@ mod tests {
         )
         .await;
 
-        let req = test::TestRequest::post()
+        let req = test::TestRequest::get()
             .uri("/api/auth/email-verification/expired_token")
             .to_request();
 
@@ -669,7 +752,7 @@ mod tests {
         )
         .await;
 
-        let req = test::TestRequest::post()
+        let req = test::TestRequest::get()
             .uri("/api/auth/email-verification/invalid_token")
             .to_request();
 
@@ -701,7 +784,7 @@ mod tests {
         )
         .await;
 
-        let req = test::TestRequest::post()
+        let req = test::TestRequest::get()
             .uri("/api/auth/email-verification/token_for_nonexistent_user")
             .to_request();
 
@@ -733,7 +816,7 @@ mod tests {
         )
         .await;
 
-        let req = test::TestRequest::post()
+        let req = test::TestRequest::get()
             .uri("/api/auth/email-verification/some_token")
             .to_request();
 
@@ -769,5 +852,246 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         // This will return 404 since the route won't match
         assert_eq!(resp.status(), 404);
+    }
+
+    // User login tests
+    #[derive(Clone)]
+    struct MockLoginUserUseCase {
+        result: Arc<Mutex<Option<Result<LoginUserResponse, LoginError>>>>,
+    }
+
+    impl MockLoginUserUseCase {
+        fn new() -> Self {
+            Self {
+                result: Arc::new(Mutex::new(None)),
+            }
+        }
+
+        async fn set_result(&self, result: Result<LoginUserResponse, LoginError>) {
+            *self.result.lock().await = Some(result);
+        }
+    }
+
+    #[async_trait]
+    impl ILoginUserUseCase for MockLoginUserUseCase {
+        async fn execute(&self, _request: LoginRequest) -> Result<LoginUserResponse, LoginError> {
+            self.result
+                .lock()
+                .await
+                .clone()
+                .expect("mock result must be set")
+        }
+    }
+
+    #[actix_web::test]
+    async fn test_login_user_success() {
+        let mock_uc = MockLoginUserUseCase::new();
+
+        mock_uc
+            .set_result(Ok(LoginUserResponse {
+                access_token: "access-token".to_string(),
+                refresh_token: "refresh-token".to_string(),
+                user: UserInfo {
+                    id: Uuid::new_v4(),
+                    username: "testuser".to_string(),
+                    email: "test@example.com".to_string(),
+                    is_verified: true,
+                },
+            }))
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_login_user(mock_uc)
+            .build();
+
+        let app =
+            test::init_service(App::new().app_data(app_state).service(login_user_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/login")
+            .set_json(serde_json::json!({
+                "email": "test@example.com",
+                "password": "password123"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 200);
+    }
+
+    #[actix_web::test]
+    async fn test_login_invalid_credentials() {
+        let mock_uc = MockLoginUserUseCase::new();
+        mock_uc
+            .set_result(Err(LoginError::InvalidCredentials))
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_login_user(mock_uc)
+            .build();
+
+        let app =
+            test::init_service(App::new().app_data(app_state).service(login_user_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/login")
+            .set_json(serde_json::json!({
+                "email": "test@example.com",
+                "password": "password123"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 401);
+    }
+
+    #[actix_web::test]
+    async fn test_login_user_not_verified() {
+        let mock_uc = MockLoginUserUseCase::new();
+        mock_uc.set_result(Err(LoginError::UserNotVerified)).await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_login_user(mock_uc)
+            .build();
+
+        let app =
+            test::init_service(App::new().app_data(app_state).service(login_user_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/login")
+            .set_json(serde_json::json!({
+                "email": "test@example.com",
+                "password": "password123"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 403);
+    }
+
+    #[actix_web::test]
+    async fn test_login_user_deleted() {
+        let mock_uc = MockLoginUserUseCase::new();
+        mock_uc.set_result(Err(LoginError::UserDeleted)).await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_login_user(mock_uc)
+            .build();
+
+        let app =
+            test::init_service(App::new().app_data(app_state).service(login_user_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/login")
+            .set_json(serde_json::json!({
+                "email": "test@example.com",
+                "password": "password123"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 403);
+    }
+
+    #[actix_web::test]
+    async fn test_login_password_verification_failed() {
+        let mock_uc = MockLoginUserUseCase::new();
+        mock_uc
+            .set_result(Err(LoginError::PasswordVerificationFailed(
+                "bcrypt error".to_string(),
+            )))
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_login_user(mock_uc)
+            .build();
+
+        let app =
+            test::init_service(App::new().app_data(app_state).service(login_user_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/login")
+            .set_json(serde_json::json!({
+                "email": "test@example.com",
+                "password": "password123"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 500);
+    }
+
+    #[actix_web::test]
+    async fn test_login_token_generation_failed() {
+        let mock_uc = MockLoginUserUseCase::new();
+        mock_uc
+            .set_result(Err(LoginError::TokenGenerationFailed(
+                "jwt error".to_string(),
+            )))
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_login_user(mock_uc)
+            .build();
+
+        let app =
+            test::init_service(App::new().app_data(app_state).service(login_user_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/login")
+            .set_json(serde_json::json!({
+                "email": "test@example.com",
+                "password": "password123"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 500);
+    }
+
+    #[actix_web::test]
+    async fn test_login_invalid_email() {
+        let mock_uc = MockLoginUserUseCase::new();
+
+        let app_state = TestAppStateBuilder::default()
+            .with_login_user(mock_uc)
+            .build();
+
+        let app =
+            test::init_service(App::new().app_data(app_state).service(login_user_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/login")
+            .set_json(serde_json::json!({
+                "email": "not-an-email",
+                "password": "password123"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 400);
+    }
+
+    #[actix_web::test]
+    async fn test_login_empty_password() {
+        let mock_uc = MockLoginUserUseCase::new();
+
+        let app_state = TestAppStateBuilder::default()
+            .with_login_user(mock_uc)
+            .build();
+
+        let app =
+            test::init_service(App::new().app_data(app_state).service(login_user_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/login")
+            .set_json(serde_json::json!({
+                "email": "test@example.com",
+                "password": ""
+            }))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 400);
     }
 }

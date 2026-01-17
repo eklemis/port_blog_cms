@@ -3,14 +3,18 @@ pub use modules::auth;
 pub use modules::cv;
 pub use modules::email;
 
+// auth modul resources
 use crate::auth::adapter::outgoing::user_query_postgres::UserQueryPostgres;
 use crate::auth::adapter::outgoing::user_repository_postgres::UserRepositoryPostgres;
 use crate::auth::application::services::hash::{HashingAlgorithm, PasswordHashingService};
 use crate::auth::application::services::jwt::{JwtConfig, JwtService};
 use crate::auth::application::use_cases::{
     create_user::{CreateUserUseCase, ICreateUserUseCase},
+    login_user::{ILoginUserUseCase, LoginUserUseCase},
     verify_user_email::{IVerifyUserEmailUseCase, VerifyUserEmailUseCase},
 };
+
+// cv module resources
 use crate::cv::adapter::outgoing::cv_repo_postgres::CVRepoPostgres;
 use crate::cv::application::use_cases::create_cv::{CreateCVUseCase, ICreateCVUseCase};
 use crate::cv::application::use_cases::fetch_cv_by_id::{FetchCVByIdUseCase, IFetchCVByIdUseCase};
@@ -28,6 +32,10 @@ use std::env;
 use std::sync::Arc;
 use std::time::Duration;
 
+// Logging
+use tracing::info;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
 #[cfg(test)]
 mod tests;
 
@@ -40,11 +48,23 @@ pub struct AppState {
     pub patch_cv_use_case: Arc<dyn IPatchCVUseCase + Send + Sync>,
     pub create_user_use_case: Arc<dyn ICreateUserUseCase + Send + Sync>,
     pub verify_user_email_use_case: Arc<dyn IVerifyUserEmailUseCase + Send + Sync>,
+    pub login_user_use_case: Arc<dyn ILoginUserUseCase + Send + Sync>,
 }
 
 #[actix_web::main]
 #[cfg(not(tarpaulin_include))]
 async fn start() -> std::io::Result<()> {
+    // Initialize tracing
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "info,actix_web=info".into()),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+
+    info!("Starting application...");
+
     // get env vars
     dotenvy::dotenv().ok();
 
@@ -102,14 +122,15 @@ async fn start() -> std::io::Result<()> {
     let user_query = UserQueryPostgres::new(Arc::clone(&db_arc));
     let password_hasher = PasswordHashingService::new(HashingAlgorithm::Argon2);
     let create_user_use_case = CreateUserUseCase::new(
-        user_query,
+        user_query.clone(),
         user_repo.clone(),
-        password_hasher,
+        password_hasher.clone(),
         jwt_service.clone(),
         email_service,
         String::from(&server_url),
     );
-    let verify_user_email_use_case = VerifyUserEmailUseCase::new(user_repo, jwt_service);
+    let verify_user_email_use_case = VerifyUserEmailUseCase::new(user_repo, jwt_service.clone());
+    let login_user_use_case = LoginUserUseCase::new(user_query, password_hasher, jwt_service);
 
     // 3) Build app state - wrap each use case in Arc::new()
     let state = AppState {
@@ -120,6 +141,7 @@ async fn start() -> std::io::Result<()> {
         patch_cv_use_case: Arc::new(patch_cv_use_case),
         create_user_use_case: Arc::new(create_user_use_case),
         verify_user_email_use_case: Arc::new(verify_user_email_use_case),
+        login_user_use_case: Arc::new(login_user_use_case),
     };
 
     // 4) Start the server

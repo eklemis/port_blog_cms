@@ -1,5 +1,6 @@
 use crate::auth::application::use_cases::{
-    create_user::ICreateUserUseCase, verify_user_email::IVerifyUserEmailUseCase,
+    create_user::ICreateUserUseCase, login_user::ILoginUserUseCase,
+    verify_user_email::IVerifyUserEmailUseCase,
 };
 use crate::cv::application::use_cases::create_cv::ICreateCVUseCase;
 use crate::cv::application::use_cases::fetch_cv_by_id::IFetchCVByIdUseCase;
@@ -19,6 +20,7 @@ pub struct TestAppStateBuilder {
     patch_cv: Option<Arc<dyn IPatchCVUseCase + Send + Sync>>,
     create_user: Option<Arc<dyn ICreateUserUseCase + Send + Sync>>,
     verify_user_email: Option<Arc<dyn IVerifyUserEmailUseCase + Send + Sync>>,
+    login_user: Option<Arc<dyn ILoginUserUseCase + Send + Sync>>,
 }
 
 impl Default for TestAppStateBuilder {
@@ -31,6 +33,7 @@ impl Default for TestAppStateBuilder {
             patch_cv: Some(Arc::new(StubPatchCVUseCase)),
             create_user: Some(Arc::new(StubCreateUserUseCase)),
             verify_user_email: Some(Arc::new(StubVerifyUserEmailUseCase)),
+            login_user: Some(Arc::new(StubLoginUserUseCase)),
         }
     }
 }
@@ -69,6 +72,11 @@ impl TestAppStateBuilder {
         self
     }
 
+    pub fn with_login_user(mut self, uc: impl ILoginUserUseCase + Send + Sync + 'static) -> Self {
+        self.login_user = Some(Arc::new(uc));
+        self
+    }
+
     pub fn with_verify_user_email(
         mut self,
         uc: impl IVerifyUserEmailUseCase + Send + Sync + 'static,
@@ -87,6 +95,7 @@ impl TestAppStateBuilder {
             patch_cv_use_case: self.patch_cv.unwrap(),
             create_user_use_case: self.create_user.unwrap(),
             verify_user_email_use_case: self.verify_user_email.unwrap(),
+            login_user_use_case: self.login_user.unwrap(),
         })
     }
 }
