@@ -1,4 +1,4 @@
-pub mod token_blacklist_repository;
+pub mod token_repository;
 pub mod user_query;
 pub mod user_repository;
 
