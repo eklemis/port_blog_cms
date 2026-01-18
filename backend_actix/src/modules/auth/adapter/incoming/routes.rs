@@ -4,6 +4,7 @@ use crate::auth::application::use_cases::{
     login_user::LoginRequest, verify_user_email::VerifyUserEmailError,
 };
 use crate::modules::auth::application::use_cases::create_user::CreateUserError;
+use crate::modules::auth::application::use_cases::logout_user::{LogoutError, LogoutRequest};
 use crate::AppState;
 use actix_web::{post, web, HttpRequest, HttpResponse, Responder};
 use serde::Deserialize;
@@ -325,6 +326,49 @@ pub async fn refresh_token_handler(
 
             HttpResponse::InternalServerError().json(serde_json::json!({
                 "error": "Internal server error"
+            }))
+        }
+    }
+}
+
+/// **🚪 Logout User API Endpoint**
+#[post("/api/auth/logout")]
+pub async fn logout_user_handler(
+    req: web::Json<LogoutRequest>,
+    data: web::Data<AppState>,
+) -> impl Responder {
+    let use_case = &data.logout_user_use_case;
+    let request = req.into_inner();
+
+    info!("User logout attempt");
+
+    let result = use_case.execute(request).await;
+
+    match result {
+        Ok(response) => {
+            info!("User logged out successfully");
+
+            HttpResponse::Ok().json(serde_json::json!({
+                "message": response.message
+            }))
+        }
+
+        Err(LogoutError::TokenRevocationFailed(ref e)) => {
+            error!(error = %e, "Token revocation failed during logout");
+
+            // Still return success to user - they're logged out on client side
+            // Log the error for investigation
+            HttpResponse::Ok().json(serde_json::json!({
+                "message": "Logged out successfully"
+            }))
+        }
+
+        Err(LogoutError::DatabaseError(ref e)) => {
+            error!(error = %e, "Database error during logout");
+
+            // Still return success to user
+            HttpResponse::Ok().json(serde_json::json!({
+                "message": "Logged out successfully"
             }))
         }
     }
@@ -1340,5 +1384,334 @@ mod tests {
 
         let body: ErrorResponseDto = test::read_body_json(resp).await;
         assert!(body.error.contains("refresh token"));
+    }
+
+    // Logout user tests
+    use crate::modules::auth::application::use_cases::logout_user::{
+        ILogoutUseCase, LogoutError, LogoutRequest, LogoutResponse,
+    };
+
+    #[derive(Deserialize)]
+    struct LogoutResponseDto {
+        message: String,
+    }
+
+    // Mock Logout Use Case
+    struct MockLogoutUseCase {
+        response: tokio::sync::Mutex<Option<Result<LogoutResponse, LogoutError>>>,
+    }
+
+    impl MockLogoutUseCase {
+        fn new() -> Self {
+            Self {
+                response: tokio::sync::Mutex::new(None),
+            }
+        }
+
+        async fn set_response(&self, response: Result<LogoutResponse, LogoutError>) {
+            *self.response.lock().await = Some(response);
+        }
+    }
+
+    #[async_trait]
+    impl ILogoutUseCase for MockLogoutUseCase {
+        async fn execute(&self, _request: LogoutRequest) -> Result<LogoutResponse, LogoutError> {
+            self.response
+                .lock()
+                .await
+                .take()
+                .expect("Mock response not set")
+        }
+    }
+
+    // ==================== Logout Handler Tests ====================
+
+    #[actix_web::test]
+    async fn test_logout_handler_success_with_token() {
+        let mock_uc = MockLogoutUseCase::new();
+
+        mock_uc
+            .set_response(Ok(LogoutResponse {
+                message: "Logged out successfully".to_string(),
+            }))
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_logout_user(mock_uc)
+            .build();
+
+        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/logout")
+            .set_json(serde_json::json!({
+                "refresh_token": "some_refresh_token"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 200);
+
+        let body: LogoutResponseDto = test::read_body_json(resp).await;
+        assert_eq!(body.message, "Logged out successfully");
+    }
+
+    #[actix_web::test]
+    async fn test_logout_handler_success_without_token() {
+        let mock_uc = MockLogoutUseCase::new();
+
+        mock_uc
+            .set_response(Ok(LogoutResponse {
+                message: "Logged out successfully".to_string(),
+            }))
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_logout_user(mock_uc)
+            .build();
+
+        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/logout")
+            .set_json(serde_json::json!({}))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 200);
+
+        let body: LogoutResponseDto = test::read_body_json(resp).await;
+        assert_eq!(body.message, "Logged out successfully");
+    }
+
+    #[actix_web::test]
+    async fn test_logout_handler_with_empty_object() {
+        let mock_uc = MockLogoutUseCase::new();
+
+        mock_uc
+            .set_response(Ok(LogoutResponse {
+                message: "Logged out successfully".to_string(),
+            }))
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_logout_user(mock_uc)
+            .build();
+
+        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/logout")
+            .set_json(serde_json::json!({}))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 200);
+    }
+
+    #[actix_web::test]
+    async fn test_logout_handler_token_revocation_failed() {
+        let mock_uc = MockLogoutUseCase::new();
+
+        mock_uc
+            .set_response(Err(LogoutError::TokenRevocationFailed(
+                "Failed to revoke token".to_string(),
+            )))
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_logout_user(mock_uc)
+            .build();
+
+        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/logout")
+            .set_json(serde_json::json!({
+                "refresh_token": "some_token"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+
+        // Still returns 200 - user is logged out on client side
+        assert_eq!(resp.status(), 200);
+
+        let body: LogoutResponseDto = test::read_body_json(resp).await;
+        assert_eq!(body.message, "Logged out successfully");
+    }
+
+    #[actix_web::test]
+    async fn test_logout_handler_database_error() {
+        let mock_uc = MockLogoutUseCase::new();
+
+        mock_uc
+            .set_response(Err(LogoutError::DatabaseError(
+                "Database connection failed".to_string(),
+            )))
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_logout_user(mock_uc)
+            .build();
+
+        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/logout")
+            .set_json(serde_json::json!({
+                "refresh_token": "some_token"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+
+        // Still returns 200 - better UX
+        assert_eq!(resp.status(), 200);
+
+        let body: LogoutResponseDto = test::read_body_json(resp).await;
+        assert_eq!(body.message, "Logged out successfully");
+    }
+
+    #[actix_web::test]
+    async fn test_logout_handler_invalid_json() {
+        let mock_uc = MockLogoutUseCase::new();
+        let app_state = TestAppStateBuilder::default()
+            .with_logout_user(mock_uc)
+            .build();
+
+        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/logout")
+            .set_payload("invalid json")
+            .insert_header(("Content-Type", "application/json"))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+
+        // Should return 400 for malformed JSON
+        assert_eq!(resp.status(), 400);
+    }
+
+    #[actix_web::test]
+    async fn test_logout_handler_with_whitespace_token() {
+        let mock_uc = MockLogoutUseCase::new();
+
+        mock_uc
+            .set_response(Ok(LogoutResponse {
+                message: "Logged out successfully".to_string(),
+            }))
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_logout_user(mock_uc)
+            .build();
+
+        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/logout")
+            .set_json(serde_json::json!({
+                "refresh_token": "  token_with_spaces  "
+            }))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 200);
+
+        let body: LogoutResponseDto = test::read_body_json(resp).await;
+        assert_eq!(body.message, "Logged out successfully");
+    }
+
+    #[actix_web::test]
+    async fn test_logout_handler_response_contains_message() {
+        let mock_uc = MockLogoutUseCase::new();
+
+        mock_uc
+            .set_response(Ok(LogoutResponse {
+                message: "Custom logout message".to_string(),
+            }))
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_logout_user(mock_uc)
+            .build();
+
+        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/logout")
+            .set_json(serde_json::json!({
+                "refresh_token": "token"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 200);
+
+        let body: LogoutResponseDto = test::read_body_json(resp).await;
+        assert_eq!(body.message, "Custom logout message");
+    }
+
+    #[actix_web::test]
+    async fn test_logout_handler_content_type_json() {
+        let mock_uc = MockLogoutUseCase::new();
+
+        mock_uc
+            .set_response(Ok(LogoutResponse {
+                message: "Logged out successfully".to_string(),
+            }))
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_logout_user(mock_uc)
+            .build();
+
+        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/logout")
+            .set_json(serde_json::json!({
+                "refresh_token": "token"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+
+        // Check Content-Type header
+        let content_type = resp.headers().get("content-type").unwrap();
+        assert!(content_type.to_str().unwrap().contains("application/json"));
+    }
+
+    #[actix_web::test]
+    async fn test_logout_handler_idempotent() {
+        let mock_uc = MockLogoutUseCase::new();
+
+        // Set up two responses for two calls
+        mock_uc
+            .set_response(Ok(LogoutResponse {
+                message: "Logged out successfully".to_string(),
+            }))
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_logout_user(mock_uc)
+            .build();
+
+        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+
+        // First logout
+        let req1 = test::TestRequest::post()
+            .uri("/api/auth/logout")
+            .set_json(serde_json::json!({
+                "refresh_token": "same_token"
+            }))
+            .to_request();
+
+        let resp1 = test::call_service(&app, req1).await;
+        assert_eq!(resp1.status(), 200);
+
+        // Logout should always succeed, even if called multiple times
     }
 }

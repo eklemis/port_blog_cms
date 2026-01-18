@@ -98,6 +98,11 @@ impl TestAppStateBuilder {
         self
     }
 
+    pub fn with_logout_user(mut self, uc: impl ILogoutUseCase + Send + Sync + 'static) -> Self {
+        self.logout_user = Some(Arc::new(uc));
+        self
+    }
+
     pub fn build(self) -> web::Data<AppState> {
         web::Data::new(AppState {
             // Safe unwrap: defaults are always set in Default
