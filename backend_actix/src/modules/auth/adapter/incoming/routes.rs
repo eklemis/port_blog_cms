@@ -1427,7 +1427,7 @@ mod tests {
     // ==================== Logout Handler Tests ====================
 
     #[actix_web::test]
-    async fn test_logout_handler_success_with_token() {
+    async fn test_logout_user_handler_success_with_token() {
         let mock_uc = MockLogoutUseCase::new();
 
         mock_uc
@@ -1440,7 +1440,8 @@ mod tests {
             .with_logout_user(mock_uc)
             .build();
 
-        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+        let app =
+            test::init_service(App::new().app_data(app_state).service(logout_user_handler)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
@@ -1457,7 +1458,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_logout_handler_success_without_token() {
+    async fn test_logout_user_handler_success_without_token() {
         let mock_uc = MockLogoutUseCase::new();
 
         mock_uc
@@ -1470,7 +1471,8 @@ mod tests {
             .with_logout_user(mock_uc)
             .build();
 
-        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+        let app =
+            test::init_service(App::new().app_data(app_state).service(logout_user_handler)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
@@ -1485,7 +1487,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_logout_handler_with_empty_object() {
+    async fn test_logout_user_handler_with_empty_object() {
         let mock_uc = MockLogoutUseCase::new();
 
         mock_uc
@@ -1498,7 +1500,8 @@ mod tests {
             .with_logout_user(mock_uc)
             .build();
 
-        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+        let app =
+            test::init_service(App::new().app_data(app_state).service(logout_user_handler)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
@@ -1510,7 +1513,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_logout_handler_token_revocation_failed() {
+    async fn test_logout_user_handler_token_revocation_failed() {
         let mock_uc = MockLogoutUseCase::new();
 
         mock_uc
@@ -1523,7 +1526,8 @@ mod tests {
             .with_logout_user(mock_uc)
             .build();
 
-        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+        let app =
+            test::init_service(App::new().app_data(app_state).service(logout_user_handler)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
@@ -1542,7 +1546,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_logout_handler_database_error() {
+    async fn test_logout_user_handler_database_error() {
         let mock_uc = MockLogoutUseCase::new();
 
         mock_uc
@@ -1555,7 +1559,8 @@ mod tests {
             .with_logout_user(mock_uc)
             .build();
 
-        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+        let app =
+            test::init_service(App::new().app_data(app_state).service(logout_user_handler)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
@@ -1574,13 +1579,14 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_logout_handler_invalid_json() {
+    async fn test_logout_user_handler_invalid_json() {
         let mock_uc = MockLogoutUseCase::new();
         let app_state = TestAppStateBuilder::default()
             .with_logout_user(mock_uc)
             .build();
 
-        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+        let app =
+            test::init_service(App::new().app_data(app_state).service(logout_user_handler)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
@@ -1595,7 +1601,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_logout_handler_with_whitespace_token() {
+    async fn test_logout_user_handler_with_whitespace_token() {
         let mock_uc = MockLogoutUseCase::new();
 
         mock_uc
@@ -1608,7 +1614,8 @@ mod tests {
             .with_logout_user(mock_uc)
             .build();
 
-        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+        let app =
+            test::init_service(App::new().app_data(app_state).service(logout_user_handler)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
@@ -1625,7 +1632,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_logout_handler_response_contains_message() {
+    async fn test_logout_user_handler_response_contains_message() {
         let mock_uc = MockLogoutUseCase::new();
 
         mock_uc
@@ -1638,7 +1645,8 @@ mod tests {
             .with_logout_user(mock_uc)
             .build();
 
-        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+        let app =
+            test::init_service(App::new().app_data(app_state).service(logout_user_handler)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
@@ -1655,7 +1663,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_logout_handler_content_type_json() {
+    async fn test_logout_user_handler_content_type_json() {
         let mock_uc = MockLogoutUseCase::new();
 
         mock_uc
@@ -1668,7 +1676,8 @@ mod tests {
             .with_logout_user(mock_uc)
             .build();
 
-        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+        let app =
+            test::init_service(App::new().app_data(app_state).service(logout_user_handler)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
@@ -1685,7 +1694,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_logout_handler_idempotent() {
+    async fn test_logout_user_handler_idempotent() {
         let mock_uc = MockLogoutUseCase::new();
 
         // Set up two responses for two calls
@@ -1699,7 +1708,8 @@ mod tests {
             .with_logout_user(mock_uc)
             .build();
 
-        let app = test::init_service(App::new().app_data(app_state).service(logout_handler)).await;
+        let app =
+            test::init_service(App::new().app_data(app_state).service(logout_user_handler)).await;
 
         // First logout
         let req1 = test::TestRequest::post()
