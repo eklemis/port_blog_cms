@@ -25,6 +25,7 @@ use crate::cv::application::use_cases::update_cv::{IUpdateCVUseCase, UpdateCVUse
 // Email Service
 use crate::email::adapter::outgoing::smtp_sender::SmtpEmailSender;
 use crate::email::application::services::EmailService;
+use crate::modules::auth::application::use_cases::refresh_token::IRefreshTokenUseCase;
 
 use actix_web::{web, App, HttpServer};
 use sea_orm::{ConnectOptions, Database};
@@ -49,12 +50,15 @@ pub struct AppState {
     pub create_user_use_case: Arc<dyn ICreateUserUseCase + Send + Sync>,
     pub verify_user_email_use_case: Arc<dyn IVerifyUserEmailUseCase + Send + Sync>,
     pub login_user_use_case: Arc<dyn ILoginUserUseCase + Send + Sync>,
+    refresh_token_use_case: Arc<dyn IRefreshTokenUseCase + Send + Sync>,
 }
 
 #[actix_web::main]
 #[cfg(not(tarpaulin_include))]
 async fn start() -> std::io::Result<()> {
     // Initialize tracing
+
+    use crate::auth::application::use_cases::refresh_token::RefreshTokenUseCase;
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -130,7 +134,9 @@ async fn start() -> std::io::Result<()> {
         String::from(&server_url),
     );
     let verify_user_email_use_case = VerifyUserEmailUseCase::new(user_repo, jwt_service.clone());
-    let login_user_use_case = LoginUserUseCase::new(user_query, password_hasher, jwt_service);
+    let login_user_use_case =
+        LoginUserUseCase::new(user_query, password_hasher, jwt_service.clone());
+    let refresh_token_use_case = RefreshTokenUseCase::new(jwt_service);
 
     // 3) Build app state - wrap each use case in Arc::new()
     let state = AppState {
@@ -142,6 +148,7 @@ async fn start() -> std::io::Result<()> {
         create_user_use_case: Arc::new(create_user_use_case),
         verify_user_email_use_case: Arc::new(verify_user_email_use_case),
         login_user_use_case: Arc::new(login_user_use_case),
+        refresh_token_use_case: Arc::new(refresh_token_use_case),
     };
 
     // 4) Start the server
@@ -166,6 +173,8 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     // Auth
     cfg.service(crate::auth::adapter::incoming::routes::create_user_handler);
     cfg.service(crate::auth::adapter::incoming::routes::verify_user_email_handler);
+    cfg.service(crate::auth::adapter::incoming::routes::login_user_handler);
+    cfg.service(crate::auth::adapter::incoming::routes::refresh_token_handler);
 }
 
 #[cfg(not(tarpaulin_include))]

@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 use uuid::Uuid;
 
+use crate::auth::application::use_cases::refresh_token::{
+    IRefreshTokenUseCase, RefreshTokenError, RefreshTokenRequest, RefreshTokenResponse,
+};
 use crate::cv::domain::entities::CVInfo;
 use crate::{
     auth::application::use_cases::login_user::{LoginError, LoginRequest, LoginUserResponse},
@@ -116,6 +119,19 @@ pub struct StubLoginUserUseCase;
 #[async_trait]
 impl ILoginUserUseCase for StubLoginUserUseCase {
     async fn execute(&self, _request: LoginRequest) -> Result<LoginUserResponse, LoginError> {
+        unimplemented!()
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct StubRefreshTokenUseCase;
+
+#[async_trait]
+impl IRefreshTokenUseCase for StubRefreshTokenUseCase {
+    async fn execute(
+        &self,
+        _request: RefreshTokenRequest,
+    ) -> Result<RefreshTokenResponse, RefreshTokenError> {
         unimplemented!()
     }
 }

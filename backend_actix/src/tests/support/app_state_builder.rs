@@ -1,3 +1,4 @@
+use crate::auth::application::use_cases::refresh_token::IRefreshTokenUseCase;
 use crate::auth::application::use_cases::{
     create_user::ICreateUserUseCase, login_user::ILoginUserUseCase,
     verify_user_email::IVerifyUserEmailUseCase,
@@ -21,6 +22,7 @@ pub struct TestAppStateBuilder {
     create_user: Option<Arc<dyn ICreateUserUseCase + Send + Sync>>,
     verify_user_email: Option<Arc<dyn IVerifyUserEmailUseCase + Send + Sync>>,
     login_user: Option<Arc<dyn ILoginUserUseCase + Send + Sync>>,
+    refresh_token: Option<Arc<dyn IRefreshTokenUseCase + Send + Sync>>,
 }
 
 impl Default for TestAppStateBuilder {
@@ -34,6 +36,7 @@ impl Default for TestAppStateBuilder {
             create_user: Some(Arc::new(StubCreateUserUseCase)),
             verify_user_email: Some(Arc::new(StubVerifyUserEmailUseCase)),
             login_user: Some(Arc::new(StubLoginUserUseCase)),
+            refresh_token: Some(Arc::new(StubRefreshTokenUseCase)),
         }
     }
 }
@@ -85,6 +88,14 @@ impl TestAppStateBuilder {
         self
     }
 
+    pub fn with_refresh_token(
+        mut self,
+        uc: impl IRefreshTokenUseCase + Send + Sync + 'static,
+    ) -> Self {
+        self.refresh_token = Some(Arc::new(uc));
+        self
+    }
+
     pub fn build(self) -> web::Data<AppState> {
         web::Data::new(AppState {
             // Safe unwrap: defaults are always set in Default
@@ -96,6 +107,7 @@ impl TestAppStateBuilder {
             create_user_use_case: self.create_user.unwrap(),
             verify_user_email_use_case: self.verify_user_email.unwrap(),
             login_user_use_case: self.login_user.unwrap(),
+            refresh_token_use_case: self.refresh_token.unwrap(),
         })
     }
 }

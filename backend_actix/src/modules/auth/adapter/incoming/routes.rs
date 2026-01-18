@@ -1,4 +1,5 @@
 use crate::auth::application::use_cases::login_user::LoginError;
+use crate::auth::application::use_cases::refresh_token::{RefreshTokenError, RefreshTokenRequest};
 use crate::auth::application::use_cases::{
     login_user::LoginRequest, verify_user_email::VerifyUserEmailError,
 };
@@ -264,12 +265,80 @@ pub async fn login_user_handler(
     }
 }
 
+/// **🔄 Refresh Access Token API Endpoint**
+#[post("/api/auth/refresh")]
+pub async fn refresh_token_handler(
+    req: web::Json<RefreshTokenRequest>,
+    data: web::Data<AppState>,
+) -> impl Responder {
+    let use_case = &data.refresh_token_use_case;
+    let request = req.into_inner();
+
+    info!("Token refresh attempt");
+
+    let result = use_case.execute(request).await;
+
+    match result {
+        Ok(response) => {
+            info!("Token refreshed successfully");
+
+            HttpResponse::Ok().json(serde_json::json!({
+                "access_token": response.access_token,
+                "refresh_token": response.refresh_token,
+            }))
+        }
+
+        Err(RefreshTokenError::TokenExpired) => {
+            warn!("Token refresh failed: Token expired");
+
+            HttpResponse::Unauthorized().json(serde_json::json!({
+                "error": "Refresh token has expired. Please login again."
+            }))
+        }
+
+        Err(RefreshTokenError::TokenInvalid) | Err(RefreshTokenError::InvalidSignature) => {
+            warn!("Token refresh failed: Invalid token");
+
+            HttpResponse::Unauthorized().json(serde_json::json!({
+                "error": "Invalid refresh token"
+            }))
+        }
+
+        Err(RefreshTokenError::InvalidTokenType) => {
+            warn!("Token refresh failed: Wrong token type");
+
+            HttpResponse::BadRequest().json(serde_json::json!({
+                "error": "Invalid token type. Please use a refresh token."
+            }))
+        }
+
+        Err(RefreshTokenError::TokenNotYetValid) => {
+            warn!("Token refresh failed: Token not yet valid");
+
+            HttpResponse::BadRequest().json(serde_json::json!({
+                "error": "Token is not yet valid"
+            }))
+        }
+
+        Err(RefreshTokenError::TokenGenerationFailed(ref e)) => {
+            error!(error = %e, "Token generation failed during refresh");
+
+            HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Internal server error"
+            }))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     use crate::auth::application::use_cases::login_user::{
         ILoginUserUseCase, LoginUserResponse, UserInfo,
+    };
+    use crate::auth::application::use_cases::refresh_token::{
+        IRefreshTokenUseCase, RefreshTokenResponse,
     };
     use crate::modules::auth::application::domain::entities::User;
     use crate::modules::auth::application::use_cases::create_user::{
@@ -1093,5 +1162,183 @@ mod tests {
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 400);
+    }
+
+    // Test refresh token route
+    use serde::Deserialize;
+
+    #[derive(Deserialize)]
+    struct RefreshTokenResponseDto {
+        access_token: String,
+        refresh_token: String,
+    }
+
+    #[derive(Deserialize)]
+    struct ErrorResponseDto {
+        error: String,
+    }
+
+    // Mock use case
+    struct MockRefreshTokenUseCase {
+        response: tokio::sync::Mutex<Option<Result<RefreshTokenResponse, RefreshTokenError>>>,
+    }
+
+    impl MockRefreshTokenUseCase {
+        fn new() -> Self {
+            Self {
+                response: tokio::sync::Mutex::new(None),
+            }
+        }
+
+        async fn set_response(&self, response: Result<RefreshTokenResponse, RefreshTokenError>) {
+            *self.response.lock().await = Some(response);
+        }
+    }
+
+    #[async_trait]
+    impl IRefreshTokenUseCase for MockRefreshTokenUseCase {
+        async fn execute(
+            &self,
+            _request: RefreshTokenRequest,
+        ) -> Result<RefreshTokenResponse, RefreshTokenError> {
+            self.response
+                .lock()
+                .await
+                .take()
+                .expect("Mock response not set")
+        }
+    }
+
+    #[actix_web::test]
+    async fn test_refresh_token_handler_success() {
+        let mock_uc = MockRefreshTokenUseCase::new();
+
+        mock_uc
+            .set_response(Ok(RefreshTokenResponse {
+                access_token: "new_access_token".to_string(),
+                refresh_token: "new_refresh_token".to_string(),
+            }))
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_refresh_token(mock_uc)
+            .build();
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state)
+                .service(refresh_token_handler),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/refresh")
+            .set_json(serde_json::json!({
+                "refresh_token": "valid_refresh_token"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 200);
+
+        let body: RefreshTokenResponseDto = test::read_body_json(resp).await;
+        assert_eq!(body.access_token, "new_access_token");
+        assert_eq!(body.refresh_token, "new_refresh_token");
+    }
+
+    #[actix_web::test]
+    async fn test_refresh_token_handler_expired() {
+        let mock_uc = MockRefreshTokenUseCase::new();
+
+        mock_uc
+            .set_response(Err(RefreshTokenError::TokenExpired))
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_refresh_token(mock_uc)
+            .build();
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state)
+                .service(refresh_token_handler),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/refresh")
+            .set_json(serde_json::json!({
+                "refresh_token": "expired_token"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 401);
+
+        let body: ErrorResponseDto = test::read_body_json(resp).await;
+        assert!(body.error.contains("expired"));
+    }
+
+    #[actix_web::test]
+    async fn test_refresh_token_handler_invalid_token() {
+        let mock_uc = MockRefreshTokenUseCase::new();
+
+        mock_uc
+            .set_response(Err(RefreshTokenError::TokenInvalid))
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_refresh_token(mock_uc)
+            .build();
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state)
+                .service(refresh_token_handler),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/refresh")
+            .set_json(serde_json::json!({
+                "refresh_token": "invalid_token"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 401);
+    }
+
+    #[actix_web::test]
+    async fn test_refresh_token_handler_wrong_token_type() {
+        let mock_uc = MockRefreshTokenUseCase::new();
+
+        mock_uc
+            .set_response(Err(RefreshTokenError::InvalidTokenType))
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_refresh_token(mock_uc)
+            .build();
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state)
+                .service(refresh_token_handler),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/auth/refresh")
+            .set_json(serde_json::json!({
+                "refresh_token": "access_token_instead"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 400);
+
+        let body: ErrorResponseDto = test::read_body_json(resp).await;
+        assert!(body.error.contains("refresh token"));
     }
 }
