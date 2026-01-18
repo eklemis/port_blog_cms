@@ -28,7 +28,7 @@ impl JwtConfig {
             panic!("JWT_SECRET must be at least 32 characters long for HS256 algorithm");
         }
 
-        let access_token_expiry = Self::parse_expiry("JWT_ACCESS_EXPIRY", "3600");
+        let access_token_expiry = Self::parse_expiry("JWT_ACCESS_EXPIRY", "1800");
         let refresh_token_expiry = Self::parse_expiry("JWT_REFRESH_EXPIRY", "604800");
         let verification_token_expiry = Self::parse_expiry("JWT_VERIFICATION_EXPIRY", "86400");
 
