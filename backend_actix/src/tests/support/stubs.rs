@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 use uuid::Uuid;
 
+use crate::auth::application::use_cases::logout_user::{
+    LogoutError, LogoutRequest, LogoutResponse,
+};
 use crate::auth::application::use_cases::refresh_token::{
     IRefreshTokenUseCase, RefreshTokenError, RefreshTokenRequest, RefreshTokenResponse,
 };
@@ -19,6 +22,7 @@ use crate::{
 use crate::auth::application::use_cases::{
     create_user::{CreateUserError, ICreateUserUseCase},
     login_user::ILoginUserUseCase,
+    logout_user::ILogoutUseCase,
     verify_user_email::{IVerifyUserEmailUseCase, VerifyUserEmailError},
 };
 
@@ -132,6 +136,16 @@ impl IRefreshTokenUseCase for StubRefreshTokenUseCase {
         &self,
         _request: RefreshTokenRequest,
     ) -> Result<RefreshTokenResponse, RefreshTokenError> {
+        unimplemented!()
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct StubLogoutUserUseCase;
+
+#[async_trait]
+impl ILogoutUseCase for StubLogoutUserUseCase {
+    async fn execute(&self, _request: LogoutRequest) -> Result<LogoutResponse, LogoutError> {
         unimplemented!()
     }
 }

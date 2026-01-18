@@ -4,6 +4,7 @@ pub use modules::cv;
 pub use modules::email;
 
 // auth modul resources
+use crate::auth::adapter::outgoing::token_repository_redis::RedisTokenRepository;
 use crate::auth::adapter::outgoing::user_query_postgres::UserQueryPostgres;
 use crate::auth::adapter::outgoing::user_repository_postgres::UserRepositoryPostgres;
 use crate::auth::application::services::hash::{HashingAlgorithm, PasswordHashingService};
@@ -11,6 +12,7 @@ use crate::auth::application::services::jwt::{JwtConfig, JwtService};
 use crate::auth::application::use_cases::{
     create_user::{CreateUserUseCase, ICreateUserUseCase},
     login_user::{ILoginUserUseCase, LoginUserUseCase},
+    logout_user::{ILogoutUseCase, LogoutUseCase},
     verify_user_email::{IVerifyUserEmailUseCase, VerifyUserEmailUseCase},
 };
 
@@ -28,10 +30,12 @@ use crate::email::application::services::EmailService;
 use crate::modules::auth::application::use_cases::refresh_token::IRefreshTokenUseCase;
 
 use actix_web::{web, App, HttpServer};
+use redis::{aio::ConnectionManager, Client};
 use sea_orm::{ConnectOptions, Database};
 use std::env;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::Mutex;
 
 // Logging
 use tracing::info;
@@ -50,7 +54,8 @@ pub struct AppState {
     pub create_user_use_case: Arc<dyn ICreateUserUseCase + Send + Sync>,
     pub verify_user_email_use_case: Arc<dyn IVerifyUserEmailUseCase + Send + Sync>,
     pub login_user_use_case: Arc<dyn ILoginUserUseCase + Send + Sync>,
-    refresh_token_use_case: Arc<dyn IRefreshTokenUseCase + Send + Sync>,
+    pub refresh_token_use_case: Arc<dyn IRefreshTokenUseCase + Send + Sync>,
+    pub logout_user_use_case: Arc<dyn ILogoutUseCase + Send + Sync>,
 }
 
 #[actix_web::main]
@@ -75,6 +80,7 @@ async fn start() -> std::io::Result<()> {
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set in .env file");
     let host = env::var("HOST").expect("HOST is not set in .env file");
     let port = env::var("PORT").expect("PORT is not set in .env file");
+    let redis_url = env::var("REDIS_URL").expect("REDIS_URL is not set in .env file");
 
     // get env for email service
     let smtp_server = std::env::var("SMTP_SERVER").expect("SMTP_SERVER not set");
@@ -106,7 +112,13 @@ async fn start() -> std::io::Result<()> {
 
     let db_arc = Arc::new(conn);
 
-    // 2) Create repository and use case
+    // Redis connection
+    let redis_client = Client::open(redis_url).expect("Failed to create Redis client");
+    let redis_manager = ConnectionManager::new(redis_client)
+        .await
+        .expect("Failed to create Redis connection");
+
+    // 2) Create cv repositories and use cases
     let cv_repo = CVRepoPostgres::new(Arc::clone(&db_arc));
     let fetch_cv_use_case = FetchCVUseCase::new(cv_repo.clone());
     let fetch_cv_by_id_use_case = FetchCVByIdUseCase::new(cv_repo.clone());
@@ -121,9 +133,10 @@ async fn start() -> std::io::Result<()> {
     let smtp_sender = SmtpEmailSender::new(&smtp_server, &smtp_user, &smtp_pass, &from_email);
     let email_service = EmailService::new(Arc::new(smtp_sender));
 
-    // Create User Use Case
+    // Create Auth related repositories and use cases
     let user_repo = UserRepositoryPostgres::new(Arc::clone(&db_arc));
     let user_query = UserQueryPostgres::new(Arc::clone(&db_arc));
+    let redis_token_repo = RedisTokenRepository::new(Arc::new(Mutex::new(redis_manager)));
     let password_hasher = PasswordHashingService::new(HashingAlgorithm::Argon2);
     let create_user_use_case = CreateUserUseCase::new(
         user_query.clone(),
@@ -136,7 +149,8 @@ async fn start() -> std::io::Result<()> {
     let verify_user_email_use_case = VerifyUserEmailUseCase::new(user_repo, jwt_service.clone());
     let login_user_use_case =
         LoginUserUseCase::new(user_query, password_hasher, jwt_service.clone());
-    let refresh_token_use_case = RefreshTokenUseCase::new(jwt_service);
+    let refresh_token_use_case = RefreshTokenUseCase::new(jwt_service.clone());
+    let logout_user_use_case = LogoutUseCase::new(redis_token_repo, jwt_service);
 
     // 3) Build app state - wrap each use case in Arc::new()
     let state = AppState {
@@ -149,6 +163,7 @@ async fn start() -> std::io::Result<()> {
         verify_user_email_use_case: Arc::new(verify_user_email_use_case),
         login_user_use_case: Arc::new(login_user_use_case),
         refresh_token_use_case: Arc::new(refresh_token_use_case),
+        logout_user_use_case: Arc::new(logout_user_use_case),
     };
 
     // 4) Start the server
