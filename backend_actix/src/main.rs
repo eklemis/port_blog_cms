@@ -157,7 +157,7 @@ async fn start() -> std::io::Result<()> {
     let refresh_token_use_case = RefreshTokenUseCase::new(jwt_service.clone());
     let logout_user_use_case = LogoutUseCase::new(redis_token_repo.clone(), jwt_service.clone());
     let soft_delet_user_use_case =
-        SoftDeleteUserUseCase::new(user_repo, redis_token_repo, jwt_service);
+        SoftDeleteUserUseCase::new(user_repo, redis_token_repo, jwt_service.clone());
 
     // 3) Build app state - wrap each use case in Arc::new()
     let state = AppState {
@@ -178,6 +178,7 @@ async fn start() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(state.clone()))
+            .app_data(web::Data::new(jwt_service.clone()))
             .configure(init_routes)
     })
     .bind(server_url)?
@@ -194,12 +195,12 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::cv::adapter::incoming::routes::update_cv_handler);
     cfg.service(crate::cv::adapter::incoming::routes::patch_cv_handler);
     // Auth
-    cfg.service(crate::auth::adapter::incoming::routes::create_user_handler);
-    cfg.service(crate::auth::adapter::incoming::routes::verify_user_email_handler);
-    cfg.service(crate::auth::adapter::incoming::routes::login_user_handler);
-    cfg.service(crate::auth::adapter::incoming::routes::refresh_token_handler);
-    cfg.service(crate::auth::adapter::incoming::routes::logout_user_handler);
-    cfg.service(crate::auth::adapter::incoming::routes::soft_delete_user_handler);
+    cfg.service(crate::auth::adapter::incoming::web::routes::create_user_handler);
+    cfg.service(crate::auth::adapter::incoming::web::routes::verify_user_email_handler);
+    cfg.service(crate::auth::adapter::incoming::web::routes::login_user_handler);
+    cfg.service(crate::auth::adapter::incoming::web::routes::refresh_token_handler);
+    cfg.service(crate::auth::adapter::incoming::web::routes::logout_user_handler);
+    cfg.service(crate::auth::adapter::incoming::web::routes::soft_delete_user_handler);
 }
 
 #[cfg(not(tarpaulin_include))]

@@ -1,3 +1,4 @@
+use crate::auth::adapter::incoming::web::extractors::auth::VerifiedUser;
 use crate::cv::application::ports::outgoing::{CreateCVData, PatchCVData, UpdateCVData};
 use crate::cv::application::use_cases::create_cv::CreateCVError;
 use crate::cv::application::use_cases::fetch_cv_by_id::FetchCVByIdError;
@@ -12,14 +13,12 @@ use actix_web::{get, post, put, web, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[get("/api/cvs/{user_id}")]
+#[get("/api/cvs")]
 pub async fn get_cv_handler(
-    path: web::Path<Uuid>,
+    user: VerifiedUser,
     data: web::Data<AppState>, // The state from .app_data(...)
 ) -> impl Responder {
-    let user_id = path.into_inner();
-
-    match data.fetch_cv_use_case.execute(user_id).await {
+    match data.fetch_cv_use_case.execute(user.user_id).await {
         Ok(cvs) => HttpResponse::Ok().json(cvs),
 
         Err(FetchCVError::NoCVs) => HttpResponse::Ok().json(Vec::<CVInfo>::new()),
@@ -279,6 +278,7 @@ pub async fn patch_cv_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::auth::application::services::jwt::{JwtConfig, JwtService};
     use crate::cv::application::use_cases::create_cv::{CreateCVError, ICreateCVUseCase};
     use crate::cv::application::use_cases::fetch_cv_by_id::IFetchCVByIdUseCase;
     use crate::cv::application::use_cases::fetch_user_cvs::{FetchCVError, IFetchCVUseCase};
@@ -538,12 +538,12 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_cv_handler_success() {
-        // `should_fail` is None
         let fetch_uc = MockFetchCVUseCase::new();
 
+        let user_id = Uuid::new_v4();
         let expected_cv = CVInfo {
             id: Uuid::new_v4(),
-            user_id: Uuid::new_v4(),
+            user_id,
             bio: "Software Engineer with 5 years of experience".to_string(),
             role: "Software Engineer".to_string(),
             photo_url: "https://example.com/photo.jpg".to_string(),
@@ -557,18 +557,38 @@ mod tests {
             highlighted_projects: vec![],
         };
 
-        // `cv` is Some
         fetch_uc.set_success(expected_cv.clone()).await;
 
         let app_state = TestAppStateBuilder::default()
             .with_fetch_cv(fetch_uc)
             .build();
 
-        let user_id = Uuid::new_v4();
-        let app = test::init_service(App::new().app_data(app_state).service(get_cv_handler)).await;
+        // Create JWT service for testing
+        let jwt_config = JwtConfig {
+            issuer: "Ekstion".to_string(),
+            secret_key: "test_secret_key_for_testing_only".to_string(),
+            access_token_expiry: 3600,
+            refresh_token_expiry: 86400,
+            verification_token_expiry: 86400,
+        };
+        let jwt_service = JwtService::new(jwt_config);
+
+        // Generate a valid token for a verified user
+        let token = jwt_service
+            .generate_access_token(user_id, true)
+            .expect("Failed to generate token");
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state)
+                .app_data(web::Data::new(jwt_service))
+                .service(get_cv_handler),
+        )
+        .await;
 
         let req = test::TestRequest::get()
-            .uri(&format!("/api/cvs/{}", user_id))
+            .uri("/api/cvs")
+            .insert_header(("Authorization", format!("Bearer {}", token)))
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -577,6 +597,49 @@ mod tests {
         let body: Vec<CVInfo> = test::read_body_json(resp).await;
         assert_eq!(body.len(), 1);
         assert_eq!(body[0].bio, expected_cv.bio);
+    }
+    #[actix_web::test]
+    async fn test_get_cv_handler_no_cvs() {
+        let fetch_uc = MockFetchCVUseCase::new();
+
+        fetch_uc.set_error(FetchCVError::NoCVs).await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_fetch_cv(fetch_uc)
+            .build();
+
+        let jwt_config = JwtConfig {
+            issuer: "Ekstion".to_string(),
+            secret_key: "test_secret_key_for_testing_only".to_string(),
+            access_token_expiry: 3600,
+            refresh_token_expiry: 86400,
+            verification_token_expiry: 86400,
+        };
+        let jwt_service = JwtService::new(jwt_config);
+
+        let user_id = Uuid::new_v4();
+        let token = jwt_service
+            .generate_access_token(user_id, true)
+            .expect("Failed to generate token");
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state)
+                .app_data(web::Data::new(jwt_service))
+                .service(get_cv_handler),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/api/cvs")
+            .insert_header(("Authorization", format!("Bearer {}", token)))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 200);
+
+        let body: Vec<CVInfo> = test::read_body_json(resp).await;
+        assert_eq!(body.len(), 0); // Empty array when no CVs
     }
 
     #[actix_web::test]
@@ -593,14 +656,147 @@ mod tests {
             .with_fetch_cv(fetch_uc)
             .build();
 
-        let app = test::init_service(App::new().app_data(app_state).service(get_cv_handler)).await;
+        let jwt_config = JwtConfig {
+            issuer: "Ekstion".to_string(),
+            secret_key: "test_secret_key_for_testing_only".to_string(),
+            access_token_expiry: 3600,
+            refresh_token_expiry: 86400,
+            verification_token_expiry: 86400,
+        };
+
+        let jwt_service = JwtService::new(jwt_config);
+
+        let user_id = Uuid::new_v4();
+        let token = jwt_service
+            .generate_access_token(user_id, true)
+            .expect("Failed to generate token");
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state)
+                .app_data(web::Data::new(jwt_service))
+                .service(get_cv_handler),
+        )
+        .await;
 
         let req = test::TestRequest::get()
-            .uri(&format!("/api/cvs/{}", Uuid::new_v4()))
+            .uri("/api/cvs")
+            .insert_header(("Authorization", format!("Bearer {}", token)))
             .to_request();
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 500);
+    }
+
+    #[actix_web::test]
+    async fn test_get_cv_handler_missing_auth_header() {
+        let fetch_uc = MockFetchCVUseCase::new();
+
+        let app_state = TestAppStateBuilder::default()
+            .with_fetch_cv(fetch_uc)
+            .build();
+
+        let jwt_config = JwtConfig {
+            issuer: "Ekstion".to_string(),
+            secret_key: "test_secret_key_for_testing_only".to_string(),
+            access_token_expiry: 3600,
+            refresh_token_expiry: 86400,
+            verification_token_expiry: 86400,
+        };
+
+        let jwt_service = JwtService::new(jwt_config);
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state)
+                .app_data(web::Data::new(jwt_service))
+                .service(get_cv_handler),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/api/cvs")
+            // No Authorization header
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 401); // Unauthorized
+    }
+
+    #[actix_web::test]
+    async fn test_get_cv_handler_invalid_token() {
+        let fetch_uc = MockFetchCVUseCase::new();
+
+        let app_state = TestAppStateBuilder::default()
+            .with_fetch_cv(fetch_uc)
+            .build();
+
+        let jwt_config = JwtConfig {
+            issuer: "Ekstion".to_string(),
+            secret_key: "test_secret_key_for_testing_only".to_string(),
+            access_token_expiry: 3600,
+            refresh_token_expiry: 86400,
+            verification_token_expiry: 86400,
+        };
+
+        let jwt_service = JwtService::new(jwt_config);
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state)
+                .app_data(web::Data::new(jwt_service))
+                .service(get_cv_handler),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/api/cvs")
+            .insert_header(("Authorization", "Bearer invalid_token_here"))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 401); // Unauthorized
+    }
+
+    #[actix_web::test]
+    async fn test_get_cv_handler_unverified_user() {
+        let fetch_uc = MockFetchCVUseCase::new();
+
+        let app_state = TestAppStateBuilder::default()
+            .with_fetch_cv(fetch_uc)
+            .build();
+
+        let jwt_config = JwtConfig {
+            issuer: "Ekstion".to_string(),
+            secret_key: "test_secret_key_for_testing_only".to_string(),
+            access_token_expiry: 3600,
+            refresh_token_expiry: 86400,
+            verification_token_expiry: 86400,
+        };
+
+        let jwt_service = JwtService::new(jwt_config);
+
+        let user_id = Uuid::new_v4();
+        // Generate token for UNVERIFIED user (is_verified = false)
+        let token = jwt_service
+            .generate_access_token(user_id, false)
+            .expect("Failed to generate token");
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state)
+                .app_data(web::Data::new(jwt_service))
+                .service(get_cv_handler),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/api/cvs")
+            .insert_header(("Authorization", format!("Bearer {}", token)))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 403); // Forbidden - user not verified
     }
 
     // ================== GET SINGLE CV TESTS ==================
