@@ -1,4 +1,5 @@
 use crate::auth::application::use_cases::refresh_token::IRefreshTokenUseCase;
+use crate::auth::application::use_cases::soft_delete_user::ISoftDeleteUserUseCase;
 use crate::auth::application::use_cases::{
     create_user::ICreateUserUseCase, login_user::ILoginUserUseCase, logout_user::ILogoutUseCase,
     verify_user_email::IVerifyUserEmailUseCase,
@@ -24,6 +25,7 @@ pub struct TestAppStateBuilder {
     login_user: Option<Arc<dyn ILoginUserUseCase + Send + Sync>>,
     refresh_token: Option<Arc<dyn IRefreshTokenUseCase + Send + Sync>>,
     logout_user: Option<Arc<dyn ILogoutUseCase + Send + Sync>>,
+    soft_delete_user: Option<Arc<dyn ISoftDeleteUserUseCase + Send + Sync>>,
 }
 
 impl Default for TestAppStateBuilder {
@@ -39,6 +41,7 @@ impl Default for TestAppStateBuilder {
             login_user: Some(Arc::new(StubLoginUserUseCase)),
             refresh_token: Some(Arc::new(StubRefreshTokenUseCase)),
             logout_user: Some(Arc::new(StubLogoutUserUseCase)),
+            soft_delete_user: Some(Arc::new(StubSoftDeleteUserUseCase)),
         }
     }
 }
@@ -116,6 +119,7 @@ impl TestAppStateBuilder {
             login_user_use_case: self.login_user.unwrap(),
             refresh_token_use_case: self.refresh_token.unwrap(),
             logout_user_use_case: self.logout_user.unwrap(),
+            soft_delete_user_use_case: self.soft_delete_user.unwrap(),
         })
     }
 }

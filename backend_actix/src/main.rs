@@ -13,6 +13,7 @@ use crate::auth::application::use_cases::{
     create_user::{CreateUserUseCase, ICreateUserUseCase},
     login_user::{ILoginUserUseCase, LoginUserUseCase},
     logout_user::{ILogoutUseCase, LogoutUseCase},
+    soft_delete_user::{ISoftDeleteUserUseCase, SoftDeleteUserUseCase},
     verify_user_email::{IVerifyUserEmailUseCase, VerifyUserEmailUseCase},
 };
 
@@ -56,6 +57,7 @@ pub struct AppState {
     pub login_user_use_case: Arc<dyn ILoginUserUseCase + Send + Sync>,
     pub refresh_token_use_case: Arc<dyn IRefreshTokenUseCase + Send + Sync>,
     pub logout_user_use_case: Arc<dyn ILogoutUseCase + Send + Sync>,
+    pub soft_delete_user_use_case: Arc<dyn ISoftDeleteUserUseCase + Send + Sync>,
 }
 
 #[actix_web::main]
@@ -146,11 +148,14 @@ async fn start() -> std::io::Result<()> {
         email_service,
         String::from(&server_url),
     );
-    let verify_user_email_use_case = VerifyUserEmailUseCase::new(user_repo, jwt_service.clone());
+    let verify_user_email_use_case =
+        VerifyUserEmailUseCase::new(user_repo.clone(), jwt_service.clone());
     let login_user_use_case =
         LoginUserUseCase::new(user_query, password_hasher, jwt_service.clone());
     let refresh_token_use_case = RefreshTokenUseCase::new(jwt_service.clone());
-    let logout_user_use_case = LogoutUseCase::new(redis_token_repo, jwt_service);
+    let logout_user_use_case = LogoutUseCase::new(redis_token_repo.clone(), jwt_service.clone());
+    let soft_delet_user_use_case =
+        SoftDeleteUserUseCase::new(user_repo, redis_token_repo, jwt_service);
 
     // 3) Build app state - wrap each use case in Arc::new()
     let state = AppState {
@@ -164,6 +169,7 @@ async fn start() -> std::io::Result<()> {
         login_user_use_case: Arc::new(login_user_use_case),
         refresh_token_use_case: Arc::new(refresh_token_use_case),
         logout_user_use_case: Arc::new(logout_user_use_case),
+        soft_delete_user_use_case: Arc::new(soft_delet_user_use_case),
     };
 
     // 4) Start the server

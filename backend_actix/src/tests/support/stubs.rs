@@ -7,6 +7,9 @@ use crate::auth::application::use_cases::logout_user::{
 use crate::auth::application::use_cases::refresh_token::{
     IRefreshTokenUseCase, RefreshTokenError, RefreshTokenRequest, RefreshTokenResponse,
 };
+use crate::auth::application::use_cases::soft_delete_user::{
+    ISoftDeleteUserUseCase, SoftDeleteUserError, SoftDeleteUserRequest,
+};
 use crate::cv::domain::entities::CVInfo;
 use crate::{
     auth::application::use_cases::login_user::{LoginError, LoginRequest, LoginUserResponse},
@@ -146,6 +149,16 @@ pub struct StubLogoutUserUseCase;
 #[async_trait]
 impl ILogoutUseCase for StubLogoutUserUseCase {
     async fn execute(&self, _request: LogoutRequest) -> Result<LogoutResponse, LogoutError> {
+        unimplemented!()
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct StubSoftDeleteUserUseCase;
+
+#[async_trait]
+impl ISoftDeleteUserUseCase for StubSoftDeleteUserUseCase {
+    async fn execute(&self, _request: SoftDeleteUserRequest) -> Result<(), SoftDeleteUserError> {
         unimplemented!()
     }
 }
