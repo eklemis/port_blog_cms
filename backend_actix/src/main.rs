@@ -9,7 +9,7 @@ use crate::auth::adapter::outgoing::user_query_postgres::UserQueryPostgres;
 use crate::auth::adapter::outgoing::user_repository_postgres::UserRepositoryPostgres;
 use crate::auth::application::services::hash::{HashingAlgorithm, PasswordHashingService};
 use crate::auth::application::services::jwt::{JwtConfig, JwtService};
-use crate::auth::application::services::password::BasicPasswordPolicy;
+// use crate::auth::application::services::password::BasicPasswordPolicy;
 use crate::auth::application::use_cases::{
     create_user::{CreateUserUseCase, ICreateUserUseCase},
     login_user::{ILoginUserUseCase, LoginUserUseCase},
@@ -131,7 +131,7 @@ async fn start() -> std::io::Result<()> {
 
     // Setup aut services
     let jwt_service = JwtService::new(JwtConfig::from_env());
-    let password_policy = Arc::new(BasicPasswordPolicy);
+    // let password_policy = Arc::new(BasicPasswordPolicy);
 
     // Setup email service
     let smtp_sender = SmtpEmailSender::new(&smtp_server, &smtp_user, &smtp_pass, &from_email);
