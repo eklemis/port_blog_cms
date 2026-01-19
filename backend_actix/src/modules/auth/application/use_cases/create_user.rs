@@ -6,6 +6,7 @@ use crate::modules::auth::application::ports::outgoing::{
     user_query::UserQuery, user_repository::UserRepository, UserRepositoryError,
 };
 use async_trait::async_trait;
+use email_address::EmailAddress;
 use uuid::Uuid;
 
 // Possible errors for creating a user
@@ -82,14 +83,15 @@ where
         }
 
         // Email validation
-        if email.trim().is_empty() || !email.contains('@') {
+        let email = email.trim();
+        if !EmailAddress::is_valid(email) {
             return Err(CreateUserError::InvalidInput(
                 "Invalid email format".to_string(),
             ));
         }
 
         // Password validation
-        if password.len() < 8 {
+        if password.len() < 12 {
             return Err(CreateUserError::InvalidInput(
                 "Password must be at least 8 characters".to_string(),
             ));
