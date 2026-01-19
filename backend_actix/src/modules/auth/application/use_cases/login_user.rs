@@ -5,7 +5,7 @@ use crate::auth::application::{
     ports::outgoing::UserQuery,
     services::{hash::PasswordHashingService, jwt::JwtService},
 };
-
+use email_address::EmailAddress;
 // ========================= Login Request =========================
 /// Validated login request - can be deserialized directly from JSON
 #[derive(Debug, Clone)]
@@ -63,9 +63,7 @@ impl LoginRequest {
             return Err(LoginRequestError::EmptyEmail);
         }
 
-        let email_regex = regex::Regex::new(r"^[^\s@]+@[^\s@]+\.[^\s@]+$").expect("valid regex");
-
-        if !email_regex.is_match(email) {
+        if !EmailAddress::is_valid(email) {
             return Err(LoginRequestError::InvalidEmailFormat);
         }
 
