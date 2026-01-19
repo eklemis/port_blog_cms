@@ -102,7 +102,6 @@ impl<'de> Deserialize<'de> for LoginRequest {
 #[derive(Debug, Clone)]
 pub enum LoginError {
     InvalidCredentials,
-    UserNotVerified,
     UserDeleted,
     PasswordVerificationFailed(String),
     TokenGenerationFailed(String),
@@ -113,7 +112,6 @@ impl std::fmt::Display for LoginError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LoginError::InvalidCredentials => write!(f, "Invalid email or password"),
-            LoginError::UserNotVerified => write!(f, "Email not verified"),
             LoginError::UserDeleted => write!(f, "User account has been deleted"),
             LoginError::PasswordVerificationFailed(msg) => {
                 write!(f, "Password verification failed: {}", msg)
@@ -205,12 +203,7 @@ where
             return Err(LoginError::InvalidCredentials);
         }
 
-        // 4️⃣ **Check if user is verified**
-        if !user.is_verified {
-            return Err(LoginError::UserNotVerified);
-        }
-
-        // 5️⃣ **Generate tokens**
+        // 4️⃣ **Generate tokens**
         let access_token = self
             .jwt_service
             .generate_access_token(user.id, user.is_verified)
@@ -330,10 +323,6 @@ mod tests {
         assert_eq!(
             LoginError::InvalidCredentials.to_string(),
             "Invalid email or password"
-        );
-        assert_eq!(
-            LoginError::UserNotVerified.to_string(),
-            "Email not verified"
         );
         assert_eq!(
             LoginError::UserDeleted.to_string(),
@@ -490,32 +479,6 @@ mod tests {
         assert!(
             matches!(result, Err(LoginError::InvalidCredentials)),
             "Expected InvalidCredentials, got {:?}",
-            result
-        );
-    }
-
-    #[tokio::test]
-    async fn test_login_user_not_verified() {
-        let user = create_test_user(false, false);
-        let query = MockUserQuery {
-            user: Some(user),
-            should_fail: false,
-        };
-        let password_hasher = PasswordHashingService::with_hasher(MockPasswordHasher {
-            should_verify: true,
-        });
-        let jwt_service = create_jwt_service();
-
-        let use_case = LoginUserUseCase::new(query, password_hasher, jwt_service);
-
-        let request =
-            LoginRequest::new("test@example.com".to_string(), "password123".to_string()).unwrap();
-
-        let result = use_case.execute(request).await;
-
-        assert!(
-            matches!(result, Err(LoginError::UserNotVerified)),
-            "Expected UserNotVerified, got {:?}",
             result
         );
     }

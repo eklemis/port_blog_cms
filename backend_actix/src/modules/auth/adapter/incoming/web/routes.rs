@@ -232,13 +232,6 @@ pub async fn login_user_handler(
             }))
         }
 
-        Err(LoginError::UserNotVerified) => {
-            warn!("Login failed: User not verified");
-            HttpResponse::Forbidden().json(serde_json::json!({
-                "error": "Email not verified. Please check your email to verify your account."
-            }))
-        }
-
         Err(LoginError::UserDeleted) => {
             warn!("Login failed: User deleted");
             HttpResponse::Forbidden().json(serde_json::json!({
@@ -1111,30 +1104,6 @@ mod tests {
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 401);
-    }
-
-    #[actix_web::test]
-    async fn test_login_user_not_verified() {
-        let mock_uc = MockLoginUserUseCase::new();
-        mock_uc.set_result(Err(LoginError::UserNotVerified)).await;
-
-        let app_state = TestAppStateBuilder::default()
-            .with_login_user(mock_uc)
-            .build();
-
-        let app =
-            test::init_service(App::new().app_data(app_state).service(login_user_handler)).await;
-
-        let req = test::TestRequest::post()
-            .uri("/api/auth/login")
-            .set_json(serde_json::json!({
-                "email": "test@example.com",
-                "password": "password123"
-            }))
-            .to_request();
-
-        let resp = test::call_service(&app, req).await;
-        assert_eq!(resp.status(), 403);
     }
 
     #[actix_web::test]
