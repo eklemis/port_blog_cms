@@ -383,7 +383,7 @@ mod tests {
             .execute(
                 "new_user".to_string(),
                 "new_user@example.com".to_string(),
-                "password".to_string(),
+                "password123456".to_string(),
             )
             .await;
 
@@ -438,7 +438,7 @@ mod tests {
             .execute(
                 "existing_user".to_string(),
                 "new_user@example.com".to_string(),
-                "password".to_string(),
+                "password123456".to_string(),
             )
             .await;
 
@@ -492,7 +492,7 @@ mod tests {
             .execute(
                 "new_user".to_string(),
                 "existing@example.com".to_string(),
-                "password".to_string(),
+                "password1234".to_string(),
             )
             .await;
 
@@ -539,7 +539,7 @@ mod tests {
             .execute(
                 "new_user".to_string(),
                 "existing@example.com".to_string(),
-                "password".to_string(),
+                "password123456".to_string(),
             )
             .await;
 
@@ -589,7 +589,7 @@ mod tests {
             .execute(
                 "new_user".to_string(),
                 "new_user@example.com".to_string(),
-                "password".to_string(),
+                "password123456".to_string(),
             )
             .await;
 
@@ -681,7 +681,7 @@ mod tests {
             .execute(
                 "new_user".to_string(),
                 "deleted@example.com".to_string(),
-                "new_password".to_string(),
+                "new_password123456".to_string(),
             )
             .await;
 
@@ -768,7 +768,7 @@ mod tests {
             .execute(
                 "new_user".to_string(),
                 "deleted@example.com".to_string(),
-                "new_password".to_string(),
+                "new_password123456".to_string(),
             )
             .await;
 
@@ -808,7 +808,7 @@ mod tests {
             .execute(
                 "new_user".to_string(),
                 "new_user@example.com".to_string(),
-                "password".to_string(),
+                "password123456".to_string(),
             )
             .await;
 
@@ -877,7 +877,7 @@ mod tests {
             .execute(
                 "new_user".to_string(),
                 "new_user@example.com".to_string(),
-                "password".to_string(),
+                "password123456".to_string(),
             )
             .await;
 
