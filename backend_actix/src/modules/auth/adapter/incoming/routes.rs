@@ -1,12 +1,15 @@
 use crate::auth::application::use_cases::login_user::LoginError;
 use crate::auth::application::use_cases::refresh_token::{RefreshTokenError, RefreshTokenRequest};
+use crate::auth::application::use_cases::soft_delete_user::{
+    SoftDeleteUserError, SoftDeleteUserRequest,
+};
 use crate::auth::application::use_cases::{
     login_user::LoginRequest, verify_user_email::VerifyUserEmailError,
 };
 use crate::modules::auth::application::use_cases::create_user::CreateUserError;
 use crate::modules::auth::application::use_cases::logout_user::{LogoutError, LogoutRequest};
 use crate::AppState;
-use actix_web::{post, web, HttpRequest, HttpResponse, Responder};
+use actix_web::{delete, post, web, HttpRequest, HttpResponse, Responder};
 use serde::Deserialize;
 use tracing::{error, info, warn};
 
@@ -374,6 +377,55 @@ pub async fn logout_user_handler(
     }
 }
 
+/// **🗑️ Soft Delete User API Endpoint**
+#[delete("/api/users/me")]
+pub async fn soft_delete_user_handler(
+    req: HttpRequest,
+    data: web::Data<AppState>,
+) -> impl Responder {
+    let use_case = &data.soft_delete_user_use_case;
+
+    info!("Soft delete user attempt");
+
+    // 🔑 Extract access token from Authorization header
+    let access_token = match req
+        .headers()
+        .get("Authorization")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+    {
+        Some(token) => token.to_string(),
+        None => {
+            info!("Missing or invalid Authorization header");
+            return HttpResponse::Unauthorized().finish();
+        }
+    };
+
+    let request = SoftDeleteUserRequest::new(access_token);
+
+    let result = use_case.execute(request).await;
+
+    match result {
+        Ok(_) => {
+            info!("User soft deleted successfully");
+
+            HttpResponse::NoContent().finish()
+        }
+
+        Err(SoftDeleteUserError::Unauthorized) => {
+            info!("Unauthorized soft delete attempt");
+
+            HttpResponse::Unauthorized().finish()
+        }
+
+        Err(SoftDeleteUserError::DatabaseError(ref e)) => {
+            error!(error = %e, "Database error during soft delete");
+
+            HttpResponse::InternalServerError().finish()
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -383,6 +435,9 @@ mod tests {
     };
     use crate::auth::application::use_cases::refresh_token::{
         IRefreshTokenUseCase, RefreshTokenResponse,
+    };
+    use crate::auth::application::use_cases::soft_delete_user::{
+        ISoftDeleteUserUseCase, SoftDeleteUserError, SoftDeleteUserRequest,
     };
     use crate::modules::auth::application::domain::entities::User;
     use crate::modules::auth::application::use_cases::create_user::{
@@ -1723,5 +1778,156 @@ mod tests {
         assert_eq!(resp1.status(), 200);
 
         // Logout should always succeed, even if called multiple times
+    }
+
+    // ====================== Mock Soft Delete User Use Case ======================
+    #[derive(Clone)]
+    struct MockSoftDeleteUserUseCase {
+        result: Arc<Mutex<Option<Result<(), SoftDeleteUserError>>>>,
+        received_token: Arc<Mutex<Option<String>>>,
+    }
+
+    impl MockSoftDeleteUserUseCase {
+        fn new() -> Self {
+            Self {
+                result: Arc::new(Mutex::new(None)),
+                received_token: Arc::new(Mutex::new(None)),
+            }
+        }
+
+        async fn set_result(&self, result: Result<(), SoftDeleteUserError>) {
+            *self.result.lock().await = Some(result);
+        }
+
+        async fn received_token(&self) -> Option<String> {
+            self.received_token.lock().await.clone()
+        }
+    }
+
+    #[async_trait]
+    impl ISoftDeleteUserUseCase for MockSoftDeleteUserUseCase {
+        async fn execute(&self, request: SoftDeleteUserRequest) -> Result<(), SoftDeleteUserError> {
+            *self.received_token.lock().await = Some(request.access_token().to_string());
+
+            self.result
+                .lock()
+                .await
+                .clone()
+                .expect("mock result must be set")
+        }
+    }
+
+    // ====================== Tests ======================
+
+    #[actix_web::test]
+    async fn test_soft_delete_user_success() {
+        let mock_uc = MockSoftDeleteUserUseCase::new();
+        mock_uc.set_result(Ok(())).await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_soft_delete_user(mock_uc.clone())
+            .build();
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state)
+                .service(soft_delete_user_handler),
+        )
+        .await;
+
+        let req = test::TestRequest::delete()
+            .uri("/api/users/me")
+            .insert_header(("Authorization", "Bearer valid-access-token"))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status(), 204);
+
+        // Ensure token was passed to use case
+        let token = mock_uc.received_token().await;
+        assert_eq!(token, Some("valid-access-token".to_string()));
+    }
+
+    #[actix_web::test]
+    async fn test_soft_delete_user_missing_authorization_header() {
+        let mock_uc = MockSoftDeleteUserUseCase::new();
+
+        let app_state = TestAppStateBuilder::default()
+            .with_soft_delete_user(mock_uc)
+            .build();
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state)
+                .service(soft_delete_user_handler),
+        )
+        .await;
+
+        let req = test::TestRequest::delete()
+            .uri("/api/users/me")
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status(), 401);
+    }
+
+    #[actix_web::test]
+    async fn test_soft_delete_user_unauthorized() {
+        let mock_uc = MockSoftDeleteUserUseCase::new();
+        mock_uc
+            .set_result(Err(SoftDeleteUserError::Unauthorized))
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_soft_delete_user(mock_uc)
+            .build();
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state)
+                .service(soft_delete_user_handler),
+        )
+        .await;
+
+        let req = test::TestRequest::delete()
+            .uri("/api/users/me")
+            .insert_header(("Authorization", "Bearer invalid-token"))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status(), 401);
+    }
+
+    #[actix_web::test]
+    async fn test_soft_delete_user_database_error() {
+        let mock_uc = MockSoftDeleteUserUseCase::new();
+        mock_uc
+            .set_result(Err(SoftDeleteUserError::DatabaseError(
+                "db failure".to_string(),
+            )))
+            .await;
+
+        let app_state = TestAppStateBuilder::default()
+            .with_soft_delete_user(mock_uc)
+            .build();
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state)
+                .service(soft_delete_user_handler),
+        )
+        .await;
+
+        let req = test::TestRequest::delete()
+            .uri("/api/users/me")
+            .insert_header(("Authorization", "Bearer valid-access-token"))
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status(), 500);
     }
 }

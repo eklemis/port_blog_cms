@@ -106,6 +106,14 @@ impl TestAppStateBuilder {
         self
     }
 
+    pub fn with_soft_delete_user(
+        mut self,
+        uc: impl ISoftDeleteUserUseCase + Send + Sync + 'static,
+    ) -> Self {
+        self.soft_delete_user = Some(Arc::new(uc));
+        self
+    }
+
     pub fn build(self) -> web::Data<AppState> {
         web::Data::new(AppState {
             // Safe unwrap: defaults are always set in Default

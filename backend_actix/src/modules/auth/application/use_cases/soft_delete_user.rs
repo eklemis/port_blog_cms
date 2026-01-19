@@ -25,7 +25,7 @@ impl SoftDeleteUserRequest {
 }
 
 // ====================== Soft Delete Errors =================
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SoftDeleteUserError {
     Unauthorized,
     DatabaseError(String),

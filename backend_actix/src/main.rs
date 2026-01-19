@@ -197,6 +197,7 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::auth::adapter::incoming::routes::login_user_handler);
     cfg.service(crate::auth::adapter::incoming::routes::refresh_token_handler);
     cfg.service(crate::auth::adapter::incoming::routes::logout_user_handler);
+    cfg.service(crate::auth::adapter::incoming::routes::soft_delete_user_handler);
 }
 
 #[cfg(not(tarpaulin_include))]
