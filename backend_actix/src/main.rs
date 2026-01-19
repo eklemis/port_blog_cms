@@ -189,11 +189,11 @@ async fn start() -> std::io::Result<()> {
 #[cfg(not(tarpaulin_include))]
 fn init_routes(cfg: &mut web::ServiceConfig) {
     // CV
-    cfg.service(crate::cv::adapter::incoming::routes::get_cv_handler);
-    cfg.service(crate::cv::adapter::incoming::routes::get_cv_by_id_handler);
-    cfg.service(crate::cv::adapter::incoming::routes::create_cv_handler);
-    cfg.service(crate::cv::adapter::incoming::routes::update_cv_handler);
-    cfg.service(crate::cv::adapter::incoming::routes::patch_cv_handler);
+    cfg.service(crate::cv::adapter::incoming::web::routes::get_cvs_handler);
+    cfg.service(crate::cv::adapter::incoming::web::routes::get_cv_by_id_handler);
+    cfg.service(crate::cv::adapter::incoming::web::routes::create_cv_handler);
+    cfg.service(crate::cv::adapter::incoming::web::routes::update_cv_handler);
+    cfg.service(crate::cv::adapter::incoming::web::routes::patch_cv_handler);
     // Auth
     cfg.service(crate::auth::adapter::incoming::web::routes::create_user_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::verify_user_email_handler);
