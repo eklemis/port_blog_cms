@@ -2,14 +2,18 @@ pub mod modules;
 pub use modules::auth;
 pub use modules::cv;
 pub use modules::email;
+pub mod health;
 
-// auth modul resources
+// Test helpers module - only compiled with feature flag
+#[cfg(feature = "test-helpers")]
+mod test_helpers;
+
+// ... (all your existing imports remain the same)
 use crate::auth::adapter::outgoing::token_repository_redis::RedisTokenRepository;
 use crate::auth::adapter::outgoing::user_query_postgres::UserQueryPostgres;
 use crate::auth::adapter::outgoing::user_repository_postgres::UserRepositoryPostgres;
 use crate::auth::application::services::hash::{HashingAlgorithm, PasswordHashingService};
 use crate::auth::application::services::jwt::{JwtConfig, JwtService};
-// use crate::auth::application::services::password::BasicPasswordPolicy;
 use crate::auth::application::use_cases::{
     create_user::{CreateUserUseCase, ICreateUserUseCase},
     login_user::{ILoginUserUseCase, LoginUserUseCase},
@@ -18,7 +22,6 @@ use crate::auth::application::use_cases::{
     verify_user_email::{IVerifyUserEmailUseCase, VerifyUserEmailUseCase},
 };
 
-// cv module resources
 use crate::cv::adapter::outgoing::cv_repo_postgres::CVRepoPostgres;
 use crate::cv::application::use_cases::create_cv::{CreateCVUseCase, ICreateCVUseCase};
 use crate::cv::application::use_cases::fetch_cv_by_id::{FetchCVByIdUseCase, IFetchCVByIdUseCase};
@@ -26,7 +29,6 @@ use crate::cv::application::use_cases::fetch_user_cvs::{FetchCVUseCase, IFetchCV
 use crate::cv::application::use_cases::patch_cv::{IPatchCVUseCase, PatchCVUseCase};
 use crate::cv::application::use_cases::update_cv::{IUpdateCVUseCase, UpdateCVUseCase};
 
-// Email Service
 use crate::email::adapter::outgoing::smtp_sender::SmtpEmailSender;
 use crate::email::application::services::EmailService;
 use crate::modules::auth::application::use_cases::refresh_token::IRefreshTokenUseCase;
@@ -39,7 +41,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 
-// Logging
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -64,9 +65,8 @@ pub struct AppState {
 #[actix_web::main]
 #[cfg(not(tarpaulin_include))]
 async fn start() -> std::io::Result<()> {
-    // Initialize tracing
-
     use crate::auth::application::use_cases::refresh_token::RefreshTokenUseCase;
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -77,7 +77,19 @@ async fn start() -> std::io::Result<()> {
 
     info!("Starting application...");
 
-    // get env vars
+    // 🚨 SAFETY GUARD: Prevent test-helpers in production
+    #[cfg(feature = "test-helpers")]
+    {
+        let env = env::var("RUST_ENV").unwrap_or_else(|_| "development".to_string());
+        if env == "production" {
+            panic!("🚨 FATAL: test-helpers feature enabled in production environment!");
+        }
+        tracing::warn!(
+            "⚠️  Test helper routes are ENABLED for environment: {}",
+            env
+        );
+    }
+
     dotenvy::dotenv().ok();
 
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set in .env file");
@@ -85,28 +97,22 @@ async fn start() -> std::io::Result<()> {
     let port = env::var("PORT").expect("PORT is not set in .env file");
     let redis_url = env::var("REDIS_URL").expect("REDIS_URL is not set in .env file");
 
-    // get env for email service
     let smtp_server = std::env::var("SMTP_SERVER").expect("SMTP_SERVER not set");
     let smtp_user = std::env::var("SMTP_USERNAME").expect("SMTP_USERNAME not set");
     let smtp_pass = std::env::var("SMTP_PASSWORD").expect("SMTP_PASSWORD not set");
     let from_email = std::env::var("EMAIL_FROM").expect("EMAIL_FROM not set");
 
     let server_url = format!("{host}:{port}");
-    println!("Server run on:{}", server_url);
+    println!("Server run on: {}", server_url);
 
-    // 1. establish connection to database
+    // Database connection
     let mut opt = ConnectOptions::new(db_url);
-    opt
-        // Core pool sizing
-        .max_connections(50)
+    opt.max_connections(50)
         .min_connections(10)
-        // Timeouts (fail fast instead of piling up)
         .connect_timeout(Duration::from_secs(5))
         .acquire_timeout(Duration::from_secs(5))
-        // Hygiene
         .idle_timeout(Duration::from_secs(300))
         .max_lifetime(Duration::from_secs(1800))
-        // Noise reduction
         .sqlx_logging(false);
 
     let conn = Database::connect(opt)
@@ -120,8 +126,9 @@ async fn start() -> std::io::Result<()> {
     let redis_manager = ConnectionManager::new(redis_client)
         .await
         .expect("Failed to create Redis connection");
+    let redis_arc = Arc::new(Mutex::new(redis_manager));
 
-    // 2) Create cv repositories and use cases
+    // Create repositories and use cases (unchanged)
     let cv_repo = CVRepoPostgres::new(Arc::clone(&db_arc));
     let fetch_cv_use_case = FetchCVUseCase::new(cv_repo.clone());
     let fetch_cv_by_id_use_case = FetchCVByIdUseCase::new(cv_repo.clone());
@@ -129,19 +136,15 @@ async fn start() -> std::io::Result<()> {
     let update_cv_use_case = UpdateCVUseCase::new(cv_repo.clone());
     let patch_cv_use_case = PatchCVUseCase::new(cv_repo.clone());
 
-    // Setup aut services
     let jwt_service = JwtService::new(JwtConfig::from_env());
-    // let password_policy = Arc::new(BasicPasswordPolicy);
-
-    // Setup email service
     let smtp_sender = SmtpEmailSender::new(&smtp_server, &smtp_user, &smtp_pass, &from_email);
     let email_service = EmailService::new(Arc::new(smtp_sender));
 
-    // Create Auth related repositories and use cases
     let user_repo = UserRepositoryPostgres::new(Arc::clone(&db_arc));
     let user_query = UserQueryPostgres::new(Arc::clone(&db_arc));
-    let redis_token_repo = RedisTokenRepository::new(Arc::new(Mutex::new(redis_manager)));
+    let redis_token_repo = RedisTokenRepository::new(Arc::clone(&redis_arc));
     let password_hasher = PasswordHashingService::new(HashingAlgorithm::Argon2);
+
     let create_user_use_case = CreateUserUseCase::new(
         user_query.clone(),
         user_repo.clone(),
@@ -159,7 +162,6 @@ async fn start() -> std::io::Result<()> {
     let soft_delet_user_use_case =
         SoftDeleteUserUseCase::new(user_repo, redis_token_repo, jwt_service.clone());
 
-    // 3) Build app state - wrap each use case in Arc::new()
     let state = AppState {
         fetch_cv_use_case: Arc::new(fetch_cv_use_case),
         fetch_cv_by_id_use_case: Arc::new(fetch_cv_by_id_use_case),
@@ -174,12 +176,24 @@ async fn start() -> std::io::Result<()> {
         soft_delete_user_use_case: Arc::new(soft_delet_user_use_case),
     };
 
-    // 4) Start the server
+    // Clone db_arc for use in HttpServer closure
+    let db_for_server = Arc::clone(&db_arc);
+
     HttpServer::new(move || {
-        App::new()
+        let mut app = App::new()
             .app_data(web::Data::new(state.clone()))
             .app_data(web::Data::new(jwt_service.clone()))
-            .configure(init_routes)
+            .app_data(web::Data::new(Arc::clone(&db_for_server)))
+            .app_data(web::Data::new(Arc::clone(&redis_arc)))
+            .configure(init_routes);
+
+        // Conditionally add test routes
+        #[cfg(feature = "test-helpers")]
+        {
+            app = app.configure(test_helpers::configure_routes);
+        }
+
+        app
     })
     .bind(server_url)?
     .run()
@@ -188,6 +202,9 @@ async fn start() -> std::io::Result<()> {
 
 #[cfg(not(tarpaulin_include))]
 fn init_routes(cfg: &mut web::ServiceConfig) {
+    // Health
+    cfg.service(crate::health::health);
+    cfg.service(crate::health::readiness);
     // CV
     cfg.service(crate::cv::adapter::incoming::web::routes::get_cvs_handler);
     cfg.service(crate::cv::adapter::incoming::web::routes::get_cv_by_id_handler);
