@@ -153,11 +153,15 @@ app.get("/account/random", (_req, res) => {
 
   const email = `user_${randomString(10)}@example.test`;
 
-  // Minimum length: 12
+  // user_name: 3–50 chars, alphanumeric + underscore
+  const user_name = `user_${randomString(6)}`; // length = 11
+
+  // password: minimum length 12
   const password = randomString(16);
 
   res.json({
     email,
+    user_name,
     password,
   });
 });
