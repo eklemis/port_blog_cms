@@ -1,6 +1,7 @@
 import express from "express";
 import jwt, { Algorithm } from "jsonwebtoken";
 import { randomUUID } from "crypto";
+import { pool } from "./db";
 
 /**
  * 🚨 SAFETY GUARD
@@ -159,6 +160,55 @@ app.get("/account/random", (_req, res) => {
     email,
     password,
   });
+});
+
+/**
+ * Atomically delete resumes + user for test cleanup
+ *
+ * DELETE /cleanup/all/:user_id
+ */
+app.delete("/cleanup/all/:user_id", async (req, res) => {
+  const { user_id } = req.params;
+
+  if (!/^[0-9a-fA-F-]{36}$/.test(user_id)) {
+    return res.status(400).json({ error: "Invalid UUID format" });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const resumesResult = await client.query(
+      "DELETE FROM resumes WHERE user_id = $1",
+      [user_id],
+    );
+
+    const userResult = await client.query("DELETE FROM users WHERE id = $1", [
+      user_id,
+    ]);
+
+    if (userResult.rowCount === 0) {
+      throw new Error("User not found");
+    }
+
+    await client.query("COMMIT");
+
+    res.json({
+      deleted_resumes: resumesResult.rowCount,
+      deleted_users: userResult.rowCount,
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Transactional cleanup failed", err);
+
+    res.status(500).json({
+      error: "Transactional cleanup failed",
+      reason: err instanceof Error ? err.message : "unknown",
+    });
+  } finally {
+    client.release();
+  }
 });
 
 app.listen(4001, () => {
