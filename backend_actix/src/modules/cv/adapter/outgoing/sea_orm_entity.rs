@@ -14,6 +14,7 @@ pub struct Model {
 
     pub user_id: Uuid,
     pub bio: String,
+    pub display_name: String,
     pub role: String,
     pub photo_url: String,
 
@@ -21,6 +22,7 @@ pub struct Model {
     pub educations: JsonValue,
     pub experiences: JsonValue,
     pub highlighted_projects: JsonValue,
+    pub contact_info: JsonValue,
 
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
@@ -34,6 +36,7 @@ impl Model {
             id: self.id,
             user_id: self.user_id,
             role: self.role.clone(),
+            display_name: self.display_name.clone(),
             bio: self.bio.clone(),
             photo_url: self.photo_url.clone(),
             core_skills: serde_json::from_value(self.core_skills.clone()).unwrap_or_default(),
@@ -41,6 +44,7 @@ impl Model {
             experiences: serde_json::from_value(self.experiences.clone()).unwrap_or_default(),
             highlighted_projects: serde_json::from_value(self.highlighted_projects.clone())
                 .unwrap_or_default(),
+            contact_info: serde_json::from_value(self.contact_info.clone()).unwrap_or_default(),
         }
     }
     pub fn from_create_data(user_id: Uuid, cv: &CreateCVData) -> Self {
@@ -48,12 +52,14 @@ impl Model {
             id: Uuid::new_v4(),
             user_id,
             role: cv.role.clone(),
+            display_name: cv.display_name.clone(),
             bio: cv.bio.clone(),
             photo_url: cv.photo_url.clone(),
             core_skills: serde_json::to_value(&cv.core_skills).unwrap(),
             educations: serde_json::to_value(&cv.educations).unwrap(),
             experiences: serde_json::to_value(&cv.experiences).unwrap(),
             highlighted_projects: serde_json::to_value(&cv.highlighted_projects).unwrap(),
+            contact_info: serde_json::to_value(&cv.contact_info).unwrap(),
             created_at: chrono::Utc::now().into(),
             updated_at: chrono::Utc::now().into(),
             is_deleted: false,

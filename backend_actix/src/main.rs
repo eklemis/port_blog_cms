@@ -9,11 +9,11 @@ pub mod health;
 mod test_helpers;
 
 // ... (all your existing imports remain the same)
+use crate::auth::adapter::outgoing::jwt::{JwtConfig, JwtTokenService};
 use crate::auth::adapter::outgoing::token_repository_redis::RedisTokenRepository;
 use crate::auth::adapter::outgoing::user_query_postgres::UserQueryPostgres;
 use crate::auth::adapter::outgoing::user_repository_postgres::UserRepositoryPostgres;
-use crate::auth::application::services::hash::{HashingAlgorithm, PasswordHashingService};
-use crate::auth::application::services::jwt::{JwtConfig, JwtService};
+use crate::auth::application::orchestrator::user_registration::UserRegistrationOrchestrator;
 use crate::auth::application::use_cases::{
     create_user::{CreateUserUseCase, ICreateUserUseCase},
     login_user::{ILoginUserUseCase, LoginUserUseCase},
@@ -30,8 +30,9 @@ use crate::cv::application::use_cases::patch_cv::{IPatchCVUseCase, PatchCVUseCas
 use crate::cv::application::use_cases::update_cv::{IUpdateCVUseCase, UpdateCVUseCase};
 
 use crate::email::adapter::outgoing::smtp_sender::SmtpEmailSender;
-use crate::email::application::services::EmailService;
+use crate::email::application::services::UserEmailService;
 use crate::modules::auth::application::use_cases::refresh_token::IRefreshTokenUseCase;
+use crate::modules::email::application::ports::outgoing::user_email_notifier::UserEmailNotifier;
 
 use actix_web::{web, App, HttpServer};
 use redis::{aio::ConnectionManager, Client};
@@ -54,7 +55,7 @@ pub struct AppState {
     pub create_cv_use_case: Arc<dyn ICreateCVUseCase + Send + Sync>,
     pub update_cv_use_case: Arc<dyn IUpdateCVUseCase + Send + Sync>,
     pub patch_cv_use_case: Arc<dyn IPatchCVUseCase + Send + Sync>,
-    pub create_user_use_case: Arc<dyn ICreateUserUseCase + Send + Sync>,
+    pub register_user_orchestrator: Arc<UserRegistrationOrchestrator>,
     pub verify_user_email_use_case: Arc<dyn IVerifyUserEmailUseCase + Send + Sync>,
     pub login_user_use_case: Arc<dyn ILoginUserUseCase + Send + Sync>,
     pub refresh_token_use_case: Arc<dyn IRefreshTokenUseCase + Send + Sync>,
@@ -65,7 +66,13 @@ pub struct AppState {
 #[actix_web::main]
 #[cfg(not(tarpaulin_include))]
 async fn start() -> std::io::Result<()> {
-    use crate::auth::application::use_cases::refresh_token::RefreshTokenUseCase;
+    use crate::auth::{
+        adapter::outgoing::security::argon2_hasher::Argon2Hasher,
+        application::{
+            orchestrator::user_registration::UserRegistrationOrchestrator,
+            use_cases::refresh_token::RefreshTokenUseCase,
+        },
+    };
 
     tracing_subscriber::registry()
         .with(
@@ -136,31 +143,40 @@ async fn start() -> std::io::Result<()> {
     let update_cv_use_case = UpdateCVUseCase::new(cv_repo.clone());
     let patch_cv_use_case = PatchCVUseCase::new(cv_repo.clone());
 
-    let jwt_service = JwtService::new(JwtConfig::from_env());
+    let jwt_service = JwtTokenService::new(JwtConfig::from_env());
     let smtp_sender = SmtpEmailSender::new(&smtp_server, &smtp_user, &smtp_pass, &from_email);
-    let email_service = EmailService::new(Arc::new(smtp_sender));
+    let user_email_service =
+        UserEmailService::new(jwt_service.clone(), smtp_sender, String::from(&server_url));
 
     let user_repo = UserRepositoryPostgres::new(Arc::clone(&db_arc));
     let user_query = UserQueryPostgres::new(Arc::clone(&db_arc));
     let redis_token_repo = RedisTokenRepository::new(Arc::clone(&redis_arc));
-    let password_hasher = PasswordHashingService::new(HashingAlgorithm::Argon2);
+    let argon2_password_hasher = Argon2Hasher::new();
 
+    // User Registration componenets
     let create_user_use_case = CreateUserUseCase::new(
         user_query.clone(),
         user_repo.clone(),
-        password_hasher.clone(),
-        jwt_service.clone(),
-        email_service,
-        String::from(&server_url),
+        Arc::new(argon2_password_hasher.clone()),
     );
+    let create_user_uc_arc: Arc<dyn ICreateUserUseCase + Send + Sync> =
+        Arc::new(create_user_use_case);
+    let email_notifier_arc: Arc<dyn UserEmailNotifier + Send + Sync> = Arc::new(user_email_service);
+
+    let register_user_orchestrator =
+        UserRegistrationOrchestrator::new(create_user_uc_arc, email_notifier_arc);
+
     let verify_user_email_use_case =
-        VerifyUserEmailUseCase::new(user_repo.clone(), jwt_service.clone());
-    let login_user_use_case =
-        LoginUserUseCase::new(user_query, password_hasher, jwt_service.clone());
-    let refresh_token_use_case = RefreshTokenUseCase::new(jwt_service.clone());
-    let logout_user_use_case = LogoutUseCase::new(redis_token_repo.clone(), jwt_service.clone());
-    let soft_delet_user_use_case =
-        SoftDeleteUserUseCase::new(user_repo, redis_token_repo, jwt_service.clone());
+        VerifyUserEmailUseCase::new(user_repo.clone(), Arc::new(jwt_service.clone()));
+    let login_user_use_case = LoginUserUseCase::new(
+        user_query,
+        Arc::new(argon2_password_hasher),
+        Arc::new(jwt_service.clone()),
+    );
+    let refresh_token_use_case = RefreshTokenUseCase::new(Arc::new(jwt_service.clone()));
+    let logout_user_use_case =
+        LogoutUseCase::new(redis_token_repo.clone(), Arc::new(jwt_service.clone()));
+    let soft_delete_user_use_case = SoftDeleteUserUseCase::new(user_repo, redis_token_repo);
 
     let state = AppState {
         fetch_cv_use_case: Arc::new(fetch_cv_use_case),
@@ -168,12 +184,12 @@ async fn start() -> std::io::Result<()> {
         create_cv_use_case: Arc::new(create_cv_use_case),
         update_cv_use_case: Arc::new(update_cv_use_case),
         patch_cv_use_case: Arc::new(patch_cv_use_case),
-        create_user_use_case: Arc::new(create_user_use_case),
+        register_user_orchestrator: Arc::new(register_user_orchestrator),
         verify_user_email_use_case: Arc::new(verify_user_email_use_case),
         login_user_use_case: Arc::new(login_user_use_case),
         refresh_token_use_case: Arc::new(refresh_token_use_case),
         logout_user_use_case: Arc::new(logout_user_use_case),
-        soft_delete_user_use_case: Arc::new(soft_delet_user_use_case),
+        soft_delete_user_use_case: Arc::new(soft_delete_user_use_case),
     };
 
     // Clone db_arc for use in HttpServer closure
@@ -212,7 +228,7 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::cv::adapter::incoming::web::routes::update_cv_handler);
     cfg.service(crate::cv::adapter::incoming::web::routes::patch_cv_handler);
     // Auth
-    cfg.service(crate::auth::adapter::incoming::web::routes::create_user_handler);
+    cfg.service(crate::auth::adapter::incoming::web::routes::register_user_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::verify_user_email_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::login_user_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::refresh_token_handler);

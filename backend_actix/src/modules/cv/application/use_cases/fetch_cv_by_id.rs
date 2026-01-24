@@ -113,6 +113,7 @@ mod tests {
         CVInfo {
             id: Uuid::new_v4(),
             user_id,
+            display_name: "Gandalf Wood".to_string(),
             role: "Engineer".to_string(),
             bio: "Test CV".to_string(),
             photo_url: "".to_string(),
@@ -120,6 +121,7 @@ mod tests {
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],
+            contact_info: vec![],
         }
     }
 

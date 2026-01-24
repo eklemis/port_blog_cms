@@ -123,14 +123,16 @@ mod tests {
         let mock_repo = MockCVRepository {
             cv_infos: vec![CVInfo {
                 id: Uuid::new_v4(),
-                user_id: Uuid::new_v4(),
-                role: "Software Engineer".to_string(),
-                bio: "Mocked CV data...".to_string(),
-                photo_url: "https://example.com/old.jpg".to_string(),
+                user_id,
+                display_name: "Gandalf Wood".to_string(),
+                role: "Engineer".to_string(),
+                bio: "Test CV".to_string(),
+                photo_url: "".to_string(),
                 core_skills: vec![],
                 educations: vec![],
                 experiences: vec![],
                 highlighted_projects: vec![],
+                contact_info: vec![],
             }],
             should_fail_db: false,
         };
@@ -145,7 +147,7 @@ mod tests {
 
         let cv_infos = result.unwrap();
         assert_eq!(cv_infos.len(), 1, "Expected exactly one CV");
-        assert_eq!(cv_infos[0].bio, "Mocked CV data...");
+        assert_eq!(cv_infos[0].bio, "Test CV");
     }
 
     // Test: Database error

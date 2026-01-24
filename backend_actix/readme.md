@@ -12,3 +12,18 @@ or using llvm-cov
 ```bash
 cargo llvm-cov --html
 ```
+
+## Run server with `test-helpers` flag and release version
+```bash
+RUST_ENV=test cargo run --release --features test-helpers
+```
+
+## Open postgres database cms from terminal
+```bash
+docker exec -it postgres-db psql -d cms -U developer
+```
+
+## Create postgres docker container
+```bash
+
+```

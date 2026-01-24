@@ -1,2 +1,2 @@
 mod email_service;
-pub use email_service::EmailService;
+pub use email_service::UserEmailService;

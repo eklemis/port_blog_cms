@@ -1,50 +1,86 @@
-use crate::auth::application::services::hash::PasswordHashingService;
-use crate::auth::application::services::jwt::JwtService;
-use crate::email::application::services::EmailService;
-use crate::modules::auth::application::domain::entities::User;
+use crate::auth::application::ports::outgoing::user_query::UserQueryError;
+use crate::auth::application::ports::outgoing::user_repository::{CreateUserData, UserResult};
+
 use crate::modules::auth::application::ports::outgoing::{
     user_query::UserQuery, user_repository::UserRepository, UserRepositoryError,
 };
 use async_trait::async_trait;
 use email_address::EmailAddress;
-use uuid::Uuid;
 
-// Possible errors for creating a user
-#[derive(Debug, Clone)]
-pub enum CreateUserError {
-    InvalidInput(String),
-    UsernameAlreadyExists,
-    EmailAlreadyExists,
-    HashingFailed(String),
-    RepositoryError(String),
-    EmailSendFailed(String),
-    TokenGenerationFailed(String),
+use crate::auth::application::ports::outgoing::password_hasher::{HashError, PasswordHasher};
+use std::sync::Arc;
+use tokio::task;
+
+// ============================================================================
+// Input / Output DTOs
+// ============================================================================
+#[derive(Clone, Debug)]
+pub struct CreateUserInput {
+    pub username: String,
+    pub email: String,
+    pub password: String,
+    pub full_name: String,
+}
+#[derive(Clone, Debug)]
+pub struct CreateUserOutput {
+    pub user_id: uuid::Uuid,
+    pub email: String,
+    pub username: String,
+    pub full_name: String,
 }
 
-// Interface for CreateUser use case
+// ============================================================================
+// Error Types
+// ============================================================================
+
+#[derive(Debug, thiserror::Error, Clone)]
+pub enum CreateUserError {
+    #[error("Invalid username: {0}")]
+    InvalidUsername(String),
+
+    #[error("Invalid email: {0}")]
+    InvalidEmail(String),
+
+    #[error("Invalid password: {0}")]
+    InvalidPassword(String),
+
+    #[error("Invalid full name: {0}")]
+    InvalidFullName(String),
+
+    #[error("User already exists")]
+    UserAlreadyExists,
+
+    #[error("Password hashing failed: {0}")]
+    HashingFailed(String),
+
+    #[error("Repository error: {0}")]
+    RepositoryError(#[from] UserRepositoryError),
+
+    #[error("Query error: {0}")]
+    QueryError(#[from] UserQueryError),
+}
+
+// ============================================================================
+// Use Case Interface
+// ============================================================================
+
 #[async_trait]
 pub trait ICreateUserUseCase: Send + Sync {
-    async fn execute(
-        &self,
-        username: String,
-        email: String,
-        password: String,
-    ) -> Result<User, CreateUserError>;
+    async fn execute(&self, input: CreateUserInput) -> Result<CreateUserOutput, CreateUserError>;
 }
 
-// Implementation of CreateUser use case
-#[derive(Debug, Clone)]
+// ============================================================================
+// Use Case Implementation - FOCUSED ON ONE THING
+// ============================================================================
+
 pub struct CreateUserUseCase<Q, R>
 where
     Q: UserQuery + Send + Sync,
     R: UserRepository + Send + Sync,
 {
-    app_url: String,
-    query: Q,
-    repository: R,
-    password_hasher: PasswordHashingService,
-    jwt_service: JwtService,
-    email_service: EmailService,
+    user_query: Q,
+    user_repository: R,
+    password_hasher: Arc<dyn PasswordHasher>,
 }
 
 impl<Q, R> CreateUserUseCase<Q, R>
@@ -53,82 +89,110 @@ where
     R: UserRepository + Send + Sync,
 {
     pub fn new(
-        query: Q,
-        repository: R,
-        password_hasher: PasswordHashingService,
-        jwt_service: JwtService,
-        email_service: EmailService,
-        app_url: String,
+        user_query: Q,
+        user_repository: R,
+        password_hasher: Arc<dyn PasswordHasher>,
     ) -> Self {
         Self {
-            app_url,
-            query,
-            repository,
+            user_query,
+            user_repository,
             password_hasher,
-            jwt_service,
-            email_service,
         }
     }
-    fn validate_input(username: &str, email: &str, password: &str) -> Result<(), CreateUserError> {
-        // Username validation
-        if username.trim().is_empty() {
-            return Err(CreateUserError::InvalidInput(
+
+    // ========================================================================
+    // Validation - Business Rules
+    // ========================================================================
+
+    fn validate_username(&self, username: &str) -> Result<String, CreateUserError> {
+        let trimmed = username.trim();
+
+        if trimmed.is_empty() {
+            return Err(CreateUserError::InvalidUsername(
                 "Username cannot be empty".to_string(),
             ));
         }
-        if username.len() < 3 || username.len() > 50 {
-            return Err(CreateUserError::InvalidInput(
+
+        if trimmed.len() < 3 || trimmed.len() > 50 {
+            return Err(CreateUserError::InvalidUsername(
                 "Username must be 3-50 characters".to_string(),
             ));
         }
 
-        // Email validation
-        let email = email.trim();
-        if !EmailAddress::is_valid(email) {
-            return Err(CreateUserError::InvalidInput(
+        if !trimmed.chars().all(|c| c.is_alphanumeric() || c == '_') {
+            return Err(CreateUserError::InvalidUsername(
+                "Username can only contain letters, numbers, and underscores".to_string(),
+            ));
+        }
+
+        // Return normalized (lowercase)
+        Ok(trimmed.to_lowercase())
+    }
+
+    fn validate_email(&self, email: &str) -> Result<String, CreateUserError> {
+        let trimmed = email.trim();
+
+        if !EmailAddress::is_valid(trimmed) {
+            return Err(CreateUserError::InvalidEmail(
                 "Invalid email format".to_string(),
             ));
         }
 
-        // Password validation
+        // Return normalized (lowercase)
+        Ok(trimmed.to_lowercase())
+    }
+
+    fn validate_password(&self, password: &str) -> Result<(), CreateUserError> {
         if password.len() < 12 {
-            return Err(CreateUserError::InvalidInput(
-                "Password must be at least 8 characters".to_string(),
+            return Err(CreateUserError::InvalidPassword(
+                "Password must be at least 12 characters".to_string(),
             ));
         }
 
         Ok(())
     }
-    fn create_verification_email(
+
+    fn validate_full_name(&self, full_name: &str) -> Result<String, CreateUserError> {
+        let trimmed = full_name.trim();
+
+        if trimmed.is_empty() {
+            return Err(CreateUserError::InvalidFullName(
+                "Full name cannot be empty".to_string(),
+            ));
+        }
+
+        if trimmed.len() > 100 {
+            return Err(CreateUserError::InvalidFullName(
+                "Full name cannot exceed 100 characters".to_string(),
+            ));
+        }
+
+        // Return normalized
+        Ok(trimmed.to_string())
+    }
+
+    // ========================================================================
+    // Soft-Delete Check - Business Rule
+    // ========================================================================
+
+    async fn check_and_restore_soft_deleted(
         &self,
-        username: &str,
-        verification_token: &str,
-    ) -> (String, String) {
-        let verification_link = format!(
-            "{}/api/auth/email-verification/{}",
-            self.app_url, verification_token
-        );
-
-        let subject = "Verify Your Email".to_string();
-        let html_body = format!(
-            r#"
-            <p>Hi {},</p>
-            <p>Welcome to Ekstion! We're excited to have you on board.</p>
-            <p>To complete your registration, click the button below:</p>
-            <p>
-                <a href="{}" style="display: inline-block; padding: 10px 20px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 5px;">
-                    Verify Your Email
-                </a>
-            </p>
-            <p><strong>Note:</strong> This link is valid for 24 hours.</p>
-            <p>Thanks,<br>The Ekstion Team</p>
-            "#,
-            username, verification_link
-        );
-
-        (subject, html_body)
+        email: &str,
+    ) -> Result<Option<UserResult>, CreateUserError> {
+        if let Some(existing_user) = self.user_query.find_by_email(email).await? {
+            if existing_user.is_deleted {
+                // Restore the user
+                let restored = self.user_repository.restore_user(existing_user.id).await?;
+                return Ok(Some(restored));
+            }
+        }
+        Ok(None)
     }
 }
+
+// ============================================================================
+// Use Case Execution - SINGLE RESPONSIBILITY: Create a User
+// ============================================================================
 
 #[async_trait]
 impl<Q, R> ICreateUserUseCase for CreateUserUseCase<Q, R>
@@ -136,800 +200,346 @@ where
     Q: UserQuery + Send + Sync,
     R: UserRepository + Send + Sync,
 {
-    async fn execute(
-        &self,
-        username: String,
-        email: String,
-        password: String,
-    ) -> Result<User, CreateUserError> {
-        // 0️⃣ **Validate input**
-        Self::validate_input(&username, &email, &password)?;
+    async fn execute(&self, input: CreateUserInput) -> Result<CreateUserOutput, CreateUserError> {
+        // 1. Validate and normalize inputs
+        let username = self.validate_username(&input.username)?;
+        let email = self.validate_email(&input.email)?;
+        self.validate_password(&input.password)?;
+        let full_name = self.validate_full_name(&input.full_name)?;
 
-        // Sanitize inputs to prevent injection attacks
-        let username = username.trim().to_lowercase();
-        let email = email.trim().to_lowercase();
-
-        // 1️⃣ **Check if username already exists**
-        if let Ok(Some(_)) = self.query.find_by_username(&username).await {
-            return Err(CreateUserError::UsernameAlreadyExists);
+        // 2. Check if user is soft-deleted and restore it
+        //    Further more efficient and cleaner implementation needed to reduce the database hits
+        if let Some(restored) = self.check_and_restore_soft_deleted(&email).await? {
+            return Ok(CreateUserOutput {
+                user_id: restored.id,
+                email: restored.email,
+                username: restored.username,
+                full_name: restored.full_name,
+            });
         }
 
-        // 2️⃣ **Check if email already exists**
-        if let Ok(Some(existing_user)) = self.query.find_by_email(&email).await {
-            if existing_user.is_deleted {
-                // ✅ Reactivate the existing soft-deleted user
-                let updated_user = self
-                    .repository
-                    .restore_user(existing_user.id)
-                    .await
-                    .map_err(|e| CreateUserError::RepositoryError(e.to_string()))?;
-                return Ok(updated_user);
-            } else {
-                return Err(CreateUserError::EmailAlreadyExists);
-            }
-        }
+        // 3. Hash password
+        let password = input.password.clone();
+        let hasher = Arc::clone(&self.password_hasher);
 
-        // 3️⃣ **Hash password**
-        let password_hash = self
-            .password_hasher
-            .hash_password(password.clone()) // Note: takes owned String
-            .await // Add .await
-            .map_err(|e| CreateUserError::HashingFailed(e))?;
+        let password_hash = task::spawn_blocking(move || hasher.hash_password(&password))
+            .await
+            .map_err(|e| CreateUserError::HashingFailed(e.to_string()))?
+            .map_err(|e| match e {
+                HashError::HashFailed => {
+                    CreateUserError::HashingFailed("password hashing failed".to_string())
+                }
+                HashError::VerifyFailed => {
+                    // Should never happen during hashing, but we stay defensive
+                    CreateUserError::HashingFailed("unexpected verification failure".to_string())
+                }
+            })?;
 
-        // 4️⃣ **Create User Entity**
-        let user = User {
-            id: Uuid::new_v4(),
-            username,
-            email,
-            password_hash,
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-            is_verified: false,
-            is_deleted: false,
-        };
+        // 4. Create user (database constraint catches duplicates)
+        let created_user = self
+            .user_repository
+            .create_user(CreateUserData {
+                email: email.clone(),
+                username: username.clone(),
+                password_hash,
+                full_name: full_name.clone(),
+            })
+            .await
+            .map_err(|e| match e {
+                UserRepositoryError::UserAlreadyExists => CreateUserError::UserAlreadyExists,
+                other => CreateUserError::RepositoryError(other),
+            })?;
 
-        // 5️⃣ **Persist the user in the database**
-        match self.repository.create_user(user.clone()).await {
-            Ok(user) => {
-                // 1️⃣ Generate verification token
-                let verification_token = self
-                    .jwt_service
-                    .generate_verification_token(user.id)
-                    .map_err(|e| CreateUserError::TokenGenerationFailed(e.to_string()))?;
-
-                // 2️⃣ Send verification email
-                #[cfg(not(tarpaulin_include))]
-                let (subject, html_body) =
-                    self.create_verification_email(&user.username, &verification_token);
-                self.email_service
-                    .send_email(&user.email, &subject, &html_body)
-                    .await
-                    .map_err(|e| CreateUserError::EmailSendFailed(e.to_string()))?;
-
-                Ok(user)
-            }
-            Err(UserRepositoryError::DatabaseError(e)) => Err(CreateUserError::RepositoryError(e)),
-            Err(_) => Err(CreateUserError::RepositoryError(
-                "Unknown repository error".to_string(),
-            )),
-        }
+        // 5. Return created user
+        // NOTE: Email verification is handled OUTSIDE this use case
+        // (see application layer orchestration or domain events)
+        Ok(CreateUserOutput {
+            user_id: created_user.id,
+            email: created_user.email,
+            username: created_user.username,
+            full_name: created_user.full_name,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::modules::auth::application::ports::outgoing::{
-        user_query::UserQuery, user_repository::UserRepository, UserRepositoryError,
+    use crate::auth::application::ports::outgoing::{
+        password_hasher::{HashError, PasswordHasher},
+        user_query::{UserQuery, UserQueryError, UserQueryResult},
     };
-    use crate::modules::auth::application::services::hash::password_hasher::PasswordHasher;
-    use crate::modules::auth::application::services::hash::PasswordHashingService;
-    use crate::modules::auth::application::services::jwt::JwtConfig;
-    use crate::modules::email::application::ports::outgoing::EmailSender;
     use async_trait::async_trait;
+    use chrono::Utc;
     use std::sync::Arc;
     use uuid::Uuid;
 
+    // ======================================================================
+    // Helpers
+    // ======================================================================
+
+    fn active_user_query(user: &UserResult) -> UserQueryResult {
+        UserQueryResult {
+            id: user.id,
+            email: user.email.clone(),
+            username: user.username.clone(),
+            password_hash: "hashed".into(),
+            full_name: user.full_name.clone(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            is_verified: true,
+            is_deleted: false,
+        }
+    }
+
+    fn soft_deleted_user_query(user: &UserResult) -> UserQueryResult {
+        UserQueryResult {
+            is_deleted: true,
+            ..active_user_query(user)
+        }
+    }
+
+    fn valid_input() -> CreateUserInput {
+        CreateUserInput {
+            email: "test@example.com".to_string(),
+            username: "testuser".to_string(),
+            password: "securepassword123".to_string(),
+            full_name: "Test User".to_string(),
+        }
+    }
+
+    // ======================================================================
     // Mock UserQuery
-    #[derive(Default)]
+    // ======================================================================
+
+    #[derive(Clone)]
     struct MockUserQuery {
-        existing_user_by_username: Option<User>,
-        existing_user_by_email: Option<User>,
+        email_result: Option<UserQueryResult>,
+    }
+
+    impl MockUserQuery {
+        fn empty() -> Self {
+            Self { email_result: None }
+        }
+
+        fn with_active_user(user: UserResult) -> Self {
+            Self {
+                email_result: Some(active_user_query(&user)),
+            }
+        }
+
+        fn with_soft_deleted_user(user: UserResult) -> Self {
+            Self {
+                email_result: Some(soft_deleted_user_query(&user)),
+            }
+        }
     }
 
     #[async_trait]
     impl UserQuery for MockUserQuery {
-        async fn find_by_id(&self, _user_id: Uuid) -> Result<Option<User>, String> {
+        async fn find_by_email(&self, _: &str) -> Result<Option<UserQueryResult>, UserQueryError> {
+            Ok(self.email_result.clone())
+        }
+
+        async fn find_by_username(
+            &self,
+            _: &str,
+        ) -> Result<Option<UserQueryResult>, UserQueryError> {
             Ok(None)
         }
 
-        async fn find_by_username(&self, username: &str) -> Result<Option<User>, String> {
-            if let Some(user) = &self.existing_user_by_username {
-                if user.username == username {
-                    return Ok(Some(user.clone()));
-                }
-            }
-            Ok(None)
-        }
-
-        async fn find_by_email(&self, email: &str) -> Result<Option<User>, String> {
-            if let Some(user) = &self.existing_user_by_email {
-                if user.email == email {
-                    return Ok(Some(user.clone()));
-                }
-            }
+        async fn find_by_id(&self, _: Uuid) -> Result<Option<UserQueryResult>, UserQueryError> {
             Ok(None)
         }
     }
 
+    // ======================================================================
     // Mock UserRepository
-    #[derive(Default)]
+    // ======================================================================
+
+    #[derive(Clone)]
     struct MockUserRepository {
-        should_fail_on_create: bool,
+        create_result: Option<Result<UserResult, UserRepositoryError>>,
+        restore_result: Option<Result<UserResult, UserRepositoryError>>,
+    }
+
+    impl MockUserRepository {
+        fn success_create(user: UserResult) -> Self {
+            Self {
+                create_result: Some(Ok(user)),
+                restore_result: None,
+            }
+        }
+
+        fn success_restore(user: UserResult) -> Self {
+            Self {
+                create_result: None,
+                restore_result: Some(Ok(user)),
+            }
+        }
+
+        fn create_error(err: UserRepositoryError) -> Self {
+            Self {
+                create_result: Some(Err(err)),
+                restore_result: None,
+            }
+        }
     }
 
     #[async_trait]
     impl UserRepository for MockUserRepository {
-        async fn create_user(&self, user: User) -> Result<User, UserRepositoryError> {
-            if self.should_fail_on_create {
-                return Err(UserRepositoryError::DatabaseError(
-                    "DB insert failed".to_string(),
-                ));
-            }
-            Ok(user)
+        async fn create_user(&self, _: CreateUserData) -> Result<UserResult, UserRepositoryError> {
+            self.create_result
+                .clone()
+                .expect("create_user was not expected to be called")
         }
 
-        async fn update_password(
+        async fn restore_user(&self, _: Uuid) -> Result<UserResult, UserRepositoryError> {
+            self.restore_result
+                .clone()
+                .expect("restore_user was not expected to be called")
+        }
+
+        async fn activate_user(&self, _: Uuid) -> Result<UserResult, UserRepositoryError> {
+            unimplemented!()
+        }
+
+        async fn set_full_name(
             &self,
-            _user_id: Uuid,
-            _new_password_hash: String,
-        ) -> Result<(), UserRepositoryError> {
+            _: Uuid,
+            _: String,
+        ) -> Result<UserResult, UserRepositoryError> {
             unimplemented!()
         }
 
-        async fn delete_user(&self, _user_id: Uuid) -> Result<(), UserRepositoryError> {
+        async fn update_password(&self, _: Uuid, _: String) -> Result<(), UserRepositoryError> {
             unimplemented!()
         }
-        async fn soft_delete_user(&self, _user_id: Uuid) -> Result<(), UserRepositoryError> {
+
+        async fn delete_user(&self, _: Uuid) -> Result<(), UserRepositoryError> {
             unimplemented!()
         }
-        async fn restore_user(&self, _user_id: Uuid) -> Result<User, UserRepositoryError> {
-            unimplemented!()
-        }
-        async fn activate_user(&self, _user_id: Uuid) -> Result<(), UserRepositoryError> {
+
+        async fn soft_delete_user(&self, _: Uuid) -> Result<(), UserRepositoryError> {
             unimplemented!()
         }
     }
 
-    // Mock Password Hasher
-    #[derive(Debug)]
-    struct MockPasswordHasher;
+    // ======================================================================
+    // Mock PasswordHasher
+    // ======================================================================
 
-    #[async_trait]
-    impl PasswordHasher for MockPasswordHasher {
-        fn hash_password(&self, _password: &str) -> Result<String, String> {
-            Ok("hashed_password".to_string())
+    #[derive(Clone)]
+    struct MockPasswordHasher {
+        result: Result<String, HashError>,
+    }
+
+    impl MockPasswordHasher {
+        fn success() -> Self {
+            Self {
+                result: Ok("hashed_password".to_string()),
+            }
         }
 
-        fn verify_password(&self, _password: &str, _hash: &str) -> Result<bool, String> {
+        fn fail() -> Self {
+            Self {
+                result: Err(HashError::HashFailed),
+            }
+        }
+    }
+
+    impl PasswordHasher for MockPasswordHasher {
+        fn hash_password(&self, _: &str) -> Result<String, HashError> {
+            self.result.clone()
+        }
+
+        fn verify_password(&self, _: &str, _: &str) -> Result<bool, HashError> {
             Ok(true)
         }
     }
 
-    // Mock Email Sender
-    struct MockEmailSender;
-
-    impl Default for MockEmailSender {
-        fn default() -> Self {
-            MockEmailSender
-        }
-    }
-
-    #[async_trait]
-    impl EmailSender for MockEmailSender {
-        async fn send_email(&self, _to: &str, _subject: &str, _body: &str) -> Result<(), String> {
-            Ok(())
-        }
-    }
-
-    // Helper function to create a test use case with default mocks
-    fn create_test_use_case() -> CreateUserUseCase<MockUserQuery, MockUserRepository> {
-        let query = MockUserQuery::default();
-        let repository = MockUserRepository::default();
-        let password_hasher = PasswordHashingService::with_hasher(MockPasswordHasher);
-        let jwt_service = JwtService::new(JwtConfig {
-            secret_key: "test_secret_key_min_32_characters_long".to_string(),
-            issuer: "testapp".to_string(),
-            access_token_expiry: 3600,
-            refresh_token_expiry: 86400,
-            verification_token_expiry: 86400,
-        });
-        let sender = Arc::new(MockEmailSender::default());
-        let email_service = EmailService::new(sender);
-        let app_url = String::from("http://localhost:8080");
-
-        CreateUserUseCase::new(
-            query,
-            repository,
-            password_hasher,
-            jwt_service,
-            email_service,
-            app_url,
-        )
-    }
+    // ======================================================================
+    // TESTS — Soft Delete Restoration
+    // ======================================================================
 
     #[tokio::test]
-    async fn test_create_user_success() {
-        // Arrange
-        let query = MockUserQuery::default();
-        let repository = MockUserRepository::default();
-        let password_hasher = PasswordHashingService::with_hasher(MockPasswordHasher);
-        let jwt_service = JwtService::new(JwtConfig::from_env());
+    async fn restores_soft_deleted_user_on_execute() {
+        let deleted_user = UserResult {
+            id: Uuid::new_v4(),
+            email: "deleted@example.com".into(),
+            username: "deleteduser".into(),
+            full_name: "Deleted User".into(),
+        };
 
-        let sender = Arc::new(MockEmailSender::default());
-        let email_service = EmailService::new(sender);
-        let app_url = String::from("0.0.0.0:8080");
+        let restored_user = deleted_user.clone();
+
         let use_case = CreateUserUseCase::new(
-            query,
-            repository,
-            password_hasher,
-            jwt_service,
-            email_service,
-            app_url,
+            MockUserQuery::with_soft_deleted_user(deleted_user),
+            MockUserRepository::success_restore(restored_user.clone()),
+            Arc::new(MockPasswordHasher::success()),
         );
 
-        // Act
-        let result = use_case
-            .execute(
-                "new_user".to_string(),
-                "new_user@example.com".to_string(),
-                "password123456".to_string(),
-            )
-            .await;
-
-        // Assert
-        assert!(result.is_ok(), "Expected user creation to succeed");
-        let created_user = result.unwrap();
-        assert_eq!(created_user.username, "new_user");
-        assert_eq!(created_user.email, "new_user@example.com");
-        assert_eq!(created_user.password_hash, "hashed_password");
+        let result = use_case.execute(valid_input()).await.unwrap();
+        assert_eq!(result.user_id, restored_user.id);
+        assert_eq!(result.email, restored_user.email);
     }
 
     #[tokio::test]
-    async fn test_create_user_username_already_exists() {
-        // Arrange
-        let query = MockUserQuery {
-            existing_user_by_username: Some(User {
+    async fn does_not_restore_active_user() {
+        let active_user = UserResult {
+            id: Uuid::new_v4(),
+            email: "active@example.com".into(),
+            username: "activeuser".into(),
+            full_name: "Active User".into(),
+        };
+
+        let created_user = UserResult {
+            id: Uuid::new_v4(),
+            email: "test@example.com".into(),
+            username: "testuser".into(),
+            full_name: "Test User".into(),
+        };
+
+        let use_case = CreateUserUseCase::new(
+            MockUserQuery::with_active_user(active_user),
+            MockUserRepository::success_create(created_user.clone()),
+            Arc::new(MockPasswordHasher::success()),
+        );
+
+        let result = use_case.execute(valid_input()).await.unwrap();
+        assert_eq!(result.email, created_user.email);
+    }
+
+    // ======================================================================
+    // TESTS — Errors
+    // ======================================================================
+
+    #[tokio::test]
+    async fn fails_when_user_already_exists() {
+        let use_case = CreateUserUseCase::new(
+            MockUserQuery::empty(),
+            MockUserRepository::create_error(UserRepositoryError::UserAlreadyExists),
+            Arc::new(MockPasswordHasher::success()),
+        );
+
+        let err = use_case.execute(valid_input()).await.unwrap_err();
+        assert!(matches!(err, CreateUserError::UserAlreadyExists));
+    }
+
+    #[tokio::test]
+    async fn fails_when_hashing_fails() {
+        let use_case = CreateUserUseCase::new(
+            MockUserQuery::empty(),
+            MockUserRepository::success_create(UserResult {
                 id: Uuid::new_v4(),
-                username: "existing_user".to_string(),
-                email: "existing@example.com".to_string(),
-                password_hash: "hashed_password".to_string(),
-                created_at: chrono::Utc::now(),
-                updated_at: chrono::Utc::now(),
-                is_verified: false,
-                is_deleted: false,
+                email: "x".into(),
+                username: "x".into(),
+                full_name: "x".into(),
             }),
-            ..Default::default()
-        };
-        let repository = MockUserRepository::default();
-        let password_hasher = PasswordHashingService::with_hasher(MockPasswordHasher);
-
-        // mock jwt service
-        let jwt_service = JwtService::new(JwtConfig::from_env());
-
-        // mock email service
-        let sender = Arc::new(MockEmailSender::default());
-        let email_service = EmailService::new(sender);
-
-        // app url
-        let app_url = String::from("0.0.0.0:8080");
-
-        let use_case = CreateUserUseCase::new(
-            query,
-            repository,
-            password_hasher,
-            jwt_service,
-            email_service,
-            app_url,
+            Arc::new(MockPasswordHasher::fail()),
         );
 
-        // Act
-        let result = use_case
-            .execute(
-                "existing_user".to_string(),
-                "new_user@example.com".to_string(),
-                "password123456".to_string(),
-            )
-            .await;
-
-        // Assert
-        assert!(matches!(
-            result,
-            Err(CreateUserError::UsernameAlreadyExists)
-        ));
-    }
-
-    #[tokio::test]
-    async fn test_create_user_email_already_exists() {
-        // Arrange
-        let query = MockUserQuery {
-            existing_user_by_email: Some(User {
-                id: Uuid::new_v4(),
-                username: "another_user".to_string(),
-                email: "existing@example.com".to_string(),
-                password_hash: "hashed_password".to_string(),
-                created_at: chrono::Utc::now(),
-                updated_at: chrono::Utc::now(),
-                is_verified: false,
-                is_deleted: false,
-            }),
-            ..Default::default()
-        };
-        let repository = MockUserRepository::default();
-        let password_hasher = PasswordHashingService::with_hasher(MockPasswordHasher);
-
-        // mock jwt service
-        let jwt_service = JwtService::new(JwtConfig::from_env());
-
-        // mock email service
-        let sender = Arc::new(MockEmailSender::default());
-        let email_service = EmailService::new(sender);
-
-        // app url
-        let app_url = String::from("0.0.0.0:8080");
-
-        let use_case = CreateUserUseCase::new(
-            query,
-            repository,
-            password_hasher,
-            jwt_service,
-            email_service,
-            app_url,
-        );
-
-        // Act
-        let result = use_case
-            .execute(
-                "new_user".to_string(),
-                "existing@example.com".to_string(),
-                "password1234".to_string(),
-            )
-            .await;
-
-        // Assert
-        assert!(matches!(result, Err(CreateUserError::EmailAlreadyExists)));
-    }
-    #[tokio::test]
-    async fn test_create_user_email_already_exists_active_user() {
-        // Arrange - Mock an ACTIVE (not deleted) user with existing email
-        let active_user = User {
-            id: Uuid::new_v4(),
-            username: "active_user".to_string(),
-            email: "existing@example.com".to_string(),
-            password_hash: "hashed_password".to_string(),
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-            is_verified: false,
-            is_deleted: false, // Active user (not deleted)
-        };
-
-        let query = MockUserQuery {
-            existing_user_by_email: Some(active_user),
-            existing_user_by_username: None,
-        };
-
-        let repository = MockUserRepository::default();
-        let password_hasher = PasswordHashingService::with_hasher(MockPasswordHasher);
-        let jwt_service = JwtService::new(JwtConfig::from_env());
-        let sender = Arc::new(MockEmailSender::default());
-        let email_service = EmailService::new(sender);
-        let app_url = String::from("http://localhost:8080");
-
-        let use_case = CreateUserUseCase::new(
-            query,
-            repository,
-            password_hasher,
-            jwt_service,
-            email_service,
-            app_url,
-        );
-
-        // Act - Try to create user with existing active email
-        let result = use_case
-            .execute(
-                "new_user".to_string(),
-                "existing@example.com".to_string(),
-                "password123456".to_string(),
-            )
-            .await;
-
-        // Assert - Should return EmailAlreadyExists error
-        assert!(
-            matches!(result, Err(CreateUserError::EmailAlreadyExists)),
-            "Expected EmailAlreadyExists error, got: {:?}",
-            result
-        );
-    }
-    #[tokio::test]
-    async fn test_create_user_password_hashing_fails() {
-        // Arrange
-        #[derive(Debug)]
-        struct FailingPasswordHasher;
-
-        #[async_trait]
-        impl PasswordHasher for FailingPasswordHasher {
-            fn hash_password(&self, _password: &str) -> Result<String, String> {
-                Err("Hashing failed".to_string())
-            }
-
-            fn verify_password(&self, _password: &str, _hash: &str) -> Result<bool, String> {
-                Ok(false)
-            }
-        }
-
-        let query = MockUserQuery::default();
-        let repository = MockUserRepository::default();
-        let password_hasher = PasswordHashingService::with_hasher(FailingPasswordHasher);
-        let jwt_service = JwtService::new(JwtConfig::from_env());
-
-        let sender = Arc::new(MockEmailSender::default());
-        let email_service = EmailService::new(sender);
-        let app_url = String::new();
-        let use_case = CreateUserUseCase::new(
-            query,
-            repository,
-            password_hasher,
-            jwt_service,
-            email_service,
-            app_url,
-        );
-
-        // Act
-        let result = use_case
-            .execute(
-                "new_user".to_string(),
-                "new_user@example.com".to_string(),
-                "password123456".to_string(),
-            )
-            .await;
-
-        // Assert
-        assert!(matches!(result, Err(CreateUserError::HashingFailed(_))));
-    }
-    #[tokio::test]
-    async fn test_create_user_reactivate_soft_deleted_user() {
-        // Arrange - Mock a soft-deleted user with the same email
-        let soft_deleted_user = User {
-            id: Uuid::new_v4(),
-            username: "deleted_user".to_string(),
-            email: "deleted@example.com".to_string(),
-            password_hash: "old_hash".to_string(),
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-            is_verified: false,
-            is_deleted: true, // This user is soft-deleted
-        };
-
-        let query = MockUserQuery {
-            existing_user_by_email: Some(soft_deleted_user.clone()),
-            ..Default::default()
-        };
-
-        // Mock repository that will restore the user
-        #[derive(Default)]
-        struct MockUserRepositoryWithRestore;
-
-        #[async_trait]
-        impl UserRepository for MockUserRepositoryWithRestore {
-            async fn create_user(&self, user: User) -> Result<User, UserRepositoryError> {
-                Ok(user)
-            }
-
-            async fn update_password(
-                &self,
-                _user_id: Uuid,
-                _new_password_hash: String,
-            ) -> Result<(), UserRepositoryError> {
-                unimplemented!()
-            }
-
-            async fn delete_user(&self, _user_id: Uuid) -> Result<(), UserRepositoryError> {
-                unimplemented!()
-            }
-
-            async fn soft_delete_user(&self, _user_id: Uuid) -> Result<(), UserRepositoryError> {
-                unimplemented!()
-            }
-
-            async fn restore_user(&self, user_id: Uuid) -> Result<User, UserRepositoryError> {
-                // Return the restored user (is_deleted = false)
-                Ok(User {
-                    id: user_id,
-                    username: "deleted_user".to_string(),
-                    email: "deleted@example.com".to_string(),
-                    password_hash: "old_hash".to_string(),
-                    created_at: chrono::Utc::now(),
-                    updated_at: chrono::Utc::now(),
-                    is_verified: false,
-                    is_deleted: false, // Now restored
-                })
-            }
-
-            async fn activate_user(&self, _user_id: Uuid) -> Result<(), UserRepositoryError> {
-                unimplemented!()
-            }
-        }
-
-        let repository = MockUserRepositoryWithRestore::default();
-        let password_hasher = PasswordHashingService::with_hasher(MockPasswordHasher);
-        let jwt_service = JwtService::new(JwtConfig::from_env());
-        let sender = Arc::new(MockEmailSender::default());
-        let email_service = EmailService::new(sender);
-        let app_url = String::from("http://localhost:8080");
-
-        let use_case = CreateUserUseCase::new(
-            query,
-            repository,
-            password_hasher,
-            jwt_service,
-            email_service,
-            app_url,
-        );
-
-        // Act - Try to create user with the same email as the soft-deleted user
-        let result = use_case
-            .execute(
-                "new_user".to_string(),
-                "deleted@example.com".to_string(),
-                "new_password123456".to_string(),
-            )
-            .await;
-
-        // Assert - Should successfully restore the user
-        assert!(result.is_ok(), "Expected user restoration to succeed");
-        let restored_user = result.unwrap();
-        assert_eq!(restored_user.email, "deleted@example.com");
-        assert_eq!(restored_user.is_deleted, false);
-    }
-    #[tokio::test]
-    async fn test_create_user_restore_user_fails() {
-        // Arrange - Mock a soft-deleted user
-        let soft_deleted_user = User {
-            id: Uuid::new_v4(),
-            username: "deleted_user".to_string(),
-            email: "deleted@example.com".to_string(),
-            password_hash: "old_hash".to_string(),
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-            is_verified: false,
-            is_deleted: true,
-        };
-
-        let query = MockUserQuery {
-            existing_user_by_email: Some(soft_deleted_user.clone()),
-            ..Default::default()
-        };
-
-        // Mock repository that will fail on restore
-        #[derive(Default)]
-        struct MockUserRepositoryFailRestore;
-
-        #[async_trait]
-        impl UserRepository for MockUserRepositoryFailRestore {
-            async fn create_user(&self, user: User) -> Result<User, UserRepositoryError> {
-                Ok(user)
-            }
-
-            async fn update_password(
-                &self,
-                _user_id: Uuid,
-                _new_password_hash: String,
-            ) -> Result<(), UserRepositoryError> {
-                unimplemented!()
-            }
-
-            async fn delete_user(&self, _user_id: Uuid) -> Result<(), UserRepositoryError> {
-                unimplemented!()
-            }
-
-            async fn soft_delete_user(&self, _user_id: Uuid) -> Result<(), UserRepositoryError> {
-                unimplemented!()
-            }
-
-            async fn restore_user(&self, _user_id: Uuid) -> Result<User, UserRepositoryError> {
-                Err(UserRepositoryError::DatabaseError(
-                    "Failed to restore user".to_string(),
-                ))
-            }
-
-            async fn activate_user(&self, _user_id: Uuid) -> Result<(), UserRepositoryError> {
-                unimplemented!()
-            }
-        }
-
-        let repository = MockUserRepositoryFailRestore;
-        let password_hasher = PasswordHashingService::with_hasher(MockPasswordHasher);
-        let jwt_service = JwtService::new(JwtConfig::from_env());
-        let sender = Arc::new(MockEmailSender::default());
-        let email_service = EmailService::new(sender);
-        let app_url = String::from("http://localhost:8080");
-
-        let use_case = CreateUserUseCase::new(
-            query,
-            repository,
-            password_hasher,
-            jwt_service,
-            email_service,
-            app_url,
-        );
-
-        // Act
-        let result = use_case
-            .execute(
-                "new_user".to_string(),
-                "deleted@example.com".to_string(),
-                "new_password123456".to_string(),
-            )
-            .await;
-
-        // Assert
-        assert!(matches!(result, Err(CreateUserError::RepositoryError(_))));
-    }
-    #[tokio::test]
-    async fn test_create_user_repository_error() {
-        // Arrange
-        let query = MockUserQuery::default();
-        let repository = MockUserRepository {
-            should_fail_on_create: true,
-        };
-        let password_hasher = PasswordHashingService::with_hasher(MockPasswordHasher);
-
-        // mock jwt service
-        let jwt_service = JwtService::new(JwtConfig::from_env());
-
-        // mock email service
-        let sender = Arc::new(MockEmailSender::default());
-        let email_service = EmailService::new(sender);
-
-        // app url
-        let app_url = String::from("0.0.0.0:8080");
-
-        let use_case = CreateUserUseCase::new(
-            query,
-            repository,
-            password_hasher,
-            jwt_service,
-            email_service,
-            app_url,
-        );
-
-        // Act
-        let result = use_case
-            .execute(
-                "new_user".to_string(),
-                "new_user@example.com".to_string(),
-                "password123456".to_string(),
-            )
-            .await;
-
-        // Assert
-        assert!(matches!(result, Err(CreateUserError::RepositoryError(_))));
-    }
-    #[tokio::test]
-    async fn test_create_user_repository_unknown_error() {
-        // Arrange
-        let query = MockUserQuery::default();
-
-        // Mock repository that returns a non-RepositoryError variant
-        #[derive(Default)]
-        struct MockUserRepositoryUnknownError;
-
-        #[async_trait]
-        impl UserRepository for MockUserRepositoryUnknownError {
-            async fn create_user(&self, _user: User) -> Result<User, UserRepositoryError> {
-                // Return UserAlreadyExists to trigger the Err(_) catch-all branch
-                Err(UserRepositoryError::UserAlreadyExists)
-            }
-
-            async fn update_password(
-                &self,
-                _user_id: Uuid,
-                _new_password_hash: String,
-            ) -> Result<(), UserRepositoryError> {
-                unimplemented!()
-            }
-
-            async fn delete_user(&self, _user_id: Uuid) -> Result<(), UserRepositoryError> {
-                unimplemented!()
-            }
-
-            async fn soft_delete_user(&self, _user_id: Uuid) -> Result<(), UserRepositoryError> {
-                unimplemented!()
-            }
-
-            async fn restore_user(&self, _user_id: Uuid) -> Result<User, UserRepositoryError> {
-                unimplemented!()
-            }
-
-            async fn activate_user(&self, _user_id: Uuid) -> Result<(), UserRepositoryError> {
-                unimplemented!()
-            }
-        }
-
-        let repository = MockUserRepositoryUnknownError;
-        let password_hasher = PasswordHashingService::with_hasher(MockPasswordHasher);
-        let jwt_service = JwtService::new(JwtConfig::from_env());
-        let sender = Arc::new(MockEmailSender::default());
-        let email_service = EmailService::new(sender);
-        let app_url = String::from("http://localhost:8080");
-
-        let use_case = CreateUserUseCase::new(
-            query,
-            repository,
-            password_hasher,
-            jwt_service,
-            email_service,
-            app_url,
-        );
-
-        // Act
-        let result = use_case
-            .execute(
-                "new_user".to_string(),
-                "new_user@example.com".to_string(),
-                "password123456".to_string(),
-            )
-            .await;
-
-        // Assert - Should return RepositoryError with "Unknown repository error" message
-        assert!(matches!(result, Err(CreateUserError::RepositoryError(_))));
-        if let Err(CreateUserError::RepositoryError(msg)) = result {
-            assert_eq!(msg, "Unknown repository error");
-        }
-    }
-
-    #[tokio::test]
-    async fn test_create_user_invalid_username_too_short() {
-        let use_case = create_test_use_case();
-
-        let result = use_case
-            .execute(
-                "ab".to_string(),
-                "test@example.com".to_string(),
-                "password123".to_string(),
-            )
-            .await;
-
-        assert!(matches!(result, Err(CreateUserError::InvalidInput(_))));
-    }
-
-    #[tokio::test]
-    async fn test_create_user_invalid_email() {
-        let use_case = create_test_use_case();
-
-        let result = use_case
-            .execute(
-                "username".to_string(),
-                "invalid-email".to_string(),
-                "password123".to_string(),
-            )
-            .await;
-
-        assert!(matches!(result, Err(CreateUserError::InvalidInput(_))));
-    }
-
-    #[tokio::test]
-    async fn test_create_user_password_too_short() {
-        let use_case = create_test_use_case();
-
-        let result = use_case
-            .execute(
-                "username".to_string(),
-                "test@example.com".to_string(),
-                "short".to_string(),
-            )
-            .await;
-
-        assert!(matches!(result, Err(CreateUserError::InvalidInput(_))));
+        let err = use_case.execute(valid_input()).await.unwrap_err();
+        assert!(matches!(err, CreateUserError::HashingFailed(_)));
     }
 }

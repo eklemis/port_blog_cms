@@ -1,7 +1,8 @@
+use crate::auth::application::orchestrator::user_registration::UserRegistrationOrchestrator;
 use crate::auth::application::use_cases::refresh_token::IRefreshTokenUseCase;
 use crate::auth::application::use_cases::soft_delete_user::ISoftDeleteUserUseCase;
 use crate::auth::application::use_cases::{
-    create_user::ICreateUserUseCase, login_user::ILoginUserUseCase, logout_user::ILogoutUseCase,
+    login_user::ILoginUserUseCase, logout_user::ILogoutUseCase,
     verify_user_email::IVerifyUserEmailUseCase,
 };
 use crate::cv::application::use_cases::create_cv::ICreateCVUseCase;
@@ -20,12 +21,22 @@ pub struct TestAppStateBuilder {
     create_cv: Option<Arc<dyn ICreateCVUseCase + Send + Sync>>,
     update_cv: Option<Arc<dyn IUpdateCVUseCase + Send + Sync>>,
     patch_cv: Option<Arc<dyn IPatchCVUseCase + Send + Sync>>,
-    create_user: Option<Arc<dyn ICreateUserUseCase + Send + Sync>>,
+    register_user: Option<Arc<UserRegistrationOrchestrator>>,
     verify_user_email: Option<Arc<dyn IVerifyUserEmailUseCase + Send + Sync>>,
     login_user: Option<Arc<dyn ILoginUserUseCase + Send + Sync>>,
     refresh_token: Option<Arc<dyn IRefreshTokenUseCase + Send + Sync>>,
     logout_user: Option<Arc<dyn ILogoutUseCase + Send + Sync>>,
     soft_delete_user: Option<Arc<dyn ISoftDeleteUserUseCase + Send + Sync>>,
+}
+
+pub fn default_test_user_registration_orchestrator() -> Arc<UserRegistrationOrchestrator> {
+    let create_user = Arc::new(StubCreateUserUseCase);
+    let email_notifier = Arc::new(StubUserEmailNotifier);
+
+    Arc::new(UserRegistrationOrchestrator::new(
+        create_user,
+        email_notifier,
+    ))
 }
 
 impl Default for TestAppStateBuilder {
@@ -36,7 +47,7 @@ impl Default for TestAppStateBuilder {
             create_cv: Some(Arc::new(StubCreateCVUseCase)),
             update_cv: Some(Arc::new(StubUpdateCVUseCase)),
             patch_cv: Some(Arc::new(StubPatchCVUseCase)),
-            create_user: Some(Arc::new(StubCreateUserUseCase)),
+            register_user: Some(default_test_user_registration_orchestrator()),
             verify_user_email: Some(Arc::new(StubVerifyUserEmailUseCase)),
             login_user: Some(Arc::new(StubLoginUserUseCase)),
             refresh_token: Some(Arc::new(StubRefreshTokenUseCase)),
@@ -47,6 +58,10 @@ impl Default for TestAppStateBuilder {
 }
 
 impl TestAppStateBuilder {
+    pub fn with_create_cv(mut self, uc: impl ICreateCVUseCase + Send + Sync + 'static) -> Self {
+        self.create_cv = Some(Arc::new(uc));
+        self
+    }
     pub fn with_fetch_cv(mut self, uc: impl IFetchCVUseCase + Send + Sync + 'static) -> Self {
         self.fetch_cv = Some(Arc::new(uc));
         self
@@ -60,23 +75,22 @@ impl TestAppStateBuilder {
         self
     }
 
-    pub fn with_create_cv(mut self, uc: impl ICreateCVUseCase + Send + Sync + 'static) -> Self {
-        self.create_cv = Some(Arc::new(uc));
+    // In TestAppStateBuilder
+    pub fn with_register_user_orchestrator(
+        mut self,
+        orchestrator: Arc<UserRegistrationOrchestrator>,
+    ) -> Self {
+        self.register_user = Some(orchestrator);
         self
     }
 
-    pub fn with_update_cv(mut self, uc: impl IUpdateCVUseCase + Send + Sync + 'static) -> Self {
-        self.update_cv = Some(Arc::new(uc));
+    pub fn with_update_cv(mut self, uc: Arc<dyn IUpdateCVUseCase + Send + Sync>) -> Self {
+        self.update_cv = Some(uc);
         self
     }
 
     pub fn with_patch_cv(mut self, uc: impl IPatchCVUseCase + Send + Sync + 'static) -> Self {
         self.patch_cv = Some(Arc::new(uc));
-        self
-    }
-
-    pub fn with_create_user(mut self, uc: impl ICreateUserUseCase + Send + Sync + 'static) -> Self {
-        self.create_user = Some(Arc::new(uc));
         self
     }
 
@@ -116,13 +130,12 @@ impl TestAppStateBuilder {
 
     pub fn build(self) -> web::Data<AppState> {
         web::Data::new(AppState {
-            // Safe unwrap: defaults are always set in Default
             fetch_cv_use_case: self.fetch_cv.unwrap(),
             fetch_cv_by_id_use_case: self.fetch_cv_by_id.unwrap(),
             create_cv_use_case: self.create_cv.unwrap(),
             update_cv_use_case: self.update_cv.unwrap(),
             patch_cv_use_case: self.patch_cv.unwrap(),
-            create_user_use_case: self.create_user.unwrap(),
+            register_user_orchestrator: self.register_user.unwrap(),
             verify_user_email_use_case: self.verify_user_email.unwrap(),
             login_user_use_case: self.login_user.unwrap(),
             refresh_token_use_case: self.refresh_token.unwrap(),

@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use uuid::Uuid;
 
+use crate::auth::application::use_cases::create_user::{CreateUserInput, CreateUserOutput};
 use crate::auth::application::use_cases::logout_user::{
     LogoutError, LogoutRequest, LogoutResponse,
 };
@@ -11,6 +12,9 @@ use crate::auth::application::use_cases::soft_delete_user::{
     ISoftDeleteUserUseCase, SoftDeleteUserError, SoftDeleteUserRequest,
 };
 use crate::cv::domain::entities::CVInfo;
+use crate::email::application::ports::outgoing::user_email_notifier::{
+    UserEmailNotificationError, UserEmailNotifier,
+};
 use crate::{
     auth::application::use_cases::login_user::{LoginError, LoginRequest, LoginUserResponse},
     cv::application::use_cases::{
@@ -28,8 +32,6 @@ use crate::auth::application::use_cases::{
     logout_user::ILogoutUseCase,
     verify_user_email::{IVerifyUserEmailUseCase, VerifyUserEmailError},
 };
-
-use crate::modules::auth::application::domain::entities::User;
 
 #[derive(Default, Clone)]
 pub struct StubFetchCVUseCase;
@@ -100,12 +102,7 @@ pub struct StubCreateUserUseCase;
 
 #[async_trait]
 impl ICreateUserUseCase for StubCreateUserUseCase {
-    async fn execute(
-        &self,
-        _username: String,
-        _email: String,
-        _password: String,
-    ) -> Result<User, CreateUserError> {
+    async fn execute(&self, _input: CreateUserInput) -> Result<CreateUserOutput, CreateUserError> {
         unimplemented!("Not used in this test")
     }
 }
@@ -159,6 +156,19 @@ pub struct StubSoftDeleteUserUseCase;
 #[async_trait]
 impl ISoftDeleteUserUseCase for StubSoftDeleteUserUseCase {
     async fn execute(&self, _request: SoftDeleteUserRequest) -> Result<(), SoftDeleteUserError> {
+        unimplemented!()
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct StubUserEmailNotifier;
+
+#[async_trait]
+impl UserEmailNotifier for StubUserEmailNotifier {
+    async fn send_verification_email(
+        &self,
+        _user: CreateUserOutput,
+    ) -> Result<(), UserEmailNotificationError> {
         unimplemented!()
     }
 }

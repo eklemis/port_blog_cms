@@ -1,12 +1,13 @@
-// src/modules/auth/application/use_cases/logout.rs
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Deserializer, Serialize};
 use tracing::{info, warn};
 
-use crate::auth::application::{
-    ports::outgoing::token_repository::{TokenRepository, TokenRepositoryError},
-    services::{hash::token_hasher::hash_token, jwt::JwtService},
+use crate::auth::application::ports::{
+    outgoing::token_hasher::hash_token,
+    outgoing::token_provider::TokenProvider,
+    outgoing::token_repository::{TokenRepository, TokenRepositoryError},
 };
 
 // ========================= Logout Request =========================
@@ -97,23 +98,23 @@ pub trait ILogoutUseCase: Send + Sync {
     async fn execute(&self, request: LogoutRequest) -> Result<LogoutResponse, LogoutError>;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct LogoutUseCase<R>
 where
     R: TokenRepository + Send + Sync,
 {
     token_repository: R,
-    jwt_service: JwtService,
+    token_provider: Arc<dyn TokenProvider>,
 }
 
 impl<R> LogoutUseCase<R>
 where
     R: TokenRepository + Send + Sync,
 {
-    pub fn new(token_repository: R, jwt_service: JwtService) -> Self {
+    pub fn new(token_repository: R, token_provider: Arc<dyn TokenProvider>) -> Self {
         Self {
             token_repository,
-            jwt_service,
+            token_provider,
         }
     }
 }
@@ -126,7 +127,7 @@ where
     async fn execute(&self, request: LogoutRequest) -> Result<LogoutResponse, LogoutError> {
         // If refresh token provided, blacklist it
         if let Some(refresh_token) = request.refresh_token() {
-            match self.jwt_service.verify_token(refresh_token) {
+            match self.token_provider.verify_token(refresh_token) {
                 Ok(claims) => {
                     // Hash the token before storing (NEVER store raw tokens!)
                     let token_hash = hash_token(refresh_token);
@@ -159,7 +160,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::modules::auth::application::services::jwt::{JwtConfig, JwtService};
+    use crate::modules::auth::adapter::outgoing::jwt::{JwtConfig, JwtTokenService};
     use chrono::{DateTime, Utc};
     use uuid::Uuid;
 
@@ -231,8 +232,8 @@ mod tests {
         }
     }
 
-    fn create_jwt_service() -> JwtService {
-        JwtService::new(JwtConfig {
+    fn create_jwt_service() -> JwtTokenService {
+        JwtTokenService::new(JwtConfig {
             secret_key: "test_secret_key_min_32_characters_long".to_string(),
             issuer: "testapp".to_string(),
             access_token_expiry: 3600,
@@ -250,7 +251,7 @@ mod tests {
         // Generate a valid refresh token
         let refresh_token = jwt_service.generate_refresh_token(user_id, true).unwrap();
 
-        let use_case = LogoutUseCase::new(repository.clone(), jwt_service);
+        let use_case = LogoutUseCase::new(repository.clone(), Arc::new(jwt_service));
         let request = LogoutRequest::new(Some(refresh_token.clone())).unwrap();
 
         let result = use_case.execute(request).await;
@@ -267,7 +268,7 @@ mod tests {
         let repository = MockTokenRepository::new();
         let jwt_service = create_jwt_service();
 
-        let use_case = LogoutUseCase::new(repository, jwt_service);
+        let use_case = LogoutUseCase::new(repository, Arc::new(jwt_service));
         let request = LogoutRequest::new(None).unwrap();
 
         let result = use_case.execute(request).await;
@@ -280,7 +281,7 @@ mod tests {
         let repository = MockTokenRepository::new();
         let jwt_service = create_jwt_service();
 
-        let use_case = LogoutUseCase::new(repository, jwt_service);
+        let use_case = LogoutUseCase::new(repository, Arc::new(jwt_service));
         let request = LogoutRequest::new(Some("invalid.token.here".to_string())).unwrap();
 
         // Should still succeed - logout always succeeds from user perspective
@@ -296,7 +297,7 @@ mod tests {
 
         let refresh_token = jwt_service.generate_refresh_token(user_id, true).unwrap();
 
-        let use_case = LogoutUseCase::new(repository, jwt_service);
+        let use_case = LogoutUseCase::new(repository, Arc::new(jwt_service));
         let request = LogoutRequest::new(Some(refresh_token)).unwrap();
 
         let result = use_case.execute(request).await;

@@ -97,7 +97,9 @@ impl CVRepository for CVRepoPostgres {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cv::domain::entities::{CoreSkill, Education, Experience, HighlightedProject};
+    use crate::cv::domain::entities::{
+        ContactDetail, ContactType, CoreSkill, Education, Experience, HighlightedProject,
+    };
     use chrono::Utc;
     use sea_orm::{DatabaseBackend, MockDatabase, MockExecResult};
 
@@ -110,6 +112,7 @@ mod tests {
             id: Uuid::new_v4(), // Add id field
             user_id,
             bio: "Test bio".to_string(),
+            display_name: "Robin Hood".to_string(),
             role: "Test role".to_string(),
             photo_url: "https://example.com/photo.jpg".to_string(),
             core_skills: serde_json::to_value(vec![CoreSkill {
@@ -140,6 +143,19 @@ mod tests {
                 slug: "test-project".to_string(),
                 short_description: "Short description".to_string(),
             }])
+            .unwrap(),
+            contact_info: serde_json::to_value(vec![
+                ContactDetail {
+                    contact_type: crate::cv::domain::entities::ContactType::PhoneNumber,
+                    title: "Personal".to_string(),
+                    content: "0876352718".to_string(),
+                },
+                ContactDetail {
+                    contact_type: ContactType::WebPage,
+                    title: "Github".to_string(),
+                    content: "www.github.com/3423423423kmfdfd".to_string(),
+                },
+            ])
             .unwrap(),
             created_at: fixed_offset_now,
             updated_at: fixed_offset_now,
@@ -173,6 +189,7 @@ mod tests {
         assert_eq!(cv_info.id, cv_model.id); // Assert ID is returned correctly
         assert_eq!(cv_info.bio, "Test bio");
         assert_eq!(cv_info.role, "Test role");
+        assert_eq!(cv_info.display_name, "Robin Hood");
         assert_eq!(cv_info.photo_url, "https://example.com/photo.jpg");
         assert_eq!(cv_info.core_skills.len(), 1);
         assert_eq!(cv_info.core_skills[0].title, "Rust");
@@ -182,6 +199,13 @@ mod tests {
         assert_eq!(cv_info.experiences[0].company, "Test Corp");
         assert_eq!(cv_info.highlighted_projects.len(), 1);
         assert_eq!(cv_info.highlighted_projects[0].title, "Test Project");
+        assert_eq!(cv_info.contact_info.len(), 2);
+        assert_eq!(cv_info.contact_info[0].title, "Personal");
+        assert_eq!(
+            cv_info.contact_info[0].contact_type,
+            ContactType::PhoneNumber
+        );
+        assert_eq!(cv_info.contact_info[0].content, "0876352718");
     }
 
     #[tokio::test]
@@ -239,6 +263,7 @@ mod tests {
             bio: "Test bio".to_string(),
             role: "Test role".to_string(),
             photo_url: "https://example.com/photo.jpg".to_string(),
+            display_name: "Robin Hood".to_string(),
             core_skills: vec![CoreSkill {
                 title: "Rust".to_string(),
                 description: "System programming".to_string(),
@@ -264,6 +289,18 @@ mod tests {
                 slug: "test-project".to_string(),
                 short_description: "Short description".to_string(),
             }],
+            contact_info: vec![
+                ContactDetail {
+                    contact_type: crate::cv::domain::entities::ContactType::PhoneNumber,
+                    title: "Personal".to_string(),
+                    content: "0876352718".to_string(),
+                },
+                ContactDetail {
+                    contact_type: ContactType::WebPage,
+                    title: "Github".to_string(),
+                    content: "www.github.com/3423423423kmfdfd".to_string(),
+                },
+            ],
         };
 
         // Create a model that would be returned after insert
@@ -272,6 +309,7 @@ mod tests {
         let inserted_model = CvModel {
             id: cv_id,
             user_id: user_id,
+            display_name: cv_data.display_name.clone(),
             bio: cv_data.bio.clone(),
             role: cv_data.role.clone(),
             photo_url: cv_data.photo_url.clone(),
@@ -279,6 +317,7 @@ mod tests {
             educations: serde_json::to_value(&cv_data.educations).unwrap(),
             experiences: serde_json::to_value(&cv_data.experiences).unwrap(),
             highlighted_projects: serde_json::to_value(&cv_data.highlighted_projects).unwrap(),
+            contact_info: serde_json::to_value(&cv_data.contact_info).unwrap(),
             created_at: fixed_offset_now,
             updated_at: fixed_offset_now,
             is_deleted: false,
@@ -328,6 +367,7 @@ mod tests {
         let updated_cv_data = UpdateCVData {
             bio: "Updated bio".to_string(),
             role: "Updated role".to_string(),
+            display_name: "Robin Hood".to_string(),
             photo_url: "https://example.com/updated.jpg".to_string(),
             core_skills: vec![CoreSkill {
                 title: "Advanced Rust".to_string(),
@@ -354,6 +394,18 @@ mod tests {
                 slug: "advanced-project".to_string(),
                 short_description: "Advanced description".to_string(),
             }],
+            contact_info: vec![
+                ContactDetail {
+                    contact_type: crate::cv::domain::entities::ContactType::PhoneNumber,
+                    title: "Personal".to_string(),
+                    content: "0876352718".to_string(),
+                },
+                ContactDetail {
+                    contact_type: ContactType::WebPage,
+                    title: "Github".to_string(),
+                    content: "www.github.com/3423423423kmfdfd".to_string(),
+                },
+            ],
         };
 
         // Create an updated model that will be returned after update
@@ -417,6 +469,7 @@ mod tests {
         let cv_data = UpdateCVData {
             bio: "Updated bio".to_string(),
             role: "Updated role".to_string(),
+            display_name: "Robin Hood".to_string(),
             photo_url: "https://example.com/updated.jpg".to_string(),
             core_skills: vec![],
             educations: vec![Education {
@@ -426,6 +479,7 @@ mod tests {
             }],
             experiences: vec![],
             highlighted_projects: vec![],
+            contact_info: vec![],
         };
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)

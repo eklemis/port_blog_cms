@@ -26,28 +26,36 @@ mod tests {
 
     use super::*;
     use crate::{
-        cv::{application::use_cases::fetch_user_cvs::IFetchCVUseCase, domain::Education},
+        auth::application::ports::outgoing::token_provider::TokenProvider,
+        cv::{
+            application::use_cases::fetch_user_cvs::IFetchCVUseCase,
+            domain::{CVInfo, Education},
+        },
         tests::support::{
             app_state_builder::TestAppStateBuilder,
             auth_helper::test_helpers::create_test_jwt_service,
         },
     };
-    use actix_web::{test, App};
+    use actix_web::{test, web, App};
     use async_trait::async_trait;
     use tokio::sync::Mutex;
     use uuid::Uuid;
 
+    /* --------------------------------------------------
+     * Mock Fetch CV Use Case
+     * -------------------------------------------------- */
+
     #[derive(Clone)]
     struct MockFetchCVUseCase {
         should_fail: Arc<Mutex<Option<FetchCVError>>>,
-        cv: Arc<Mutex<Option<CVInfo>>>,
+        cvs: Arc<Mutex<Option<Vec<CVInfo>>>>,
     }
 
     impl MockFetchCVUseCase {
         fn new() -> Self {
             Self {
                 should_fail: Arc::new(Mutex::new(None)),
-                cv: Arc::new(Mutex::new(None)),
+                cvs: Arc::new(Mutex::new(None)),
             }
         }
 
@@ -55,8 +63,8 @@ mod tests {
             *self.should_fail.lock().await = Some(error);
         }
 
-        async fn set_success(&self, cv: CVInfo) {
-            *self.cv.lock().await = Some(cv);
+        async fn set_success(&self, cvs: Vec<CVInfo>) {
+            *self.cvs.lock().await = Some(cvs);
             *self.should_fail.lock().await = None;
         }
     }
@@ -64,30 +72,21 @@ mod tests {
     #[async_trait]
     impl IFetchCVUseCase for MockFetchCVUseCase {
         async fn execute(&self, _user_id: Uuid) -> Result<Vec<CVInfo>, FetchCVError> {
-            let error = self.should_fail.lock().await;
-            if let Some(err) = error.as_ref() {
-                return Err(err.clone());
+            if let Some(err) = self.should_fail.lock().await.clone() {
+                return Err(err);
             }
 
-            let cv = self.cv.lock().await;
-            if let Some(c) = cv.as_ref() {
-                return Ok(vec![c.clone()]);
+            if let Some(cvs) = self.cvs.lock().await.clone() {
+                return Ok(cvs);
             }
 
-            // Default success case - return a vector with one CV
-            Ok(vec![CVInfo {
-                id: Uuid::new_v4(),
-                user_id: Uuid::new_v4(),
-                bio: "Default bio".to_string(),
-                role: "Data Engineer".to_string(),
-                photo_url: "https://example.com/photo.jpg".to_string(),
-                core_skills: vec![],
-                educations: vec![],
-                experiences: vec![],
-                highlighted_projects: vec![],
-            }])
+            panic!("MockFetchCVUseCase called without configured result");
         }
     }
+
+    /* --------------------------------------------------
+     * Tests
+     * -------------------------------------------------- */
 
     #[actix_web::test]
     async fn test_get_cv_handler_success() {
@@ -97,6 +96,7 @@ mod tests {
         let expected_cv = CVInfo {
             id: Uuid::new_v4(),
             user_id,
+            display_name: "Berto Fang".to_string(),
             bio: "Software Engineer with 5 years of experience".to_string(),
             role: "Software Engineer".to_string(),
             photo_url: "https://example.com/photo.jpg".to_string(),
@@ -108,25 +108,23 @@ mod tests {
             }],
             experiences: vec![],
             highlighted_projects: vec![],
+            contact_info: vec![],
         };
 
-        fetch_uc.set_success(expected_cv.clone()).await;
+        fetch_uc.set_success(vec![expected_cv.clone()]).await;
 
         let app_state = TestAppStateBuilder::default()
             .with_fetch_cv(fetch_uc)
             .build();
 
         let jwt_service = create_test_jwt_service();
-
-        // Generate a valid token for a verified user
-        let token = jwt_service
-            .generate_access_token(user_id, true)
-            .expect("Failed to generate token");
+        let token = jwt_service.generate_access_token(user_id, true).unwrap();
+        let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service);
 
         let app = test::init_service(
             App::new()
                 .app_data(app_state)
-                .app_data(web::Data::new(jwt_service))
+                .app_data(web::Data::new(token_provider))
                 .service(get_cvs_handler),
         )
         .await;
@@ -147,7 +145,6 @@ mod tests {
     #[actix_web::test]
     async fn test_get_cv_handler_no_cvs() {
         let fetch_uc = MockFetchCVUseCase::new();
-
         fetch_uc.set_error(FetchCVError::NoCVs).await;
 
         let app_state = TestAppStateBuilder::default()
@@ -155,16 +152,14 @@ mod tests {
             .build();
 
         let jwt_service = create_test_jwt_service();
-
         let user_id = Uuid::new_v4();
-        let token = jwt_service
-            .generate_access_token(user_id, true)
-            .expect("Failed to generate token");
+        let token = jwt_service.generate_access_token(user_id, true).unwrap();
+        let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service);
 
         let app = test::init_service(
             App::new()
                 .app_data(app_state)
-                .app_data(web::Data::new(jwt_service))
+                .app_data(web::Data::new(token_provider))
                 .service(get_cvs_handler),
         )
         .await;
@@ -178,13 +173,12 @@ mod tests {
         assert_eq!(resp.status(), 200);
 
         let body: Vec<CVInfo> = test::read_body_json(resp).await;
-        assert_eq!(body.len(), 0); // Empty array when no CVs
+        assert_eq!(body.len(), 0);
     }
 
     #[actix_web::test]
     async fn test_get_cv_handler_repository_error() {
         let fetch_uc = MockFetchCVUseCase::new();
-
         fetch_uc
             .set_error(FetchCVError::RepositoryError(
                 "Database connection failed".to_string(),
@@ -196,11 +190,8 @@ mod tests {
             .build();
 
         let jwt_service = create_test_jwt_service();
-
         let user_id = Uuid::new_v4();
-        let token = jwt_service
-            .generate_access_token(user_id, true)
-            .expect("Failed to generate token");
+        let token = jwt_service.generate_access_token(user_id, true).unwrap();
 
         let app = test::init_service(
             App::new()
@@ -228,22 +219,20 @@ mod tests {
             .build();
 
         let jwt_service = create_test_jwt_service();
+        let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service);
 
         let app = test::init_service(
             App::new()
                 .app_data(app_state)
-                .app_data(web::Data::new(jwt_service))
+                .app_data(web::Data::new(token_provider))
                 .service(get_cvs_handler),
         )
         .await;
 
-        let req = test::TestRequest::get()
-            .uri("/api/cvs")
-            // No Authorization header
-            .to_request();
+        let req = test::TestRequest::get().uri("/api/cvs").to_request();
 
         let resp = test::call_service(&app, req).await;
-        assert_eq!(resp.status(), 401); // Unauthorized
+        assert_eq!(resp.status(), 401);
     }
 
     #[actix_web::test]
@@ -255,11 +244,12 @@ mod tests {
             .build();
 
         let jwt_service = create_test_jwt_service();
+        let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service);
 
         let app = test::init_service(
             App::new()
                 .app_data(app_state)
-                .app_data(web::Data::new(jwt_service))
+                .app_data(web::Data::new(token_provider))
                 .service(get_cvs_handler),
         )
         .await;
@@ -270,7 +260,7 @@ mod tests {
             .to_request();
 
         let resp = test::call_service(&app, req).await;
-        assert_eq!(resp.status(), 401); // Unauthorized
+        assert_eq!(resp.status(), 401);
     }
 
     #[actix_web::test]
@@ -282,17 +272,14 @@ mod tests {
             .build();
 
         let jwt_service = create_test_jwt_service();
-
         let user_id = Uuid::new_v4();
-        // Generate token for UNVERIFIED user (is_verified = false)
-        let token = jwt_service
-            .generate_access_token(user_id, false)
-            .expect("Failed to generate token");
+        let token = jwt_service.generate_access_token(user_id, false).unwrap();
+        let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service);
 
         let app = test::init_service(
             App::new()
                 .app_data(app_state)
-                .app_data(web::Data::new(jwt_service))
+                .app_data(web::Data::new(token_provider))
                 .service(get_cvs_handler),
         )
         .await;
@@ -303,6 +290,6 @@ mod tests {
             .to_request();
 
         let resp = test::call_service(&app, req).await;
-        assert_eq!(resp.status(), 403); // Forbidden - user not verified
+        assert_eq!(resp.status(), 403);
     }
 }

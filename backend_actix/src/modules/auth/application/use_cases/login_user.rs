@@ -1,9 +1,10 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Deserializer, Serialize};
+use std::sync::Arc;
 
-use crate::auth::application::{
-    ports::outgoing::UserQuery,
-    services::{hash::PasswordHashingService, jwt::JwtService},
+use crate::auth::application::ports::{
+    outgoing::UserQuery,
+    outgoing::{password_hasher::PasswordHasher, token_provider::TokenProvider},
 };
 use email_address::EmailAddress;
 // ========================= Login Request =========================
@@ -150,25 +151,29 @@ pub trait ILoginUserUseCase: Send + Sync {
 }
 
 // Implementation of Login use case
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct LoginUserUseCase<Q>
 where
     Q: UserQuery + Send + Sync,
 {
     query: Q,
-    password_hasher: PasswordHashingService,
-    jwt_service: JwtService,
+    password_hasher: Arc<dyn PasswordHasher>,
+    token_provider: Arc<dyn TokenProvider>,
 }
 
 impl<Q> LoginUserUseCase<Q>
 where
     Q: UserQuery + Send + Sync,
 {
-    pub fn new(query: Q, password_hasher: PasswordHashingService, jwt_service: JwtService) -> Self {
+    pub fn new(
+        query: Q,
+        password_hasher: Arc<dyn PasswordHasher>,
+        token_provider: Arc<dyn TokenProvider>,
+    ) -> Self {
         Self {
             query,
             password_hasher,
-            jwt_service,
+            token_provider,
         }
     }
 }
@@ -184,7 +189,7 @@ where
             .query
             .find_by_email(request.email())
             .await
-            .map_err(|e| LoginError::QueryError(e))?
+            .map_err(|e| LoginError::QueryError(e.to_string()))?
             .ok_or(LoginError::InvalidCredentials)?;
 
         // 2️⃣ **Check if user is deleted**
@@ -193,11 +198,17 @@ where
         }
 
         // 3️⃣ **Verify password**
-        let is_valid = self
-            .password_hasher
-            .verify_password(request.password().to_string(), user.password_hash.clone())
-            .await
-            .map_err(|e| LoginError::PasswordVerificationFailed(e))?;
+        let password = request.password().to_owned();
+        let stored_hash = user.password_hash.clone();
+        let hasher = Arc::clone(&self.password_hasher);
+
+        let is_valid =
+            tokio::task::spawn_blocking(move || hasher.verify_password(&password, &stored_hash))
+                .await
+                .map_err(|e| LoginError::PasswordVerificationFailed(e.to_string()))?
+                .map_err(|_| {
+                    LoginError::PasswordVerificationFailed("verification failed".to_string())
+                })?;
 
         if !is_valid {
             return Err(LoginError::InvalidCredentials);
@@ -205,12 +216,12 @@ where
 
         // 4️⃣ **Generate tokens**
         let access_token = self
-            .jwt_service
+            .token_provider
             .generate_access_token(user.id, user.is_verified)
             .map_err(|e| LoginError::TokenGenerationFailed(e.to_string()))?;
 
         let refresh_token = self
-            .jwt_service
+            .token_provider
             .generate_refresh_token(user.id, user.is_verified)
             .map_err(|e| LoginError::TokenGenerationFailed(e.to_string()))?;
 
@@ -231,9 +242,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::modules::auth::application::domain::entities::User;
-    use crate::modules::auth::application::services::hash::password_hasher::PasswordHasher;
-    use crate::modules::auth::application::services::jwt::JwtConfig;
+    use crate::auth::adapter::outgoing::jwt::JwtConfig;
+    use crate::auth::adapter::outgoing::jwt::JwtTokenService;
+    use crate::auth::application::ports::outgoing::password_hasher::HashError;
+    use crate::auth::application::ports::outgoing::user_query::{UserQueryError, UserQueryResult};
     use async_trait::async_trait;
     use serde_json::json;
     use uuid::Uuid;
@@ -335,23 +347,32 @@ mod tests {
     // Mock UserQuery
     #[derive(Default)]
     struct MockUserQuery {
-        user: Option<User>,
+        user: Option<UserQueryResult>,
         should_fail: bool,
     }
 
     #[async_trait]
     impl UserQuery for MockUserQuery {
-        async fn find_by_id(&self, _user_id: Uuid) -> Result<Option<User>, String> {
+        async fn find_by_id(
+            &self,
+            _user_id: Uuid,
+        ) -> Result<Option<UserQueryResult>, UserQueryError> {
             Ok(None)
         }
 
-        async fn find_by_username(&self, _username: &str) -> Result<Option<User>, String> {
+        async fn find_by_username(
+            &self,
+            _username: &str,
+        ) -> Result<Option<UserQueryResult>, UserQueryError> {
             Ok(None)
         }
 
-        async fn find_by_email(&self, email: &str) -> Result<Option<User>, String> {
+        async fn find_by_email(
+            &self,
+            email: &str,
+        ) -> Result<Option<UserQueryResult>, UserQueryError> {
             if self.should_fail {
-                return Err("Database error".to_string());
+                return Err(UserQueryError::DatabaseError("Database error".to_string()));
             }
 
             if let Some(user) = &self.user {
@@ -370,18 +391,18 @@ mod tests {
     }
 
     impl PasswordHasher for MockPasswordHasher {
-        fn hash_password(&self, _password: &str) -> Result<String, String> {
+        fn hash_password(&self, _password: &str) -> Result<String, HashError> {
             Ok("hashed_password".to_string())
         }
 
-        fn verify_password(&self, _password: &str, _hash: &str) -> Result<bool, String> {
+        fn verify_password(&self, _password: &str, _hash: &str) -> Result<bool, HashError> {
             Ok(self.should_verify)
         }
     }
 
     // Helper to create JWT service
-    fn create_jwt_service() -> JwtService {
-        JwtService::new(JwtConfig {
+    fn create_jwt_service() -> JwtTokenService {
+        JwtTokenService::new(JwtConfig {
             secret_key: "test_secret_key_min_32_characters_long".to_string(),
             issuer: "testapp".to_string(),
             access_token_expiry: 3600,
@@ -391,12 +412,13 @@ mod tests {
     }
 
     // Helper to create a test user
-    fn create_test_user(is_verified: bool, is_deleted: bool) -> User {
-        User {
+    fn create_test_user(is_verified: bool, is_deleted: bool) -> UserQueryResult {
+        UserQueryResult {
             id: Uuid::new_v4(),
             username: "testuser".to_string(),
             email: "test@example.com".to_string(),
             password_hash: "hashed_password".to_string(),
+            full_name: "Alexander Gibraltar".to_string(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
             is_verified,
@@ -411,12 +433,13 @@ mod tests {
             user: Some(user.clone()),
             should_fail: false,
         };
-        let password_hasher = PasswordHashingService::with_hasher(MockPasswordHasher {
+        let password_hasher = MockPasswordHasher {
             should_verify: true,
-        });
+        };
         let jwt_service = create_jwt_service();
 
-        let use_case = LoginUserUseCase::new(query, password_hasher, jwt_service);
+        let use_case =
+            LoginUserUseCase::new(query, Arc::new(password_hasher), Arc::new(jwt_service));
 
         let request =
             LoginRequest::new("test@example.com".to_string(), "password123".to_string()).unwrap();
@@ -435,12 +458,13 @@ mod tests {
     #[tokio::test]
     async fn test_login_user_not_found() {
         let query = MockUserQuery::default();
-        let password_hasher = PasswordHashingService::with_hasher(MockPasswordHasher {
+        let password_hasher = MockPasswordHasher {
             should_verify: true,
-        });
+        };
         let jwt_service = create_jwt_service();
 
-        let use_case = LoginUserUseCase::new(query, password_hasher, jwt_service);
+        let use_case =
+            LoginUserUseCase::new(query, Arc::new(password_hasher), Arc::new(jwt_service));
 
         let request = LoginRequest::new(
             "nonexistent@example.com".to_string(),
@@ -464,12 +488,13 @@ mod tests {
             user: Some(user),
             should_fail: false,
         };
-        let password_hasher = PasswordHashingService::with_hasher(MockPasswordHasher {
+        let password_hasher = MockPasswordHasher {
             should_verify: false,
-        });
+        };
         let jwt_service = create_jwt_service();
 
-        let use_case = LoginUserUseCase::new(query, password_hasher, jwt_service);
+        let use_case =
+            LoginUserUseCase::new(query, Arc::new(password_hasher), Arc::new(jwt_service));
 
         let request =
             LoginRequest::new("test@example.com".to_string(), "wrongpassword".to_string()).unwrap();
@@ -490,12 +515,13 @@ mod tests {
             user: Some(user),
             should_fail: false,
         };
-        let password_hasher = PasswordHashingService::with_hasher(MockPasswordHasher {
+        let password_hasher = MockPasswordHasher {
             should_verify: true,
-        });
+        };
         let jwt_service = create_jwt_service();
 
-        let use_case = LoginUserUseCase::new(query, password_hasher, jwt_service);
+        let use_case =
+            LoginUserUseCase::new(query, Arc::new(password_hasher), Arc::new(jwt_service));
 
         let request =
             LoginRequest::new("test@example.com".to_string(), "password123".to_string()).unwrap();
@@ -515,12 +541,13 @@ mod tests {
             user: None,
             should_fail: true,
         };
-        let password_hasher = PasswordHashingService::with_hasher(MockPasswordHasher {
+        let password_hasher = MockPasswordHasher {
             should_verify: true,
-        });
+        };
         let jwt_service = create_jwt_service();
 
-        let use_case = LoginUserUseCase::new(query, password_hasher, jwt_service);
+        let use_case =
+            LoginUserUseCase::new(query, Arc::new(password_hasher), Arc::new(jwt_service));
 
         let request =
             LoginRequest::new("test@example.com".to_string(), "password123".to_string()).unwrap();
@@ -540,12 +567,12 @@ mod tests {
         struct FailingPasswordHasher;
 
         impl PasswordHasher for FailingPasswordHasher {
-            fn hash_password(&self, _password: &str) -> Result<String, String> {
+            fn hash_password(&self, _password: &str) -> Result<String, HashError> {
                 Ok("hash".to_string())
             }
 
-            fn verify_password(&self, _password: &str, _hash: &str) -> Result<bool, String> {
-                Err("Verification error".to_string())
+            fn verify_password(&self, _password: &str, _hash: &str) -> Result<bool, HashError> {
+                Err(HashError::VerifyFailed)
             }
         }
 
@@ -554,10 +581,11 @@ mod tests {
             user: Some(user),
             should_fail: false,
         };
-        let password_hasher = PasswordHashingService::with_hasher(FailingPasswordHasher);
+        let password_hasher = FailingPasswordHasher;
         let jwt_service = create_jwt_service();
 
-        let use_case = LoginUserUseCase::new(query, password_hasher, jwt_service);
+        let use_case =
+            LoginUserUseCase::new(query, Arc::new(password_hasher), Arc::new(jwt_service));
 
         let request =
             LoginRequest::new("test@example.com".to_string(), "password123".to_string()).unwrap();
@@ -578,12 +606,13 @@ mod tests {
             user: Some(user),
             should_fail: false,
         };
-        let password_hasher = PasswordHashingService::with_hasher(MockPasswordHasher {
+        let password_hasher = MockPasswordHasher {
             should_verify: true,
-        });
+        };
         let jwt_service = create_jwt_service();
 
-        let use_case = LoginUserUseCase::new(query, password_hasher, jwt_service);
+        let use_case =
+            LoginUserUseCase::new(query, Arc::new(password_hasher), Arc::new(jwt_service));
 
         // Login with uppercase email
         let request =

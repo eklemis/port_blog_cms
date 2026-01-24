@@ -1,66 +1,32 @@
 use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
-use serde::{Deserialize, Serialize};
-use std::error::Error;
+
 use std::fmt;
 use tracing;
 use uuid::Uuid;
 
+use crate::auth::application::ports::outgoing::token_provider::{
+    TokenClaims, TokenError, TokenProvider,
+};
+
 use super::jwt_config::JwtConfig;
 
-#[derive(Debug)]
-pub enum JwtError {
-    TokenExpired,
-    TokenNotYetValid,
-    InvalidTokenType(String),
-    InvalidSignature,
-    MalformedToken,
-    EncodingError(String),
-}
-
-impl fmt::Display for JwtError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            JwtError::TokenExpired => write!(f, "Token has expired"),
-            JwtError::TokenNotYetValid => write!(f, "Token is not yet valid"), // ADD THIS
-            JwtError::InvalidTokenType(expected) => {
-                write!(f, "Invalid token type, expected: {}", expected)
-            }
-            JwtError::InvalidSignature => write!(f, "Invalid token signature"),
-            JwtError::MalformedToken => write!(f, "Malformed token"),
-            JwtError::EncodingError(msg) => write!(f, "Token encoding error: {}", msg),
-        }
-    }
-}
-impl Error for JwtError {}
-
-/// Structure for JWT Claims
-#[derive(Debug, Serialize, Deserialize)]
-pub struct JwtClaims {
-    pub sub: Uuid,          // User ID
-    pub exp: i64,           // Expiration timestamp
-    pub iat: i64,           // Issued at timestamp - ADD THIS
-    pub nbf: i64,           // Not before timestamp - ADD THIS
-    pub token_type: String, // "access", "refresh", or "verification"
-    pub is_verified: bool,  // User verification status
-}
-
 #[derive(Clone)]
-pub struct JwtService {
+pub struct JwtTokenService {
     config: JwtConfig,
     encoding_key: EncodingKey,
     decoding_key: DecodingKey,
 }
 
 #[cfg(not(tarpaulin_include))]
-impl fmt::Debug for JwtService {
+impl fmt::Debug for JwtTokenService {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("JwtService")
             .field("config", &"JwtConfig")
             .finish()
     }
 }
-impl JwtService {
+impl JwtTokenService {
     /// Initialize the service with config
     pub fn new(config: JwtConfig) -> Self {
         let encoding_key = EncodingKey::from_secret(config.secret_key.as_bytes());
@@ -79,11 +45,11 @@ impl JwtService {
         is_verified: bool,
         token_type: &str,
         expiry_seconds: i64,
-    ) -> Result<String, JwtError> {
+    ) -> Result<String, TokenError> {
         let now = Utc::now();
         let expiration = now + Duration::seconds(expiry_seconds);
 
-        let claims = JwtClaims {
+        let claims = TokenClaims {
             sub: user_id,
             exp: expiration.timestamp(),
             iat: now.timestamp(),
@@ -93,73 +59,75 @@ impl JwtService {
         };
 
         encode(&Header::new(Algorithm::HS256), &claims, &self.encoding_key)
-            .map_err(|e| JwtError::EncodingError(e.to_string()))
+            .map_err(|e| TokenError::EncodingError(e.to_string()))
     }
-
+}
+impl TokenProvider for JwtTokenService {
     /// Generate an access token
-    pub fn generate_access_token(
+    fn generate_access_token(
         &self,
         user_id: Uuid,
         is_verified: bool,
-    ) -> Result<String, JwtError> {
+    ) -> Result<String, TokenError> {
         let expiry_seconds = self.config.access_token_expiry;
         self.generate_token(user_id, is_verified, "access", expiry_seconds)
     }
 
     /// Generate a refresh token
-    pub fn generate_refresh_token(
+    fn generate_refresh_token(
         &self,
         user_id: Uuid,
         is_verified: bool,
-    ) -> Result<String, JwtError> {
+    ) -> Result<String, TokenError> {
         let expiry_seconds = self.config.refresh_token_expiry;
         self.generate_token(user_id, is_verified, "refresh", expiry_seconds)
     }
 
     /// Verify and decode a token
-    pub fn verify_token(&self, token: &str) -> Result<JwtClaims, JwtError> {
+    fn verify_token(&self, token: &str) -> Result<TokenClaims, TokenError> {
         let mut validation = Validation::new(Algorithm::HS256);
         validation.leeway = 30;
         validation.validate_nbf = true;
 
-        let decoded = decode::<JwtClaims>(token, &self.decoding_key, &validation).map_err(|e| {
-            use jsonwebtoken::errors::ErrorKind;
+        let decoded =
+            decode::<TokenClaims>(token, &self.decoding_key, &validation).map_err(|e| {
+                use jsonwebtoken::errors::ErrorKind;
 
-            let error = match e.kind() {
-                ErrorKind::ExpiredSignature => {
-                    tracing::debug!("Token verification failed: Token expired");
-                    JwtError::TokenExpired
-                }
-                ErrorKind::ImmatureSignature => {
-                    tracing::warn!("Token verification failed: Token not yet valid");
-                    JwtError::TokenNotYetValid
-                }
-                ErrorKind::InvalidSignature => {
-                    tracing::error!("Security alert: Invalid token signature detected");
-                    JwtError::InvalidSignature
-                }
-                ErrorKind::InvalidToken | ErrorKind::InvalidAlgorithm => {
-                    tracing::error!("Security alert: Malformed or invalid algorithm token");
-                    JwtError::MalformedToken
-                }
-                ErrorKind::Base64(_) | ErrorKind::Json(_) | ErrorKind::Utf8(_) => {
-                    tracing::warn!("Token verification failed: Malformed token");
-                    JwtError::MalformedToken
-                }
-                _ => {
-                    tracing::warn!("Token verification failed: Unknown error");
-                    JwtError::MalformedToken
-                }
-            };
+                let error = match e.kind() {
+                    ErrorKind::ExpiredSignature => {
+                        tracing::debug!("Token verification failed: Token expired");
+                        TokenError::TokenExpired
+                    }
+                    ErrorKind::ImmatureSignature => {
+                        tracing::warn!("Token verification failed: Token not yet valid");
+                        TokenError::TokenNotYetValid
+                    }
+                    ErrorKind::InvalidSignature => {
+                        tracing::error!("Security alert: Invalid token signature detected");
+                        TokenError::InvalidSignature
+                    }
+                    ErrorKind::InvalidToken | ErrorKind::InvalidAlgorithm => {
+                        tracing::error!("Security alert: Malformed or invalid algorithm token");
+                        TokenError::MalformedToken
+                    }
+                    ErrorKind::Base64(_) | ErrorKind::Json(_) | ErrorKind::Utf8(_) => {
+                        tracing::warn!("Token verification failed: Malformed token");
+                        TokenError::MalformedToken
+                    }
+                    _ => {
+                        tracing::warn!("Token verification failed: Unknown error");
+                        TokenError::MalformedToken
+                    }
+                };
 
-            error
-        })?;
+                error
+            })?;
 
         Ok(decoded.claims)
     }
 
     /// Refresh an access token using a valid refresh token
-    pub fn refresh_access_token(&self, refresh_token: &str) -> Result<String, JwtError> {
+    fn refresh_access_token(&self, refresh_token: &str) -> Result<String, TokenError> {
         let claims = self.verify_token(refresh_token)?;
 
         if claims.token_type != "refresh" {
@@ -167,7 +135,7 @@ impl JwtService {
                 "Token type mismatch: expected 'refresh', got '{}'",
                 claims.token_type
             );
-            return Err(JwtError::InvalidTokenType("refresh".to_string()));
+            return Err(TokenError::InvalidTokenType("refresh".to_string()));
         }
 
         tracing::debug!(
@@ -178,7 +146,7 @@ impl JwtService {
     }
 
     /// Verify an email verification token and extract the user ID
-    pub fn verify_verification_token(&self, token: &str) -> Result<Uuid, JwtError> {
+    fn verify_verification_token(&self, token: &str) -> Result<Uuid, TokenError> {
         let claims = self.verify_token(token)?;
 
         if claims.token_type != "verification" {
@@ -186,7 +154,7 @@ impl JwtService {
                 "Token type mismatch: expected 'verification', got '{}'",
                 claims.token_type
             );
-            return Err(JwtError::InvalidTokenType("verification".to_string()));
+            return Err(TokenError::InvalidTokenType("verification".to_string()));
         }
 
         tracing::debug!(
@@ -196,7 +164,7 @@ impl JwtService {
         Ok(claims.sub)
     }
 
-    pub fn generate_verification_token(&self, user_id: Uuid) -> Result<String, JwtError> {
+    fn generate_verification_token(&self, user_id: Uuid) -> Result<String, TokenError> {
         let token_expiry = self.config.verification_token_expiry;
         self.generate_token(user_id, false, "verification", token_expiry)
     }
@@ -204,31 +172,36 @@ impl JwtService {
 
 #[cfg(test)]
 mod tests {
+    use crate::tests::support::load_test_env;
+
     use super::*;
 
     // Helper function to create a test JwtService
-    fn create_test_jwt_service() -> JwtService {
+    fn create_test_jwt_service() -> JwtTokenService {
         let config = JwtConfig {
-            secret_key: "test_secret_key_for_testing_purposes_min_32_chars".to_string(),
+            secret_key: std::env::var("TEST_JWT_SECRET")
+                .unwrap_or_else(|_| "FAKE_JWT_SECRET_DO_NOT_USE".to_string()),
             issuer: "test_issuer".to_string(),
             access_token_expiry: 3600,        // 1 hour
             refresh_token_expiry: 86400,      // 24 hours
             verification_token_expiry: 86400, // 24 hours
         };
-        JwtService::new(config)
+        JwtTokenService::new(config)
     }
 
     #[test]
     fn test_generate_and_verify_access_token() {
         let config = JwtConfig {
-            secret_key: "mysecretkey_with_minimum_32_characters".to_string(),
+            secret_key: std::env::var("TEST_JWT_SECRET")
+                .unwrap_or_else(|_| "FAKE_JWT_SECRET_DO_NOT_USE".to_string()),
+
             issuer: "myapp".to_string(),
             access_token_expiry: 3600,
             refresh_token_expiry: 86400,
             verification_token_expiry: 86400,
         };
 
-        let jwt_service = JwtService::new(config);
+        let jwt_service = JwtTokenService::new(config);
         let user_id = Uuid::new_v4();
 
         // Generate token
@@ -271,7 +244,7 @@ mod tests {
         let result = service.verify_token(invalid_token);
 
         assert!(result.is_err(), "Invalid token should fail verification");
-        assert!(matches!(result.unwrap_err(), JwtError::MalformedToken));
+        assert!(matches!(result.unwrap_err(), TokenError::MalformedToken));
     }
 
     #[test]
@@ -282,7 +255,7 @@ mod tests {
         let result = service.verify_token("not.a.valid@base64.token!");
 
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), JwtError::MalformedToken));
+        assert!(matches!(result.unwrap_err(), TokenError::MalformedToken));
     }
 
     #[test]
@@ -302,14 +275,15 @@ mod tests {
     #[test]
     fn test_expired_token() {
         let config = JwtConfig {
-            secret_key: "test_secret_key_for_testing_purposes_min_32_chars".to_string(),
+            secret_key: std::env::var("TEST_JWT_SECRET")
+                .unwrap_or_else(|_| "FAKE_JWT_SECRET_DO_NOT_USE".to_string()),
             issuer: "myapp".to_string(),
             access_token_expiry: -35, // Already expired (beyond leeway)
             refresh_token_expiry: 86400,
             verification_token_expiry: 86400,
         };
 
-        let jwt_service = JwtService::new(config);
+        let jwt_service = JwtTokenService::new(config);
         let user_id = Uuid::new_v4();
 
         // Generate token (will be immediately expired)
@@ -321,7 +295,7 @@ mod tests {
         let result = jwt_service.verify_token(&token);
 
         assert!(result.is_err(), "Expired token should be invalid");
-        assert!(matches!(result.unwrap_err(), JwtError::TokenExpired));
+        assert!(matches!(result.unwrap_err(), TokenError::TokenExpired));
     }
 
     #[test]
@@ -333,6 +307,7 @@ mod tests {
 
     #[test]
     fn test_invalid_signature() {
+        load_test_env();
         let service = create_test_jwt_service();
         let user_id = Uuid::new_v4();
 
@@ -341,19 +316,19 @@ mod tests {
 
         // Create a different service with different secret
         let different_config = JwtConfig {
-            secret_key: "different_secret_key_for_testing_32_chars".to_string(),
+            secret_key: "FAKE_JWT_SECRET_DO_NOT_USE".to_string(),
             issuer: "test".to_string(),
             access_token_expiry: 3600,
             refresh_token_expiry: 86400,
             verification_token_expiry: 86400,
         };
-        let different_service = JwtService::new(different_config);
+        let different_service = JwtTokenService::new(different_config);
 
         // Try to verify with different secret
         let result = different_service.verify_token(&token);
 
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), JwtError::InvalidSignature));
+        assert!(matches!(result.unwrap_err(), TokenError::InvalidSignature));
     }
 
     #[test]
@@ -421,7 +396,7 @@ mod tests {
 
         assert!(result.is_err());
         match result.unwrap_err() {
-            JwtError::InvalidTokenType(expected) => {
+            TokenError::InvalidTokenType(expected) => {
                 assert_eq!(expected, "verification");
             }
             _ => panic!("Expected InvalidTokenType error"),
@@ -437,7 +412,10 @@ mod tests {
         let result = service.verify_verification_token(&refresh_token);
 
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), JwtError::InvalidTokenType(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            TokenError::InvalidTokenType(_)
+        ));
     }
 
     #[test]
@@ -474,7 +452,7 @@ mod tests {
 
         assert!(result.is_err());
         match result.unwrap_err() {
-            JwtError::InvalidTokenType(expected) => {
+            TokenError::InvalidTokenType(expected) => {
                 assert_eq!(expected, "refresh");
             }
             _ => panic!("Expected InvalidTokenType error"),
@@ -493,7 +471,10 @@ mod tests {
         let result = service.refresh_access_token(&verification_token);
 
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), JwtError::InvalidTokenType(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            TokenError::InvalidTokenType(_)
+        ));
     }
 
     #[test]
@@ -504,20 +485,21 @@ mod tests {
         let result = service.refresh_access_token("invalid_token_string");
 
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), JwtError::MalformedToken));
+        assert!(matches!(result.unwrap_err(), TokenError::MalformedToken));
     }
 
     #[test]
     fn test_refresh_access_token_with_expired_refresh_token() {
         // Create a service with very short expiry
         let config = JwtConfig {
-            secret_key: "test_secret_key_for_testing_purposes_min_32_chars".to_string(),
+            secret_key: std::env::var("TEST_JWT_SECRET")
+                .unwrap_or_else(|_| "FAKE_JWT_SECRET_DO_NOT_USE".to_string()),
             issuer: "test_issuer".to_string(),
             access_token_expiry: 3600,
             refresh_token_expiry: -32, // 1 second
             verification_token_expiry: 86400,
         };
-        let service = JwtService::new(config);
+        let service = JwtTokenService::new(config);
         let user_id = Uuid::new_v4();
 
         // Generate a refresh token
@@ -527,7 +509,7 @@ mod tests {
         let result = service.refresh_access_token(&refresh_token);
 
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), JwtError::TokenExpired));
+        assert!(matches!(result.unwrap_err(), TokenError::TokenExpired));
     }
 
     #[test]
@@ -639,29 +621,29 @@ mod tests {
 
     #[test]
     fn test_jwt_error_display() {
-        assert_eq!(format!("{}", JwtError::TokenExpired), "Token has expired");
+        assert_eq!(format!("{}", TokenError::TokenExpired), "Token has expired");
         assert_eq!(
-            format!("{}", JwtError::TokenNotYetValid),
+            format!("{}", TokenError::TokenNotYetValid),
             "Token is not yet valid"
         );
         assert_eq!(
-            format!("{}", JwtError::InvalidTokenType("refresh".to_string())),
+            format!("{}", TokenError::InvalidTokenType("refresh".to_string())),
             "Invalid token type, expected: refresh"
         );
         assert_eq!(
-            format!("{}", JwtError::InvalidSignature),
+            format!("{}", TokenError::InvalidSignature),
             "Invalid token signature"
         );
-        assert_eq!(format!("{}", JwtError::MalformedToken), "Malformed token");
+        assert_eq!(format!("{}", TokenError::MalformedToken), "Malformed token");
         assert_eq!(
-            format!("{}", JwtError::EncodingError("test error".to_string())),
+            format!("{}", TokenError::EncodingError("test error".to_string())),
             "Token encoding error: test error"
         );
     }
 
     #[test]
     fn test_jwt_error_is_error_trait() {
-        let error: Box<dyn std::error::Error> = Box::new(JwtError::TokenExpired);
+        let error: Box<dyn std::error::Error> = Box::new(TokenError::TokenExpired);
         assert_eq!(error.to_string(), "Token has expired");
     }
 
@@ -674,7 +656,7 @@ mod tests {
 
     #[test]
     fn test_jwt_claims_debug() {
-        let claims = JwtClaims {
+        let claims = TokenClaims {
             sub: Uuid::new_v4(),
             exp: 12345,
             iat: 12340,
@@ -683,7 +665,7 @@ mod tests {
             is_verified: true,
         };
         let debug_str = format!("{:?}", claims);
-        assert!(debug_str.contains("JwtClaims"));
+        assert!(debug_str.contains("TokenClaims"));
         assert!(debug_str.contains("access"));
     }
 

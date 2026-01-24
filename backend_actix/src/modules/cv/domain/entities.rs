@@ -6,12 +6,14 @@ pub struct CVInfo {
     pub id: Uuid,
     pub user_id: Uuid,
     pub role: String,
+    pub display_name: String,
     pub bio: String,
     pub photo_url: String,
     pub core_skills: Vec<CoreSkill>,
     pub educations: Vec<Education>,
     pub experiences: Vec<Experience>,
     pub highlighted_projects: Vec<HighlightedProject>,
+    pub contact_info: Vec<ContactDetail>,
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CoreSkill {
@@ -78,4 +80,17 @@ pub struct Screenshot {
     pub url: String,
     pub order: i32,
     pub featured: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum ContactType {
+    PhoneNumber,
+    WebPage,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ContactDetail {
+    pub contact_type: ContactType,
+    pub title: String,
+    pub content: String,
 }

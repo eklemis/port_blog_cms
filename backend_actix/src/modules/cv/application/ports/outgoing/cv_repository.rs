@@ -1,10 +1,12 @@
 // cv_repository.rs
-use crate::cv::domain::entities::{CVInfo, CoreSkill, Education, Experience, HighlightedProject};
+use crate::cv::domain::entities::{
+    CVInfo, ContactDetail, CoreSkill, Education, Experience, HighlightedProject,
+};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CVRepositoryError {
     NotFound,
     DatabaseError(String),
@@ -31,11 +33,13 @@ pub trait CVRepository: Send + Sync {
 pub struct CreateCVData {
     pub role: String,
     pub bio: String,
+    pub display_name: String,
     pub photo_url: String,
     pub core_skills: Vec<CoreSkill>,
     pub educations: Vec<Education>,
     pub experiences: Vec<Experience>,
     pub highlighted_projects: Vec<HighlightedProject>,
+    pub contact_info: Vec<ContactDetail>,
 }
 
 // Separate struct for updating CV
@@ -46,9 +50,10 @@ pub struct PatchCVData {
     pub bio: Option<String>,
     pub role: Option<String>,
     pub photo_url: Option<String>,
-
+    pub display_name: Option<String>,
     pub core_skills: Option<Vec<CoreSkill>>,
     pub educations: Option<Vec<Education>>,
     pub experiences: Option<Vec<Experience>>,
     pub highlighted_projects: Option<Vec<HighlightedProject>>,
+    pub contact_info: Option<Vec<ContactDetail>>,
 }

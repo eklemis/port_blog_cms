@@ -1,7 +1,9 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::auth::application::services::jwt::{JwtError, JwtService};
+use crate::auth::application::ports::outgoing::token_provider::{TokenError, TokenProvider};
 
 // ========================= Refresh Token Request =========================
 /// Validated refresh token request
@@ -89,15 +91,15 @@ impl std::fmt::Display for RefreshTokenError {
 impl std::error::Error for RefreshTokenError {}
 
 // Convert JwtError to RefreshTokenError
-impl From<JwtError> for RefreshTokenError {
-    fn from(error: JwtError) -> Self {
+impl From<TokenError> for RefreshTokenError {
+    fn from(error: TokenError) -> Self {
         match error {
-            JwtError::TokenExpired => RefreshTokenError::TokenExpired,
-            JwtError::TokenNotYetValid => RefreshTokenError::TokenNotYetValid,
-            JwtError::InvalidTokenType(_) => RefreshTokenError::InvalidTokenType,
-            JwtError::InvalidSignature => RefreshTokenError::InvalidSignature,
-            JwtError::MalformedToken => RefreshTokenError::TokenInvalid,
-            JwtError::EncodingError(msg) => RefreshTokenError::TokenGenerationFailed(msg),
+            TokenError::TokenExpired => RefreshTokenError::TokenExpired,
+            TokenError::TokenNotYetValid => RefreshTokenError::TokenNotYetValid,
+            TokenError::InvalidTokenType(_) => RefreshTokenError::InvalidTokenType,
+            TokenError::InvalidSignature => RefreshTokenError::InvalidSignature,
+            TokenError::MalformedToken => RefreshTokenError::TokenInvalid,
+            TokenError::EncodingError(msg) => RefreshTokenError::TokenGenerationFailed(msg),
         }
     }
 }
@@ -120,16 +122,16 @@ pub trait IRefreshTokenUseCase: Send + Sync {
 }
 
 /// Implementation of Refresh Token use case
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct RefreshTokenUseCase {
-    jwt_service: JwtService,
+    token_provider: Arc<dyn TokenProvider>,
     enable_token_rotation: bool, // Feature flag for token rotation
 }
 
 impl RefreshTokenUseCase {
-    pub fn new(jwt_service: JwtService) -> Self {
+    pub fn new(token_provider: Arc<dyn TokenProvider>) -> Self {
         Self {
-            jwt_service,
+            token_provider,
             enable_token_rotation: true, // Enable token rotation by default
         }
     }
@@ -148,7 +150,7 @@ impl IRefreshTokenUseCase for RefreshTokenUseCase {
     ) -> Result<RefreshTokenResponse, RefreshTokenError> {
         // 1️⃣ Verify and decode refresh token
         let claims = self
-            .jwt_service
+            .token_provider
             .verify_token(request.refresh_token())
             .map_err(RefreshTokenError::from)?;
 
@@ -159,13 +161,13 @@ impl IRefreshTokenUseCase for RefreshTokenUseCase {
 
         // 3️⃣ Generate new access token
         let access_token = self
-            .jwt_service
+            .token_provider
             .generate_access_token(claims.sub, claims.is_verified)
             .map_err(|e| RefreshTokenError::TokenGenerationFailed(e.to_string()))?;
 
         // 4️⃣ Optionally generate new refresh token (token rotation)
         let refresh_token = if self.enable_token_rotation {
-            self.jwt_service
+            self.token_provider
                 .generate_refresh_token(claims.sub, claims.is_verified)
                 .map_err(|e| RefreshTokenError::TokenGenerationFailed(e.to_string()))?
         } else {
@@ -184,13 +186,13 @@ impl IRefreshTokenUseCase for RefreshTokenUseCase {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::modules::auth::application::services::jwt::{JwtConfig, JwtService};
+    use crate::modules::auth::adapter::outgoing::jwt::{JwtConfig, JwtTokenService};
     use serde_json::json;
     use uuid::Uuid;
 
     // Helper to create JWT service
-    fn create_jwt_service() -> JwtService {
-        JwtService::new(JwtConfig {
+    fn create_jwt_service() -> JwtTokenService {
+        JwtTokenService::new(JwtConfig {
             secret_key: "test_secret_key_min_32_characters_long".to_string(),
             issuer: "testapp".to_string(),
             access_token_expiry: 3600,
@@ -272,7 +274,7 @@ mod tests {
 
     #[test]
     fn test_jwt_error_conversion() {
-        let jwt_error = JwtError::TokenExpired;
+        let jwt_error = TokenError::TokenExpired;
         let refresh_error: RefreshTokenError = jwt_error.into();
         assert!(matches!(refresh_error, RefreshTokenError::TokenExpired));
     }
@@ -286,7 +288,7 @@ mod tests {
         // Generate a valid refresh token
         let refresh_token = jwt_service.generate_refresh_token(user_id, true).unwrap();
 
-        let use_case = RefreshTokenUseCase::new(jwt_service);
+        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service));
         let request = RefreshTokenRequest::new(refresh_token).unwrap();
 
         let result = use_case.execute(request).await;
@@ -307,7 +309,7 @@ mod tests {
         // Add a 32 second delay to ensure different timestamps follow the `validation.leeway = 30;` in JWT Service
         tokio::time::sleep(tokio::time::Duration::from_millis(1920)).await;
 
-        let use_case = RefreshTokenUseCase::new(jwt_service).with_token_rotation(true);
+        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service)).with_token_rotation(true);
 
         let request = RefreshTokenRequest::new(original_refresh_token.clone()).unwrap();
         let result = use_case.execute(request).await;
@@ -326,7 +328,7 @@ mod tests {
 
         let original_refresh_token = jwt_service.generate_refresh_token(user_id, true).unwrap();
 
-        let use_case = RefreshTokenUseCase::new(jwt_service).with_token_rotation(false);
+        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service)).with_token_rotation(false);
 
         let request = RefreshTokenRequest::new(original_refresh_token.clone()).unwrap();
         let result = use_case.execute(request).await;
@@ -340,7 +342,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_refresh_token_expired() {
-        let jwt_service = JwtService::new(JwtConfig {
+        let jwt_service = JwtTokenService::new(JwtConfig {
             secret_key: "test_secret_key_min_32_characters_long".to_string(),
             issuer: "testapp".to_string(),
             access_token_expiry: 3600,
@@ -351,7 +353,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let expired_token = jwt_service.generate_refresh_token(user_id, true).unwrap();
 
-        let use_case = RefreshTokenUseCase::new(create_jwt_service());
+        let use_case = RefreshTokenUseCase::new(Arc::new(create_jwt_service()));
         let request = RefreshTokenRequest::new(expired_token).unwrap();
         let result = use_case.execute(request).await;
 
@@ -364,7 +366,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_refresh_token_invalid_token() {
-        let use_case = RefreshTokenUseCase::new(create_jwt_service());
+        let use_case = RefreshTokenUseCase::new(Arc::new(create_jwt_service()));
         let request = RefreshTokenRequest::new("invalid.token.here".to_string()).unwrap();
 
         let result = use_case.execute(request).await;
@@ -384,7 +386,7 @@ mod tests {
         // Generate an access token instead of refresh token
         let access_token = jwt_service.generate_access_token(user_id, true).unwrap();
 
-        let use_case = RefreshTokenUseCase::new(jwt_service);
+        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service));
         let request = RefreshTokenRequest::new(access_token).unwrap();
         let result = use_case.execute(request).await;
 
@@ -403,7 +405,7 @@ mod tests {
         // Generate a verification token
         let verification_token = jwt_service.generate_verification_token(user_id).unwrap();
 
-        let use_case = RefreshTokenUseCase::new(jwt_service);
+        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service));
         let request = RefreshTokenRequest::new(verification_token).unwrap();
         let result = use_case.execute(request).await;
 
@@ -416,7 +418,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_refresh_token_invalid_signature() {
-        let jwt_service1 = JwtService::new(JwtConfig {
+        let jwt_service1 = JwtTokenService::new(JwtConfig {
             secret_key: "secret_one_min_32_characters_long_key".to_string(),
             issuer: "testapp".to_string(),
             access_token_expiry: 3600,
@@ -429,7 +431,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let token = jwt_service1.generate_refresh_token(user_id, true).unwrap();
 
-        let use_case = RefreshTokenUseCase::new(jwt_service2);
+        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service2));
         let request = RefreshTokenRequest::new(token).unwrap();
         let result = use_case.execute(request).await;
 
@@ -448,7 +450,7 @@ mod tests {
         // Test with verified user
         let refresh_token_verified = jwt_service.generate_refresh_token(user_id, true).unwrap();
 
-        let use_case = RefreshTokenUseCase::new(jwt_service.clone());
+        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service.clone()));
         let request = RefreshTokenRequest::new(refresh_token_verified).unwrap();
         let result = use_case.execute(request).await;
 

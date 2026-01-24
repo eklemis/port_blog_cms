@@ -129,6 +129,7 @@ mod tests {
             Ok(CVInfo {
                 id: existing.id,
                 user_id: existing.user_id,
+                display_name: existing.display_name,
                 role: cv_data.role,
                 bio: cv_data.bio,
                 photo_url: cv_data.photo_url,
@@ -136,6 +137,7 @@ mod tests {
                 educations: cv_data.educations,
                 experiences: cv_data.experiences,
                 highlighted_projects: cv_data.highlighted_projects,
+                contact_info: cv_data.contact_info,
             })
         }
 
@@ -161,6 +163,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let existing_cv = CVInfo {
             id: cv_id,
+            display_name: "Rob Stark".to_string(),
             user_id: user_id,
             role: "Software Engineer".to_string(),
             bio: "Old bio".to_string(),
@@ -169,6 +172,7 @@ mod tests {
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],
+            contact_info: vec![],
         };
 
         let mock_repo = MockCVRepository {
@@ -181,12 +185,14 @@ mod tests {
         // Create UpdateCVData (no id field)
         let update_data = UpdateCVData {
             role: "Senior Software Engineer".to_string(), // Can also update role
+            display_name: "Robinson Bright".to_string(),
             bio: "Updated bio".to_string(),
             photo_url: "https://example.com/new.jpg".to_string(),
             core_skills: vec![],
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],
+            contact_info: vec![],
         };
 
         // Act - pass the CV ID (not user ID) and UpdateCVData
@@ -217,13 +223,15 @@ mod tests {
         let use_case = UpdateCVUseCase::new(mock_repo);
 
         let update_data = UpdateCVData {
-            role: "Software Engineer".to_string(),
+            role: "Senior Software Engineer".to_string(), // Can also update role
+            display_name: "Robinson Bright".to_string(),
             bio: "Updated bio".to_string(),
             photo_url: "https://example.com/new.jpg".to_string(),
             core_skills: vec![],
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],
+            contact_info: vec![],
         };
 
         // Act
@@ -245,7 +253,8 @@ mod tests {
         // Existing CV belongs to the user
         let existing_cv = CVInfo {
             id: cv_id,
-            user_id,
+            display_name: "Rob Stark".to_string(),
+            user_id: user_id,
             role: "Software Engineer".to_string(),
             bio: "Old bio".to_string(),
             photo_url: "https://example.com/old.jpg".to_string(),
@@ -253,6 +262,7 @@ mod tests {
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],
+            contact_info: vec![],
         };
 
         let mock_repo = MockCVRepository {
@@ -264,13 +274,15 @@ mod tests {
         let use_case = UpdateCVUseCase::new(mock_repo);
 
         let update_data = UpdateCVData {
-            role: "Senior Software Engineer".to_string(),
+            role: "Senior Software Engineer".to_string(), // Can also update role
+            display_name: "Robinson Bright".to_string(),
             bio: "Updated bio".to_string(),
             photo_url: "https://example.com/new.jpg".to_string(),
             core_skills: vec![],
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],
+            contact_info: vec![],
         };
 
         // Act

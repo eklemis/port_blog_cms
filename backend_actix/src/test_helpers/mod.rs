@@ -2,7 +2,7 @@ use actix_web::{web, HttpResponse, Result};
 use chrono::Utc;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use sea_orm::{DatabaseConnection, TransactionTrait};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::sync::Arc;
 use uuid::Uuid;
 

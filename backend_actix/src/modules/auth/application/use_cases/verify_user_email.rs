@@ -1,4 +1,6 @@
-use crate::auth::application::services::jwt::{JwtError, JwtService};
+use std::sync::Arc;
+
+use crate::auth::application::ports::outgoing::token_provider::{TokenError, TokenProvider};
 use crate::modules::auth::application::ports::outgoing::{
     user_repository::UserRepository, UserRepositoryError,
 };
@@ -17,23 +19,23 @@ pub trait IVerifyUserEmailUseCase: Send + Sync {
     async fn execute(&self, token: &str) -> Result<(), VerifyUserEmailError>;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct VerifyUserEmailUseCase<R>
 where
     R: UserRepository + Send + Sync,
 {
     repository: R,
-    jwt_service: JwtService,
+    token_provider: Arc<dyn TokenProvider>,
 }
 
 impl<R> VerifyUserEmailUseCase<R>
 where
     R: UserRepository + Send + Sync,
 {
-    pub fn new(repository: R, jwt_service: JwtService) -> Self {
+    pub fn new(repository: R, token_provider: Arc<dyn TokenProvider>) -> Self {
         Self {
             repository,
-            jwt_service,
+            token_provider,
         }
     }
 }
@@ -46,10 +48,10 @@ where
     async fn execute(&self, token: &str) -> Result<(), VerifyUserEmailError> {
         // Decode and validate token (logging handled in JWT service)
         let user_id = self
-            .jwt_service
+            .token_provider
             .verify_verification_token(token)
             .map_err(|e| match e {
-                JwtError::TokenExpired => VerifyUserEmailError::TokenExpired,
+                TokenError::TokenExpired => VerifyUserEmailError::TokenExpired,
                 _ => VerifyUserEmailError::TokenInvalid,
             })?;
 
@@ -71,8 +73,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::auth::application::services::jwt::{JwtConfig, JwtService};
-    use crate::modules::auth::application::domain::entities::User;
+    use crate::auth::adapter::outgoing::jwt::{JwtConfig, JwtTokenService};
+    use crate::auth::application::ports::outgoing::token_provider::TokenClaims;
+    use crate::auth::application::ports::outgoing::user_repository::{CreateUserData, UserResult};
     use crate::modules::auth::application::ports::outgoing::{
         user_repository::UserRepository, UserRepositoryError,
     };
@@ -85,7 +88,16 @@ mod tests {
         pub UserRepositoryMock {}
         #[async_trait]
         impl UserRepository for UserRepositoryMock {
-            async fn create_user(&self, user: User) -> Result<User, UserRepositoryError>;
+            async fn create_user(&self, data: CreateUserData) -> Result<UserResult, UserRepositoryError>;
+            async fn restore_user(&self, user_id: Uuid) -> Result<UserResult, UserRepositoryError>;
+            async fn activate_user(&self, user_id: Uuid) -> Result<UserResult, UserRepositoryError>;
+            async fn set_full_name(
+                &self,
+                user_id: Uuid,
+                full_name: String,
+            ) -> Result<UserResult, UserRepositoryError>;
+
+            // Operations that don't need to return user data (pure commands)
             async fn update_password(
                 &self,
                 user_id: Uuid,
@@ -93,13 +105,11 @@ mod tests {
             ) -> Result<(), UserRepositoryError>;
             async fn delete_user(&self, user_id: Uuid) -> Result<(), UserRepositoryError>;
             async fn soft_delete_user(&self, user_id: Uuid) -> Result<(), UserRepositoryError>;
-            async fn restore_user(&self, user_id: Uuid) -> Result<User, UserRepositoryError>;
-            async fn activate_user(&self, user_id: Uuid) -> Result<(), UserRepositoryError>;
         }
     }
 
     // Helper function to create JWT service
-    fn create_jwt_service() -> JwtService {
+    fn create_jwt_service() -> JwtTokenService {
         let config = JwtConfig {
             secret_key: "testsecretkey_min_32_characters_long".to_string(),
             issuer: "testapp".to_string(),
@@ -107,7 +117,7 @@ mod tests {
             refresh_token_expiry: 86400,
             verification_token_expiry: 86400,
         };
-        JwtService::new(config)
+        JwtTokenService::new(config)
     }
 
     #[tokio::test]
@@ -121,14 +131,22 @@ mod tests {
             .expect("Should generate verification token");
 
         // Set up expectations
+
         repository
             .expect_activate_user()
             .with(eq(user_id))
             .times(1)
-            .returning(|_| Ok(()));
+            .returning(move |_| {
+                Ok(UserResult {
+                    id: user_id.to_owned(),
+                    email: "test@example.com".to_string(),
+                    username: "testuser".to_string(),
+                    full_name: "Test User".to_string(),
+                })
+            });
 
         // Create use case with the configured repository
-        let use_case = VerifyUserEmailUseCase::new(repository, jwt_service);
+        let use_case = VerifyUserEmailUseCase::new(repository, Arc::new(jwt_service));
 
         // Execute use case
         let result = use_case.execute(&valid_token).await;
@@ -143,7 +161,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_user_email_token_expired() {
-        use crate::auth::application::services::jwt::JwtClaims;
         use chrono::{Duration, Utc};
         use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 
@@ -152,7 +169,7 @@ mod tests {
 
         let now = Utc::now();
         // Manually create an expired verification token (beyond leeway)
-        let expired_claims = JwtClaims {
+        let expired_claims = TokenClaims {
             sub: user_id,
             exp: (now - Duration::seconds(60)).timestamp(), // Expired 60 seconds ago (beyond 30s leeway)
             iat: (now - Duration::hours(25)).timestamp(),   // Issued 25 hours ago
@@ -169,7 +186,7 @@ mod tests {
         .expect("Should encode expired token");
 
         // Create use case
-        let use_case = VerifyUserEmailUseCase::new(repository, create_jwt_service());
+        let use_case = VerifyUserEmailUseCase::new(repository, Arc::new(create_jwt_service()));
 
         // Execute use case
         let result = use_case.execute(&expired_token).await;
@@ -188,7 +205,7 @@ mod tests {
         let invalid_token = "invalid.jwt.token";
 
         // Create use case (no repository expectations needed since token validation fails first)
-        let use_case = VerifyUserEmailUseCase::new(repository, create_jwt_service());
+        let use_case = VerifyUserEmailUseCase::new(repository, Arc::new(create_jwt_service()));
 
         // Execute use case
         let result = use_case.execute(invalid_token).await;
@@ -212,7 +229,7 @@ mod tests {
             .expect("Should generate access token");
 
         // Create use case (no repository expectations needed since token validation fails first)
-        let use_case = VerifyUserEmailUseCase::new(repository, jwt_service);
+        let use_case = VerifyUserEmailUseCase::new(repository, Arc::new(jwt_service));
 
         // Execute use case
         let result = use_case.execute(&access_token).await;
@@ -236,7 +253,7 @@ mod tests {
             .expect("Should generate refresh token");
 
         // Create use case
-        let use_case = VerifyUserEmailUseCase::new(repository, jwt_service);
+        let use_case = VerifyUserEmailUseCase::new(repository, Arc::new(jwt_service));
 
         // Execute use case
         let result = use_case.execute(&refresh_token).await;
@@ -262,7 +279,7 @@ mod tests {
             refresh_token_expiry: 86400,
             verification_token_expiry: 86400,
         };
-        let jwt_service1 = JwtService::new(config1);
+        let jwt_service1 = JwtTokenService::new(config1);
 
         let token = jwt_service1
             .generate_verification_token(user_id)
@@ -270,7 +287,7 @@ mod tests {
 
         // Try to verify with different secret
         let jwt_service2 = create_jwt_service();
-        let use_case = VerifyUserEmailUseCase::new(repository, jwt_service2);
+        let use_case = VerifyUserEmailUseCase::new(repository, Arc::new(jwt_service2));
 
         // Execute use case
         let result = use_case.execute(&token).await;
@@ -288,7 +305,7 @@ mod tests {
         let repository = MockUserRepositoryMock::new();
         let malformed_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.bm90X3ZhbGlkX2pzb24.fakesig";
 
-        let use_case = VerifyUserEmailUseCase::new(repository, create_jwt_service());
+        let use_case = VerifyUserEmailUseCase::new(repository, Arc::new(create_jwt_service()));
 
         // Execute use case
         let result = use_case.execute(malformed_token).await;
@@ -319,7 +336,7 @@ mod tests {
             .returning(|_| Err(UserRepositoryError::UserNotFound));
 
         // Create use case with the configured repository
-        let use_case = VerifyUserEmailUseCase::new(repository, jwt_service);
+        let use_case = VerifyUserEmailUseCase::new(repository, Arc::new(jwt_service));
 
         // Execute use case
         let result = use_case.execute(&valid_token).await;
@@ -350,7 +367,7 @@ mod tests {
             .returning(|_| Err(UserRepositoryError::DatabaseError("DB error".to_string())));
 
         // Create use case with the configured repository
-        let use_case = VerifyUserEmailUseCase::new(repository, jwt_service);
+        let use_case = VerifyUserEmailUseCase::new(repository, Arc::new(jwt_service));
 
         // Execute use case
         let result = use_case.execute(&valid_token).await;
@@ -381,7 +398,7 @@ mod tests {
             .returning(|_| Err(UserRepositoryError::UserAlreadyExists));
 
         // Create use case with the configured repository
-        let use_case = VerifyUserEmailUseCase::new(repository, jwt_service);
+        let use_case = VerifyUserEmailUseCase::new(repository, Arc::new(jwt_service));
 
         // Execute use case
         let result = use_case.execute(&valid_token).await;
@@ -407,7 +424,7 @@ mod tests {
         // Tamper with the token
         valid_token.push('x');
 
-        let use_case = VerifyUserEmailUseCase::new(repository, jwt_service);
+        let use_case = VerifyUserEmailUseCase::new(repository, Arc::new(jwt_service));
 
         // Execute use case
         let result = use_case.execute(&valid_token).await;

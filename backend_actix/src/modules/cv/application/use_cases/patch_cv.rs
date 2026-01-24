@@ -65,6 +65,7 @@ where
         let merged = UpdateCVData {
             bio: data.bio.unwrap_or(existing.bio),
             role: data.role.unwrap_or(existing.role),
+            display_name: data.display_name.unwrap_or(existing.display_name),
             photo_url: data.photo_url.unwrap_or(existing.photo_url),
 
             core_skills: data.core_skills.unwrap_or(existing.core_skills),
@@ -73,6 +74,7 @@ where
             highlighted_projects: data
                 .highlighted_projects
                 .unwrap_or(existing.highlighted_projects),
+            contact_info: data.contact_info.unwrap_or(existing.contact_info),
         };
 
         // 4️⃣ Delegate to existing update logic
@@ -88,6 +90,8 @@ where
 
 #[cfg(test)]
 mod patch_tests {
+    use std::vec;
+
     use super::*;
     use crate::cv::application::ports::outgoing::{
         CVRepository, CVRepositoryError, CreateCVData, PatchCVData,
@@ -143,6 +147,7 @@ mod patch_tests {
             Ok(CVInfo {
                 id: existing.id,
                 user_id: existing.user_id,
+                display_name: cv_data.display_name,
                 role: cv_data.role,
                 bio: cv_data.bio,
                 photo_url: cv_data.photo_url,
@@ -150,6 +155,7 @@ mod patch_tests {
                 educations: cv_data.educations,
                 experiences: cv_data.experiences,
                 highlighted_projects: cv_data.highlighted_projects,
+                contact_info: cv_data.contact_info,
             })
         }
 
@@ -173,6 +179,7 @@ mod patch_tests {
         let existing_cv = CVInfo {
             id: cv_id,
             user_id,
+            display_name: "Robin Hood".to_string(),
             role: "Software Engineer".to_string(),
             bio: "Old bio".to_string(),
             photo_url: "https://example.com/old.jpg".to_string(),
@@ -180,6 +187,7 @@ mod patch_tests {
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],
+            contact_info: vec![],
         };
 
         let mock_repo = MockCVRepository {
@@ -191,12 +199,14 @@ mod patch_tests {
 
         let patch_data = PatchCVData {
             bio: Some("Patched bio".to_string()),
+            display_name: Some("Gandalf in The Wood".to_string()),
             role: None,
             photo_url: None,
             core_skills: None,
             educations: None,
             experiences: None,
             highlighted_projects: None,
+            contact_info: None,
         };
 
         let result = use_case.execute(user_id, cv_id, patch_data).await;
@@ -206,6 +216,7 @@ mod patch_tests {
 
         // Changed field
         assert_eq!(updated.bio, "Patched bio");
+        assert_eq!(updated.display_name, "Gandalf in The Wood");
 
         // Unchanged fields
         assert_eq!(updated.role, "Software Engineer");
@@ -229,12 +240,14 @@ mod patch_tests {
 
         let patch_data = PatchCVData {
             bio: Some("Patched bio".to_string()),
+            display_name: None,
             role: None,
             photo_url: None,
             core_skills: None,
             educations: None,
             experiences: None,
             highlighted_projects: None,
+            contact_info: None,
         };
 
         let result = use_case.execute(user_id, cv_id, patch_data).await;
@@ -254,6 +267,7 @@ mod patch_tests {
 
         let existing_cv = CVInfo {
             id: cv_id,
+            display_name: "Rob Stark".to_string(),
             user_id: Uuid::new_v4(), // different owner
             role: "Software Engineer".to_string(),
             bio: "Old bio".to_string(),
@@ -262,6 +276,7 @@ mod patch_tests {
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],
+            contact_info: vec![],
         };
 
         let mock_repo = MockCVRepository {
@@ -273,12 +288,14 @@ mod patch_tests {
 
         let patch_data = PatchCVData {
             bio: Some("Hacked bio".to_string()),
+            display_name: None,
             role: None,
             photo_url: None,
             core_skills: None,
             educations: None,
             experiences: None,
             highlighted_projects: None,
+            contact_info: None,
         };
 
         let result = use_case.execute(Uuid::new_v4(), cv_id, patch_data).await;
@@ -300,7 +317,8 @@ mod patch_tests {
 
         let existing_cv = CVInfo {
             id: cv_id,
-            user_id,
+            display_name: "Rob Stark".to_string(),
+            user_id: user_id,
             role: "Software Engineer".to_string(),
             bio: "Old bio".to_string(),
             photo_url: "https://example.com/old.jpg".to_string(),
@@ -308,6 +326,7 @@ mod patch_tests {
             educations: vec![],
             experiences: vec![],
             highlighted_projects: vec![],
+            contact_info: vec![],
         };
 
         let mock_repo = MockCVRepository {
@@ -318,13 +337,15 @@ mod patch_tests {
         let use_case = PatchCVUseCase::new(mock_repo);
 
         let patch_data = PatchCVData {
-            bio: Some("Patched bio".to_string()),
+            bio: Some("Hacked bio".to_string()),
+            display_name: None,
             role: None,
             photo_url: None,
             core_skills: None,
             educations: None,
             experiences: None,
             highlighted_projects: None,
+            contact_info: None,
         };
 
         let result = use_case.execute(user_id, cv_id, patch_data).await;

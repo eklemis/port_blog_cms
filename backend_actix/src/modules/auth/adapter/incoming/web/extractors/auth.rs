@@ -1,9 +1,11 @@
-// src/infrastructure/web/extractors/auth.rs
 use actix_web::{dev::Payload, Error as ActixError, FromRequest, HttpRequest};
-use std::future::{ready, Ready};
+use std::{
+    future::{ready, Ready},
+    sync::Arc,
+};
 use uuid::Uuid;
 
-use crate::auth::application::services::jwt::JwtService;
+use crate::auth::application::ports::outgoing::token_provider::TokenProvider;
 
 /// Represents an authenticated user (verified or not)
 #[derive(Debug, Clone)]
@@ -17,14 +19,15 @@ impl FromRequest for AuthenticatedUser {
     type Future = Ready<Result<Self, Self::Error>>;
 
     fn from_request(req: &HttpRequest, _payload: &mut Payload) -> Self::Future {
-        let jwt_service = match req.app_data::<actix_web::web::Data<JwtService>>() {
-            Some(service) => service,
-            None => {
-                return ready(Err(actix_web::error::ErrorInternalServerError(
-                    "JWT service not configured",
-                )))
-            }
-        };
+        let jwt_service =
+            match req.app_data::<actix_web::web::Data<Arc<dyn TokenProvider + Send + Sync>>>() {
+                Some(service) => service,
+                None => {
+                    return ready(Err(actix_web::error::ErrorInternalServerError(
+                        "JWT service not configured",
+                    )))
+                }
+            };
 
         // Extract token from Authorization header
         let token = match extract_token_from_header(req) {

@@ -20,6 +20,7 @@ impl MigrationTrait for Migration {
                             .default(Expr::cust("gen_random_uuid()")),
                     )
                     .col(uuid(Resumes::UserId).not_null())
+                    .col(string(Resumes::DisplayName).not_null())
                     .col(string(Resumes::Role).not_null())
                     .col(string(Resumes::Bio).not_null())
                     .col(string(Resumes::PhotoUrl).not_null())
@@ -27,6 +28,7 @@ impl MigrationTrait for Migration {
                     .col(json(Resumes::Educations).not_null())
                     .col(json(Resumes::Experiences).not_null())
                     .col(json(Resumes::HighlightedProjects).not_null())
+                    .col(json(Resumes::ContactInfo).not_null())
                     .col(
                         ColumnDef::new(Resumes::CreatedAt)
                             .timestamp_with_time_zone()
@@ -71,6 +73,7 @@ impl MigrationTrait for Migration {
 enum Resumes {
     Table,
     Id,
+    DisplayName,
     UserId,
     Role,
     Bio,
@@ -79,6 +82,7 @@ enum Resumes {
     Educations,
     Experiences,
     HighlightedProjects,
+    ContactInfo,
     CreatedAt,
     UpdatedAt,
     IsDeleted,

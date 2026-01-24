@@ -4,6 +4,14 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
 [profile.test]
 opt-level=0
 
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1 # Increases optimization potential at the cost of longer compile times
+panic = 'abort'   # Optional: aborts on panic instead of unwinding, for smaller binaries
+strip = "debuginfo" # Optional: strips debug info for smaller binaries
+
+
 [package]
 name = "backend_actix"
 version = "0.1.0"
@@ -47,6 +55,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 regex = "1.12.2"
 sha2 = "0.10.9"
 email_address = "0.2.9"
+thiserror = "2.0.18"
 
 [dev-dependencies]
 chrono = "0.4"

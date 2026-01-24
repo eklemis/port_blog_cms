@@ -1,7 +1,9 @@
 use crate::auth::adapter::incoming::web::extractors::auth::VerifiedUser;
 use crate::cv::application::ports::outgoing::UpdateCVData;
 use crate::cv::application::use_cases::update_cv::UpdateCVError;
-use crate::cv::domain::entities::{CoreSkill, Education, Experience, HighlightedProject};
+use crate::cv::domain::entities::{
+    ContactDetail, ContactType, CoreSkill, Education, Experience, HighlightedProject,
+};
 use crate::AppState;
 use actix_web::{put, web, HttpResponse, Responder};
 use uuid::Uuid;
@@ -33,15 +35,26 @@ pub struct HighlightedProjectRequest {
     pub short_description: String,
 }
 
+type ContactTypeRequest = ContactType;
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct ContactDetailRequest {
+    pub title: String,
+    pub contact_type: ContactTypeRequest,
+    pub content: String,
+}
+
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct UpdateCVRequest {
     pub bio: String,
     pub role: String,
     pub photo_url: String,
+    pub display_name: String,
     pub core_skills: Vec<CoreSkill>,
     pub educations: Vec<EducationRequest>,
     pub experiences: Vec<ExperienceRequest>,
     pub highlighted_projects: Vec<HighlightedProjectRequest>,
+    pub contact_info: Vec<ContactDetailRequest>,
 }
 
 #[put("/api/cvs/{cv_id}")]
@@ -56,6 +69,7 @@ pub async fn update_cv_handler(
     let cv_data = UpdateCVData {
         bio: req.bio.clone(),
         role: req.role.clone(),
+        display_name: req.display_name.clone(),
         photo_url: req.photo_url.clone(),
         core_skills: req
             .core_skills
@@ -98,6 +112,15 @@ pub async fn update_cv_handler(
                 short_description: hp.short_description.clone(),
             })
             .collect(),
+        contact_info: req
+            .contact_info
+            .iter()
+            .map(|cd| ContactDetail {
+                title: cd.title.clone(),
+                contact_type: cd.contact_type.clone(),
+                content: cd.content.clone(),
+            })
+            .collect(),
     };
 
     match data
@@ -116,6 +139,7 @@ pub async fn update_cv_handler(
 #[cfg(test)]
 mod tests {
     use crate::{
+        auth::application::ports::outgoing::token_provider::TokenProvider,
         cv::{application::use_cases::update_cv::IUpdateCVUseCase, domain::CVInfo},
         tests::support::{
             app_state_builder::TestAppStateBuilder,
@@ -130,7 +154,46 @@ mod tests {
     use tokio::sync::Mutex;
     use uuid::Uuid;
 
-    // Mock Update CV Use Case
+    /* --------------------------------------------------
+     * Helpers
+     * -------------------------------------------------- */
+
+    fn base_update_request() -> UpdateCVRequest {
+        UpdateCVRequest {
+            display_name: "Jonathan Verguso".to_string(),
+            role: "New role".to_string(),
+            bio: "Updated bio".to_string(),
+            photo_url: "https://example.com/updated.jpg".to_string(),
+            core_skills: vec![],
+            educations: vec![],
+            experiences: vec![],
+            highlighted_projects: vec![],
+            contact_info: vec![],
+        }
+    }
+
+    impl CVInfo {
+        fn from_update(cv_id: Uuid, user_id: Uuid, data: UpdateCVData) -> Self {
+            Self {
+                id: cv_id,
+                user_id,
+                display_name: data.display_name,
+                role: data.role,
+                bio: data.bio,
+                photo_url: data.photo_url,
+                core_skills: data.core_skills,
+                educations: data.educations,
+                experiences: data.experiences,
+                highlighted_projects: data.highlighted_projects,
+                contact_info: data.contact_info,
+            }
+        }
+    }
+
+    /* --------------------------------------------------
+     * Mock Update CV Use Case
+     * -------------------------------------------------- */
+
     #[derive(Clone)]
     struct MockUpdateCVUseCase {
         should_fail: Arc<Mutex<Option<UpdateCVError>>>,
@@ -159,93 +222,91 @@ mod tests {
     impl IUpdateCVUseCase for MockUpdateCVUseCase {
         async fn execute(
             &self,
-            _user_id: Uuid,
+            user_id: Uuid,
             cv_id: Uuid,
             cv_data: UpdateCVData,
         ) -> Result<CVInfo, UpdateCVError> {
-            let error = self.should_fail.lock().await;
-            if let Some(err) = error.as_ref() {
-                return Err(err.clone());
+            if let Some(err) = self.should_fail.lock().await.clone() {
+                return Err(err);
             }
 
-            let cv = self.updated_cv.lock().await;
-            if let Some(c) = cv.as_ref() {
-                return Ok(c.clone());
+            if let Some(cv) = self.updated_cv.lock().await.clone() {
+                return Ok(cv);
             }
 
-            // Convert UpdateCVData to CVInfo, using the provided cv_id
-            Ok(CVInfo {
-                id: cv_id,
-                user_id: Uuid::new_v4(),
-                role: cv_data.role,
-                bio: cv_data.bio,
-                photo_url: cv_data.photo_url,
-                core_skills: cv_data.core_skills,
-                educations: cv_data.educations,
-                experiences: cv_data.experiences,
-                highlighted_projects: cv_data.highlighted_projects,
-            })
+            Ok(CVInfo::from_update(cv_id, user_id, cv_data))
         }
     }
 
+    /* --------------------------------------------------
+     * Tests
+     * -------------------------------------------------- */
+
     #[actix_web::test]
     async fn test_update_cv_handler_success() {
-        // Arrange
         let user_id = Uuid::new_v4();
         let cv_id = Uuid::new_v4();
-
-        let update_uc = MockUpdateCVUseCase::new();
 
         let updated_cv = CVInfo {
             id: cv_id,
             user_id,
-            bio: "New bio".to_string(),
-            role: "New role".to_string(),
-            photo_url: "https://example.com/new.jpg".to_string(),
+            display_name: "Berto Fang".to_string(),
+            bio: "Software Engineer with 5 years of experience".to_string(),
+            role: "Software Engineer".to_string(),
+            photo_url: "https://example.com/photo.jpg".to_string(),
             core_skills: vec![],
-            educations: vec![],
+            educations: vec![Education {
+                degree: "Bachelor of Computer Science".to_string(),
+                institution: "MIT".to_string(),
+                graduation_year: 2018,
+            }],
             experiences: vec![],
             highlighted_projects: vec![],
+            contact_info: vec![],
         };
 
+        let update_uc = Arc::new(MockUpdateCVUseCase::new());
         update_uc.set_success(updated_cv.clone()).await;
 
         let app_state = TestAppStateBuilder::default()
-            .with_update_cv(update_uc)
+            .with_update_cv(update_uc.clone())
             .build();
 
         let jwt_service = create_test_jwt_service();
-        let token = jwt_service
-            .generate_access_token(user_id, true)
-            .expect("Failed to generate token");
+
+        // 🔑 IMPORTANT: wrap JWT service exactly as extractor expects
+        let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service.clone());
+
+        let token = jwt_service.generate_access_token(user_id, true).unwrap();
 
         let app = test::init_service(
             App::new()
                 .app_data(app_state)
-                .app_data(web::Data::new(jwt_service))
+                .app_data(web::Data::new(token_provider))
                 .service(update_cv_handler),
         )
         .await;
 
-        // Act
         let req = test::TestRequest::put()
             .uri(&format!("/api/cvs/{}", cv_id))
             .insert_header(("Authorization", format!("Bearer {}", token)))
             .set_json(UpdateCVRequest {
-                bio: "New bio".to_string(),
-                role: "New role".to_string(),
-                photo_url: "https://example.com/new.jpg".to_string(),
-                core_skills: vec![],
-                educations: vec![],
-                experiences: vec![],
-                highlighted_projects: vec![],
+                display_name: "Berto Fang".to_string(),
+                bio: "Software Engineer with 5 years of experience".to_string(),
+                role: "Software Engineer".to_string(),
+                photo_url: "https://example.com/photo.jpg".to_string(),
+                educations: vec![EducationRequest {
+                    degree: "Bachelor of Computer Science".to_string(),
+                    institution: "MIT".to_string(),
+                    graduation_year: 2018,
+                }],
+                ..base_update_request()
             })
             .to_request();
 
         let resp = test::call_service(&app, req).await;
 
-        // Assert
-        assert_eq!(resp.status(), 200);
+        assert_eq!(resp.status(), actix_web::http::StatusCode::OK);
 
         let body: CVInfo = test::read_body_json(resp).await;
         assert_eq!(body.bio, updated_cv.bio);
@@ -255,157 +316,158 @@ mod tests {
 
     #[actix_web::test]
     async fn test_update_cv_handler_with_full_data() {
-        // Arrange
         let user_id = Uuid::new_v4();
         let cv_id = Uuid::new_v4();
-
-        let update_uc = MockUpdateCVUseCase::new();
 
         let updated_cv = CVInfo {
             id: cv_id,
             user_id,
-            bio: "Updated comprehensive bio".to_string(),
-            role: "Lead Software Architect".to_string(),
-            photo_url: "https://example.com/updated.jpg".to_string(),
+            display_name: "Mapping Test".to_string(),
+            role: "QA Engineer".to_string(),
+            bio: "Testing specialist".to_string(),
+            photo_url: "https://example.com/qa.jpg".to_string(),
             core_skills: vec![CoreSkill {
-                title: "System Design".to_string(),
-                description: "Expert in distributed systems".to_string(),
+                title: "Testing".to_string(),
+                description: "Quality assurance".to_string(),
             }],
             educations: vec![Education {
-                degree: "Master of Computer Science".to_string(),
-                institution: "Stanford".to_string(),
-                graduation_year: 2020,
+                degree: "B.A.".to_string(),
+                institution: "Test University".to_string(),
+                graduation_year: 2019,
             }],
             experiences: vec![Experience {
-                company: "Big Tech Inc".to_string(),
-                position: "Tech Lead".to_string(),
-                location: "New York".to_string(),
-                start_date: "2021-03".to_string(),
-                end_date: None,
-                description: "Leading platform architecture".to_string(),
-                tasks: vec!["Architecture design".to_string()],
-                achievements: vec!["Scaled to 1M users".to_string()],
+                company: "TestCo".to_string(),
+                position: "QA Lead".to_string(),
+                location: "Boston, MA".to_string(),
+                start_date: "2019-06-01".to_string(),
+                end_date: Some("2022-05-31".to_string()),
+                description: "Led QA team".to_string(),
+                tasks: vec!["Test planning".to_string(), "Automation".to_string()],
+                achievements: vec!["Zero critical bugs in production".to_string()],
             }],
             highlighted_projects: vec![HighlightedProject {
-                id: "proj-2".to_string(),
-                title: "Microservices Platform".to_string(),
-                slug: "microservices-platform".to_string(),
-                short_description: "Built enterprise platform".to_string(),
+                id: "test-proj".to_string(),
+                title: "Test Automation Framework".to_string(),
+                slug: "test-automation".to_string(),
+                short_description: "Automated testing solution".to_string(),
+            }],
+            contact_info: vec![ContactDetail {
+                contact_type: ContactType::WebPage,
+                title: "Portfolio".to_string(),
+                content: "https://qa-portfolio.com".to_string(),
             }],
         };
 
+        let update_uc = Arc::new(MockUpdateCVUseCase::new());
         update_uc.set_success(updated_cv.clone()).await;
 
         let app_state = TestAppStateBuilder::default()
-            .with_update_cv(update_uc)
+            .with_update_cv(update_uc.clone())
             .build();
 
         let jwt_service = create_test_jwt_service();
-        let token = jwt_service
-            .generate_access_token(user_id, true)
-            .expect("Failed to generate token");
+        let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service.clone());
+        let token = jwt_service.generate_access_token(user_id, true).unwrap();
 
         let app = test::init_service(
             App::new()
                 .app_data(app_state)
-                .app_data(web::Data::new(jwt_service))
+                .app_data(web::Data::new(token_provider))
                 .service(update_cv_handler),
         )
         .await;
 
-        // Act
         let req = test::TestRequest::put()
             .uri(&format!("/api/cvs/{}", cv_id))
             .insert_header(("Authorization", format!("Bearer {}", token)))
             .set_json(UpdateCVRequest {
-                bio: "Updated comprehensive bio".to_string(),
-                role: "Lead Software Architect".to_string(),
-                photo_url: "https://example.com/updated.jpg".to_string(),
+                display_name: "Mapping Test".to_string(),
+                role: "QA Engineer".to_string(),
+                bio: "Testing specialist".to_string(),
+                photo_url: "https://example.com/qa.jpg".to_string(),
                 core_skills: vec![CoreSkill {
-                    title: "System Design".to_string(),
-                    description: "Expert in distributed systems".to_string(),
+                    title: "Testing".to_string(),
+                    description: "Quality assurance".to_string(),
                 }],
                 educations: vec![EducationRequest {
-                    degree: "Master of Computer Science".to_string(),
-                    institution: "Stanford".to_string(),
-                    graduation_year: 2020,
+                    degree: "B.A.".to_string(),
+                    institution: "Test University".to_string(),
+                    graduation_year: 2019,
                 }],
                 experiences: vec![ExperienceRequest {
-                    company: "Big Tech Inc".to_string(),
-                    position: "Tech Lead".to_string(),
-                    location: "New York".to_string(),
-                    start_date: "2021-03".to_string(),
-                    end_date: None,
-                    description: "Leading platform architecture".to_string(),
-                    tasks: vec!["Architecture design".to_string()],
-                    achievements: vec!["Scaled to 1M users".to_string()],
+                    company: "TestCo".to_string(),
+                    position: "QA Lead".to_string(),
+                    location: "Boston, MA".to_string(),
+                    start_date: "2019-06-01".to_string(),
+                    end_date: Some("2022-05-31".to_string()),
+                    description: "Led QA team".to_string(),
+                    tasks: vec!["Test planning".to_string(), "Automation".to_string()],
+                    achievements: vec!["Zero critical bugs in production".to_string()],
                 }],
                 highlighted_projects: vec![HighlightedProjectRequest {
-                    id: "proj-2".to_string(),
-                    title: "Microservices Platform".to_string(),
-                    slug: "microservices-platform".to_string(),
-                    short_description: "Built enterprise platform".to_string(),
+                    id: "test-proj".to_string(),
+                    title: "Test Automation Framework".to_string(),
+                    slug: "test-automation".to_string(),
+                    short_description: "Automated testing solution".to_string(),
+                }],
+                contact_info: vec![ContactDetailRequest {
+                    contact_type: ContactType::WebPage,
+                    title: "Portfolio".to_string(),
+                    content: "https://qa-portfolio.com".to_string(),
                 }],
             })
             .to_request();
 
         let resp = test::call_service(&app, req).await;
+        let resp_stat_code = resp.status();
 
-        // Assert
-        assert_eq!(resp.status(), 200);
+        assert_eq!(resp_stat_code, 200);
 
         let body: CVInfo = test::read_body_json(resp).await;
+
         assert_eq!(body.core_skills.len(), 1);
         assert_eq!(body.educations.len(), 1);
         assert_eq!(body.experiences.len(), 1);
         assert_eq!(body.highlighted_projects.len(), 1);
+        assert_eq!(body.contact_info.len(), 1);
     }
 
     #[actix_web::test]
     async fn test_update_cv_handler_not_found() {
-        // Arrange
         let user_id = Uuid::new_v4();
         let cv_id = Uuid::new_v4();
 
-        let update_uc = MockUpdateCVUseCase::new();
+        let update_uc = Arc::new(MockUpdateCVUseCase::new());
         update_uc.set_error(UpdateCVError::CVNotFound).await;
 
         let app_state = TestAppStateBuilder::default()
-            .with_update_cv(update_uc)
+            .with_update_cv(update_uc.clone())
             .build();
 
         let jwt_service = create_test_jwt_service();
-        let token = jwt_service
-            .generate_access_token(user_id, true)
-            .expect("Failed to generate token");
+
+        // 🔑 IMPORTANT: wrap JWT service exactly as extractor expects
+        let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service.clone());
+
+        let token = jwt_service.generate_access_token(user_id, true).unwrap();
 
         let app = test::init_service(
             App::new()
                 .app_data(app_state)
-                .app_data(web::Data::new(jwt_service))
+                .app_data(web::Data::new(token_provider))
                 .service(update_cv_handler),
         )
         .await;
 
-        // Act
         let req = test::TestRequest::put()
             .uri(&format!("/api/cvs/{}", cv_id))
             .insert_header(("Authorization", format!("Bearer {}", token)))
-            .set_json(UpdateCVRequest {
-                bio: "Updated bio".to_string(),
-                role: "New role".to_string(),
-                photo_url: "https://example.com/updated.jpg".to_string(),
-                core_skills: vec![],
-                educations: vec![],
-                experiences: vec![],
-                highlighted_projects: vec![],
-            })
+            .set_json(base_update_request())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
 
-        // Assert
-        assert_eq!(resp.status(), 404);
+        assert_eq!(resp.status(), actix_web::http::StatusCode::NOT_FOUND);
 
         let body = test::read_body(resp).await;
         let body_str = String::from_utf8(body.to_vec()).unwrap();
@@ -414,11 +476,10 @@ mod tests {
 
     #[actix_web::test]
     async fn test_update_cv_handler_repository_error() {
-        // Arrange
         let user_id = Uuid::new_v4();
         let cv_id = Uuid::new_v4();
 
-        let update_uc = MockUpdateCVUseCase::new();
+        let update_uc = Arc::new(MockUpdateCVUseCase::new());
         update_uc
             .set_error(UpdateCVError::RepositoryError(
                 "DB update failed".to_string(),
@@ -426,41 +487,36 @@ mod tests {
             .await;
 
         let app_state = TestAppStateBuilder::default()
-            .with_update_cv(update_uc)
+            .with_update_cv(update_uc.clone())
             .build();
 
         let jwt_service = create_test_jwt_service();
-        let token = jwt_service
-            .generate_access_token(user_id, true)
-            .expect("Failed to generate token");
+
+        // 🔑 IMPORTANT: register JWT service exactly as extractor expects
+        let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service.clone());
+
+        let token = jwt_service.generate_access_token(user_id, true).unwrap();
 
         let app = test::init_service(
             App::new()
                 .app_data(app_state)
-                .app_data(web::Data::new(jwt_service))
+                .app_data(web::Data::new(token_provider))
                 .service(update_cv_handler),
         )
         .await;
 
-        // Act
         let req = test::TestRequest::put()
             .uri(&format!("/api/cvs/{}", cv_id))
             .insert_header(("Authorization", format!("Bearer {}", token)))
-            .set_json(UpdateCVRequest {
-                bio: "Updated bio".to_string(),
-                role: "Data Engineer".to_string(),
-                photo_url: "https://example.com/updated.jpg".to_string(),
-                core_skills: vec![],
-                educations: vec![],
-                experiences: vec![],
-                highlighted_projects: vec![],
-            })
+            .set_json(base_update_request())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
 
-        // Assert
-        assert_eq!(resp.status(), 500);
+        assert_eq!(
+            resp.status(),
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
+        );
 
         let body = test::read_body(resp).await;
         let body_str = String::from_utf8(body.to_vec()).unwrap();
@@ -469,131 +525,103 @@ mod tests {
 
     #[actix_web::test]
     async fn test_update_cv_handler_missing_authorization() {
-        // Arrange
         let cv_id = Uuid::new_v4();
 
-        let update_uc = MockUpdateCVUseCase::new();
+        let update_uc = Arc::new(MockUpdateCVUseCase::new());
 
         let app_state = TestAppStateBuilder::default()
-            .with_update_cv(update_uc)
+            .with_update_cv(update_uc.clone())
             .build();
 
         let jwt_service = create_test_jwt_service();
 
+        let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service.clone());
+
         let app = test::init_service(
             App::new()
                 .app_data(app_state)
-                .app_data(web::Data::new(jwt_service))
+                .app_data(web::Data::new(token_provider))
                 .service(update_cv_handler),
         )
         .await;
 
-        // Act - No Authorization header
         let req = test::TestRequest::put()
             .uri(&format!("/api/cvs/{}", cv_id))
-            .set_json(UpdateCVRequest {
-                bio: "Updated bio".to_string(),
-                role: "New role".to_string(),
-                photo_url: "https://example.com/updated.jpg".to_string(),
-                core_skills: vec![],
-                educations: vec![],
-                experiences: vec![],
-                highlighted_projects: vec![],
-            })
+            .set_json(base_update_request())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
 
-        // Assert
-        assert_eq!(resp.status(), 401); // Unauthorized
+        assert_eq!(resp.status(), 401);
     }
 
     #[actix_web::test]
     async fn test_update_cv_handler_invalid_token() {
-        // Arrange
         let cv_id = Uuid::new_v4();
 
-        let update_uc = MockUpdateCVUseCase::new();
+        let update_uc = Arc::new(MockUpdateCVUseCase::new());
 
         let app_state = TestAppStateBuilder::default()
-            .with_update_cv(update_uc)
+            .with_update_cv(update_uc.clone())
             .build();
 
         let jwt_service = create_test_jwt_service();
 
+        let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service.clone());
+
         let app = test::init_service(
             App::new()
                 .app_data(app_state)
-                .app_data(web::Data::new(jwt_service))
+                .app_data(web::Data::new(token_provider))
                 .service(update_cv_handler),
         )
         .await;
 
-        // Act - Invalid token
         let req = test::TestRequest::put()
             .uri(&format!("/api/cvs/{}", cv_id))
             .insert_header(("Authorization", "Bearer invalid_token_here"))
-            .set_json(UpdateCVRequest {
-                bio: "Updated bio".to_string(),
-                role: "New role".to_string(),
-                photo_url: "https://example.com/updated.jpg".to_string(),
-                core_skills: vec![],
-                educations: vec![],
-                experiences: vec![],
-                highlighted_projects: vec![],
-            })
+            .set_json(base_update_request())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
 
-        // Assert
-        assert_eq!(resp.status(), 401); // Unauthorized
+        assert_eq!(resp.status(), 401);
     }
 
     #[actix_web::test]
     async fn test_update_cv_handler_unverified_user() {
-        // Arrange
         let user_id = Uuid::new_v4();
         let cv_id = Uuid::new_v4();
 
-        let update_uc = MockUpdateCVUseCase::new();
+        let update_uc = Arc::new(MockUpdateCVUseCase::new());
 
         let app_state = TestAppStateBuilder::default()
-            .with_update_cv(update_uc)
+            .with_update_cv(update_uc.clone())
             .build();
 
         let jwt_service = create_test_jwt_service();
-        // Generate token for UNVERIFIED user (is_verified = false)
-        let token = jwt_service
-            .generate_access_token(user_id, false)
-            .expect("Failed to generate token");
+
+        // IMPORTANT: wrap JWT service exactly as the extractor expects
+        let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service.clone());
+
+        let token = jwt_service.generate_access_token(user_id, false).unwrap();
 
         let app = test::init_service(
             App::new()
                 .app_data(app_state)
-                .app_data(web::Data::new(jwt_service))
+                .app_data(web::Data::new(token_provider))
                 .service(update_cv_handler),
         )
         .await;
 
-        // Act
         let req = test::TestRequest::put()
             .uri(&format!("/api/cvs/{}", cv_id))
             .insert_header(("Authorization", format!("Bearer {}", token)))
-            .set_json(UpdateCVRequest {
-                bio: "Updated bio".to_string(),
-                role: "New role".to_string(),
-                photo_url: "https://example.com/updated.jpg".to_string(),
-                core_skills: vec![],
-                educations: vec![],
-                experiences: vec![],
-                highlighted_projects: vec![],
-            })
+            .set_json(base_update_request())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
 
-        // Assert
-        assert_eq!(resp.status(), 403); // Forbidden - user not verified
+        assert_eq!(resp.status(), actix_web::http::StatusCode::FORBIDDEN);
     }
 }
