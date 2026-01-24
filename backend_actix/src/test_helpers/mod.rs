@@ -6,7 +6,7 @@ use serde::Serialize;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::auth::application::services::jwt::JwtClaims;
+use crate::auth::application::ports::outgoing::token_provider::TokenClaims;
 
 #[derive(Serialize)]
 pub struct RandomAccountResponse {
@@ -247,7 +247,7 @@ pub async fn generate_test_token(
 
     let (claims, secret) = match token_kind {
         TokenKind::Valid => {
-            let claims = JwtClaims {
+            let claims = TokenClaims {
                 sub: user_id,
                 exp: now + 3600,
                 iat: now,
@@ -258,7 +258,7 @@ pub async fn generate_test_token(
             (claims, valid_secret.as_str())
         }
         TokenKind::Expired => {
-            let claims = JwtClaims {
+            let claims = TokenClaims {
                 sub: user_id,
                 iat: now - 7200,
                 nbf: now - 7200,
@@ -269,7 +269,7 @@ pub async fn generate_test_token(
             (claims, valid_secret.as_str())
         }
         TokenKind::NotYetValid => {
-            let claims = JwtClaims {
+            let claims = TokenClaims {
                 sub: user_id,
                 iat: now,
                 nbf: now + 300, // Not valid for another 5 minutes (> 30s leeway)
@@ -280,7 +280,7 @@ pub async fn generate_test_token(
             (claims, valid_secret.as_str())
         }
         TokenKind::InvalidSignature => {
-            let claims = JwtClaims {
+            let claims = TokenClaims {
                 sub: user_id,
                 iat: now,
                 nbf: now,
