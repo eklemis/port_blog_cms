@@ -3,10 +3,10 @@ use crate::modules::auth::application::ports::outgoing::token_repository::{
 };
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use redis::aio::ConnectionManager;
-use redis::AsyncCommands;
+use deadpool_redis::{redis::AsyncCommands, Pool};
+
 use std::sync::Arc;
-use tokio::sync::Mutex;
+
 use uuid::Uuid;
 
 /// Redis-backed implementation of `TokenRepository`.
@@ -40,22 +40,15 @@ use uuid::Uuid;
 /// Redis TTL is the **single source of truth** for cleanup.
 #[derive(Clone)]
 pub struct RedisTokenRepository {
-    /// Shared, async-safe Redis connection manager.
-    ///
-    /// - Wrapped in `Arc` for sharing across requests
-    /// - Wrapped in `Mutex` because Redis commands require `&mut` access
-    ///
-    /// This repository does **not** create or manage the connection lifecycle.
-    /// It assumes the connection is already initialized at application startup.
-    redis: Arc<Mutex<ConnectionManager>>,
+    pool: Arc<Pool>,
 }
 
 impl RedisTokenRepository {
     /// Create a new Redis-backed token repository.
     ///
     /// The connection manager must already be initialized and ready to use.
-    pub fn new(redis: Arc<Mutex<ConnectionManager>>) -> Self {
-        Self { redis }
+    pub fn new(pool: Arc<Pool>) -> Self {
+        Self { pool }
     }
 
     /// Generate the Redis key for a blacklisted token.
@@ -70,6 +63,13 @@ impl RedisTokenRepository {
     /// This key stores a SET of token hashes belonging to the user.
     fn user_key(user_id: Uuid) -> String {
         format!("auth:blacklist:user:{user_id}")
+    }
+    /// Helper to get a connection from the pool
+    async fn get_conn(&self) -> Result<deadpool_redis::Connection, TokenRepositoryError> {
+        self.pool
+            .get()
+            .await
+            .map_err(|e| TokenRepositoryError::DatabaseError(format!("Pool error: {}", e)))
     }
 }
 
@@ -110,10 +110,9 @@ impl TokenRepository for RedisTokenRepository {
         let token_key = Self::token_key(&token_hash);
         let user_key = Self::user_key(user_id);
 
-        // Acquire exclusive access to the Redis connection
-        let mut conn = self.redis.lock().await;
+        let mut conn = self.get_conn().await?;
 
-        redis::pipe()
+        deadpool_redis::redis::pipe()
             .atomic()
             .cmd("SET")
             .arg(&token_key)
@@ -151,7 +150,7 @@ impl TokenRepository for RedisTokenRepository {
     /// This is an **O(1)** operation.
     async fn is_token_blacklisted(&self, token_hash: &str) -> Result<bool, TokenRepositoryError> {
         let key = Self::token_key(token_hash);
-        let mut conn = self.redis.lock().await;
+        let mut conn = self.get_conn().await?;
 
         let exists: bool = conn
             .exists(key)
@@ -179,7 +178,7 @@ impl TokenRepository for RedisTokenRepository {
     /// This makes the operation idempotent and safe to retry.
     async fn remove_blacklisted_token(&self, token_hash: &str) -> Result<(), TokenRepositoryError> {
         let token_key = Self::token_key(token_hash);
-        let mut conn = self.redis.lock().await;
+        let mut conn = self.get_conn().await?;
 
         let user_id: Option<String> = conn
             .get(&token_key)
@@ -192,7 +191,7 @@ impl TokenRepository for RedisTokenRepository {
                     .map_err(|_| TokenRepositoryError::InvalidToken)?,
             );
 
-            redis::pipe()
+            deadpool_redis::redis::pipe()
                 .atomic()
                 .del(&token_key)
                 .ignore()
@@ -227,14 +226,14 @@ impl TokenRepository for RedisTokenRepository {
     /// - Safe to call multiple times
     async fn revoke_all_user_tokens(&self, user_id: Uuid) -> Result<(), TokenRepositoryError> {
         let user_key = Self::user_key(user_id);
-        let mut conn = self.redis.lock().await;
+        let mut conn = self.get_conn().await?;
 
         let tokens: Vec<String> = conn
             .smembers(&user_key)
             .await
             .map_err(|e| TokenRepositoryError::DatabaseError(e.to_string()))?;
 
-        let mut pipe = redis::pipe();
+        let mut pipe = deadpool_redis::redis::pipe();
         pipe.atomic();
 
         for token in tokens {
@@ -271,20 +270,20 @@ mod tests {
     use super::RedisTokenRepository;
     use crate::modules::auth::application::ports::outgoing::token_repository::TokenRepository;
     use chrono::{Duration, Utc};
-    use redis::{aio::ConnectionManager, Client};
+    use deadpool_redis::{Config, Runtime};
     use std::sync::Arc;
-    use tokio::sync::Mutex;
     use uuid::Uuid;
 
     async fn setup_repo() -> RedisTokenRepository {
         // Assumes Redis is running locally
-        let client = Client::open("redis://127.0.0.1/").expect("Failed to create Redis client");
+        let redis_url = String::from("redis://127.0.0.1/");
+        let redis_pool = Config::from_url(&redis_url)
+            .create_pool(Some(Runtime::Tokio1))
+            .expect("Failed to create Redis pool");
 
-        let manager = ConnectionManager::new(client)
-            .await
-            .expect("Failed to create Redis connection");
+        let redis_arc = Arc::new(redis_pool);
 
-        RedisTokenRepository::new(Arc::new(Mutex::new(manager)))
+        RedisTokenRepository::new(Arc::clone(&redis_arc))
     }
 
     #[tokio::test]

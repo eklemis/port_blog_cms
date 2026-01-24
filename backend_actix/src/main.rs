@@ -35,12 +35,12 @@ use crate::modules::auth::application::use_cases::refresh_token::IRefreshTokenUs
 use crate::modules::email::application::ports::outgoing::user_email_notifier::UserEmailNotifier;
 
 use actix_web::{web, App, HttpServer};
-use redis::{aio::ConnectionManager, Client};
+use deadpool_redis::{Config, Runtime};
+
 use sea_orm::{ConnectOptions, Database};
 use std::env;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Mutex;
 
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -152,11 +152,11 @@ async fn start() -> std::io::Result<()> {
     let db_arc = Arc::new(conn);
 
     // Redis connection
-    let redis_client = Client::open(redis_url).expect("Failed to create Redis client");
-    let redis_manager = ConnectionManager::new(redis_client)
-        .await
-        .expect("Failed to create Redis connection");
-    let redis_arc = Arc::new(Mutex::new(redis_manager));
+    let redis_pool = Config::from_url(&redis_url)
+        .create_pool(Some(Runtime::Tokio1))
+        .expect("Failed to create Redis pool");
+
+    let redis_arc = Arc::new(redis_pool);
 
     // Create repositories and use cases (unchanged)
     let cv_repo = CVRepoPostgres::new(Arc::clone(&db_arc));
