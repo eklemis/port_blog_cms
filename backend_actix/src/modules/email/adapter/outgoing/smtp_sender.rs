@@ -26,10 +26,7 @@ impl Mailer for AsyncSmtpTransport<Tokio1Executor> {
 }
 
 impl SmtpEmailSender {
-    pub fn new_with_mailer(
-        mailer: Box<dyn Mailer>,
-        from_email: &str,
-    ) -> Self {
+    pub fn new_with_mailer(mailer: Box<dyn Mailer>, from_email: &str) -> Self {
         Self {
             mailer,
             from_email: from_email.to_string(),
@@ -52,6 +49,17 @@ impl SmtpEmailSender {
 
         Self {
             mailer,
+            from_email: from_email.to_string(),
+        }
+    }
+    // Local/test constructor (Mailpit, MailHog, etc.)
+    pub fn new_local(host: &str, port: u16, from_email: &str) -> Self {
+        let transport = AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(host)
+            .port(port)
+            .build();
+
+        Self {
+            mailer: Box::new(transport),
             from_email: from_email.to_string(),
         }
     }
@@ -88,10 +96,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_send_email_success_unit() {
-        let sender = SmtpEmailSender::new_with_mailer(
-            Box::new(MockMailer),
-            "sender@example.com",
-        );
+        let sender = SmtpEmailSender::new_with_mailer(Box::new(MockMailer), "sender@example.com");
 
         let result = sender
             .send_email("recipient@example.com", "Test", "<p>Unit test</p>")
@@ -142,19 +147,13 @@ mod tests {
             }
         }
 
-        let sender = SmtpEmailSender::new_with_mailer(
-            Box::new(DummyMailer),
-            "sender@example.com",
-        );
+        let sender = SmtpEmailSender::new_with_mailer(Box::new(DummyMailer), "sender@example.com");
 
         let result = sender
             .send_email("not-an-email", "Subject", "<p>Test</p>")
             .await;
 
-        assert!(
-            result.is_err(),
-            "Expected error from invalid 'to' address"
-        );
+        assert!(result.is_err(), "Expected error from invalid 'to' address");
 
         if let Err(err) = result {
             assert!(
@@ -188,12 +187,15 @@ mod tests {
         }
     }
 
-
     #[tokio::test]
     async fn test_send_email_connection_failure() {
         // Force connection error by giving unreachable SMTP server
-        let sender =
-            SmtpEmailSender::new("smtp.this-will-fail.local", "user", "pass", "from@example.com");
+        let sender = SmtpEmailSender::new(
+            "smtp.this-will-fail.local",
+            "user",
+            "pass",
+            "from@example.com",
+        );
 
         // This will panic at `.unwrap()` in `relay()` if domain is invalid DNS
         // So we make sure to use a *syntactically valid* domain that doesn't resolve
@@ -216,10 +218,7 @@ mod tests {
             }
         }
 
-        let sender = SmtpEmailSender::new_with_mailer(
-            Box::new(DummyMailer),
-            "",
-        );
+        let sender = SmtpEmailSender::new_with_mailer(Box::new(DummyMailer), "");
 
         // "" is a valid parseable address (parsed as empty local part), but invalid for email sending
         let result = sender
@@ -228,13 +227,14 @@ mod tests {
 
         match result {
             Err(e) => {
-                println!("Got error: {}", e);  // Add this
-                assert!(e.contains("InvalidInput"), "Unexpected error message: {}", e);
+                println!("Got error: {}", e); // Add this
+                assert!(
+                    e.contains("InvalidInput"),
+                    "Unexpected error message: {}",
+                    e
+                );
             }
             _ => panic!("Expected an error"),
         }
-
     }
-
-
 }

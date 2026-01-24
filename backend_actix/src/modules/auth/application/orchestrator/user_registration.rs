@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::auth::application::use_cases::create_user::{
     CreateUserError, CreateUserInput, CreateUserOutput, ICreateUserUseCase,
@@ -77,37 +78,41 @@ impl UserRegistrationOrchestrator {
         // Step 1: Create user account
         let created_user = self.create_user_use_case.execute(input).await?;
 
-        // Step 2: Send verification email
-        // Note: We log the error but don't fail the registration
-        // The user is already created, so it's better to succeed with a warning
-        if let Err(e) = self
-            .email_service
-            .send_verification_email(created_user.clone())
-            .await
-        {
-            tracing::error!(
-                "Failed to send verification email to user {} ({}): {}",
-                created_user.user_id,
-                created_user.email,
-                e
-            );
+        // Step 2: Spawn email sending as a background task (fire-and-forget)
+        let email_service = self.email_service.clone();
+        let user_for_email = created_user.clone();
 
-            // In production, you might want to:
-            // - Queue this for retry
-            // - Send an alert to ops team
-            // - Store in dead letter queue
+        tokio::spawn(async move {
+            let max_retries = 3;
+            for attempt in 1..=max_retries {
+                match email_service
+                    .send_verification_email(user_for_email.clone())
+                    .await
+                {
+                    Ok(_) => return,
+                    Err(e) if attempt < max_retries => {
+                        tracing::warn!(
+                            "Email attempt {}/{} failed for user {}: {}. Retrying...",
+                            attempt,
+                            max_retries,
+                            user_for_email.user_id,
+                            e
+                        );
+                        tokio::time::sleep(Duration::from_secs(2_u64.pow(attempt))).await;
+                    }
+                    Err(e) => {
+                        tracing::error!(
+                            "All {} email attempts failed for user {}: {}",
+                            max_retries,
+                            user_for_email.user_id,
+                            e
+                        );
+                    }
+                }
+            }
+        });
 
-            // For now, we'll still return success but with a different message
-            return Ok(UserRegistrationOutput {
-                user_id: created_user.user_id,
-                email: created_user.email,
-                username: created_user.username,
-                full_name: created_user.full_name,
-                message: "User created successfully. We're having trouble sending the verification email. Please contact support.".to_string(),
-            });
-        }
-
-        // Both user creation and email sending succeeded
+        // Return immediately - don't wait for email
         Ok(created_user.into())
     }
 }
@@ -122,6 +127,7 @@ mod tests {
         atomic::{AtomicBool, Ordering},
         Arc,
     };
+    use tokio::sync::Notify;
     use uuid::Uuid;
 
     // =====================================================
@@ -151,18 +157,23 @@ mod tests {
     struct MockUserEmailNotifier {
         should_fail: bool,
         called: Arc<AtomicBool>,
+        notify: Arc<Notify>,
     }
 
     impl MockUserEmailNotifier {
         fn new(should_fail: bool) -> Self {
             Self {
-                should_fail,
                 called: Arc::new(AtomicBool::new(false)),
+                should_fail,
+                notify: Arc::new(Notify::new()),
             }
         }
 
         fn was_called(&self) -> bool {
             self.called.load(Ordering::SeqCst)
+        }
+        async fn wait_until_called(&self) {
+            self.notify.notified().await;
         }
     }
 
@@ -173,6 +184,7 @@ mod tests {
             _user: CreateUserOutput,
         ) -> Result<(), UserEmailNotificationError> {
             self.called.store(true, Ordering::SeqCst);
+            self.notify.notify_one();
 
             if self.should_fail {
                 Err(UserEmailNotificationError::EmailSendingFailed(
@@ -231,10 +243,15 @@ mod tests {
         assert_eq!(output.email, "valid@example.com");
         assert!(output.message.contains("check your email"));
 
-        assert!(
-            email_notifier.was_called(),
-            "Verification email should be sent"
-        );
+        // Wait for the email task (with timeout)
+        tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            email_notifier.wait_until_called(),
+        )
+        .await
+        .expect("Email should have been sent within 1 second");
+
+        assert!(email_notifier.was_called());
     }
 
     // =====================================================
@@ -242,12 +259,12 @@ mod tests {
     // =====================================================
 
     #[tokio::test]
-    async fn register_user_email_failure_returns_success_with_warning() {
+    async fn register_user_succeeds_even_when_email_fails() {
         let create_uc = MockCreateUserUseCase {
             result: Ok(created_user()),
         };
 
-        let email_notifier = MockUserEmailNotifier::new(true);
+        let email_notifier = MockUserEmailNotifier::new(true); // will fail
 
         let service = UserRegistrationOrchestrator::new(
             Arc::new(create_uc),
@@ -256,16 +273,17 @@ mod tests {
 
         let result = service.register_user(valid_input()).await;
 
+        // Registration still succeeds
         assert!(result.is_ok());
 
         let output = result.unwrap();
-        assert!(
-            output
-                .message
-                .contains("trouble sending the verification email"),
-            "Expected warning message"
-        );
+        // Standard success message (no warning - we don't know email failed yet)
+        assert!(output.message.contains("check your email"));
 
+        // Give spawned task time to run
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+
+        // Email was still attempted
         assert!(
             email_notifier.was_called(),
             "Email notifier should still be called (and fail)"

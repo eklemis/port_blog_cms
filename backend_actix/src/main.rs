@@ -70,6 +70,7 @@ async fn start() -> std::io::Result<()> {
         adapter::outgoing::security::argon2_hasher::Argon2Hasher,
         application::{
             orchestrator::user_registration::UserRegistrationOrchestrator,
+            ports::outgoing::token_provider::TokenProvider,
             use_cases::refresh_token::RefreshTokenUseCase,
         },
     };
@@ -96,18 +97,40 @@ async fn start() -> std::io::Result<()> {
             env
         );
     }
+    // Environtment variable loading
+    let env = std::env::var("RUST_ENV").unwrap_or_else(|_| "development".to_string());
 
-    dotenvy::dotenv().ok();
+    // Try .env.{environment} first, then fall back to .env
+    let env_file = format!(".env.{}", env);
+    if dotenvy::from_filename(&env_file).is_err() {
+        dotenvy::dotenv().ok();
+    }
 
+    // Load Env. variables
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set in .env file");
     let host = env::var("HOST").expect("HOST is not set in .env file");
     let port = env::var("PORT").expect("PORT is not set in .env file");
     let redis_url = env::var("REDIS_URL").expect("REDIS_URL is not set in .env file");
 
-    let smtp_server = std::env::var("SMTP_SERVER").expect("SMTP_SERVER not set");
-    let smtp_user = std::env::var("SMTP_USERNAME").expect("SMTP_USERNAME not set");
-    let smtp_pass = std::env::var("SMTP_PASSWORD").expect("SMTP_PASSWORD not set");
+    // SMTP SETUPS
     let from_email = std::env::var("EMAIL_FROM").expect("EMAIL_FROM not set");
+    let smtp_sender = if std::env::var("RUST_ENV").as_deref() == Ok("test") {
+        // Local Mailpit
+        let host = std::env::var("SMTP_HOST").unwrap_or_else(|_| "localhost".to_string());
+        let port: u16 = std::env::var("SMTP_PORT")
+            .unwrap_or_else(|_| "1025".to_string())
+            .parse()
+            .expect("Invalid SMTP_PORT");
+
+        SmtpEmailSender::new_local(&host, port, &from_email)
+    } else {
+        // Production SMTP
+        let smtp_server = std::env::var("SMTP_SERVER").expect("SMTP_SERVER not set");
+        let smtp_user = std::env::var("SMTP_USERNAME").expect("SMTP_USERNAME not set");
+        let smtp_pass = std::env::var("SMTP_PASSWORD").expect("SMTP_PASSWORD not set");
+
+        SmtpEmailSender::new(&smtp_server, &smtp_user, &smtp_pass, &from_email)
+    };
 
     let server_url = format!("{host}:{port}");
     println!("Server run on: {}", server_url);
@@ -144,7 +167,7 @@ async fn start() -> std::io::Result<()> {
     let patch_cv_use_case = PatchCVUseCase::new(cv_repo.clone());
 
     let jwt_service = JwtTokenService::new(JwtConfig::from_env());
-    let smtp_sender = SmtpEmailSender::new(&smtp_server, &smtp_user, &smtp_pass, &from_email);
+
     let user_email_service =
         UserEmailService::new(jwt_service.clone(), smtp_sender, String::from(&server_url));
 
@@ -192,13 +215,14 @@ async fn start() -> std::io::Result<()> {
         soft_delete_user_use_case: Arc::new(soft_delete_user_use_case),
     };
 
+    let token_provider_arc: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service);
     // Clone db_arc for use in HttpServer closure
     let db_for_server = Arc::clone(&db_arc);
 
     HttpServer::new(move || {
         let mut app = App::new()
             .app_data(web::Data::new(state.clone()))
-            .app_data(web::Data::new(jwt_service.clone()))
+            .app_data(web::Data::new(Arc::clone(&token_provider_arc)))
             .app_data(web::Data::new(Arc::clone(&db_for_server)))
             .app_data(web::Data::new(Arc::clone(&redis_arc)))
             .configure(init_routes);

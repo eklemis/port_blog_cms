@@ -579,7 +579,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_register_user_email_notification_failure() {
+    async fn test_register_user_succeeds_even_when_email_fails() {
         let orchestrator = create_orchestrator(MockCreateUserSuccess, MockEmailNotifierFailure);
 
         let app_state = TestAppStateBuilder::default()
@@ -599,14 +599,16 @@ mod tests {
             .to_request();
 
         let resp = test::call_service(&app, req).await;
+
         // Email failure doesn't fail registration, still returns 201
         assert_eq!(resp.status(), 201);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        // Check for the alternative message when email fails
+
+        // Standard success message (email fails in background, we don't know yet)
         assert!(body["user"]["message"]
             .as_str()
             .unwrap()
-            .contains("trouble sending"));
+            .contains("check your email"));
     }
 }
