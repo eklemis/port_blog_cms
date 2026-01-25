@@ -1,5 +1,5 @@
 use crate::auth::application::ports::outgoing::user_query::UserQueryError;
-use crate::auth::application::ports::outgoing::user_repository::{CreateUserData, UserResult};
+use crate::auth::application::ports::outgoing::user_repository::CreateUserData;
 
 use crate::modules::auth::application::ports::outgoing::{
     user_query::UserQuery, user_repository::UserRepository, UserRepositoryError,
@@ -173,19 +173,30 @@ where
     // ========================================================================
     // Soft-Delete Check - Business Rule
     // ========================================================================
-
-    async fn check_and_restore_soft_deleted(
+    /// Attempt to restore a soft-deleted user, or return UserAlreadyExists error
+    async fn try_restore_soft_deleted(
         &self,
         email: &str,
-    ) -> Result<Option<UserResult>, CreateUserError> {
-        if let Some(existing_user) = self.user_query.find_by_email(email).await? {
-            if existing_user.is_deleted {
-                // Restore the user
-                let restored = self.user_repository.restore_user(existing_user.id).await?;
-                return Ok(Some(restored));
-            }
+    ) -> Result<CreateUserOutput, CreateUserError> {
+        let existing_user = self
+            .user_query
+            .find_by_email(email)
+            .await?
+            .ok_or(CreateUserError::UserAlreadyExists)?; // Shouldn't happen, but be defensive
+
+        if existing_user.is_deleted {
+            // Restore the soft-deleted user
+            let restored = self.user_repository.restore_user(existing_user.id).await?;
+            Ok(CreateUserOutput {
+                user_id: restored.id,
+                email: restored.email,
+                username: restored.username,
+                full_name: restored.full_name,
+            })
+        } else {
+            // User exists and is active — genuine duplicate
+            Err(CreateUserError::UserAlreadyExists)
         }
-        Ok(None)
     }
 }
 
@@ -206,18 +217,7 @@ where
         self.validate_password(&input.password)?;
         let full_name = self.validate_full_name(&input.full_name)?;
 
-        // 2. Check if user is soft-deleted and restore it
-        //    Further more efficient and cleaner implementation needed to reduce the database hits
-        if let Some(restored) = self.check_and_restore_soft_deleted(&email).await? {
-            return Ok(CreateUserOutput {
-                user_id: restored.id,
-                email: restored.email,
-                username: restored.username,
-                full_name: restored.full_name,
-            });
-        }
-
-        // 3. Hash password
+        // 2. Hash password
         let password_hash = self
             .password_hasher
             .hash_password(&input.password)
@@ -234,8 +234,8 @@ where
                 }
             })?;
 
-        // 4. Create user (database constraint catches duplicates)
-        let created_user = self
+        // 3. Try to create user (optimistic approach)
+        let create_result = self
             .user_repository
             .create_user(CreateUserData {
                 email: email.clone(),
@@ -243,21 +243,24 @@ where
                 password_hash,
                 full_name: full_name.clone(),
             })
-            .await
-            .map_err(|e| match e {
-                UserRepositoryError::UserAlreadyExists => CreateUserError::UserAlreadyExists,
-                other => CreateUserError::RepositoryError(other),
-            })?;
+            .await;
 
-        // 5. Return created user
-        // NOTE: Email verification is handled OUTSIDE this use case
-        // (see application layer orchestration or domain events)
-        Ok(CreateUserOutput {
-            user_id: created_user.id,
-            email: created_user.email,
-            username: created_user.username,
-            full_name: created_user.full_name,
-        })
+        match create_result {
+            Ok(created_user) => {
+                // Happy path: user created successfully
+                Ok(CreateUserOutput {
+                    user_id: created_user.id,
+                    email: created_user.email,
+                    username: created_user.username,
+                    full_name: created_user.full_name,
+                })
+            }
+            Err(UserRepositoryError::UserAlreadyExists) => {
+                // 4. Check if it's a soft-deleted user we can restore
+                self.try_restore_soft_deleted(&email).await
+            }
+            Err(other) => Err(CreateUserError::RepositoryError(other)),
+        }
     }
 }
 
@@ -267,6 +270,7 @@ mod tests {
     use crate::auth::application::ports::outgoing::{
         password_hasher::{HashError, PasswordHasher},
         user_query::{UserQuery, UserQueryError, UserQueryResult},
+        user_repository::UserResult,
     };
     use async_trait::async_trait;
     use chrono::Utc;
@@ -370,17 +374,18 @@ mod tests {
             }
         }
 
-        fn success_restore(user: UserResult) -> Self {
-            Self {
-                create_result: None,
-                restore_result: Some(Ok(user)),
-            }
-        }
-
         fn create_error(err: UserRepositoryError) -> Self {
             Self {
                 create_result: Some(Err(err)),
                 restore_result: None,
+            }
+        }
+
+        // Add this new constructor
+        fn fail_create_then_restore(restored_user: UserResult) -> Self {
+            Self {
+                create_result: Some(Err(UserRepositoryError::UserAlreadyExists)),
+                restore_result: Some(Ok(restored_user)),
             }
         }
     }
@@ -475,7 +480,7 @@ mod tests {
 
         let use_case = CreateUserUseCase::new(
             MockUserQuery::with_soft_deleted_user(deleted_user),
-            MockUserRepository::success_restore(restored_user.clone()),
+            MockUserRepository::fail_create_then_restore(restored_user.clone()), // Changed
             Arc::new(MockPasswordHasher::success()),
         );
 
