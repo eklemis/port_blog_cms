@@ -1,5 +1,4 @@
 use sea_orm_migration::prelude::*;
-use sea_orm_migration::schema::{json, string, uuid};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -19,27 +18,43 @@ impl MigrationTrait for Migration {
                             .primary_key()
                             .default(Expr::cust("gen_random_uuid()")),
                     )
-                    .col(uuid(Resumes::UserId).not_null())
-                    .col(string(Resumes::DisplayName).not_null())
-                    .col(string(Resumes::Role).not_null())
-                    .col(string(Resumes::Bio).not_null())
-                    .col(string(Resumes::PhotoUrl).not_null())
-                    .col(json(Resumes::CoreSkills).not_null())
-                    .col(json(Resumes::Educations).not_null())
-                    .col(json(Resumes::Experiences).not_null())
-                    .col(json(Resumes::HighlightedProjects).not_null())
-                    .col(json(Resumes::ContactInfo).not_null())
+                    .col(ColumnDef::new(Resumes::UserId).uuid().not_null())
+                    .col(
+                        ColumnDef::new(Resumes::DisplayName)
+                            .string_len(100)
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(Resumes::Role).string_len(100).not_null())
+                    .col(ColumnDef::new(Resumes::Bio).text().not_null())
+                    .col(ColumnDef::new(Resumes::PhotoUrl).string_len(500).not_null())
+                    .col(ColumnDef::new(Resumes::CoreSkills).json_binary().not_null())
+                    .col(ColumnDef::new(Resumes::Educations).json_binary().not_null())
+                    .col(
+                        ColumnDef::new(Resumes::Experiences)
+                            .json_binary()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Resumes::HighlightedProjects)
+                            .json_binary()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Resumes::ContactInfo)
+                            .json_binary()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(Resumes::CreatedAt)
                             .timestamp_with_time_zone()
                             .not_null()
-                            .default(Expr::cust("now()")),
+                            .default(Expr::current_timestamp()),
                     )
                     .col(
                         ColumnDef::new(Resumes::UpdatedAt)
                             .timestamp_with_time_zone()
                             .not_null()
-                            .default(Expr::cust("now()")),
+                            .default(Expr::current_timestamp()),
                     )
                     .col(
                         ColumnDef::new(Resumes::IsDeleted)
@@ -47,29 +62,95 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(false),
                     )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_resumes_user_id")
+                            .from(Resumes::Table, Resumes::UserId)
+                            .to(Users::Table, Users::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
                     .to_owned(),
             )
             .await?;
 
+        // Index for fetching user's active resumes
         manager
-            .create_index(
-                Index::create()
-                    .table(Resumes::Table)
-                    .name("idx_cv_user_id")
-                    .col(Resumes::UserId)
-                    .to_owned(),
+            .get_connection()
+            .execute_unprepared(
+                r#"
+                CREATE INDEX idx_resumes_user_id_active
+                ON resumes (user_id, created_at DESC)
+                WHERE is_deleted = false;
+                "#,
             )
-            .await
+            .await?;
+
+        // Index for soft-delete operations
+        manager
+            .get_connection()
+            .execute_unprepared(
+                r#"
+                CREATE INDEX idx_resumes_user_deleted
+                ON resumes (user_id, is_deleted);
+                "#,
+            )
+            .await?;
+
+        // Trigger for updated_at
+        manager
+            .get_connection()
+            .execute_unprepared(
+                r#"
+                CREATE OR REPLACE FUNCTION update_updated_at_column()
+                RETURNS TRIGGER AS $$
+                BEGIN
+                    NEW.updated_at = CURRENT_TIMESTAMP;
+                    RETURN NEW;
+                END;
+                $$ language 'plpgsql';
+                "#,
+            )
+            .await?;
+
+        manager
+            .get_connection()
+            .execute_unprepared(
+                r#"
+                CREATE TRIGGER update_resumes_updated_at
+                BEFORE UPDATE ON resumes
+                FOR EACH ROW
+                EXECUTE FUNCTION update_updated_at_column();
+                "#,
+            )
+            .await?;
+
+        Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared("DROP TRIGGER IF EXISTS update_resumes_updated_at ON resumes")
+            .await?;
+
+        manager
+            .get_connection()
+            .execute_unprepared(
+                r#"
+                DROP INDEX IF EXISTS idx_resumes_user_id_active;
+                DROP INDEX IF EXISTS idx_resumes_user_deleted;
+                "#,
+            )
+            .await?;
+
         manager
             .drop_table(Table::drop().table(Resumes::Table).to_owned())
             .await
     }
 }
 
-#[derive(Iden)]
+#[derive(DeriveIden)]
 enum Resumes {
     Table,
     Id,
@@ -86,4 +167,10 @@ enum Resumes {
     CreatedAt,
     UpdatedAt,
     IsDeleted,
+}
+
+#[derive(DeriveIden)]
+enum Users {
+    Table,
+    Id,
 }
