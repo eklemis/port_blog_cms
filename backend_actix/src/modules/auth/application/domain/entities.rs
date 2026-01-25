@@ -1,6 +1,27 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct UserId(Uuid);
+
+impl UserId {
+    pub fn value(&self) -> Uuid {
+        self.0
+    }
+}
+
+impl From<Uuid> for UserId {
+    fn from(id: Uuid) -> Self {
+        UserId(id)
+    }
+}
+
+impl From<UserId> for Uuid {
+    fn from(id: UserId) -> Self {
+        id.0
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct User {
     pub id: Uuid,
