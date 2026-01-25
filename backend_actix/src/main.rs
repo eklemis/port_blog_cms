@@ -174,7 +174,11 @@ async fn start() -> std::io::Result<()> {
     let user_repo = UserRepositoryPostgres::new(Arc::clone(&db_arc));
     let user_query = UserQueryPostgres::new(Arc::clone(&db_arc));
     let redis_token_repo = RedisTokenRepository::new(Arc::clone(&redis_arc));
-    let argon2_password_hasher = Argon2Hasher::from_env();
+    let argon2_password_hasher = if std::env::var("RUST_ENV").as_deref() == Ok("production") {
+        Argon2Hasher::budget_vps()
+    } else {
+        Argon2Hasher::fast_env()
+    };
 
     // User Registration componenets
     let create_user_use_case = CreateUserUseCase::new(

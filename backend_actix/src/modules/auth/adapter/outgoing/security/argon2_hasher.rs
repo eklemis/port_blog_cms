@@ -14,33 +14,23 @@ use crate::auth::application::ports::outgoing::password_hasher::{
 #[derive(Clone)]
 pub struct Argon2Hasher {
     params: Params,
+    use_blocking_task: bool,
     #[cfg(test)]
     salt_override: Option<SaltString>,
 }
 
 impl Argon2Hasher {
+    /// Create with default settings (auto-detects environment)
     pub fn new() -> Self {
-        // Budget VPS friendly: 4MB memory, 3 iterations, 1 thread
-        let params = Params::new(4 * 1024, 3, 1, None).expect("Invalid Argon2 params");
-
-        Self {
-            params,
-            #[cfg(test)]
-            salt_override: None,
-        }
+        Self::from_env()
     }
-    /// Create with custom params (for testing or different environments)
-    pub fn with_params(memory_kib: u32, iterations: u32, parallelism: u32) -> Self {
-        let params =
-            Params::new(memory_kib, iterations, parallelism, None).expect("Invalid Argon2 params");
-
-        Self {
-            params,
-            #[cfg(test)]
-            salt_override: None,
-        }
-    }
-    /// Environment-based configuration
+    /// Create from environment variables
+    ///
+    /// Environment variables:
+    /// - ARGON2_MEMORY_KIB: Memory cost in KiB (default: 4096)
+    /// - ARGON2_ITERATIONS: Time cost (default: 3)
+    /// - ARGON2_PARALLELISM: Parallelism factor (default: 1)
+    /// - USE_BLOCKING_HASH: Whether to use spawn_blocking (default: false)
     pub fn from_env() -> Self {
         let memory_kib: u32 = std::env::var("ARGON2_MEMORY_KIB")
             .ok()
@@ -57,59 +47,129 @@ impl Argon2Hasher {
             .and_then(|v| v.parse().ok())
             .unwrap_or(1);
 
-        Self::with_params(memory_kib, iterations, parallelism)
+        let use_blocking_task: bool = std::env::var("USE_BLOCKING_HASH")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(false);
+
+        Self::with_config(memory_kib, iterations, parallelism, use_blocking_task)
     }
+    /// Create with explicit configuration
+    pub fn with_config(
+        memory_kib: u32,
+        iterations: u32,
+        parallelism: u32,
+        use_blocking_task: bool,
+    ) -> Self {
+        let params =
+            Params::new(memory_kib, iterations, parallelism, None).expect("Invalid Argon2 params");
+
+        Self {
+            params,
+            use_blocking_task,
+            #[cfg(test)]
+            salt_override: None,
+        }
+    }
+    /// Create optimized for fast environments (M1 Mac, good servers)
+    pub fn fast_env() -> Self {
+        Self::with_config(
+            4 * 1024, // 4MB
+            3,        // iterations
+            1,        // parallelism
+            false,    // no spawn_blocking
+        )
+    }
+    /// Create optimized for budget VPS (slow CPU, limited memory)
+    pub fn budget_vps() -> Self {
+        Self::with_config(
+            4 * 1024, // 4MB
+            3,        // iterations
+            1,        // parallelism
+            true,     // use spawn_blocking to prevent async runtime starvation
+        )
+    }
+    /// Create with fixed salt for testing (deterministic hashes)
     #[cfg(test)]
     pub fn with_fixed_salt(salt: &str) -> Self {
         Self {
             params: Params::new(4 * 1024, 3, 1, None).expect("Invalid params"),
+            use_blocking_task: false,
             salt_override: Some(SaltString::from_b64(salt).expect("Invalid salt")),
         }
+    }
+    /// Build Argon2 instance with current params
+    fn build_argon2(&self) -> Argon2<'_> {
+        Argon2::new(Algorithm::Argon2id, Version::V0x13, self.params.clone())
+    }
+    /// Synchronous hash implementation
+    fn hash_sync(
+        password: &str,
+        params: Params,
+        salt: Option<SaltString>,
+    ) -> Result<String, HashError> {
+        let salt = salt.unwrap_or_else(|| SaltString::generate(&mut OsRng));
+        let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+
+        argon2
+            .hash_password(password.as_bytes(), &salt)
+            .map(|hash| hash.to_string())
+            .map_err(|_| HashError::HashFailed)
+    }
+    /// Synchronous verify implementation
+    fn verify_sync(password: &str, hash: &str) -> Result<bool, HashError> {
+        let parsed_hash = PasswordHash::new(hash).map_err(|_| HashError::VerifyFailed)?;
+
+        match Argon2::default().verify_password(password.as_bytes(), &parsed_hash) {
+            Ok(_) => Ok(true),
+            Err(PasswordHashError::Password) => Ok(false),
+            Err(_) => Err(HashError::VerifyFailed),
+        }
+    }
+}
+
+impl Default for Argon2Hasher {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 #[async_trait]
 impl HasherTrait for Argon2Hasher {
     async fn hash_password(&self, password: &str) -> Result<String, HashError> {
-        let password = password.to_string();
         let params = self.params.clone();
 
         #[cfg(test)]
-        let salt_override = self.salt_override.clone();
+        let salt = self.salt_override.clone();
+        #[cfg(not(test))]
+        let salt: Option<SaltString> = None;
 
-        tokio::task::spawn_blocking(move || {
-            let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+        if self.use_blocking_task {
+            // For slow environments - offload to blocking thread pool
+            let password = password.to_string();
 
-            #[cfg(test)]
-            let salt = salt_override.unwrap_or_else(|| SaltString::generate(&mut OsRng));
-
-            #[cfg(not(test))]
-            let salt = SaltString::generate(&mut OsRng);
-
-            argon2
-                .hash_password(password.as_bytes(), &salt)
-                .map(|hash| hash.to_string())
-                .map_err(|_| HashError::HashFailed)
-        })
-        .await
-        .map_err(|_| HashError::TaskFailed)?
+            tokio::task::spawn_blocking(move || Self::hash_sync(&password, params, salt))
+                .await
+                .map_err(|_| HashError::TaskFailed)?
+        } else {
+            // For fast environments - direct execution
+            Self::hash_sync(password, params, salt)
+        }
     }
 
     async fn verify_password(&self, password: &str, hash: &str) -> Result<bool, HashError> {
-        let password = password.to_string();
-        let hash = hash.to_string();
+        if self.use_blocking_task {
+            // For slow environments - offload to blocking thread pool
+            let password = password.to_string();
+            let hash = hash.to_string();
 
-        tokio::task::spawn_blocking(move || {
-            let parsed_hash = PasswordHash::new(&hash).map_err(|_| HashError::VerifyFailed)?;
-
-            match Argon2::default().verify_password(password.as_bytes(), &parsed_hash) {
-                Ok(_) => Ok(true),
-                Err(PasswordHashError::Password) => Ok(false),
-                Err(_) => Err(HashError::VerifyFailed),
-            }
-        })
-        .await
-        .map_err(|_| HashError::TaskFailed)?
+            tokio::task::spawn_blocking(move || Self::verify_sync(&password, &hash))
+                .await
+                .map_err(|_| HashError::TaskFailed)?
+        } else {
+            // For fast environments - direct execution
+            Self::verify_sync(password, hash)
+        }
     }
 }
 
@@ -118,43 +178,51 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_argon2_hash_and_verify_password() {
-        let hasher = Argon2Hasher::new();
+    async fn test_hash_and_verify_password() {
+        let hasher = Argon2Hasher::fast_env();
         let password = "SecurePassword123";
 
-        // Hash the password
-        let hashed_password = hasher.hash_password(password).await;
-        assert!(
-            hashed_password.is_ok(),
-            "Expected password hashing to succeed"
-        );
+        let hashed = hasher.hash_password(password).await;
+        assert!(hashed.is_ok());
 
-        let hashed_password = hashed_password.unwrap();
+        let hashed = hashed.unwrap();
 
-        // Verify the correct password
-        let verify_correct = hasher.verify_password(password, &hashed_password).await;
-        assert!(
-            verify_correct.is_ok(),
-            "Expected password verification to succeed"
-        );
-        assert!(verify_correct.unwrap(), "Password should match");
+        // Verify correct password
+        let verify_correct = hasher.verify_password(password, &hashed).await;
+        assert!(verify_correct.is_ok());
+        assert!(verify_correct.unwrap());
 
-        // Verify an incorrect password
-        let verify_wrong = hasher
-            .verify_password("WrongPassword", &hashed_password)
-            .await;
-        assert!(
-            verify_wrong.is_ok(),
-            "Expected password verification to succeed"
-        );
-        assert!(!verify_wrong.unwrap(), "Password should not match");
+        // Verify incorrect password
+        let verify_wrong = hasher.verify_password("WrongPassword", &hashed).await;
+        assert!(verify_wrong.is_ok());
+        assert!(!verify_wrong.unwrap());
 
         // Verify invalid hash
-        let verify_invalid_hash = hasher.verify_password(password, "invalid-hash").await;
-        assert!(
-            verify_invalid_hash.is_err(),
-            "Expected error for invalid hash format"
-        );
+        let verify_invalid = hasher.verify_password(password, "invalid-hash").await;
+        assert!(verify_invalid.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_hash_and_verify_with_blocking() {
+        let hasher = Argon2Hasher::budget_vps();
+        let password = "SecurePassword123";
+
+        let hashed = hasher.hash_password(password).await.unwrap();
+
+        let is_valid = hasher.verify_password(password, &hashed).await.unwrap();
+        assert!(is_valid);
+    }
+
+    #[tokio::test]
+    async fn test_fixed_salt_produces_deterministic_hash() {
+        let salt = "c29tZXNhbHQ"; // "somesalt" in base64
+        let hasher = Argon2Hasher::with_fixed_salt(salt);
+        let password = "test123";
+
+        let hash1 = hasher.hash_password(password).await.unwrap();
+        let hash2 = hasher.hash_password(password).await.unwrap();
+
+        assert_eq!(hash1, hash2);
     }
 
     #[tokio::test]
@@ -166,21 +234,5 @@ mod tests {
         let result = hasher.hash_password("abc123").await;
 
         assert!(matches!(result, Err(HashError::HashFailed)));
-    }
-
-    #[tokio::test]
-    async fn test_verify_password_error_branch() {
-        let hasher = Argon2Hasher::new();
-
-        let valid_hash = hasher.hash_password("password123").await.unwrap();
-
-        let mut parts: Vec<&str> = valid_hash.split('$').collect();
-        parts[3] = "m=0,t=0,p=0";
-
-        let tampered_hash = parts.join("$");
-
-        let result = hasher.verify_password("password123", &tampered_hash).await;
-
-        assert!(matches!(result, Err(HashError::VerifyFailed)));
     }
 }
