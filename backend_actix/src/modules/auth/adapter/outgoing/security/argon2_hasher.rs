@@ -2,7 +2,7 @@ use argon2::{
     password_hash::{
         Error as PasswordHashError, PasswordHash, PasswordHasher as _, PasswordVerifier, SaltString,
     },
-    Argon2,
+    Algorithm, Argon2, Params, Version,
 };
 use async_trait::async_trait;
 use rand_core::OsRng;
@@ -13,21 +13,56 @@ use crate::auth::application::ports::outgoing::password_hasher::{
 
 #[derive(Clone)]
 pub struct Argon2Hasher {
+    params: Params,
     #[cfg(test)]
     salt_override: Option<SaltString>,
 }
 
 impl Argon2Hasher {
     pub fn new() -> Self {
+        // Budget VPS friendly: 4MB memory, 3 iterations, 1 thread
+        let params = Params::new(4 * 1024, 3, 1, None).expect("Invalid Argon2 params");
+
         Self {
+            params,
             #[cfg(test)]
             salt_override: None,
         }
     }
+    /// Create with custom params (for testing or different environments)
+    pub fn with_params(memory_kib: u32, iterations: u32, parallelism: u32) -> Self {
+        let params =
+            Params::new(memory_kib, iterations, parallelism, None).expect("Invalid Argon2 params");
 
+        Self {
+            params,
+            #[cfg(test)]
+            salt_override: None,
+        }
+    }
+    /// Environment-based configuration
+    pub fn from_env() -> Self {
+        let memory_kib: u32 = std::env::var("ARGON2_MEMORY_KIB")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(4 * 1024); // 4MB default
+
+        let iterations: u32 = std::env::var("ARGON2_ITERATIONS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(3);
+
+        let parallelism: u32 = std::env::var("ARGON2_PARALLELISM")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(1);
+
+        Self::with_params(memory_kib, iterations, parallelism)
+    }
     #[cfg(test)]
     pub fn with_fixed_salt(salt: &str) -> Self {
         Self {
+            params: Params::new(4 * 1024, 3, 1, None).expect("Invalid params"),
             salt_override: Some(SaltString::from_b64(salt).expect("Invalid salt")),
         }
     }
@@ -37,18 +72,21 @@ impl Argon2Hasher {
 impl HasherTrait for Argon2Hasher {
     async fn hash_password(&self, password: &str) -> Result<String, HashError> {
         let password = password.to_string();
+        let params = self.params.clone();
 
         #[cfg(test)]
         let salt_override = self.salt_override.clone();
 
         tokio::task::spawn_blocking(move || {
+            let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+
             #[cfg(test)]
             let salt = salt_override.unwrap_or_else(|| SaltString::generate(&mut OsRng));
 
             #[cfg(not(test))]
             let salt = SaltString::generate(&mut OsRng);
 
-            Argon2::default()
+            argon2
                 .hash_password(password.as_bytes(), &salt)
                 .map(|hash| hash.to_string())
                 .map_err(|_| HashError::HashFailed)

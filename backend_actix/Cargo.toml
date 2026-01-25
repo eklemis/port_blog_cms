@@ -1,6 +1,9 @@
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
 
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "target-cpu=native"]
+
 [profile.test]
 opt-level=0
 
