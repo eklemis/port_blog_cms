@@ -98,10 +98,7 @@ impl Argon2Hasher {
             salt_override: Some(SaltString::from_b64(salt).expect("Invalid salt")),
         }
     }
-    /// Build Argon2 instance with current params
-    fn build_argon2(&self) -> Argon2<'_> {
-        Argon2::new(Algorithm::Argon2id, Version::V0x13, self.params.clone())
-    }
+
     /// Synchronous hash implementation
     fn hash_sync(
         password: &str,
