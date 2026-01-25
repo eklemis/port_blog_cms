@@ -4,6 +4,7 @@ use argon2::{
     },
     Argon2,
 };
+use async_trait::async_trait;
 use rand_core::OsRng;
 
 use crate::auth::application::ports::outgoing::password_hasher::{
@@ -12,66 +13,79 @@ use crate::auth::application::ports::outgoing::password_hasher::{
 
 #[derive(Clone)]
 pub struct Argon2Hasher {
-    argon2: Argon2<'static>,
+    #[cfg(test)]
     salt_override: Option<SaltString>,
 }
 
 impl Argon2Hasher {
     pub fn new() -> Self {
         Self {
-            argon2: Argon2::default(),
+            #[cfg(test)]
             salt_override: None,
         }
     }
 
     #[cfg(test)]
-    pub fn with_salt(salt: SaltString) -> Self {
+    pub fn with_fixed_salt(salt: &str) -> Self {
         Self {
-            argon2: Argon2::default(),
-            salt_override: Some(salt),
+            salt_override: Some(SaltString::from_b64(salt).expect("Invalid salt")),
         }
     }
 }
 
+#[async_trait]
 impl HasherTrait for Argon2Hasher {
-    fn hash_password(&self, password: &str) -> Result<String, HashError> {
-        let salt = match &self.salt_override {
-            Some(s) => s.clone(),
-            None => SaltString::generate(&mut OsRng),
-        };
+    async fn hash_password(&self, password: &str) -> Result<String, HashError> {
+        let password = password.to_string();
 
-        self.argon2
-            .hash_password(password.as_bytes(), &salt)
-            .map(|hash| hash.to_string())
-            .map_err(|_| HashError::HashFailed)
+        #[cfg(test)]
+        let salt_override = self.salt_override.clone();
+
+        tokio::task::spawn_blocking(move || {
+            #[cfg(test)]
+            let salt = salt_override.unwrap_or_else(|| SaltString::generate(&mut OsRng));
+
+            #[cfg(not(test))]
+            let salt = SaltString::generate(&mut OsRng);
+
+            Argon2::default()
+                .hash_password(password.as_bytes(), &salt)
+                .map(|hash| hash.to_string())
+                .map_err(|_| HashError::HashFailed)
+        })
+        .await
+        .map_err(|_| HashError::TaskFailed)?
     }
 
-    fn verify_password(&self, password: &str, hashed: &str) -> Result<bool, HashError> {
-        let parsed_hash = PasswordHash::new(hashed).map_err(|_| HashError::VerifyFailed)?;
+    async fn verify_password(&self, password: &str, hash: &str) -> Result<bool, HashError> {
+        let password = password.to_string();
+        let hash = hash.to_string();
 
-        match self
-            .argon2
-            .verify_password(password.as_bytes(), &parsed_hash)
-        {
-            Ok(_) => Ok(true),
-            Err(PasswordHashError::Password) => Ok(false), // mismatch is NOT an error
-            Err(_) => Err(HashError::VerifyFailed),
-        }
+        tokio::task::spawn_blocking(move || {
+            let parsed_hash = PasswordHash::new(&hash).map_err(|_| HashError::VerifyFailed)?;
+
+            match Argon2::default().verify_password(password.as_bytes(), &parsed_hash) {
+                Ok(_) => Ok(true),
+                Err(PasswordHashError::Password) => Ok(false),
+                Err(_) => Err(HashError::VerifyFailed),
+            }
+        })
+        .await
+        .map_err(|_| HashError::TaskFailed)?
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::Argon2Hasher;
     use super::*;
 
-    #[test]
-    fn test_argon2_hash_and_verify_password() {
+    #[tokio::test]
+    async fn test_argon2_hash_and_verify_password() {
         let hasher = Argon2Hasher::new();
         let password = "SecurePassword123";
 
         // Hash the password
-        let hashed_password = hasher.hash_password(password);
+        let hashed_password = hasher.hash_password(password).await;
         assert!(
             hashed_password.is_ok(),
             "Expected password hashing to succeed"
@@ -80,7 +94,7 @@ mod tests {
         let hashed_password = hashed_password.unwrap();
 
         // Verify the correct password
-        let verify_correct = hasher.verify_password(password, &hashed_password);
+        let verify_correct = hasher.verify_password(password, &hashed_password).await;
         assert!(
             verify_correct.is_ok(),
             "Expected password verification to succeed"
@@ -88,7 +102,9 @@ mod tests {
         assert!(verify_correct.unwrap(), "Password should match");
 
         // Verify an incorrect password
-        let verify_wrong = hasher.verify_password("WrongPassword", &hashed_password);
+        let verify_wrong = hasher
+            .verify_password("WrongPassword", &hashed_password)
+            .await;
         assert!(
             verify_wrong.is_ok(),
             "Expected password verification to succeed"
@@ -96,35 +112,36 @@ mod tests {
         assert!(!verify_wrong.unwrap(), "Password should not match");
 
         // Verify invalid hash
-        let verify_invalid_hash = hasher.verify_password(password, "invalid-hash");
+        let verify_invalid_hash = hasher.verify_password(password, "invalid-hash").await;
         assert!(
             verify_invalid_hash.is_err(),
             "Expected error for invalid hash format"
         );
     }
-    #[test]
-    fn test_hash_password_error() {
+
+    #[tokio::test]
+    async fn test_hash_password_error() {
         let bad_salt_bytes = b"short";
         let bad_salt = SaltString::encode_b64(bad_salt_bytes).unwrap();
 
-        let hasher = Argon2Hasher::with_salt(bad_salt);
-        let result = hasher.hash_password("abc123");
+        let hasher = Argon2Hasher::with_fixed_salt(bad_salt.as_str());
+        let result = hasher.hash_password("abc123").await;
 
         assert!(matches!(result, Err(HashError::HashFailed)));
     }
 
-    #[test]
-    fn test_verify_password_error_branch() {
+    #[tokio::test]
+    async fn test_verify_password_error_branch() {
         let hasher = Argon2Hasher::new();
 
-        let valid_hash = hasher.hash_password("password123").unwrap();
+        let valid_hash = hasher.hash_password("password123").await.unwrap();
 
         let mut parts: Vec<&str> = valid_hash.split('$').collect();
         parts[3] = "m=0,t=0,p=0";
 
         let tampered_hash = parts.join("$");
 
-        let result = hasher.verify_password("password123", &tampered_hash);
+        let result = hasher.verify_password("password123", &tampered_hash).await;
 
         assert!(matches!(result, Err(HashError::VerifyFailed)));
     }

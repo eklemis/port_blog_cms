@@ -2,9 +2,10 @@ use async_trait::async_trait;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::sync::Arc;
 
-use crate::auth::application::ports::{
-    outgoing::UserQuery,
-    outgoing::{password_hasher::PasswordHasher, token_provider::TokenProvider},
+use crate::auth::application::ports::outgoing::{
+    password_hasher::{HashError, PasswordHasher},
+    token_provider::TokenProvider,
+    UserQuery,
 };
 use email_address::EmailAddress;
 // ========================= Login Request =========================
@@ -198,17 +199,19 @@ where
         }
 
         // 3️⃣ **Verify password**
-        let password = request.password().to_owned();
-        let stored_hash = user.password_hash.clone();
-        let hasher = Arc::clone(&self.password_hasher);
-
-        let is_valid =
-            tokio::task::spawn_blocking(move || hasher.verify_password(&password, &stored_hash))
-                .await
-                .map_err(|e| LoginError::PasswordVerificationFailed(e.to_string()))?
-                .map_err(|_| {
+        let is_valid = self
+            .password_hasher
+            .verify_password(request.password(), &user.password_hash)
+            .await
+            .map_err(|e| match e {
+                HashError::VerifyFailed => {
                     LoginError::PasswordVerificationFailed("verification failed".to_string())
-                })?;
+                }
+                HashError::TaskFailed => {
+                    LoginError::PasswordVerificationFailed("background task failed".to_string())
+                }
+                _ => LoginError::PasswordVerificationFailed("unexpected error".to_string()),
+            })?;
 
         if !is_valid {
             return Err(LoginError::InvalidCredentials);
@@ -225,7 +228,7 @@ where
             .generate_refresh_token(user.id, user.is_verified)
             .map_err(|e| LoginError::TokenGenerationFailed(e.to_string()))?;
 
-        // 6️⃣ **Return response**
+        // 5️⃣ **Return response**
         Ok(LoginUserResponse {
             access_token,
             refresh_token,
@@ -390,12 +393,13 @@ mod tests {
         should_verify: bool,
     }
 
+    #[async_trait]
     impl PasswordHasher for MockPasswordHasher {
-        fn hash_password(&self, _password: &str) -> Result<String, HashError> {
+        async fn hash_password(&self, _password: &str) -> Result<String, HashError> {
             Ok("hashed_password".to_string())
         }
 
-        fn verify_password(&self, _password: &str, _hash: &str) -> Result<bool, HashError> {
+        async fn verify_password(&self, _password: &str, _hash: &str) -> Result<bool, HashError> {
             Ok(self.should_verify)
         }
     }
@@ -566,12 +570,17 @@ mod tests {
         #[derive(Debug)]
         struct FailingPasswordHasher;
 
+        #[async_trait]
         impl PasswordHasher for FailingPasswordHasher {
-            fn hash_password(&self, _password: &str) -> Result<String, HashError> {
+            async fn hash_password(&self, _password: &str) -> Result<String, HashError> {
                 Ok("hash".to_string())
             }
 
-            fn verify_password(&self, _password: &str, _hash: &str) -> Result<bool, HashError> {
+            async fn verify_password(
+                &self,
+                _password: &str,
+                _hash: &str,
+            ) -> Result<bool, HashError> {
                 Err(HashError::VerifyFailed)
             }
         }

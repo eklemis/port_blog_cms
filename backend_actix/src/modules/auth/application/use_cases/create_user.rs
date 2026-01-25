@@ -9,7 +9,6 @@ use email_address::EmailAddress;
 
 use crate::auth::application::ports::outgoing::password_hasher::{HashError, PasswordHasher};
 use std::sync::Arc;
-use tokio::task;
 
 // ============================================================================
 // Input / Output DTOs
@@ -219,19 +218,19 @@ where
         }
 
         // 3. Hash password
-        let password = input.password.clone();
-        let hasher = Arc::clone(&self.password_hasher);
-
-        let password_hash = task::spawn_blocking(move || hasher.hash_password(&password))
+        let password_hash = self
+            .password_hasher
+            .hash_password(&input.password)
             .await
-            .map_err(|e| CreateUserError::HashingFailed(e.to_string()))?
             .map_err(|e| match e {
                 HashError::HashFailed => {
                     CreateUserError::HashingFailed("password hashing failed".to_string())
                 }
                 HashError::VerifyFailed => {
-                    // Should never happen during hashing, but we stay defensive
                     CreateUserError::HashingFailed("unexpected verification failure".to_string())
+                }
+                HashError::TaskFailed => {
+                    CreateUserError::HashingFailed("background task failed".to_string())
                 }
             })?;
 
@@ -448,12 +447,13 @@ mod tests {
         }
     }
 
+    #[async_trait]
     impl PasswordHasher for MockPasswordHasher {
-        fn hash_password(&self, _: &str) -> Result<String, HashError> {
+        async fn hash_password(&self, _: &str) -> Result<String, HashError> {
             self.result.clone()
         }
 
-        fn verify_password(&self, _: &str, _: &str) -> Result<bool, HashError> {
+        async fn verify_password(&self, _: &str, _: &str) -> Result<bool, HashError> {
             Ok(true)
         }
     }
