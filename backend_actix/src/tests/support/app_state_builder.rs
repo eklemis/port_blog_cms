@@ -1,4 +1,5 @@
 use crate::auth::application::orchestrator::user_registration::UserRegistrationOrchestrator;
+use crate::auth::application::use_cases::fetch_profile::FetchUserProfileUseCase;
 use crate::auth::application::use_cases::refresh_token::IRefreshTokenUseCase;
 use crate::auth::application::use_cases::soft_delete_user::ISoftDeleteUserUseCase;
 use crate::auth::application::use_cases::{
@@ -27,6 +28,7 @@ pub struct TestAppStateBuilder {
     refresh_token: Option<Arc<dyn IRefreshTokenUseCase + Send + Sync>>,
     logout_user: Option<Arc<dyn ILogoutUseCase + Send + Sync>>,
     soft_delete_user: Option<Arc<dyn ISoftDeleteUserUseCase + Send + Sync>>,
+    fetch_user_profile: Option<Arc<dyn FetchUserProfileUseCase + Send + Sync>>,
 }
 
 pub fn default_test_user_registration_orchestrator() -> Arc<UserRegistrationOrchestrator> {
@@ -53,6 +55,7 @@ impl Default for TestAppStateBuilder {
             refresh_token: Some(Arc::new(StubRefreshTokenUseCase)),
             logout_user: Some(Arc::new(StubLogoutUserUseCase)),
             soft_delete_user: Some(Arc::new(StubSoftDeleteUserUseCase)),
+            fetch_user_profile: Some(Arc::new(StubFetchUserProfileUseCase)),
         }
     }
 }
@@ -128,6 +131,14 @@ impl TestAppStateBuilder {
         self
     }
 
+    pub fn with_fetch_user_profile(
+        mut self,
+        uc: impl FetchUserProfileUseCase + Send + Sync + 'static,
+    ) -> Self {
+        self.fetch_user_profile = Some(Arc::new(uc));
+        self
+    }
+
     pub fn build(self) -> web::Data<AppState> {
         web::Data::new(AppState {
             fetch_cv_use_case: self.fetch_cv.unwrap(),
@@ -141,6 +152,7 @@ impl TestAppStateBuilder {
             refresh_token_use_case: self.refresh_token.unwrap(),
             logout_user_use_case: self.logout_user.unwrap(),
             soft_delete_user_use_case: self.soft_delete_user.unwrap(),
+            fetch_user_profile_use_case: self.fetch_user_profile.unwrap(),
         })
     }
 }

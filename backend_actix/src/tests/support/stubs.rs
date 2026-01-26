@@ -1,7 +1,11 @@
 use async_trait::async_trait;
 use uuid::Uuid;
 
+use crate::auth::application::domain::entities::UserId;
 use crate::auth::application::use_cases::create_user::{CreateUserInput, CreateUserOutput};
+use crate::auth::application::use_cases::fetch_profile::{
+    FetchUserError, FetchUserOutput, FetchUserProfileUseCase,
+};
 use crate::auth::application::use_cases::logout_user::{
     LogoutError, LogoutRequest, LogoutResponse,
 };
@@ -11,6 +15,12 @@ use crate::auth::application::use_cases::refresh_token::{
 use crate::auth::application::use_cases::soft_delete_user::{
     ISoftDeleteUserUseCase, SoftDeleteUserError, SoftDeleteUserRequest,
 };
+use crate::auth::application::use_cases::update_profile::{
+    UpdateUserError, UpdateUserInput, UpdateUserOutput, UpdateUserProfileUseCase,
+};
+use crate::cv::application::use_cases::hard_delete_cv::{HardDeleteCVError, HardDeleteCvUseCase};
+use crate::cv::application::use_cases::restore_cv::{RestoreCVError, RestoreDeletedCvUseCase};
+use crate::cv::application::use_cases::soft_delete_cv::{SoftDeleteCVError, SoftDeleteCvUseCase};
 use crate::cv::domain::entities::CVInfo;
 use crate::email::application::ports::outgoing::user_email_notifier::{
     UserEmailNotificationError, UserEmailNotifier,
@@ -169,6 +179,61 @@ impl UserEmailNotifier for StubUserEmailNotifier {
         &self,
         _user: CreateUserOutput,
     ) -> Result<(), UserEmailNotificationError> {
+        unimplemented!()
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct StubFetchUserProfileUseCase;
+
+#[async_trait]
+impl FetchUserProfileUseCase for StubFetchUserProfileUseCase {
+    async fn execute(&self, user_id: UserId) -> Result<FetchUserOutput, FetchUserError> {
+        Ok(FetchUserOutput {
+            user_id,
+            email: "stub@example.com".to_string(),
+            username: "stubuser".to_string(),
+            full_name: "Stub User".to_string(),
+        })
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct StubUpdateUserProfileUseCase;
+
+#[async_trait]
+impl UpdateUserProfileUseCase for StubUpdateUserProfileUseCase {
+    async fn execute(&self, _data: UpdateUserInput) -> Result<UpdateUserOutput, UpdateUserError> {
+        unimplemented!()
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct StubHardDeleteCv;
+
+#[async_trait]
+impl HardDeleteCvUseCase for StubHardDeleteCv {
+    async fn execute(&self, _user_id: UserId, _cv_id: Uuid) -> Result<(), HardDeleteCVError> {
+        unimplemented!()
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct StubSoftDeleteCv;
+
+#[async_trait]
+impl SoftDeleteCvUseCase for StubSoftDeleteCv {
+    async fn execute(&self, _user_id: UserId, _cv_id: Uuid) -> Result<(), SoftDeleteCVError> {
+        unimplemented!()
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct StubResotoreDeletedCv;
+
+#[async_trait]
+impl RestoreDeletedCvUseCase for StubResotoreDeletedCv {
+    async fn execute(&self, _user_id: UserId, _cv_id: Uuid) -> Result<(), RestoreCVError> {
         unimplemented!()
     }
 }

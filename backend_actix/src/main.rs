@@ -31,6 +31,7 @@ use crate::cv::application::use_cases::update_cv::{IUpdateCVUseCase, UpdateCVUse
 
 use crate::email::adapter::outgoing::smtp_sender::SmtpEmailSender;
 use crate::email::application::services::UserEmailService;
+use crate::modules::auth::application::use_cases::fetch_profile::FetchUserProfileUseCase;
 use crate::modules::auth::application::use_cases::refresh_token::IRefreshTokenUseCase;
 use crate::modules::email::application::ports::outgoing::user_email_notifier::UserEmailNotifier;
 
@@ -61,6 +62,7 @@ pub struct AppState {
     pub refresh_token_use_case: Arc<dyn IRefreshTokenUseCase + Send + Sync>,
     pub logout_user_use_case: Arc<dyn ILogoutUseCase + Send + Sync>,
     pub soft_delete_user_use_case: Arc<dyn ISoftDeleteUserUseCase + Send + Sync>,
+    pub fetch_user_profile_use_case: Arc<dyn FetchUserProfileUseCase + Send + Sync>,
 }
 
 #[actix_web::main]
@@ -70,7 +72,7 @@ async fn start() -> std::io::Result<()> {
         adapter::outgoing::security::argon2_hasher::Argon2Hasher,
         application::{
             orchestrator::user_registration::UserRegistrationOrchestrator,
-            ports::outgoing::token_provider::TokenProvider,
+            ports::outgoing::token_provider::TokenProvider, services::FetchUserProfileService,
             use_cases::refresh_token::RefreshTokenUseCase,
         },
     };
@@ -196,7 +198,7 @@ async fn start() -> std::io::Result<()> {
     let verify_user_email_use_case =
         VerifyUserEmailUseCase::new(user_repo.clone(), Arc::new(jwt_service.clone()));
     let login_user_use_case = LoginUserUseCase::new(
-        user_query,
+        user_query.clone(),
         Arc::new(argon2_password_hasher),
         Arc::new(jwt_service.clone()),
     );
@@ -204,6 +206,7 @@ async fn start() -> std::io::Result<()> {
     let logout_user_use_case =
         LogoutUseCase::new(redis_token_repo.clone(), Arc::new(jwt_service.clone()));
     let soft_delete_user_use_case = SoftDeleteUserUseCase::new(user_repo, redis_token_repo);
+    let fetch_user_profile_service = FetchUserProfileService::new(user_query.clone());
 
     let state = AppState {
         fetch_cv_use_case: Arc::new(fetch_cv_use_case),
@@ -217,6 +220,7 @@ async fn start() -> std::io::Result<()> {
         refresh_token_use_case: Arc::new(refresh_token_use_case),
         logout_user_use_case: Arc::new(logout_user_use_case),
         soft_delete_user_use_case: Arc::new(soft_delete_user_use_case),
+        fetch_user_profile_use_case: Arc::new(fetch_user_profile_service),
     };
 
     let token_provider_arc: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service);
@@ -262,6 +266,7 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::auth::adapter::incoming::web::routes::refresh_token_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::logout_user_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::soft_delete_user_handler);
+    cfg.service(crate::auth::adapter::incoming::web::routes::get_user_profile_handler);
 }
 
 #[cfg(not(tarpaulin_include))]

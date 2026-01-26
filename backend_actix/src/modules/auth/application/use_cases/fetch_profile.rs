@@ -14,8 +14,8 @@ pub struct FetchUserOutput {
 
 #[derive(Debug, thiserror::Error, Clone)]
 pub enum FetchUserError {
-    #[error("Invalid username: {0}")]
-    InvalidUsername(String),
+    #[error("User not found: {0}")]
+    UserNotFound(String),
 
     #[error("Query error: {0}")]
     QueryError(#[from] UserQueryError),

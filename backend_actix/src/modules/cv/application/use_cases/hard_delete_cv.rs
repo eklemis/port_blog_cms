@@ -4,7 +4,7 @@ use crate::auth::application::domain::entities::UserId;
 
 // Unimplemented
 #[derive(Debug, Clone)]
-pub enum DeleteCVError {
+pub enum HardDeleteCVError {
     Unauthorized,
     CVNotFound,
     RepositoryError(String),
@@ -12,5 +12,5 @@ pub enum DeleteCVError {
 
 #[async_trait::async_trait]
 pub trait HardDeleteCvUseCase: Send + Sync {
-    async fn execute(&self, user_id: UserId, cv_id: Uuid) -> Result<(), DeleteCVError>;
+    async fn execute(&self, user_id: UserId, cv_id: Uuid) -> Result<(), HardDeleteCVError>;
 }

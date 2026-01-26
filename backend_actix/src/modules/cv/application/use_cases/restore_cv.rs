@@ -12,6 +12,6 @@ pub enum RestoreCVError {
 }
 
 #[async_trait::async_trait]
-pub trait HardDeleteCvUseCase: Send + Sync {
+pub trait RestoreDeletedCvUseCase: Send + Sync {
     async fn execute(&self, user_id: UserId, cv_id: Uuid) -> Result<(), RestoreCVError>;
 }
