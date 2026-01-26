@@ -10,6 +10,7 @@ use crate::auth::application::use_cases::{
 use crate::cv::application::use_cases::create_cv::ICreateCVUseCase;
 use crate::cv::application::use_cases::fetch_cv_by_id::IFetchCVByIdUseCase;
 use crate::cv::application::use_cases::fetch_user_cvs::IFetchCVUseCase;
+use crate::cv::application::use_cases::hard_delete_cv::HardDeleteCvUseCase;
 use crate::cv::application::use_cases::patch_cv::IPatchCVUseCase;
 use crate::cv::application::use_cases::update_cv::IUpdateCVUseCase;
 use crate::tests::support::stubs::*;
@@ -31,6 +32,7 @@ pub struct TestAppStateBuilder {
     soft_delete_user: Option<Arc<dyn ISoftDeleteUserUseCase + Send + Sync>>,
     fetch_user_profile: Option<Arc<dyn FetchUserProfileUseCase + Send + Sync>>,
     update_user_profile: Option<Arc<dyn UpdateUserProfileUseCase + Send + Sync>>,
+    hard_delete_cv: Option<Arc<dyn HardDeleteCvUseCase + Send + Sync>>,
 }
 
 pub fn default_test_user_registration_orchestrator() -> Arc<UserRegistrationOrchestrator> {
@@ -59,6 +61,7 @@ impl Default for TestAppStateBuilder {
             soft_delete_user: Some(Arc::new(StubSoftDeleteUserUseCase)),
             fetch_user_profile: Some(Arc::new(StubFetchUserProfileUseCase)),
             update_user_profile: Some(Arc::new(StubUpdateUserProfileUseCase)),
+            hard_delete_cv: Some(Arc::new(StubHardDeleteCvUseCase)),
         }
     }
 }
@@ -149,6 +152,13 @@ impl TestAppStateBuilder {
         self.update_user_profile = Some(Arc::new(uc));
         self
     }
+    pub fn with_hard_delete_cv(
+        mut self,
+        uc: impl HardDeleteCvUseCase + Send + Sync + 'static,
+    ) -> Self {
+        self.hard_delete_cv = Some(Arc::new(uc));
+        self
+    }
 
     pub fn build(self) -> web::Data<AppState> {
         web::Data::new(AppState {
@@ -165,6 +175,7 @@ impl TestAppStateBuilder {
             soft_delete_user_use_case: self.soft_delete_user.unwrap(),
             fetch_user_profile_use_case: self.fetch_user_profile.unwrap(),
             update_user_profile_use_case: self.update_user_profile.unwrap(),
+            hard_delete_cv_use_case: self.hard_delete_cv.unwrap(),
         })
     }
 }

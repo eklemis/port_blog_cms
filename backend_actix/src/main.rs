@@ -35,6 +35,7 @@ use crate::modules::auth::application::services::UpdateUserProfileService;
 use crate::modules::auth::application::use_cases::fetch_profile::FetchUserProfileUseCase;
 use crate::modules::auth::application::use_cases::refresh_token::IRefreshTokenUseCase;
 use crate::modules::auth::application::use_cases::update_profile::UpdateUserProfileUseCase;
+use crate::modules::cv::application::use_cases::hard_delete_cv::HardDeleteCvUseCase;
 use crate::modules::email::application::ports::outgoing::user_email_notifier::UserEmailNotifier;
 
 use actix_web::{web, App, HttpServer};
@@ -66,18 +67,22 @@ pub struct AppState {
     pub soft_delete_user_use_case: Arc<dyn ISoftDeleteUserUseCase + Send + Sync>,
     pub fetch_user_profile_use_case: Arc<dyn FetchUserProfileUseCase + Send + Sync>,
     pub update_user_profile_use_case: Arc<dyn UpdateUserProfileUseCase + Send + Sync>,
+    pub hard_delete_cv_use_case: Arc<dyn HardDeleteCvUseCase + Send + Sync>,
 }
 
 #[actix_web::main]
 #[cfg(not(tarpaulin_include))]
 async fn start() -> std::io::Result<()> {
-    use crate::auth::{
-        adapter::outgoing::security::argon2_hasher::Argon2Hasher,
-        application::{
-            orchestrator::user_registration::UserRegistrationOrchestrator,
-            ports::outgoing::token_provider::TokenProvider, services::FetchUserProfileService,
-            use_cases::refresh_token::RefreshTokenUseCase,
+    use crate::{
+        auth::{
+            adapter::outgoing::security::argon2_hasher::Argon2Hasher,
+            application::{
+                orchestrator::user_registration::UserRegistrationOrchestrator,
+                ports::outgoing::token_provider::TokenProvider, services::FetchUserProfileService,
+                use_cases::refresh_token::RefreshTokenUseCase,
+            },
         },
+        cv::{adapter::outgoing::CVArchiverPostgres, application::services::HardDeleteCvService},
     };
 
     tracing_subscriber::registry()
@@ -165,11 +170,13 @@ async fn start() -> std::io::Result<()> {
 
     // Create repositories and use cases (unchanged)
     let cv_repo = CVRepoPostgres::new(Arc::clone(&db_arc));
+    let cv_archiver = CVArchiverPostgres::new(Arc::clone(&db_arc));
     let fetch_cv_use_case = FetchCVUseCase::new(cv_repo.clone());
     let fetch_cv_by_id_use_case = FetchCVByIdUseCase::new(cv_repo.clone());
     let create_cv_use_case = CreateCVUseCase::new(cv_repo.clone());
     let update_cv_use_case = UpdateCVUseCase::new(cv_repo.clone());
     let patch_cv_use_case = PatchCVUseCase::new(cv_repo.clone());
+    let hard_delete_cv_use_case = HardDeleteCvService::new(cv_archiver, cv_repo.clone());
 
     let jwt_service = JwtTokenService::new(JwtConfig::from_env());
 
@@ -226,6 +233,7 @@ async fn start() -> std::io::Result<()> {
         soft_delete_user_use_case: Arc::new(soft_delete_user_use_case),
         fetch_user_profile_use_case: Arc::new(fetch_user_profile_service),
         update_user_profile_use_case: Arc::new(update_user_profile_service),
+        hard_delete_cv_use_case: Arc::new(hard_delete_cv_use_case),
     };
 
     let token_provider_arc: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service);
@@ -264,6 +272,7 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::cv::adapter::incoming::web::routes::create_cv_handler);
     cfg.service(crate::cv::adapter::incoming::web::routes::update_cv_handler);
     cfg.service(crate::cv::adapter::incoming::web::routes::patch_cv_handler);
+    cfg.service(crate::cv::adapter::incoming::web::routes::hard_delete_cv_handler);
     // Auth
     cfg.service(crate::auth::adapter::incoming::web::routes::register_user_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::verify_user_email_handler);

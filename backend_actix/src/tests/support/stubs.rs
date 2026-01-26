@@ -214,12 +214,12 @@ impl UpdateUserProfileUseCase for StubUpdateUserProfileUseCase {
 }
 
 #[derive(Default, Clone)]
-pub struct StubHardDeleteCv;
+pub struct StubHardDeleteCvUseCase;
 
 #[async_trait]
-impl HardDeleteCvUseCase for StubHardDeleteCv {
+impl HardDeleteCvUseCase for StubHardDeleteCvUseCase {
     async fn execute(&self, _user_id: UserId, _cv_id: Uuid) -> Result<(), HardDeleteCVError> {
-        unimplemented!()
+        Ok(())
     }
 }
 
