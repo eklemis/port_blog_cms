@@ -203,8 +203,13 @@ pub struct StubUpdateUserProfileUseCase;
 
 #[async_trait]
 impl UpdateUserProfileUseCase for StubUpdateUserProfileUseCase {
-    async fn execute(&self, _data: UpdateUserInput) -> Result<UpdateUserOutput, UpdateUserError> {
-        unimplemented!()
+    async fn execute(&self, data: UpdateUserInput) -> Result<UpdateUserOutput, UpdateUserError> {
+        Ok(UpdateUserOutput {
+            user_id: data.user_id,
+            email: "stub@example.com".to_string(),
+            username: "stubuser".to_string(),
+            full_name: data.full_name,
+        })
     }
 }
 

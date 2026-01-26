@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use sea_orm::ActiveValue::NotSet;
-use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, Set};
+use sea_orm::{
+    ActiveModelTrait, DatabaseBackend, DatabaseConnection, FromQueryResult, Set, Statement,
+};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -9,9 +11,7 @@ use crate::modules::auth::application::ports::outgoing::user_repository::{
     UserRepository, UserRepositoryError,
 };
 
-use super::sea_orm_entity::users::{
-    ActiveModel as UserActiveModel, Entity as UserEntity, Model as UserModel,
-};
+use super::sea_orm_entity::users::{ActiveModel as UserActiveModel, Model as UserModel};
 
 #[derive(Clone, Debug)]
 pub struct UserRepositoryPostgres {
@@ -69,112 +69,109 @@ impl UserRepository for UserRepositoryPostgres {
         user_id: Uuid,
         new_password_hash: String,
     ) -> Result<(), UserRepositoryError> {
-        let user = UserEntity::find_by_id(user_id)
+        let result = UserModel::find_by_statement(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                r#"UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2 AND is_deleted = false RETURNING id"#,
+                [new_password_hash.into(), user_id.into()],
+            ))
             .one(&*self.db)
             .await
-            .map_err(|e| UserRepositoryError::DatabaseError(e.to_string()))?
-            .ok_or(UserRepositoryError::UserNotFound)?;
-
-        let mut active_user: UserActiveModel = user.into();
-        active_user.password_hash = Set(new_password_hash);
-        active_user.updated_at = Set(chrono::Utc::now().into()); // Update timestamp
-
-        active_user
-            .update(&*self.db)
-            .await
             .map_err(|e| UserRepositoryError::DatabaseError(e.to_string()))?;
+
+        if result.is_none() {
+            return Err(UserRepositoryError::UserNotFound);
+        }
 
         Ok(())
     }
 
     async fn delete_user(&self, user_id: Uuid) -> Result<(), UserRepositoryError> {
-        let user = UserEntity::find_by_id(user_id)
-            .one(&*self.db)
-            .await
-            .map_err(|e| UserRepositoryError::DatabaseError(e.to_string()))?
-            .ok_or(UserRepositoryError::UserNotFound)?;
+        #[derive(FromQueryResult)]
+        struct DeleteResult {
+            id: Uuid,
+        }
 
-        let active_user: UserActiveModel = user.into();
-        active_user
-            .delete(&*self.db)
-            .await
-            .map_err(|e| UserRepositoryError::DatabaseError(e.to_string()))?;
+        let result = DeleteResult::find_by_statement(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            r#"DELETE FROM users WHERE id = $1 RETURNING id"#,
+            [user_id.into()],
+        ))
+        .one(&*self.db)
+        .await
+        .map_err(|e| UserRepositoryError::DatabaseError(e.to_string()))?;
+
+        if result.is_none() {
+            return Err(UserRepositoryError::UserNotFound);
+        }
 
         Ok(())
     }
     async fn soft_delete_user(&self, user_id: Uuid) -> Result<(), UserRepositoryError> {
-        let user = UserEntity::find_by_id(user_id)
+        #[derive(FromQueryResult)]
+        struct UpdateResult {
+            id: Uuid,
+        }
+
+        let result = UpdateResult::find_by_statement(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                r#"UPDATE users SET is_deleted = true, updated_at = NOW() WHERE id = $1 AND is_deleted = false RETURNING id"#,
+                [user_id.into()],
+            ))
             .one(&*self.db)
             .await
-            .map_err(|e| UserRepositoryError::DatabaseError(e.to_string()))?
-            .ok_or(UserRepositoryError::UserNotFound)?;
-
-        let mut active_user: UserActiveModel = user.into();
-        active_user.is_deleted = Set(true);
-
-        active_user
-            .update(&*self.db)
-            .await
             .map_err(|e| UserRepositoryError::DatabaseError(e.to_string()))?;
+
+        if result.is_none() {
+            return Err(UserRepositoryError::UserNotFound);
+        }
 
         Ok(())
     }
     async fn restore_user(&self, user_id: Uuid) -> Result<UserResult, UserRepositoryError> {
-        let user = UserEntity::find_by_id(user_id)
+        let result = UserModel::find_by_statement(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                r#"UPDATE users SET is_deleted = false, updated_at = NOW() WHERE id = $1 AND is_deleted = true RETURNING *"#,
+                [user_id.into()],
+            ))
             .one(&*self.db)
-            .await
-            .map_err(|e| UserRepositoryError::DatabaseError(e.to_string()))?
-            .ok_or(UserRepositoryError::UserNotFound)?;
-
-        let mut active_user: UserActiveModel = user.into();
-        active_user.is_deleted = Set(false); // ✅ Restore user
-
-        let restored = active_user
-            .update(&*self.db)
             .await
             .map_err(|e| UserRepositoryError::DatabaseError(e.to_string()))?;
 
-        Ok(Self::map_to_user_result(restored))
+        result
+            .map(Self::map_to_user_result)
+            .ok_or(UserRepositoryError::UserNotFound)
     }
     async fn activate_user(&self, user_id: Uuid) -> Result<UserResult, UserRepositoryError> {
-        let user = UserEntity::find_by_id(user_id)
+        let result = UserModel::find_by_statement(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                r#"UPDATE users SET is_verified = true, updated_at = NOW() WHERE id = $1 AND is_deleted = false RETURNING *"#,
+                [user_id.into()],
+            ))
             .one(&*self.db)
-            .await
-            .map_err(|e| UserRepositoryError::DatabaseError(e.to_string()))?
-            .ok_or(UserRepositoryError::UserNotFound)?;
-
-        let mut active_user: UserActiveModel = user.into();
-
-        active_user.is_verified = Set(true);
-
-        let activated = active_user
-            .update(&*self.db)
             .await
             .map_err(|e| UserRepositoryError::DatabaseError(e.to_string()))?;
 
-        Ok(Self::map_to_user_result(activated))
+        result
+            .map(Self::map_to_user_result)
+            .ok_or(UserRepositoryError::UserNotFound)
     }
     async fn set_full_name(
         &self,
         user_id: Uuid,
         full_name: String,
     ) -> Result<UserResult, UserRepositoryError> {
-        let user = UserEntity::find_by_id(user_id)
+        let result = UserModel::find_by_statement(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                r#"UPDATE users SET full_name = $1, updated_at = NOW() WHERE id = $2 AND is_deleted = false RETURNING *"#,
+                [full_name.into(), user_id.into()],
+            ))
             .one(&*self.db)
-            .await
-            .map_err(|e| UserRepositoryError::DatabaseError(e.to_string()))?
-            .ok_or(UserRepositoryError::UserNotFound)?;
-
-        let mut active_user: UserActiveModel = user.into();
-
-        active_user.full_name = Set(full_name);
-
-        let updated = active_user
-            .update(&*self.db)
             .await
             .map_err(|e| UserRepositoryError::DatabaseError(e.to_string()))?;
 
-        Ok(Self::map_to_user_result(updated))
+        result
+            .map(Self::map_to_user_result)
+            .ok_or(UserRepositoryError::UserNotFound)
     }
 }
 
@@ -182,10 +179,9 @@ impl UserRepository for UserRepositoryPostgres {
 mod tests {
     use super::*;
     use chrono::{DateTime, FixedOffset, Utc};
-    use sea_orm::{DatabaseBackend, MockDatabase, MockExecResult};
+    use sea_orm::{DatabaseBackend, DbErr, MockDatabase, MockExecResult};
     use uuid::Uuid;
 
-    // Mock dependencies and test data creation helper
     fn create_test_user_data() -> CreateUserData {
         CreateUserData {
             username: "testuser".to_string(),
@@ -195,14 +191,29 @@ mod tests {
         }
     }
 
-    // Helper function to convert timestamps for mock database
     fn to_fixed_offset(dt: DateTime<Utc>) -> chrono::DateTime<FixedOffset> {
         dt.fixed_offset()
     }
 
+    fn create_user_model(user_id: Uuid) -> UserModel {
+        let now = Utc::now();
+        UserModel {
+            id: user_id,
+            username: "testuser".to_string(),
+            email: "test@example.com".to_string(),
+            password_hash: "hashedpassword".to_string(),
+            full_name: "Test User".to_string(),
+            created_at: to_fixed_offset(now),
+            updated_at: to_fixed_offset(now),
+            is_verified: false,
+            is_deleted: false,
+        }
+    }
+
+    // ==================== create_user tests ====================
+
     #[tokio::test]
     async fn test_create_user_success() {
-        // Arrange
         let user_data = create_test_user_data();
         let user_id = Uuid::new_v4();
         let curr_time = chrono::Utc::now();
@@ -229,23 +240,18 @@ mod tests {
 
         let repository = UserRepositoryPostgres::new(Arc::new(db));
 
-        // Act
         let result = repository.create_user(user_data.clone()).await;
 
-        // Assert
         assert!(result.is_ok());
         let user_result = result.unwrap();
         assert_eq!(user_result.username, user_data.username);
         assert_eq!(user_result.email, user_data.email);
         assert_eq!(user_result.full_name, user_data.full_name);
-        // UserResult doesn't include password_hash (good for security)
     }
 
     #[tokio::test]
     async fn test_create_user_duplicate_key_error() {
         let user_data = create_test_user_data();
-
-        use sea_orm::DbErr;
 
         let mock_db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_errors([DbErr::Custom(
@@ -258,15 +264,15 @@ mod tests {
         let result = repository.create_user(user_data).await;
 
         assert!(result.is_err());
-        let error = result.unwrap_err();
-        assert!(matches!(error, UserRepositoryError::UserAlreadyExists));
+        assert!(matches!(
+            result.unwrap_err(),
+            UserRepositoryError::UserAlreadyExists
+        ));
     }
 
     #[tokio::test]
     async fn test_create_user_database_error() {
         let user_data = create_test_user_data();
-
-        use sea_orm::DbErr;
 
         let mock_db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_errors([DbErr::Custom("connection timeout".to_string())])
@@ -285,55 +291,23 @@ mod tests {
         }
     }
 
+    // ==================== update_password tests ====================
+
     #[tokio::test]
     async fn test_update_password_success() {
-        // Arrange
         let user_id = Uuid::new_v4();
         let new_password_hash = "new_hashed_password".to_string();
-        let now = Utc::now();
 
-        let mock_user_model = UserModel {
-            id: user_id,
-            username: "testuser".to_string(),
-            email: "test@example.com".to_string(),
-            password_hash: "old_password_hash".to_string(),
-            full_name: "Test User".to_string(),
-            created_at: to_fixed_offset(now),
-            updated_at: to_fixed_offset(now),
-            is_verified: false,
-            is_deleted: false,
-        };
-
-        let updated_mock_user_model = UserModel {
-            id: user_id,
-            username: "testuser".to_string(),
-            email: "test@example.com".to_string(),
-            password_hash: new_password_hash.clone(),
-            full_name: "Test User".to_string(),
-            created_at: to_fixed_offset(now),
-            updated_at: to_fixed_offset(Utc::now()),
-            is_verified: false,
-            is_deleted: false,
-        };
-
+        // Single query returns the updated model
         let db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results(vec![vec![mock_user_model]])
-            .append_query_results(vec![vec![updated_mock_user_model]])
-            .append_exec_results(vec![MockExecResult {
-                last_insert_id: 0,
-                rows_affected: 1,
-            }])
+            .append_query_results(vec![vec![create_user_model(user_id)]])
             .into_connection();
 
         let repository = UserRepositoryPostgres::new(Arc::new(db));
 
-        // Act
-        let result = repository
-            .update_password(user_id, new_password_hash.clone())
-            .await;
+        let result = repository.update_password(user_id, new_password_hash).await;
 
-        // Assert
-        assert!(result.is_ok(), "Failed to update password: {:?}", result);
+        assert!(result.is_ok());
     }
 
     #[tokio::test]
@@ -341,6 +315,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let new_password_hash = "new_hashed_password".to_string();
 
+        // Empty result means user not found
         let db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_results(vec![Vec::<UserModel>::new()])
             .into_connection();
@@ -353,28 +328,36 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_delete_user_success() {
+    async fn test_update_password_database_error() {
         let user_id = Uuid::new_v4();
-        let now = Utc::now();
-
-        let mock_user_model = UserModel {
-            id: user_id,
-            username: "testuser".to_string(),
-            email: "test@example.com".to_string(),
-            password_hash: "hashed_password".to_string(),
-            full_name: "Test User".to_string(),
-            created_at: to_fixed_offset(now),
-            updated_at: to_fixed_offset(now),
-            is_verified: false,
-            is_deleted: false,
-        };
+        let new_password_hash = "new_hashed_password".to_string();
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results(vec![vec![mock_user_model]])
-            .append_exec_results(vec![MockExecResult {
-                last_insert_id: 1,
-                rows_affected: 1,
-            }])
+            .append_query_errors([DbErr::Custom("connection error".to_string())])
+            .into_connection();
+
+        let repository = UserRepositoryPostgres::new(Arc::new(db));
+
+        let result = repository.update_password(user_id, new_password_hash).await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            UserRepositoryError::DatabaseError(msg) => {
+                assert!(msg.contains("connection error"));
+            }
+            _ => panic!("Expected DatabaseError variant"),
+        }
+    }
+
+    // ==================== delete_user tests ====================
+
+    #[tokio::test]
+    async fn test_delete_user_success() {
+        let user_id = Uuid::new_v4();
+
+        // MockDatabase requires ModelTrait, so use UserModel
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![create_user_model(user_id)]])
             .into_connection();
 
         let repository = UserRepositoryPostgres::new(Arc::new(db));
@@ -400,36 +383,38 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_soft_delete_user_success() {
+    async fn test_delete_user_database_error() {
         let user_id = Uuid::new_v4();
-        let now = Utc::now();
 
-        let mock_db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results([vec![UserModel {
-                id: user_id,
-                username: "testuser".to_string(),
-                email: "test@example.com".to_string(),
-                password_hash: "hashedpassword".to_string(),
-                full_name: "Test User".to_string(),
-                created_at: to_fixed_offset(now),
-                updated_at: to_fixed_offset(now),
-                is_verified: false,
-                is_deleted: false,
-            }]])
-            .append_query_results([vec![UserModel {
-                id: user_id,
-                username: "testuser".to_string(),
-                email: "test@example.com".to_string(),
-                password_hash: "hashedpassword".to_string(),
-                full_name: "Test User".to_string(),
-                created_at: to_fixed_offset(now),
-                updated_at: to_fixed_offset(now),
-                is_verified: false,
-                is_deleted: true,
-            }]])
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_errors([DbErr::Custom("delete failed".to_string())])
             .into_connection();
 
-        let repository = UserRepositoryPostgres::new(Arc::new(mock_db));
+        let repository = UserRepositoryPostgres::new(Arc::new(db));
+
+        let result = repository.delete_user(user_id).await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            UserRepositoryError::DatabaseError(msg) => {
+                assert!(msg.contains("delete failed"));
+            }
+            _ => panic!("Expected DatabaseError variant"),
+        }
+    }
+
+    // ==================== soft_delete_user tests ====================
+
+    #[tokio::test]
+    async fn test_soft_delete_user_success() {
+        let user_id = Uuid::new_v4();
+
+        // MockDatabase requires ModelTrait, so use UserModel
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![create_user_model(user_id)]])
+            .into_connection();
+
+        let repository = UserRepositoryPostgres::new(Arc::new(db));
 
         let result = repository.soft_delete_user(user_id).await;
 
@@ -440,15 +425,14 @@ mod tests {
     async fn test_soft_delete_user_not_found() {
         let user_id = Uuid::new_v4();
 
-        let mock_db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results([Vec::<UserModel>::new()])
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![Vec::<UserModel>::new()])
             .into_connection();
 
-        let repository = UserRepositoryPostgres::new(Arc::new(mock_db));
+        let repository = UserRepositoryPostgres::new(Arc::new(db));
 
         let result = repository.soft_delete_user(user_id).await;
 
-        assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
             UserRepositoryError::UserNotFound
@@ -456,16 +440,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_soft_delete_user_database_error_on_find() {
+    async fn test_soft_delete_user_database_error() {
         let user_id = Uuid::new_v4();
 
-        use sea_orm::DbErr;
-
-        let mock_db = MockDatabase::new(DatabaseBackend::Postgres)
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_errors([DbErr::Custom("connection error".to_string())])
             .into_connection();
 
-        let repository = UserRepositoryPostgres::new(Arc::new(mock_db));
+        let repository = UserRepositoryPostgres::new(Arc::new(db));
 
         let result = repository.soft_delete_user(user_id).await;
 
@@ -478,72 +460,18 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_soft_delete_user_database_error_on_update() {
-        use sea_orm::DbErr;
-
-        let user_id = Uuid::new_v4();
-        let now = Utc::now();
-
-        let mock_db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results([vec![UserModel {
-                id: user_id,
-                username: "testuser".to_string(),
-                email: "test@example.com".to_string(),
-                password_hash: "hashedpassword".to_string(),
-                full_name: "Test User".to_string(),
-                created_at: to_fixed_offset(now),
-                updated_at: to_fixed_offset(now),
-                is_verified: false,
-                is_deleted: false,
-            }]])
-            .append_query_errors([DbErr::Custom("update failed".to_string())])
-            .into_connection();
-
-        let repository = UserRepositoryPostgres::new(Arc::new(mock_db));
-
-        let result = repository.soft_delete_user(user_id).await;
-
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            UserRepositoryError::DatabaseError(msg) => {
-                assert!(msg.contains("update failed"));
-            }
-            _ => panic!("Expected DatabaseError variant"),
-        }
-    }
+    // ==================== restore_user tests ====================
 
     #[tokio::test]
     async fn test_restore_user_success() {
         let user_id = Uuid::new_v4();
-        let now = Utc::now();
 
-        let mock_db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results([vec![UserModel {
-                id: user_id,
-                username: "testuser".to_string(),
-                email: "test@example.com".to_string(),
-                password_hash: "hashedpassword".to_string(),
-                full_name: "Test User".to_string(),
-                created_at: to_fixed_offset(now),
-                updated_at: to_fixed_offset(now),
-                is_verified: false,
-                is_deleted: true,
-            }]])
-            .append_query_results([vec![UserModel {
-                id: user_id,
-                username: "testuser".to_string(),
-                email: "test@example.com".to_string(),
-                password_hash: "hashedpassword".to_string(),
-                full_name: "Test User".to_string(),
-                created_at: to_fixed_offset(now),
-                updated_at: to_fixed_offset(Utc::now()),
-                is_verified: false,
-                is_deleted: false,
-            }]])
+        // UPDATE...RETURNING * returns full model
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![create_user_model(user_id)]])
             .into_connection();
 
-        let repository = UserRepositoryPostgres::new(Arc::new(mock_db));
+        let repository = UserRepositoryPostgres::new(Arc::new(db));
 
         let result = repository.restore_user(user_id).await;
 
@@ -559,15 +487,14 @@ mod tests {
     async fn test_restore_user_not_found() {
         let user_id = Uuid::new_v4();
 
-        let mock_db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results([Vec::<UserModel>::new()])
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![Vec::<UserModel>::new()])
             .into_connection();
 
-        let repository = UserRepositoryPostgres::new(Arc::new(mock_db));
+        let repository = UserRepositoryPostgres::new(Arc::new(db));
 
         let result = repository.restore_user(user_id).await;
 
-        assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
             UserRepositoryError::UserNotFound
@@ -575,16 +502,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_restore_user_database_error_on_find() {
-        use sea_orm::DbErr;
-
+    async fn test_restore_user_database_error() {
         let user_id = Uuid::new_v4();
 
-        let mock_db = MockDatabase::new(DatabaseBackend::Postgres)
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_errors([DbErr::Custom("connection timeout".to_string())])
             .into_connection();
 
-        let repository = UserRepositoryPostgres::new(Arc::new(mock_db));
+        let repository = UserRepositoryPostgres::new(Arc::new(db));
 
         let result = repository.restore_user(user_id).await;
 
@@ -597,72 +522,17 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_restore_user_database_error_on_update() {
-        use sea_orm::DbErr;
-
-        let user_id = Uuid::new_v4();
-        let now = Utc::now();
-
-        let mock_db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results([vec![UserModel {
-                id: user_id,
-                username: "testuser".to_string(),
-                email: "test@example.com".to_string(),
-                password_hash: "hashedpassword".to_string(),
-                full_name: "Test User".to_string(),
-                created_at: to_fixed_offset(now),
-                updated_at: to_fixed_offset(now),
-                is_verified: false,
-                is_deleted: true,
-            }]])
-            .append_query_errors([DbErr::Custom("update operation failed".to_string())])
-            .into_connection();
-
-        let repository = UserRepositoryPostgres::new(Arc::new(mock_db));
-
-        let result = repository.restore_user(user_id).await;
-
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            UserRepositoryError::DatabaseError(msg) => {
-                assert!(msg.contains("update operation failed"));
-            }
-            _ => panic!("Expected DatabaseError variant"),
-        }
-    }
+    // ==================== activate_user tests ====================
 
     #[tokio::test]
     async fn test_activate_user_success() {
         let user_id = Uuid::new_v4();
-        let now = Utc::now();
 
-        let mock_db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results([vec![UserModel {
-                id: user_id,
-                username: "testuser".to_string(),
-                email: "test@example.com".to_string(),
-                password_hash: "hashedpassword".to_string(),
-                full_name: "Test User".to_string(),
-                created_at: to_fixed_offset(now),
-                updated_at: to_fixed_offset(now),
-                is_verified: false,
-                is_deleted: false,
-            }]])
-            .append_query_results([vec![UserModel {
-                id: user_id,
-                username: "testuser".to_string(),
-                email: "test@example.com".to_string(),
-                password_hash: "hashedpassword".to_string(),
-                full_name: "Test User".to_string(),
-                created_at: to_fixed_offset(now),
-                updated_at: to_fixed_offset(Utc::now()),
-                is_verified: true,
-                is_deleted: false,
-            }]])
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![create_user_model(user_id)]])
             .into_connection();
 
-        let repository = UserRepositoryPostgres::new(Arc::new(mock_db));
+        let repository = UserRepositoryPostgres::new(Arc::new(db));
 
         let result = repository.activate_user(user_id).await;
 
@@ -677,15 +547,14 @@ mod tests {
     async fn test_activate_user_not_found() {
         let user_id = Uuid::new_v4();
 
-        let mock_db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results([Vec::<UserModel>::new()])
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![Vec::<UserModel>::new()])
             .into_connection();
 
-        let repository = UserRepositoryPostgres::new(Arc::new(mock_db));
+        let repository = UserRepositoryPostgres::new(Arc::new(db));
 
         let result = repository.activate_user(user_id).await;
 
-        assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
             UserRepositoryError::UserNotFound
@@ -693,16 +562,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_activate_user_database_error_on_find() {
-        use sea_orm::DbErr;
-
+    async fn test_activate_user_database_error() {
         let user_id = Uuid::new_v4();
 
-        let mock_db = MockDatabase::new(DatabaseBackend::Postgres)
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_errors([DbErr::Custom("connection timeout".to_string())])
             .into_connection();
 
-        let repository = UserRepositoryPostgres::new(Arc::new(mock_db));
+        let repository = UserRepositoryPostgres::new(Arc::new(db));
 
         let result = repository.activate_user(user_id).await;
 
@@ -715,73 +582,31 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_activate_user_database_error_on_update() {
-        use sea_orm::DbErr;
-
-        let user_id = Uuid::new_v4();
-        let now = Utc::now();
-
-        let mock_db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results([vec![UserModel {
-                id: user_id,
-                username: "testuser".to_string(),
-                email: "test@example.com".to_string(),
-                password_hash: "hashedpassword".to_string(),
-                full_name: "Test User".to_string(),
-                created_at: to_fixed_offset(now),
-                updated_at: to_fixed_offset(now),
-                is_verified: false,
-                is_deleted: false,
-            }]])
-            .append_query_errors([DbErr::Custom("update operation failed".to_string())])
-            .into_connection();
-
-        let repository = UserRepositoryPostgres::new(Arc::new(mock_db));
-
-        let result = repository.activate_user(user_id).await;
-
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            UserRepositoryError::DatabaseError(msg) => {
-                assert!(msg.contains("update operation failed"));
-            }
-            _ => panic!("Expected DatabaseError variant"),
-        }
-    }
+    // ==================== set_full_name tests ====================
 
     #[tokio::test]
     async fn test_set_full_name_success() {
         let user_id = Uuid::new_v4();
-        let now = Utc::now();
         let new_full_name = "Updated Name".to_string();
+        let now = Utc::now();
 
-        let mock_db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results([vec![UserModel {
-                id: user_id,
-                username: "testuser".to_string(),
-                email: "test@example.com".to_string(),
-                password_hash: "hashedpassword".to_string(),
-                full_name: "Old Name".to_string(),
-                created_at: to_fixed_offset(now),
-                updated_at: to_fixed_offset(now),
-                is_verified: false,
-                is_deleted: false,
-            }]])
-            .append_query_results([vec![UserModel {
-                id: user_id,
-                username: "testuser".to_string(),
-                email: "test@example.com".to_string(),
-                password_hash: "hashedpassword".to_string(),
-                full_name: new_full_name.clone(),
-                created_at: to_fixed_offset(now),
-                updated_at: to_fixed_offset(Utc::now()),
-                is_verified: false,
-                is_deleted: false,
-            }]])
+        let updated_model = UserModel {
+            id: user_id,
+            username: "testuser".to_string(),
+            email: "test@example.com".to_string(),
+            password_hash: "hashedpassword".to_string(),
+            full_name: new_full_name.clone(),
+            created_at: to_fixed_offset(now),
+            updated_at: to_fixed_offset(now),
+            is_verified: false,
+            is_deleted: false,
+        };
+
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![updated_model]])
             .into_connection();
 
-        let repository = UserRepositoryPostgres::new(Arc::new(mock_db));
+        let repository = UserRepositoryPostgres::new(Arc::new(db));
 
         let result = repository
             .set_full_name(user_id, new_full_name.clone())
@@ -800,15 +625,14 @@ mod tests {
         let user_id = Uuid::new_v4();
         let new_full_name = "Updated Name".to_string();
 
-        let mock_db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results([Vec::<UserModel>::new()])
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![Vec::<UserModel>::new()])
             .into_connection();
 
-        let repository = UserRepositoryPostgres::new(Arc::new(mock_db));
+        let repository = UserRepositoryPostgres::new(Arc::new(db));
 
         let result = repository.set_full_name(user_id, new_full_name).await;
 
-        assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
             UserRepositoryError::UserNotFound
@@ -816,17 +640,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_set_full_name_database_error_on_find() {
-        use sea_orm::DbErr;
-
+    async fn test_set_full_name_database_error() {
         let user_id = Uuid::new_v4();
         let new_full_name = "Updated Name".to_string();
 
-        let mock_db = MockDatabase::new(DatabaseBackend::Postgres)
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_errors([DbErr::Custom("connection timeout".to_string())])
             .into_connection();
 
-        let repository = UserRepositoryPostgres::new(Arc::new(mock_db));
+        let repository = UserRepositoryPostgres::new(Arc::new(db));
 
         let result = repository.set_full_name(user_id, new_full_name).await;
 
@@ -839,59 +661,12 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_set_full_name_database_error_on_update() {
-        use sea_orm::DbErr;
+    // ==================== helper function tests ====================
 
-        let user_id = Uuid::new_v4();
-        let now = Utc::now();
-        let new_full_name = "Updated Name".to_string();
-
-        let mock_db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results([vec![UserModel {
-                id: user_id,
-                username: "testuser".to_string(),
-                email: "test@example.com".to_string(),
-                password_hash: "hashedpassword".to_string(),
-                full_name: "Old Name".to_string(),
-                created_at: to_fixed_offset(now),
-                updated_at: to_fixed_offset(now),
-                is_verified: false,
-                is_deleted: false,
-            }]])
-            .append_query_errors([DbErr::Custom("update operation failed".to_string())])
-            .into_connection();
-
-        let repository = UserRepositoryPostgres::new(Arc::new(mock_db));
-
-        let result = repository.set_full_name(user_id, new_full_name).await;
-
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            UserRepositoryError::DatabaseError(msg) => {
-                assert!(msg.contains("update operation failed"));
-            }
-            _ => panic!("Expected DatabaseError variant"),
-        }
-    }
-
-    // Test the new map_to_user_result helper
     #[test]
     fn test_map_to_user_result() {
-        let now = Utc::now();
-        let fix_off_now = now.fixed_offset();
-
-        let user_model = UserModel {
-            id: Uuid::new_v4(),
-            username: "testuser".to_string(),
-            email: "test@example.com".to_string(),
-            password_hash: "hashed_password".to_string(),
-            full_name: "Test User".to_string(),
-            created_at: fix_off_now,
-            updated_at: fix_off_now,
-            is_verified: false,
-            is_deleted: false,
-        };
+        let user_id = Uuid::new_v4();
+        let user_model = create_user_model(user_id);
 
         let user_result = UserRepositoryPostgres::map_to_user_result(user_model.clone());
 
@@ -899,6 +674,5 @@ mod tests {
         assert_eq!(user_result.username, user_model.username);
         assert_eq!(user_result.email, user_model.email);
         assert_eq!(user_result.full_name, user_model.full_name);
-        // UserResult intentionally doesn't include password_hash, is_verified, is_deleted, etc.
     }
 }

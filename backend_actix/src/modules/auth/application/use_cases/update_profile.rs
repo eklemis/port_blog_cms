@@ -21,9 +21,6 @@ pub struct UpdateUserInput {
 
 #[derive(Debug, thiserror::Error, Clone)]
 pub enum UpdateUserError {
-    #[error("Unauthorized profile change request")]
-    Unauthorized,
-
     #[error("Invalid full name: {0}")]
     InvalidFullName(String),
 
