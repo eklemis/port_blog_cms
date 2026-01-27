@@ -6,9 +6,10 @@ use crate::{
             use_cases::update_profile::{UpdateUserError, UpdateUserInput},
         },
     },
+    shared::api::ApiResponse,
     AppState,
 };
-use actix_web::{put, web, HttpResponse, Responder};
+use actix_web::{put, web, Responder};
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
@@ -37,30 +38,22 @@ pub async fn update_user_profile_handler(
     };
 
     match app_data.update_user_profile_use_case.execute(input).await {
-        Ok(output) => HttpResponse::Ok().json(UpdateUserResponse {
+        Ok(output) => ApiResponse::success(UpdateUserResponse {
             user_id: output.user_id.value().to_string(),
             email: output.email,
             username: output.username,
             full_name: output.full_name,
         }),
         Err(UpdateUserError::InvalidFullName(msg)) => {
-            HttpResponse::BadRequest().json(serde_json::json!({
-                "error": "Invalid full name",
-                "message": msg
-            }))
+            ApiResponse::bad_request("INVALID_FULL_NAME", &msg)
         }
-
         Err(UpdateUserError::RepositoryError(e)) => {
             error!("Repository error updating user profile: {}", e);
-            HttpResponse::InternalServerError().json(serde_json::json!({
-                "error": "Internal server error"
-            }))
+            ApiResponse::internal_error()
         }
         Err(UpdateUserError::QueryError(e)) => {
             error!("Query error updating user profile: {}", e);
-            HttpResponse::InternalServerError().json(serde_json::json!({
-                "error": "Internal server error"
-            }))
+            ApiResponse::internal_error()
         }
     }
 }
@@ -72,6 +65,7 @@ mod tests {
         auth::application::{
             ports::outgoing::{
                 token_provider::{TokenClaims, TokenError, TokenProvider},
+                user_query::UserQueryError,
                 user_repository::UserRepositoryError,
             },
             use_cases::update_profile::{
@@ -201,10 +195,12 @@ mod tests {
         assert_eq!(resp.status(), 200);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["user_id"], user_id.to_string());
-        assert_eq!(body["email"], "test@example.com");
-        assert_eq!(body["username"], "testuser");
-        assert_eq!(body["full_name"], new_full_name);
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["user_id"], user_id.to_string());
+        assert_eq!(body["data"]["email"], "test@example.com");
+        assert_eq!(body["data"]["username"], "testuser");
+        assert_eq!(body["data"]["full_name"], new_full_name);
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -245,11 +241,13 @@ mod tests {
         assert_eq!(resp.status(), 400);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Invalid full name");
-        assert!(body["message"]
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INVALID_FULL_NAME");
+        assert!(body["error"]["message"]
             .as_str()
             .unwrap()
             .contains("2-100 characters"));
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -290,8 +288,10 @@ mod tests {
         assert_eq!(resp.status(), 500);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Internal server error");
-        assert!(body.get("message").is_none());
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INTERNAL_ERROR");
+        assert_eq!(body["error"]["message"], "An unexpected error occurred");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -299,11 +299,9 @@ mod tests {
         let user_id = Uuid::new_v4();
 
         let mock_use_case = MockUpdateUserProfileUseCase {
-            result: Err(UpdateUserError::QueryError(
-                crate::auth::application::ports::outgoing::user_query::UserQueryError::DatabaseError(
-                    "Query failed".to_string(),
-                ),
-            )),
+            result: Err(UpdateUserError::QueryError(UserQueryError::DatabaseError(
+                "Query failed".to_string(),
+            ))),
         };
 
         let app_state = TestAppStateBuilder::default()
@@ -334,7 +332,9 @@ mod tests {
         assert_eq!(resp.status(), 500);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Internal server error");
-        assert!(body.get("message").is_none());
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INTERNAL_ERROR");
+        assert_eq!(body["error"]["message"], "An unexpected error occurred");
+        assert!(body.get("data").is_none());
     }
 }

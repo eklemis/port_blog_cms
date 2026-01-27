@@ -3,9 +3,11 @@ use crate::{
         adapter::incoming::web::extractors::auth::AuthenticatedUser,
         application::{domain::entities::UserId, use_cases::fetch_profile::FetchUserError},
     },
+    shared::api::ApiResponse,
     AppState,
 };
-use actix_web::{get, web, HttpResponse, Responder};
+
+use actix_web::{get, web, Responder};
 use serde::Serialize;
 use tracing::error;
 
@@ -27,24 +29,18 @@ pub async fn get_user_profile_handler(
         .execute(UserId::from(user.user_id))
         .await
     {
-        Ok(user_output) => HttpResponse::Ok().json(UserProfileResponse {
-            user_id: user_output.user_id.value().to_string(),
-            email: user_output.email,
-            username: user_output.username,
-            full_name: user_output.full_name,
+        Ok(output) => ApiResponse::success(UserProfileResponse {
+            user_id: output.user_id.value().to_string(),
+            email: output.email,
+            username: output.username,
+            full_name: output.full_name,
         }),
         Err(FetchUserError::UserNotFound(msg)) => {
-            HttpResponse::NotFound().json(serde_json::json!({
-                "error": "User not found",
-                "message": msg
-            }))
+            ApiResponse::not_found("USER_NOT_FOUND", &format!("User not found: {}", msg))
         }
-
         Err(FetchUserError::QueryError(e)) => {
             error!("Database error fetching user profile: {}", e);
-            HttpResponse::InternalServerError().json(serde_json::json!({
-                "error": "Internal server error"
-            }))
+            ApiResponse::internal_error()
         }
     }
 }
@@ -175,10 +171,12 @@ mod tests {
         assert_eq!(resp.status(), 200);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["user_id"], user_id.to_string());
-        assert_eq!(body["email"], "test@example.com");
-        assert_eq!(body["username"], "testuser");
-        assert_eq!(body["full_name"], "Test User");
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["user_id"], user_id.to_string());
+        assert_eq!(body["data"]["email"], "test@example.com");
+        assert_eq!(body["data"]["username"], "testuser");
+        assert_eq!(body["data"]["full_name"], "Test User");
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -212,7 +210,9 @@ mod tests {
         assert_eq!(resp.status(), 200);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["user_id"], user_id.to_string());
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["user_id"], user_id.to_string());
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -246,11 +246,13 @@ mod tests {
         assert_eq!(resp.status(), 404);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "User not found");
-        assert!(body["message"]
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "USER_NOT_FOUND");
+        assert!(body["error"]["message"]
             .as_str()
             .unwrap()
-            .contains(&user_id.to_string()));
+            .contains("User not found"));
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -286,7 +288,9 @@ mod tests {
         assert_eq!(resp.status(), 500);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Internal server error");
-        assert!(body.get("message").is_none());
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INTERNAL_ERROR");
+        assert_eq!(body["error"]["message"], "An unexpected error occurred");
+        assert!(body.get("data").is_none());
     }
 }

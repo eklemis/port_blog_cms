@@ -1,4 +1,4 @@
-use actix_web::{delete, web, HttpResponse, Responder};
+use actix_web::{delete, web, Responder};
 use tracing::error;
 use uuid::Uuid;
 
@@ -8,6 +8,7 @@ use crate::{
         application::domain::entities::UserId,
     },
     cv::application::use_cases::hard_delete_cv::HardDeleteCVError,
+    shared::api::ApiResponse,
     AppState,
 };
 
@@ -24,19 +25,17 @@ pub async fn hard_delete_cv_handler(
         .execute(UserId::from(user.user_id), cv_id)
         .await
     {
-        Ok(()) => HttpResponse::NoContent().finish(),
-        Err(HardDeleteCVError::CVNotFound) => HttpResponse::NotFound().json(serde_json::json!({
-            "error": "CV not found"
-        })),
-        Err(HardDeleteCVError::Unauthorized) => HttpResponse::Forbidden().json(serde_json::json!({
-            "error": "Unauthorized",
-            "message": "You are not authorized to delete this CV"
-        })),
+        Ok(()) => ApiResponse::no_content(),
+        Err(HardDeleteCVError::CVNotFound) => {
+            ApiResponse::not_found("CV_NOT_FOUND", "CV not found")
+        }
+        Err(HardDeleteCVError::Unauthorized) => ApiResponse::forbidden(
+            "CV_UNAUTHORIZED",
+            "You are not authorized to delete this CV",
+        ),
         Err(HardDeleteCVError::RepositoryError(e)) => {
             error!("Repository error deleting CV: {}", e);
-            HttpResponse::InternalServerError().json(serde_json::json!({
-                "error": "Internal server error"
-            }))
+            ApiResponse::internal_error()
         }
     }
 }
@@ -190,7 +189,10 @@ mod tests {
         assert_eq!(resp.status(), 404);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "CV not found");
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "CV_NOT_FOUND");
+        assert_eq!(body["error"]["message"], "CV not found");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -226,8 +228,13 @@ mod tests {
         assert_eq!(resp.status(), 403);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Unauthorized");
-        assert!(body["message"].as_str().unwrap().contains("not authorized"));
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "CV_UNAUTHORIZED");
+        assert!(body["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("not authorized"));
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -265,7 +272,8 @@ mod tests {
         assert_eq!(resp.status(), 500);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Internal server error");
-        assert!(body.get("message").is_none());
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INTERNAL_ERROR");
+        assert!(body.get("data").is_none());
     }
 }

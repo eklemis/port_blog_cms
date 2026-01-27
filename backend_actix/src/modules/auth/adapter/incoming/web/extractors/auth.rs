@@ -1,4 +1,4 @@
-use actix_web::{dev::Payload, Error as ActixError, FromRequest, HttpRequest};
+use actix_web::{dev::Payload, Error as ActixError, FromRequest, HttpRequest, HttpResponse};
 use std::{
     future::{ready, Ready},
     sync::Arc,
@@ -6,12 +6,17 @@ use std::{
 use uuid::Uuid;
 
 use crate::auth::application::ports::outgoing::token_provider::TokenProvider;
+use crate::shared::api::ApiResponse;
 
 /// Represents an authenticated user (verified or not)
 #[derive(Debug, Clone)]
 pub struct AuthenticatedUser {
     pub user_id: Uuid,
     pub is_verified: bool,
+}
+
+fn create_api_error(response: HttpResponse) -> ActixError {
+    actix_web::error::InternalError::from_response("", response).into()
 }
 
 impl FromRequest for AuthenticatedUser {
@@ -23,9 +28,7 @@ impl FromRequest for AuthenticatedUser {
             match req.app_data::<actix_web::web::Data<Arc<dyn TokenProvider + Send + Sync>>>() {
                 Some(service) => service,
                 None => {
-                    return ready(Err(actix_web::error::ErrorInternalServerError(
-                        "JWT service not configured",
-                    )))
+                    return ready(Err(create_api_error(ApiResponse::internal_error())));
                 }
             };
 
@@ -33,9 +36,10 @@ impl FromRequest for AuthenticatedUser {
         let token = match extract_token_from_header(req) {
             Some(t) => t,
             None => {
-                return ready(Err(actix_web::error::ErrorUnauthorized(
+                return ready(Err(create_api_error(ApiResponse::unauthorized(
+                    "MISSING_AUTH_HEADER",
                     "Missing or invalid authorization header",
-                )))
+                ))));
             }
         };
 
@@ -43,9 +47,10 @@ impl FromRequest for AuthenticatedUser {
         match jwt_service.verify_token(&token) {
             Ok(claims) => {
                 if claims.token_type != "access" {
-                    return ready(Err(actix_web::error::ErrorUnauthorized(
+                    return ready(Err(create_api_error(ApiResponse::unauthorized(
+                        "INVALID_TOKEN_TYPE",
                         "Invalid token type",
-                    )));
+                    ))));
                 }
 
                 ready(Ok(AuthenticatedUser {
@@ -53,7 +58,10 @@ impl FromRequest for AuthenticatedUser {
                     is_verified: claims.is_verified,
                 }))
             }
-            Err(e) => ready(Err(actix_web::error::ErrorUnauthorized(e))),
+            Err(_) => ready(Err(create_api_error(ApiResponse::unauthorized(
+                "INVALID_TOKEN",
+                "Invalid or expired token",
+            )))),
         }
     }
 }
@@ -74,9 +82,10 @@ impl FromRequest for VerifiedUser {
         match auth_user_future.into_inner() {
             Ok(auth_user) => {
                 if !auth_user.is_verified {
-                    return ready(Err(actix_web::error::ErrorForbidden(
+                    return ready(Err(create_api_error(ApiResponse::forbidden(
+                        "EMAIL_NOT_VERIFIED",
                         "Email verification required",
-                    )));
+                    ))));
                 }
 
                 ready(Ok(VerifiedUser {

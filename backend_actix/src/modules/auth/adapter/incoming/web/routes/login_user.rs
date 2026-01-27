@@ -1,15 +1,30 @@
 use crate::auth::application::use_cases::login_user::LoginError;
 use crate::auth::application::use_cases::login_user::LoginRequest;
-
+use crate::shared::api::ApiResponse;
 use crate::AppState;
-use actix_web::{post, web, HttpResponse, Responder};
-
+use actix_web::{post, web, Responder};
+use serde::Serialize;
 use tracing::{error, info, warn};
+
+#[derive(Serialize)]
+struct LoginResponse {
+    access_token: String,
+    refresh_token: String,
+    user: LoginUserInfo,
+}
+
+#[derive(Serialize)]
+struct LoginUserInfo {
+    id: String,
+    username: String,
+    email: String,
+    is_verified: bool,
+}
 
 /// **🔐 Login User API Endpoint**
 #[post("/api/auth/login")]
 pub async fn login_user_handler(
-    req: web::Json<LoginRequest>, // ✅ Directly deserialize validated request!
+    req: web::Json<LoginRequest>,
     data: web::Data<AppState>,
 ) -> impl Responder {
     let use_case = &data.login_user_use_case;
@@ -27,51 +42,41 @@ pub async fn login_user_handler(
                 "User logged in successfully"
             );
 
-            HttpResponse::Ok().json(serde_json::json!({
-                "access_token": response.access_token,
-                "refresh_token": response.refresh_token,
-                "user": {
-                    "id": response.user.id,
-                    "username": response.user.username,
-                    "email": response.user.email,
-                    "is_verified": response.user.is_verified,
-                }
-            }))
+            ApiResponse::success(LoginResponse {
+                access_token: response.access_token,
+                refresh_token: response.refresh_token,
+                user: LoginUserInfo {
+                    id: response.user.id.to_string(),
+                    username: response.user.username,
+                    email: response.user.email,
+                    is_verified: response.user.is_verified,
+                },
+            })
         }
 
         Err(LoginError::InvalidCredentials) => {
             warn!("Login failed: Invalid credentials");
-            HttpResponse::Unauthorized().json(serde_json::json!({
-                "error": "Invalid email or password"
-            }))
+            ApiResponse::unauthorized("INVALID_CREDENTIALS", "Invalid email or password")
         }
 
         Err(LoginError::UserDeleted) => {
             warn!("Login failed: User deleted");
-            HttpResponse::Forbidden().json(serde_json::json!({
-                "error": "This account has been deleted"
-            }))
+            ApiResponse::forbidden("USER_DELETED", "This account has been deleted")
         }
 
         Err(LoginError::PasswordVerificationFailed(ref e)) => {
             error!(error = %e, "Password verification failed");
-            HttpResponse::InternalServerError().json(serde_json::json!({
-                "error": "Internal server error"
-            }))
+            ApiResponse::internal_error()
         }
 
         Err(LoginError::TokenGenerationFailed(ref e)) => {
             error!(error = %e, "Token generation failed");
-            HttpResponse::InternalServerError().json(serde_json::json!({
-                "error": "Internal server error"
-            }))
+            ApiResponse::internal_error()
         }
 
         Err(LoginError::QueryError(ref e)) => {
             error!(error = %e, "Database query failed");
-            HttpResponse::InternalServerError().json(serde_json::json!({
-                "error": "Internal server error"
-            }))
+            ApiResponse::internal_error()
         }
     }
 }
@@ -128,7 +133,6 @@ mod tests {
             Ok(LoginUserResponse {
                 access_token: std::env::var("TEST_ACCESS_TOKEN")
                     .unwrap_or_else(|_| "FAKE_TEST_ACCESS_TOKEN_DO_NOT_USE".to_string()),
-
                 refresh_token: std::env::var("TEST_REFRESH_TOKEN")
                     .unwrap_or_else(|_| "FAKE_TEST_REFRESH_TOKEN_DO_NOT_USE".to_string()),
                 user: UserInfo {
@@ -231,12 +235,14 @@ mod tests {
         assert_eq!(resp.status(), 200);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert!(body["access_token"].is_string());
-        assert!(body["refresh_token"].is_string());
-        assert!(body["user"]["id"].is_string());
-        assert_eq!(body["user"]["username"], "testuser");
-        assert_eq!(body["user"]["email"], "test@example.com");
-        assert_eq!(body["user"]["is_verified"], true);
+        assert_eq!(body["success"], true);
+        assert!(body["data"]["access_token"].is_string());
+        assert!(body["data"]["refresh_token"].is_string());
+        assert!(body["data"]["user"]["id"].is_string());
+        assert_eq!(body["data"]["user"]["username"], "testuser");
+        assert_eq!(body["data"]["user"]["email"], "test@example.com");
+        assert_eq!(body["data"]["user"]["is_verified"], true);
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -257,8 +263,10 @@ mod tests {
         assert_eq!(resp.status(), 200);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["user"]["is_verified"], false);
-        assert_eq!(body["user"]["email"], "unverified@example.com");
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["user"]["is_verified"], false);
+        assert_eq!(body["data"]["user"]["email"], "unverified@example.com");
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -279,7 +287,10 @@ mod tests {
         assert_eq!(resp.status(), 401);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Invalid email or password");
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INVALID_CREDENTIALS");
+        assert_eq!(body["error"]["message"], "Invalid email or password");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -300,7 +311,10 @@ mod tests {
         assert_eq!(resp.status(), 403);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "This account has been deleted");
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "USER_DELETED");
+        assert_eq!(body["error"]["message"], "This account has been deleted");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -321,7 +335,10 @@ mod tests {
         assert_eq!(resp.status(), 500);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Internal server error");
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INTERNAL_ERROR");
+        assert_eq!(body["error"]["message"], "An unexpected error occurred");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -342,7 +359,10 @@ mod tests {
         assert_eq!(resp.status(), 500);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Internal server error");
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INTERNAL_ERROR");
+        assert_eq!(body["error"]["message"], "An unexpected error occurred");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -363,7 +383,10 @@ mod tests {
         assert_eq!(resp.status(), 500);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Internal server error");
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INTERNAL_ERROR");
+        assert_eq!(body["error"]["message"], "An unexpected error occurred");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -375,7 +398,6 @@ mod tests {
         let app =
             test::init_service(App::new().app_data(app_state).service(login_user_handler)).await;
 
-        // Test with different valid email formats
         let test_cases = vec![
             "user@example.com",
             "user.name@example.com",
@@ -394,6 +416,9 @@ mod tests {
 
             let resp = test::call_service(&app, req).await;
             assert_eq!(resp.status(), 200, "Failed for email: {}", email);
+
+            let body: serde_json::Value = test::read_body_json(resp).await;
+            assert_eq!(body["success"], true);
         }
     }
 
@@ -424,6 +449,9 @@ mod tests {
 
             let resp = test::call_service(&app, req).await;
             assert_eq!(resp.status(), 200, "Failed for password: {}", password);
+
+            let body: serde_json::Value = test::read_body_json(resp).await;
+            assert_eq!(body["success"], true);
         }
     }
 
@@ -436,7 +464,6 @@ mod tests {
         let app =
             test::init_service(App::new().app_data(app_state).service(login_user_handler)).await;
 
-        // Email should be normalized to lowercase
         let req = test::TestRequest::post()
             .uri("/api/auth/login")
             .set_json(&serde_json::json!({
@@ -447,6 +474,9 @@ mod tests {
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 200);
+
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], true);
     }
 
     #[actix_web::test]
@@ -458,7 +488,6 @@ mod tests {
         let app =
             test::init_service(App::new().app_data(app_state).service(login_user_handler)).await;
 
-        // Email should be trimmed
         let req = test::TestRequest::post()
             .uri("/api/auth/login")
             .set_json(&serde_json::json!({
@@ -469,6 +498,9 @@ mod tests {
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 200);
+
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], true);
     }
 
     #[actix_web::test]
@@ -477,10 +509,14 @@ mod tests {
             .with_login_user(MockLoginUserSuccess)
             .build();
 
-        let app =
-            test::init_service(App::new().app_data(app_state).service(login_user_handler)).await;
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state)
+                .app_data(crate::shared::api::custom_json_config())
+                .service(login_user_handler),
+        )
+        .await;
 
-        // Invalid email formats should fail validation
         let invalid_emails = vec!["notanemail", "missing@", "@nodomain.com", ""];
 
         for email in invalid_emails {
@@ -494,6 +530,11 @@ mod tests {
 
             let resp = test::call_service(&app, req).await;
             assert_eq!(resp.status(), 400, "Should reject invalid email: {}", email);
+
+            let body: serde_json::Value = test::read_body_json(resp).await;
+            assert_eq!(body["success"], false);
+            assert_eq!(body["error"]["code"], "VALIDATION_ERROR");
+            assert!(body.get("data").is_none());
         }
     }
 
@@ -503,8 +544,13 @@ mod tests {
             .with_login_user(MockLoginUserSuccess)
             .build();
 
-        let app =
-            test::init_service(App::new().app_data(app_state).service(login_user_handler)).await;
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state)
+                .app_data(crate::shared::api::custom_json_config())
+                .service(login_user_handler),
+        )
+        .await;
 
         let req = test::TestRequest::post()
             .uri("/api/auth/login")
@@ -516,6 +562,11 @@ mod tests {
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 400);
+
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "VALIDATION_ERROR");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -524,8 +575,13 @@ mod tests {
             .with_login_user(MockLoginUserSuccess)
             .build();
 
-        let app =
-            test::init_service(App::new().app_data(app_state).service(login_user_handler)).await;
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state)
+                .app_data(crate::shared::api::custom_json_config())
+                .service(login_user_handler),
+        )
+        .await;
 
         let req = test::TestRequest::post()
             .uri("/api/auth/login")
@@ -537,5 +593,10 @@ mod tests {
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 400);
+
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "VALIDATION_ERROR");
+        assert!(body.get("data").is_none());
     }
 }

@@ -3,6 +3,7 @@ pub use modules::auth;
 pub use modules::cv;
 pub use modules::email;
 pub mod health;
+pub mod shared;
 
 // Test helpers module - only compiled with feature flag
 #[cfg(feature = "test-helpers")]
@@ -37,6 +38,8 @@ use crate::modules::auth::application::use_cases::refresh_token::IRefreshTokenUs
 use crate::modules::auth::application::use_cases::update_profile::UpdateUserProfileUseCase;
 use crate::modules::cv::application::use_cases::hard_delete_cv::HardDeleteCvUseCase;
 use crate::modules::email::application::ports::outgoing::user_email_notifier::UserEmailNotifier;
+
+use crate::shared::api::custom_json_config;
 
 use actix_web::{web, App, HttpServer};
 use deadpool_redis::{Config, Runtime};
@@ -246,6 +249,7 @@ async fn start() -> std::io::Result<()> {
             .app_data(web::Data::new(Arc::clone(&token_provider_arc)))
             .app_data(web::Data::new(Arc::clone(&db_for_server)))
             .app_data(web::Data::new(Arc::clone(&redis_arc)))
+            .app_data(custom_json_config())
             .configure(init_routes);
 
         // Conditionally add test routes

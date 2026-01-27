@@ -2,11 +2,11 @@ use crate::auth::adapter::incoming::web::extractors::auth::AuthenticatedUser;
 use crate::auth::application::use_cases::soft_delete_user::{
     SoftDeleteUserError, SoftDeleteUserRequest,
 };
-
+use crate::shared::api::ApiResponse;
 use crate::AppState;
-use actix_web::{delete, web, HttpResponse, Responder};
+use actix_web::{delete, web, Responder};
+use tracing::error;
 
-/// **🗑️ Soft Delete User API Endpoint**
 #[delete("/api/users/me")]
 pub async fn soft_delete_user_handler(
     user: AuthenticatedUser,
@@ -15,11 +15,22 @@ pub async fn soft_delete_user_handler(
     let request = SoftDeleteUserRequest::new(user.user_id);
 
     match data.soft_delete_user_use_case.execute(request).await {
-        Ok(_) => HttpResponse::NoContent().finish(),
+        Ok(_) => ApiResponse::no_content(),
 
-        Err(SoftDeleteUserError::Unauthorized) => HttpResponse::Unauthorized().finish(),
+        Err(SoftDeleteUserError::Unauthorized) => ApiResponse::unauthorized(
+            "USER_UNAUTHORIZED",
+            "You are not authorized to delete this account",
+        ),
 
-        Err(SoftDeleteUserError::DatabaseError(_)) => HttpResponse::InternalServerError().finish(),
+        Err(SoftDeleteUserError::DatabaseError(e)) => {
+            error!("Database error soft deleting user: {}", e);
+
+            if e.contains("User not found") {
+                ApiResponse::not_found("USER_NOT_FOUND", "User not found")
+            } else {
+                ApiResponse::internal_error()
+            }
+        }
     }
 }
 
@@ -147,6 +158,15 @@ mod tests {
         let resp = test::call_service(&app, req).await;
 
         assert_eq!(resp.status(), actix_web::http::StatusCode::UNAUTHORIZED);
+
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "USER_UNAUTHORIZED");
+        assert!(body["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("not authorized"));
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -181,5 +201,11 @@ mod tests {
             resp.status(),
             actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
         );
+
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INTERNAL_ERROR");
+        assert_eq!(body["error"]["message"], "An unexpected error occurred");
+        assert!(body.get("data").is_none());
     }
 }

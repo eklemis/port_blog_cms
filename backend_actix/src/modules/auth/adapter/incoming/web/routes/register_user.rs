@@ -1,14 +1,14 @@
 use crate::auth::application::orchestrator::user_registration::UserRegistrationError;
 use crate::auth::application::use_cases::create_user::CreateUserInput;
-
 use crate::modules::auth::application::use_cases::create_user::CreateUserError;
+use crate::shared::api::ApiResponse;
 use crate::AppState;
 use actix_web::{post, web, HttpResponse, Responder};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tracing::{error, info, warn};
 
 /// **📥 Request Structure for Creating a User**
-#[derive(serde::Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct CreateUserRequest {
     pub username: String,
     pub email: String,
@@ -16,23 +16,60 @@ pub struct CreateUserRequest {
     pub full_name: String,
 }
 
+#[derive(Serialize)]
+struct RegisterUserResponse {
+    message: String,
+    user: RegisteredUser,
+}
+
+#[derive(Serialize)]
+struct RegisteredUser {
+    id: String,
+    username: String,
+    email: String,
+    full_name: String,
+}
+
 fn map_create_user_error(err: CreateUserError, req: &CreateUserRequest) -> HttpResponse {
-    match err {
-        CreateUserError::InvalidUsername(_)
-        | CreateUserError::InvalidEmail(_)
-        | CreateUserError::InvalidPassword(_)
-        | CreateUserError::InvalidFullName(_) => {
+    match &err {
+        CreateUserError::InvalidUsername(msg) => {
             warn!(
                 username = %req.username,
                 email = %req.email,
                 error = %err,
                 "Invalid registration input"
             );
+            ApiResponse::bad_request("INVALID_USERNAME", &msg)
+        }
 
-            HttpResponse::BadRequest().json(serde_json::json!({
-                "error": "Invalid input",
-                "message": err.to_string()
-            }))
+        CreateUserError::InvalidEmail(msg) => {
+            warn!(
+                username = %req.username,
+                email = %req.email,
+                error = %err,
+                "Invalid registration input"
+            );
+            ApiResponse::bad_request("INVALID_EMAIL", &msg)
+        }
+
+        CreateUserError::InvalidPassword(msg) => {
+            warn!(
+                username = %req.username,
+                email = %req.email,
+                error = %err,
+                "Invalid registration input"
+            );
+            ApiResponse::bad_request("INVALID_PASSWORD", &msg)
+        }
+
+        CreateUserError::InvalidFullName(msg) => {
+            warn!(
+                username = %req.username,
+                email = %req.email,
+                error = %err,
+                "Invalid registration input"
+            );
+            ApiResponse::bad_request("INVALID_FULL_NAME", &msg)
         }
 
         CreateUserError::UserAlreadyExists => {
@@ -41,10 +78,7 @@ fn map_create_user_error(err: CreateUserError, req: &CreateUserRequest) -> HttpR
                 email = %req.email,
                 "User already exists"
             );
-
-            HttpResponse::Conflict().json(serde_json::json!({
-                "error": "User already exists"
-            }))
+            ApiResponse::conflict("USER_ALREADY_EXISTS", "User already exists")
         }
 
         other => {
@@ -54,10 +88,7 @@ fn map_create_user_error(err: CreateUserError, req: &CreateUserRequest) -> HttpR
                 error = %other,
                 "Unhandled user creation error"
             );
-
-            HttpResponse::InternalServerError().json(serde_json::json!({
-                "error": "Internal server error"
-            }))
+            ApiResponse::internal_error()
         }
     }
 }
@@ -93,35 +124,29 @@ pub async fn register_user_handler(
                 "User created successfully"
             );
 
-            HttpResponse::Created().json(serde_json::json!({
-                "message": "User created successfully. Please check your email to verify your account.",
-                "user": {
-                    "id": user.user_id,
-                    "username": user.username,
-                    "email": user.email,
-                    "full_name": user.full_name,
-                    "message": user.message
-                }
-            }))
+            ApiResponse::created(RegisterUserResponse {
+                message:
+                    "User created successfully. Please check your email to verify your account."
+                        .to_string(),
+                user: RegisteredUser {
+                    id: user.user_id.to_string(),
+                    username: user.username,
+                    email: user.email,
+                    full_name: user.full_name,
+                },
+            })
         }
 
-        Err(UserRegistrationError::CreateUserFailed(e)) => {
-            // Delegate classification to a helper
-            map_create_user_error(e, &req)
-        }
+        Err(UserRegistrationError::CreateUserFailed(e)) => map_create_user_error(e, &req),
 
         Err(e) => {
-            // Any orchestration-level failure
             error!(
                 username = %req.username,
                 email = %req.email,
                 error = %e,
                 "User registration failed"
             );
-
-            HttpResponse::InternalServerError().json(serde_json::json!({
-                "error": "Internal server error"
-            }))
+            ApiResponse::internal_error()
         }
     }
 }
@@ -341,14 +366,16 @@ mod tests {
         assert_eq!(resp.status(), 201);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], true);
         assert_eq!(
-            body["message"],
+            body["data"]["message"],
             "User created successfully. Please check your email to verify your account."
         );
-        assert!(body["user"]["id"].is_string());
-        assert_eq!(body["user"]["username"], "testuser");
-        assert_eq!(body["user"]["email"], "test@example.com");
-        assert_eq!(body["user"]["full_name"], "Test User");
+        assert!(body["data"]["user"]["id"].is_string());
+        assert_eq!(body["data"]["user"]["username"], "testuser");
+        assert_eq!(body["data"]["user"]["email"], "test@example.com");
+        assert_eq!(body["data"]["user"]["full_name"], "Test User");
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -376,8 +403,13 @@ mod tests {
         assert_eq!(resp.status(), 400);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Invalid input");
-        assert!(body["message"].as_str().unwrap().contains("Username"));
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INVALID_USERNAME");
+        assert!(body["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Username"));
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -405,8 +437,10 @@ mod tests {
         assert_eq!(resp.status(), 400);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Invalid input");
-        assert!(body["message"].as_str().unwrap().contains("email"));
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INVALID_EMAIL");
+        assert!(body["error"]["message"].as_str().unwrap().contains("email"));
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -434,8 +468,13 @@ mod tests {
         assert_eq!(resp.status(), 400);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Invalid input");
-        assert!(body["message"].as_str().unwrap().contains("Password"));
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INVALID_PASSWORD");
+        assert!(body["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Password"));
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -463,8 +502,10 @@ mod tests {
         assert_eq!(resp.status(), 400);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Invalid input");
-        assert!(body["message"].as_str().unwrap().contains("name"));
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INVALID_FULL_NAME");
+        assert!(body["error"]["message"].as_str().unwrap().contains("name"));
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -492,7 +533,10 @@ mod tests {
         assert_eq!(resp.status(), 409);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "User already exists");
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "USER_ALREADY_EXISTS");
+        assert_eq!(body["error"]["message"], "User already exists");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -520,7 +564,10 @@ mod tests {
         assert_eq!(resp.status(), 500);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Internal server error");
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INTERNAL_ERROR");
+        assert_eq!(body["error"]["message"], "An unexpected error occurred");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -548,7 +595,10 @@ mod tests {
         assert_eq!(resp.status(), 500);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Internal server error");
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INTERNAL_ERROR");
+        assert_eq!(body["error"]["message"], "An unexpected error occurred");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -575,7 +625,10 @@ mod tests {
         assert_eq!(resp.status(), 500);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Internal server error");
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INTERNAL_ERROR");
+        assert_eq!(body["error"]["message"], "An unexpected error occurred");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -599,16 +652,14 @@ mod tests {
             .to_request();
 
         let resp = test::call_service(&app, req).await;
-
-        // Email failure doesn't fail registration, still returns 201
         assert_eq!(resp.status(), 201);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-
-        // Standard success message (email fails in background, we don't know yet)
-        assert!(body["user"]["message"]
+        assert_eq!(body["success"], true);
+        assert!(body["data"]["user"]["message"]
             .as_str()
             .unwrap()
             .contains("check your email"));
+        assert!(body.get("error").is_none());
     }
 }

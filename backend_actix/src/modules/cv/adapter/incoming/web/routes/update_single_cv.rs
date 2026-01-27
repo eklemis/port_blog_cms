@@ -4,18 +4,21 @@ use crate::cv::application::use_cases::update_cv::UpdateCVError;
 use crate::cv::domain::entities::{
     ContactDetail, ContactType, CoreSkill, Education, Experience, HighlightedProject,
 };
+use crate::shared::api::ApiResponse;
 use crate::AppState;
-use actix_web::{put, web, HttpResponse, Responder};
+use actix_web::{put, web, Responder};
+use serde::{Deserialize, Serialize};
+use tracing::error;
 use uuid::Uuid;
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct EducationRequest {
     pub degree: String,
     pub institution: String,
     pub graduation_year: i32,
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ExperienceRequest {
     pub company: String,
     pub position: String,
@@ -27,7 +30,7 @@ pub struct ExperienceRequest {
     pub achievements: Vec<String>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct HighlightedProjectRequest {
     pub id: String,
     pub title: String,
@@ -37,14 +40,14 @@ pub struct HighlightedProjectRequest {
 
 type ContactTypeRequest = ContactType;
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ContactDetailRequest {
     pub title: String,
     pub contact_type: ContactTypeRequest,
     pub content: String,
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct UpdateCVRequest {
     pub bio: String,
     pub role: String,
@@ -128,11 +131,12 @@ pub async fn update_cv_handler(
         .execute(user.user_id, cv_id, cv_data)
         .await
     {
-        Ok(updated) => HttpResponse::Ok().json(updated),
-
-        Err(UpdateCVError::CVNotFound) => HttpResponse::NotFound().body("CV not found"),
-
-        Err(UpdateCVError::RepositoryError(e)) => HttpResponse::InternalServerError().body(e),
+        Ok(updated) => ApiResponse::success(updated),
+        Err(UpdateCVError::CVNotFound) => ApiResponse::not_found("CV_NOT_FOUND", "CV not found"),
+        Err(UpdateCVError::RepositoryError(e)) => {
+            error!("Repository error updating CV: {}", e);
+            ApiResponse::internal_error()
+        }
     }
 }
 
@@ -273,10 +277,7 @@ mod tests {
             .build();
 
         let jwt_service = create_test_jwt_service();
-
-        // 🔑 IMPORTANT: wrap JWT service exactly as extractor expects
         let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service.clone());
-
         let token = jwt_service.generate_access_token(user_id, true).unwrap();
 
         let app = test::init_service(
@@ -306,12 +307,14 @@ mod tests {
 
         let resp = test::call_service(&app, req).await;
 
-        assert_eq!(resp.status(), actix_web::http::StatusCode::OK);
+        assert_eq!(resp.status(), 200);
 
-        let body: CVInfo = test::read_body_json(resp).await;
-        assert_eq!(body.bio, updated_cv.bio);
-        assert_eq!(body.role, updated_cv.role);
-        assert_eq!(body.photo_url, updated_cv.photo_url);
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["bio"], updated_cv.bio);
+        assert_eq!(body["data"]["role"], updated_cv.role);
+        assert_eq!(body["data"]["photo_url"], updated_cv.photo_url);
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -419,17 +422,23 @@ mod tests {
             .to_request();
 
         let resp = test::call_service(&app, req).await;
-        let resp_stat_code = resp.status();
 
-        assert_eq!(resp_stat_code, 200);
+        assert_eq!(resp.status(), 200);
 
-        let body: CVInfo = test::read_body_json(resp).await;
-
-        assert_eq!(body.core_skills.len(), 1);
-        assert_eq!(body.educations.len(), 1);
-        assert_eq!(body.experiences.len(), 1);
-        assert_eq!(body.highlighted_projects.len(), 1);
-        assert_eq!(body.contact_info.len(), 1);
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["core_skills"].as_array().unwrap().len(), 1);
+        assert_eq!(body["data"]["educations"].as_array().unwrap().len(), 1);
+        assert_eq!(body["data"]["experiences"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            body["data"]["highlighted_projects"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(body["data"]["contact_info"].as_array().unwrap().len(), 1);
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -445,10 +454,7 @@ mod tests {
             .build();
 
         let jwt_service = create_test_jwt_service();
-
-        // 🔑 IMPORTANT: wrap JWT service exactly as extractor expects
         let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service.clone());
-
         let token = jwt_service.generate_access_token(user_id, true).unwrap();
 
         let app = test::init_service(
@@ -467,11 +473,13 @@ mod tests {
 
         let resp = test::call_service(&app, req).await;
 
-        assert_eq!(resp.status(), actix_web::http::StatusCode::NOT_FOUND);
+        assert_eq!(resp.status(), 404);
 
-        let body = test::read_body(resp).await;
-        let body_str = String::from_utf8(body.to_vec()).unwrap();
-        assert_eq!(body_str, "CV not found");
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "CV_NOT_FOUND");
+        assert_eq!(body["error"]["message"], "CV not found");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -491,10 +499,7 @@ mod tests {
             .build();
 
         let jwt_service = create_test_jwt_service();
-
-        // 🔑 IMPORTANT: register JWT service exactly as extractor expects
         let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service.clone());
-
         let token = jwt_service.generate_access_token(user_id, true).unwrap();
 
         let app = test::init_service(
@@ -513,14 +518,13 @@ mod tests {
 
         let resp = test::call_service(&app, req).await;
 
-        assert_eq!(
-            resp.status(),
-            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
-        );
+        assert_eq!(resp.status(), 500);
 
-        let body = test::read_body(resp).await;
-        let body_str = String::from_utf8(body.to_vec()).unwrap();
-        assert!(body_str.contains("DB update failed"));
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INTERNAL_ERROR");
+        assert_eq!(body["error"]["message"], "An unexpected error occurred");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -534,7 +538,6 @@ mod tests {
             .build();
 
         let jwt_service = create_test_jwt_service();
-
         let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service.clone());
 
         let app = test::init_service(
@@ -566,7 +569,6 @@ mod tests {
             .build();
 
         let jwt_service = create_test_jwt_service();
-
         let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service.clone());
 
         let app = test::init_service(
@@ -600,10 +602,7 @@ mod tests {
             .build();
 
         let jwt_service = create_test_jwt_service();
-
-        // IMPORTANT: wrap JWT service exactly as the extractor expects
         let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service.clone());
-
         let token = jwt_service.generate_access_token(user_id, false).unwrap();
 
         let app = test::init_service(
@@ -622,6 +621,6 @@ mod tests {
 
         let resp = test::call_service(&app, req).await;
 
-        assert_eq!(resp.status(), actix_web::http::StatusCode::FORBIDDEN);
+        assert_eq!(resp.status(), 403);
     }
 }

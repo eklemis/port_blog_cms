@@ -1,22 +1,24 @@
-use actix_web::{get, web, HttpResponse, Responder};
+use actix_web::{get, web, Responder};
 
 use crate::{
     auth::adapter::incoming::web::extractors::auth::VerifiedUser,
     cv::{application::use_cases::fetch_user_cvs::FetchCVError, domain::CVInfo},
+    shared::api::ApiResponse,
     AppState,
 };
+use tracing::error;
 
 #[get("/api/cvs")]
-pub async fn get_cvs_handler(
-    user: VerifiedUser,
-    data: web::Data<AppState>, // The state from .app_data(...)
-) -> impl Responder {
+pub async fn get_cvs_handler(user: VerifiedUser, data: web::Data<AppState>) -> impl Responder {
     match data.fetch_cv_use_case.execute(user.user_id).await {
-        Ok(cvs) => HttpResponse::Ok().json(cvs),
+        Ok(cvs) => ApiResponse::success(cvs),
 
-        Err(FetchCVError::NoCVs) => HttpResponse::Ok().json(Vec::<CVInfo>::new()),
+        Err(FetchCVError::NoCVs) => ApiResponse::success(Vec::<CVInfo>::new()),
 
-        Err(FetchCVError::RepositoryError(err)) => HttpResponse::InternalServerError().body(err),
+        Err(FetchCVError::RepositoryError(err)) => {
+            error!("Repository error fetching CVs: {}", err);
+            ApiResponse::internal_error()
+        }
     }
 }
 
@@ -88,6 +90,8 @@ mod tests {
      * Tests
      * -------------------------------------------------- */
 
+    use serde_json::Value;
+
     #[actix_web::test]
     async fn test_get_cv_handler_success() {
         let fetch_uc = MockFetchCVUseCase::new();
@@ -137,9 +141,11 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 200);
 
-        let body: Vec<CVInfo> = test::read_body_json(resp).await;
-        assert_eq!(body.len(), 1);
-        assert_eq!(body[0].bio, expected_cv.bio);
+        let body: Value = test::read_body_json(resp).await;
+        let cvs: Vec<CVInfo> = serde_json::from_value(body["data"].clone()).unwrap();
+
+        assert_eq!(cvs.len(), 1);
+        assert_eq!(cvs[0].bio, expected_cv.bio);
     }
 
     #[actix_web::test]
@@ -172,8 +178,10 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 200);
 
-        let body: Vec<CVInfo> = test::read_body_json(resp).await;
-        assert_eq!(body.len(), 0);
+        let body: Value = test::read_body_json(resp).await;
+        let cvs: Vec<CVInfo> = serde_json::from_value(body["data"].clone()).unwrap();
+
+        assert!(cvs.is_empty());
     }
 
     #[actix_web::test]

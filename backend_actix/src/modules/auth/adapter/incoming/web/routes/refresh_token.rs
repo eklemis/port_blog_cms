@@ -1,8 +1,15 @@
 use crate::auth::application::use_cases::refresh_token::{RefreshTokenError, RefreshTokenRequest};
+use crate::shared::api::ApiResponse;
 use crate::AppState;
-use actix_web::{post, web, HttpResponse, Responder};
-
+use actix_web::{post, web, Responder};
+use serde::Serialize;
 use tracing::{error, info, warn};
+
+#[derive(Serialize)]
+struct RefreshTokenResponseBody {
+    access_token: String,
+    refresh_token: String,
+}
 
 /// **🔄 Refresh Access Token API Endpoint**
 #[post("/api/auth/refresh")]
@@ -20,51 +27,41 @@ pub async fn refresh_token_handler(
     match result {
         Ok(response) => {
             info!("Token refreshed successfully");
-
-            HttpResponse::Ok().json(serde_json::json!({
-                "access_token": response.access_token,
-                "refresh_token": response.refresh_token,
-            }))
+            ApiResponse::success(RefreshTokenResponseBody {
+                access_token: response.access_token,
+                refresh_token: response.refresh_token,
+            })
         }
 
         Err(RefreshTokenError::TokenExpired) => {
             warn!("Token refresh failed: Token expired");
-
-            HttpResponse::Unauthorized().json(serde_json::json!({
-                "error": "Refresh token has expired. Please login again."
-            }))
+            ApiResponse::unauthorized(
+                "TOKEN_EXPIRED",
+                "Refresh token has expired. Please login again.",
+            )
         }
 
         Err(RefreshTokenError::TokenInvalid) | Err(RefreshTokenError::InvalidSignature) => {
             warn!("Token refresh failed: Invalid token");
-
-            HttpResponse::Unauthorized().json(serde_json::json!({
-                "error": "Invalid refresh token"
-            }))
+            ApiResponse::unauthorized("TOKEN_INVALID", "Invalid refresh token")
         }
 
         Err(RefreshTokenError::InvalidTokenType) => {
             warn!("Token refresh failed: Wrong token type");
-
-            HttpResponse::BadRequest().json(serde_json::json!({
-                "error": "Invalid token type. Please use a refresh token."
-            }))
+            ApiResponse::bad_request(
+                "INVALID_TOKEN_TYPE",
+                "Invalid token type. Please use a refresh token.",
+            )
         }
 
         Err(RefreshTokenError::TokenNotYetValid) => {
             warn!("Token refresh failed: Token not yet valid");
-
-            HttpResponse::BadRequest().json(serde_json::json!({
-                "error": "Token is not yet valid"
-            }))
+            ApiResponse::bad_request("TOKEN_NOT_YET_VALID", "Token is not yet valid")
         }
 
         Err(RefreshTokenError::TokenGenerationFailed(ref e)) => {
             error!(error = %e, "Token generation failed during refresh");
-
-            HttpResponse::InternalServerError().json(serde_json::json!({
-                "error": "Internal server error"
-            }))
+            ApiResponse::internal_error()
         }
     }
 }
@@ -75,6 +72,7 @@ mod tests {
     use crate::auth::application::use_cases::refresh_token::{
         IRefreshTokenUseCase, RefreshTokenError, RefreshTokenRequest, RefreshTokenResponse,
     };
+    use crate::shared::api::custom_json_config;
     use crate::tests::support::app_state_builder::TestAppStateBuilder;
     use crate::tests::support::load_test_env;
     use actix_web::{test, App};
@@ -96,7 +94,6 @@ mod tests {
             Ok(RefreshTokenResponse {
                 access_token: std::env::var("TEST_ACCESS_TOKEN")
                     .unwrap_or_else(|_| "FAKE_TEST_ACCESS_TOKEN_DO_NOT_USE".to_string()),
-
                 refresh_token: std::env::var("TEST_REFRESH_TOKEN")
                     .unwrap_or_else(|_| "FAKE_TEST_REFRESH_TOKEN_DO_NOT_USE".to_string()),
             })
@@ -222,10 +219,12 @@ mod tests {
         assert_eq!(resp.status(), 200);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert!(body["access_token"].is_string());
-        assert!(body["refresh_token"].is_string());
-        assert_eq!(body["access_token"].to_string().is_empty(), false);
-        assert_eq!(body["refresh_token"].to_string().is_empty(), false);
+        assert_eq!(body["success"], true);
+        assert!(body["data"]["access_token"].is_string());
+        assert!(body["data"]["refresh_token"].is_string());
+        assert!(!body["data"]["access_token"].as_str().unwrap().is_empty());
+        assert!(!body["data"]["refresh_token"].as_str().unwrap().is_empty());
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -250,10 +249,13 @@ mod tests {
         assert_eq!(resp.status(), 401);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "TOKEN_EXPIRED");
         assert_eq!(
-            body["error"],
+            body["error"]["message"],
             "Refresh token has expired. Please login again."
         );
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -278,7 +280,10 @@ mod tests {
         assert_eq!(resp.status(), 401);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Invalid refresh token");
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "TOKEN_INVALID");
+        assert_eq!(body["error"]["message"], "Invalid refresh token");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -303,7 +308,10 @@ mod tests {
         assert_eq!(resp.status(), 401);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Invalid refresh token");
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "TOKEN_INVALID");
+        assert_eq!(body["error"]["message"], "Invalid refresh token");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -328,10 +336,13 @@ mod tests {
         assert_eq!(resp.status(), 400);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INVALID_TOKEN_TYPE");
         assert_eq!(
-            body["error"],
+            body["error"]["message"],
             "Invalid token type. Please use a refresh token."
         );
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -356,7 +367,10 @@ mod tests {
         assert_eq!(resp.status(), 400);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Token is not yet valid");
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "TOKEN_NOT_YET_VALID");
+        assert_eq!(body["error"]["message"], "Token is not yet valid");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -381,7 +395,10 @@ mod tests {
         assert_eq!(resp.status(), 500);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Internal server error");
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INTERNAL_ERROR");
+        assert_eq!(body["error"]["message"], "An unexpected error occurred");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -393,6 +410,7 @@ mod tests {
         let app = test::init_service(
             App::new()
                 .app_data(app_state)
+                .app_data(custom_json_config())
                 .service(refresh_token_handler),
         )
         .await;
@@ -406,6 +424,11 @@ mod tests {
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 400);
+
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "VALIDATION_ERROR");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -417,6 +440,7 @@ mod tests {
         let app = test::init_service(
             App::new()
                 .app_data(app_state)
+                .app_data(custom_json_config())
                 .service(refresh_token_handler),
         )
         .await;
@@ -430,6 +454,11 @@ mod tests {
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 400);
+
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "VALIDATION_ERROR");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -445,7 +474,6 @@ mod tests {
         )
         .await;
 
-        // Token should be trimmed
         let req = test::TestRequest::post()
             .uri("/api/auth/refresh")
             .set_json(&serde_json::json!({
@@ -455,6 +483,10 @@ mod tests {
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 200);
+
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], true);
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -470,7 +502,6 @@ mod tests {
         )
         .await;
 
-        // Test with a very long JWT-like token
         let long_token = format!(
             "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.{}.signature",
             "a".repeat(1000)
@@ -485,6 +516,10 @@ mod tests {
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 200);
+
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], true);
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -500,8 +535,6 @@ mod tests {
         )
         .await;
 
-        // Various malformed JWT structures - all should be accepted by the handler
-        // (validation happens in the use case)
         let malformed_tokens = vec![
             "not.a.jwt",
             "onlyonepart",
@@ -518,9 +551,11 @@ mod tests {
                 .to_request();
 
             let resp = test::call_service(&app, req).await;
-            // Handler accepts it (validation happens in use case),
-            // so we get 200 from our mock
             assert_eq!(resp.status(), 200, "Failed for token: {}", token);
+
+            let body: serde_json::Value = test::read_body_json(resp).await;
+            assert_eq!(body["success"], true);
+            assert!(body.get("error").is_none());
         }
     }
 }

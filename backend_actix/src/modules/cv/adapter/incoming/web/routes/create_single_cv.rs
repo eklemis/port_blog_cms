@@ -4,9 +4,11 @@ use crate::cv::application::use_cases::create_cv::CreateCVError;
 use crate::cv::domain::entities::{
     ContactDetail, CoreSkill, Education, Experience, HighlightedProject,
 };
+use crate::shared::api::ApiResponse;
 use crate::AppState;
-use actix_web::{post, web, HttpResponse, Responder};
+use actix_web::{post, web, Responder};
 use serde::{Deserialize, Serialize};
+use tracing::error;
 
 #[derive(Deserialize, Serialize)]
 pub struct CreateCVRequest {
@@ -54,69 +56,72 @@ pub async fn create_cv_handler(
     req: web::Json<CreateCVRequest>,
     data: web::Data<AppState>,
 ) -> impl Responder {
-    // Map the request fields to domain objects
+    let req = req.into_inner();
+
     let cv_data = CreateCVData {
-        role: req.role.clone(),
-        bio: req.bio.clone(),
-        display_name: req.display_name.clone(),
-        photo_url: req.photo_url.clone(),
+        role: req.role,
+        bio: req.bio,
+        display_name: req.display_name,
+        photo_url: req.photo_url,
         core_skills: req
             .core_skills
-            .iter()
+            .into_iter()
             .map(|e| CoreSkill {
-                title: e.title.clone(),
-                description: e.description.clone(),
+                title: e.title,
+                description: e.description,
             })
             .collect(),
         educations: req
             .educations
-            .iter()
+            .into_iter()
             .map(|e| Education {
-                degree: e.degree.clone(),
-                institution: e.institution.clone(),
+                degree: e.degree,
+                institution: e.institution,
                 graduation_year: e.graduation_year,
             })
             .collect(),
         experiences: req
             .experiences
-            .iter()
+            .into_iter()
             .map(|exp| Experience {
-                company: exp.company.clone(),
-                position: exp.position.clone(),
-                location: exp.location.clone(),
-                start_date: exp.start_date.clone(),
-                end_date: exp.end_date.clone(),
-                description: exp.description.clone(),
-                tasks: exp.tasks.clone(),
-                achievements: exp.achievements.clone(),
+                company: exp.company,
+                position: exp.position,
+                location: exp.location,
+                start_date: exp.start_date,
+                end_date: exp.end_date,
+                description: exp.description,
+                tasks: exp.tasks,
+                achievements: exp.achievements,
             })
             .collect(),
         highlighted_projects: req
             .highlighted_projects
-            .iter()
+            .into_iter()
             .map(|hp| HighlightedProject {
-                id: hp.id.clone(),
-                title: hp.title.clone(),
-                slug: hp.slug.clone(),
-                short_description: hp.short_description.clone(),
+                id: hp.id,
+                title: hp.title,
+                slug: hp.slug,
+                short_description: hp.short_description,
             })
             .collect(),
         contact_info: req
             .contact_info
-            .iter()
+            .into_iter()
             .map(|cd| ContactDetail {
-                title: cd.title.clone(),
-                contact_type: cd.contact_type.clone(),
-                content: cd.content.clone(),
+                title: cd.title,
+                contact_type: cd.contact_type,
+                content: cd.content,
             })
             .collect(),
     };
 
-    // Call the use case
     match data.create_cv_use_case.execute(user.user_id, cv_data).await {
-        Ok(created) => HttpResponse::Created().json(created),
+        Ok(created) => ApiResponse::created(created),
 
-        Err(CreateCVError::RepositoryError(e)) => HttpResponse::InternalServerError().body(e),
+        Err(CreateCVError::RepositoryError(e)) => {
+            error!("Repository error creating CV: {}", e);
+            ApiResponse::internal_error()
+        }
     }
 }
 
@@ -133,6 +138,7 @@ mod tests {
     use crate::tests::support::app_state_builder::TestAppStateBuilder;
     use actix_web::{http::StatusCode, test, web, App};
     use async_trait::async_trait;
+    use serde_json::Value;
     use std::sync::Arc;
     use uuid::Uuid;
 
@@ -315,10 +321,13 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::CREATED);
 
-        let body: CVInfo = test::read_body_json(resp).await;
-        assert_eq!(body.user_id, user_id);
-        assert_eq!(body.core_skills.len(), 2);
-        assert_eq!(body.contact_info.len(), 2);
+        // 🔽 minimal & safe
+        let body: Value = test::read_body_json(resp).await;
+        let cv: CVInfo = serde_json::from_value(body["data"].clone()).unwrap();
+
+        assert_eq!(cv.user_id, user_id);
+        assert_eq!(cv.core_skills.len(), 2);
+        assert_eq!(cv.contact_info.len(), 2);
     }
 
     /* --------------------------------------------------
@@ -336,7 +345,8 @@ mod tests {
             .build();
 
         let jwt_service = jwt_service();
-        let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service.clone());
+        let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service);
+
         let app = test::init_service(
             App::new()
                 .app_data(app_state)

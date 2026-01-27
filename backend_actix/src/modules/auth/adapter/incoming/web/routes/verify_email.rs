@@ -1,7 +1,14 @@
 use crate::auth::application::use_cases::verify_user_email::VerifyUserEmailError;
-
+use crate::shared::api::ApiResponse;
 use crate::AppState;
-use actix_web::{web, HttpRequest, HttpResponse, Responder};
+use actix_web::{web, HttpRequest, Responder};
+use serde::Serialize;
+use tracing::error;
+
+#[derive(Serialize)]
+struct VerifyEmailResponse {
+    message: String,
+}
 
 /// **🚀 Verify User Email API Endpoint**
 #[actix_web::get("/api/auth/email-verification/{token}")]
@@ -14,28 +21,21 @@ pub async fn verify_user_email_handler(
     let use_case = &data.verify_user_email_use_case;
 
     match use_case.execute(token).await {
-        Ok(()) => HttpResponse::Ok().json(serde_json::json!({
-            "message": "Email verified successfully"
-        })),
+        Ok(()) => ApiResponse::success(VerifyEmailResponse {
+            message: "Email verified successfully".to_string(),
+        }),
         Err(VerifyUserEmailError::TokenExpired) => {
-            HttpResponse::BadRequest().json(serde_json::json!({
-                "error": "Token has expired"
-            }))
+            ApiResponse::bad_request("TOKEN_EXPIRED", "Token has expired")
         }
         Err(VerifyUserEmailError::TokenInvalid) => {
-            HttpResponse::BadRequest().json(serde_json::json!({
-                "error": "Invalid token"
-            }))
+            ApiResponse::bad_request("TOKEN_INVALID", "Invalid token")
         }
         Err(VerifyUserEmailError::UserNotFound) => {
-            HttpResponse::NotFound().json(serde_json::json!({
-                "error": "User not found"
-            }))
+            ApiResponse::not_found("USER_NOT_FOUND", "User not found")
         }
         Err(VerifyUserEmailError::DatabaseError) => {
-            HttpResponse::InternalServerError().json(serde_json::json!({
-                "error": "Internal server error"
-            }))
+            error!("Database error during email verification");
+            ApiResponse::internal_error()
         }
     }
 }
@@ -129,7 +129,9 @@ mod tests {
         assert_eq!(resp.status(), 200);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["message"], "Email verified successfully");
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["message"], "Email verified successfully");
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -153,7 +155,10 @@ mod tests {
         assert_eq!(resp.status(), 400);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Token has expired");
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "TOKEN_EXPIRED");
+        assert_eq!(body["error"]["message"], "Token has expired");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -177,7 +182,10 @@ mod tests {
         assert_eq!(resp.status(), 400);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Invalid token");
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "TOKEN_INVALID");
+        assert_eq!(body["error"]["message"], "Invalid token");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -201,7 +209,10 @@ mod tests {
         assert_eq!(resp.status(), 404);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "User not found");
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "USER_NOT_FOUND");
+        assert_eq!(body["error"]["message"], "User not found");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -225,7 +236,10 @@ mod tests {
         assert_eq!(resp.status(), 500);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["error"], "Internal server error");
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INTERNAL_ERROR");
+        assert_eq!(body["error"]["message"], "An unexpected error occurred");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -241,7 +255,6 @@ mod tests {
         )
         .await;
 
-        // Test token with URL-safe base64 characters
         let req = test::TestRequest::get()
             .uri("/api/auth/email-verification/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9")
             .to_request();
@@ -250,7 +263,9 @@ mod tests {
         assert_eq!(resp.status(), 200);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["message"], "Email verified successfully");
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["message"], "Email verified successfully");
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -266,7 +281,6 @@ mod tests {
         )
         .await;
 
-        // Test with a very long token (simulating JWT)
         let long_token = "a".repeat(500);
         let uri = format!("/api/auth/email-verification/{}", long_token);
 
@@ -276,6 +290,8 @@ mod tests {
         assert_eq!(resp.status(), 200);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["message"], "Email verified successfully");
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["message"], "Email verified successfully");
+        assert!(body.get("error").is_none());
     }
 }

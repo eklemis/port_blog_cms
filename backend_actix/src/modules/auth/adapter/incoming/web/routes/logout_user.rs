@@ -1,8 +1,14 @@
 use crate::modules::auth::application::use_cases::logout_user::{LogoutError, LogoutRequest};
+use crate::shared::api::ApiResponse;
 use crate::AppState;
-use actix_web::{post, web, HttpResponse, Responder};
-
+use actix_web::{post, web, Responder};
+use serde::Serialize;
 use tracing::{error, info};
+
+#[derive(Serialize)]
+struct LogoutResponseBody {
+    message: String,
+}
 
 /// **🚪 Logout User API Endpoint**
 #[post("/api/auth/logout")]
@@ -20,29 +26,25 @@ pub async fn logout_user_handler(
     match result {
         Ok(response) => {
             info!("User logged out successfully");
-
-            HttpResponse::Ok().json(serde_json::json!({
-                "message": response.message
-            }))
+            ApiResponse::success(LogoutResponseBody {
+                message: response.message,
+            })
         }
 
         Err(LogoutError::TokenRevocationFailed(ref e)) => {
             error!(error = %e, "Token revocation failed during logout");
-
             // Still return success to user - they're logged out on client side
-            // Log the error for investigation
-            HttpResponse::Ok().json(serde_json::json!({
-                "message": "Logged out successfully"
-            }))
+            ApiResponse::success(LogoutResponseBody {
+                message: "Logged out successfully".to_string(),
+            })
         }
 
         Err(LogoutError::DatabaseError(ref e)) => {
             error!(error = %e, "Database error during logout");
-
             // Still return success to user
-            HttpResponse::Ok().json(serde_json::json!({
-                "message": "Logged out successfully"
-            }))
+            ApiResponse::success(LogoutResponseBody {
+                message: "Logged out successfully".to_string(),
+            })
         }
     }
 }
@@ -121,7 +123,9 @@ mod tests {
         assert_eq!(resp.status(), 200);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["message"], "Logged out successfully");
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["message"], "Logged out successfully");
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -142,7 +146,9 @@ mod tests {
         assert_eq!(resp.status(), 200);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["message"], "Logged out successfully");
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["message"], "Logged out successfully");
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -165,7 +171,9 @@ mod tests {
         assert_eq!(resp.status(), 200);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["message"], "Logged out successfully");
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["message"], "Logged out successfully");
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -185,11 +193,12 @@ mod tests {
             .to_request();
 
         let resp = test::call_service(&app, req).await;
-        // Handler returns 200 even on token revocation failure (graceful degradation)
         assert_eq!(resp.status(), 200);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["message"], "Logged out successfully");
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["message"], "Logged out successfully");
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -209,11 +218,12 @@ mod tests {
             .to_request();
 
         let resp = test::call_service(&app, req).await;
-        // Handler returns 200 even on database error (graceful degradation)
         assert_eq!(resp.status(), 200);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["message"], "Logged out successfully");
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["message"], "Logged out successfully");
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -236,7 +246,9 @@ mod tests {
         assert_eq!(resp.status(), 200);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["message"], "Logged out successfully");
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["message"], "Logged out successfully");
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -259,7 +271,9 @@ mod tests {
         assert_eq!(resp.status(), 200);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["message"], "Logged out successfully");
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["message"], "Logged out successfully");
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -271,7 +285,6 @@ mod tests {
         let app =
             test::init_service(App::new().app_data(app_state).service(logout_user_handler)).await;
 
-        // Token should be trimmed
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
             .set_json(&serde_json::json!({
@@ -283,7 +296,9 @@ mod tests {
         assert_eq!(resp.status(), 200);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["message"], "Logged out successfully");
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["message"], "Logged out successfully");
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -295,7 +310,6 @@ mod tests {
         let app =
             test::init_service(App::new().app_data(app_state).service(logout_user_handler)).await;
 
-        // Test with a very long JWT-like token
         let long_token = format!(
             "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.{}.signature",
             "a".repeat(1000)
@@ -312,7 +326,9 @@ mod tests {
         assert_eq!(resp.status(), 200);
 
         let body: serde_json::Value = test::read_body_json(resp).await;
-        assert_eq!(body["message"], "Logged out successfully");
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["message"], "Logged out successfully");
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -337,6 +353,9 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 200);
 
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], true);
+
         // Second logout with same token (should still succeed - idempotent)
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
@@ -347,6 +366,9 @@ mod tests {
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 200);
+
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], true);
     }
 
     #[actix_web::test]
@@ -358,7 +380,6 @@ mod tests {
         let app =
             test::init_service(App::new().app_data(app_state).service(logout_user_handler)).await;
 
-        // Malformed tokens should still result in successful logout
         let malformed_tokens = vec![
             "not.a.jwt",
             "onlyonepart",
@@ -378,7 +399,9 @@ mod tests {
             assert_eq!(resp.status(), 200, "Failed for token: {}", token);
 
             let body: serde_json::Value = test::read_body_json(resp).await;
-            assert_eq!(body["message"], "Logged out successfully");
+            assert_eq!(body["success"], true);
+            assert_eq!(body["data"]["message"], "Logged out successfully");
+            assert!(body.get("error").is_none());
         }
     }
 }

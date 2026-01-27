@@ -4,10 +4,12 @@ use crate::cv::application::use_cases::patch_cv::PatchCVError;
 use crate::cv::domain::entities::{
     ContactDetail, CoreSkill, Education, Experience, HighlightedProject,
 };
+use crate::shared::api::ApiResponse;
 use crate::AppState;
 use actix_web::patch;
-use actix_web::{web, HttpResponse, Responder};
+use actix_web::{web, Responder};
 use serde::{Deserialize, Serialize};
+use tracing::error;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -58,9 +60,12 @@ pub async fn patch_cv_handler(
         .execute(user.user_id, cv_id, patch_data)
         .await
     {
-        Ok(cv) => HttpResponse::Ok().json(cv),
-        Err(PatchCVError::CVNotFound) => HttpResponse::NotFound().finish(),
-        Err(PatchCVError::RepositoryError(e)) => HttpResponse::InternalServerError().body(e),
+        Ok(cv) => ApiResponse::success(cv),
+        Err(PatchCVError::CVNotFound) => ApiResponse::not_found("CV_NOT_FOUND", "CV not found"),
+        Err(PatchCVError::RepositoryError(e)) => {
+            error!("Repository error patching CV: {}", e);
+            ApiResponse::internal_error()
+        }
     }
 }
 
@@ -145,7 +150,6 @@ mod tests {
                 .clone()
                 .expect("MockPatchCvUseCase called without set_success");
 
-            // ✅ APPLY PATCH LOGIC (this was missing before)
             Ok(CVInfo {
                 id: cv_id,
                 user_id: existing.user_id,
@@ -231,13 +235,18 @@ mod tests {
 
         assert_eq!(resp.status(), 200);
 
-        let body: CVInfo = test::read_body_json(resp).await;
-        assert_eq!(body.bio, "Updated bio");
-        assert_eq!(body.role, "Engineer");
-        assert_eq!(body.display_name, "Berto Fang");
-        assert_eq!(body.contact_info[0].contact_type, ContactType::WebPage);
-        assert_eq!(body.contact_info[0].title, "Blog");
-        assert_eq!(body.contact_info[0].content, "www.nonexist.blog.com");
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["bio"], "Updated bio");
+        assert_eq!(body["data"]["role"], "Engineer");
+        assert_eq!(body["data"]["display_name"], "Berto Fang");
+        assert_eq!(body["data"]["contact_info"][0]["contact_type"], "WebPage");
+        assert_eq!(body["data"]["contact_info"][0]["title"], "Blog");
+        assert_eq!(
+            body["data"]["contact_info"][0]["content"],
+            "www.nonexist.blog.com"
+        );
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -297,9 +306,11 @@ mod tests {
 
         assert_eq!(resp.status(), 200);
 
-        let body: CVInfo = test::read_body_json(resp).await;
-        assert_eq!(body.role, "Updated role here");
-        assert_eq!(body.display_name, "Updated name here");
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], true);
+        assert_eq!(body["data"]["role"], "Updated role here");
+        assert_eq!(body["data"]["display_name"], "Updated name here");
+        assert!(body.get("error").is_none());
     }
 
     #[actix_web::test]
@@ -335,6 +346,12 @@ mod tests {
         let resp = test::call_service(&app, req).await;
 
         assert_eq!(resp.status(), 404);
+
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "CV_NOT_FOUND");
+        assert_eq!(body["error"]["message"], "CV not found");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]
@@ -375,9 +392,11 @@ mod tests {
 
         assert_eq!(resp.status(), 500);
 
-        let body = test::read_body(resp).await;
-        let body_str = String::from_utf8(body.to_vec()).unwrap();
-        assert!(body_str.contains("DB update failed"));
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["success"], false);
+        assert_eq!(body["error"]["code"], "INTERNAL_ERROR");
+        assert_eq!(body["error"]["message"], "An unexpected error occurred");
+        assert!(body.get("data").is_none());
     }
 
     #[actix_web::test]

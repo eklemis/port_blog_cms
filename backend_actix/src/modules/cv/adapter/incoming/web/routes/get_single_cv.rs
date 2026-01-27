@@ -1,9 +1,11 @@
-use actix_web::{get, web, HttpResponse, Responder};
+use actix_web::{get, web, Responder};
+use tracing::error;
 use uuid::Uuid;
 
 use crate::{
     auth::adapter::incoming::web::extractors::auth::VerifiedUser,
-    cv::application::use_cases::fetch_cv_by_id::FetchCVByIdError, AppState,
+    cv::application::use_cases::fetch_cv_by_id::FetchCVByIdError, shared::api::ApiResponse,
+    AppState,
 };
 
 #[get("/api/cvs/{cv_id}")]
@@ -19,18 +21,20 @@ pub async fn get_cv_by_id_handler(
         .execute(user.user_id, cv_id)
         .await
     {
-        Ok(cv) => HttpResponse::Ok().json(cv),
+        Ok(cv) => ApiResponse::success(cv),
 
-        Err(FetchCVByIdError::CVNotFound) => HttpResponse::NotFound().finish(),
+        Err(FetchCVByIdError::CVNotFound) => ApiResponse::not_found("CV_NOT_FOUND", "CV not found"),
 
         Err(FetchCVByIdError::RepositoryError(err)) => {
-            HttpResponse::InternalServerError().body(err)
+            error!("Repository error fetching CV by id: {}", err);
+            ApiResponse::internal_error()
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use serde_json::Value;
     use std::sync::Arc;
 
     use super::*;
@@ -144,12 +148,13 @@ mod tests {
             .to_request();
 
         let resp = test::call_service(&app, req).await;
-
         assert_eq!(resp.status(), 200);
 
-        let body: CVInfo = test::read_body_json(resp).await;
-        assert_eq!(body.id, cv_id);
-        assert_eq!(body.bio, expected_cv.bio);
+        let body: Value = test::read_body_json(resp).await;
+        let cv: CVInfo = serde_json::from_value(body["data"].clone()).unwrap();
+
+        assert_eq!(cv.id, cv_id);
+        assert_eq!(cv.bio, expected_cv.bio);
     }
 
     #[actix_web::test]
@@ -204,7 +209,7 @@ mod tests {
 
         let jwt_service = create_test_jwt_service();
         let token = jwt_service.generate_access_token(user_id, true).unwrap();
-        let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service.clone());
+        let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service);
 
         let app = test::init_service(
             App::new()
@@ -220,12 +225,7 @@ mod tests {
             .to_request();
 
         let resp = test::call_service(&app, req).await;
-
         assert_eq!(resp.status(), 500);
-
-        let body = test::read_body(resp).await;
-        let body_str = String::from_utf8(body.to_vec()).unwrap();
-        assert!(body_str.contains("DB read failed"));
     }
 
     #[actix_web::test]
