@@ -27,6 +27,7 @@ members = [".", "migration", "entity"]
 [features]
 default = []
 test-helpers = []
+no_db_triggers = []
 
 [dependencies]
 actix-web = "4"

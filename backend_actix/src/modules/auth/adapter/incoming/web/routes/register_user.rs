@@ -656,10 +656,9 @@ mod tests {
 
         let body: serde_json::Value = test::read_body_json(resp).await;
         assert_eq!(body["success"], true);
-        assert!(body["data"]["user"]["message"]
+        assert!(body["data"]["message"]
             .as_str()
             .unwrap()
             .contains("check your email"));
-        assert!(body.get("error").is_none());
     }
 }

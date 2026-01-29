@@ -1,6 +1,11 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::{
+    auth::application::domain::entities::UserId,
+    modules::topic::application::domain::entities::Topic,
+};
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CVInfo {
     pub id: Uuid,
@@ -12,7 +17,7 @@ pub struct CVInfo {
     pub core_skills: Vec<CoreSkill>,
     pub educations: Vec<Education>,
     pub experiences: Vec<Experience>,
-    pub highlighted_projects: Vec<HighlightedProject>,
+    pub highlighted_projects: Vec<HighlightedProject>, // INTENTION NOT CLEAR
     pub contact_info: Vec<ContactDetail>,
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -40,6 +45,7 @@ pub struct Experience {
     pub achievements: Vec<String>,
 }
 
+// INTENTION NOT CLEAR
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HighlightedProject {
     pub id: String,
@@ -50,27 +56,16 @@ pub struct HighlightedProject {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Project {
+    pub owner: UserId,
     pub id: String,
     pub title: String,
-    pub slug: String,
+    pub slugs: Vec<String>,
     pub description: String,
     pub tech_stack: Vec<String>,
-    pub featured: bool,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct SingleProjectDetails {
-    pub id: String,
-    pub title: String,
-    pub slug: String,
-    pub description: String,
-    pub tech_stack: Vec<String>,
-    pub featured: bool,
     pub screenshots: Vec<Screenshot>,
     pub repo_url: String,
     pub live_demo_url: String,
+    pub project_topics: Vec<Topic>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -79,7 +74,7 @@ pub struct SingleProjectDetails {
 pub struct Screenshot {
     pub url: String,
     pub order: i32,
-    pub featured: bool,
+    pub featured: bool, //shows first
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]

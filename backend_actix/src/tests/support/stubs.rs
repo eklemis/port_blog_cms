@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use uuid::Uuid;
 
@@ -25,6 +27,7 @@ use crate::cv::domain::entities::CVInfo;
 use crate::email::application::ports::outgoing::user_email_notifier::{
     UserEmailNotificationError, UserEmailNotifier,
 };
+use crate::topic::application::ports::outgoing::TopicResult;
 use crate::{
     auth::application::use_cases::login_user::{LoginError, LoginRequest, LoginUserResponse},
     cv::application::use_cases::{
@@ -42,6 +45,14 @@ use crate::auth::application::use_cases::{
     logout_user::ILogoutUseCase,
     verify_user_email::{IVerifyUserEmailUseCase, VerifyUserEmailError},
 };
+
+use crate::modules::topic::application::ports::incoming::use_cases::{
+    CreateTopicCommand, CreateTopicUseCase, GetTopicsUseCase, SoftDeleteTopicUseCase,
+};
+use crate::modules::topic::application::ports::incoming::use_cases::{
+    CreateTopicError, GetTopicsError, SoftDeleteTopicError,
+};
+use crate::modules::topic::application::ports::outgoing::TopicQueryResult;
 
 #[derive(Default, Clone)]
 pub struct StubFetchCVUseCase;
@@ -240,5 +251,54 @@ pub struct StubResotoreDeletedCv;
 impl RestoreDeletedCvUseCase for StubResotoreDeletedCv {
     async fn execute(&self, _user_id: UserId, _cv_id: Uuid) -> Result<(), RestoreCVError> {
         unimplemented!()
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct StubCreateTopicUseCase;
+
+#[async_trait]
+impl CreateTopicUseCase for StubCreateTopicUseCase {
+    async fn execute(&self, command: CreateTopicCommand) -> Result<TopicResult, CreateTopicError> {
+        Ok(TopicResult {
+            id: uuid::Uuid::new_v4(),
+            owner: command.owner().clone(),
+            title: command.title().to_string(),
+            description: command.description().cloned().unwrap_or_default(),
+        })
+    }
+}
+
+#[derive(Clone)]
+pub struct StubGetTopicsUseCase {
+    result: Result<Vec<TopicQueryResult>, GetTopicsError>,
+}
+
+impl StubGetTopicsUseCase {
+    pub fn success(data: Vec<TopicQueryResult>) -> Self {
+        Self { result: Ok(data) }
+    }
+
+    pub fn failure(msg: &str) -> Self {
+        Self {
+            result: Err(GetTopicsError::QueryFailed(msg.into())),
+        }
+    }
+}
+
+#[async_trait]
+impl GetTopicsUseCase for StubGetTopicsUseCase {
+    async fn execute(&self, _owner: UserId) -> Result<Vec<TopicQueryResult>, GetTopicsError> {
+        self.result.clone()
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct StubSoftDeleteTopicUseCase;
+
+#[async_trait]
+impl SoftDeleteTopicUseCase for StubSoftDeleteTopicUseCase {
+    async fn execute(&self, _owner: UserId, _topic_id: Uuid) -> Result<(), SoftDeleteTopicError> {
+        Ok(())
     }
 }

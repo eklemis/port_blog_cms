@@ -25,16 +25,19 @@ pub enum Relation {}
 #[async_trait::async_trait]
 impl ActiveModelBehavior for ActiveModel {
     // Override the before_save hook
-    async fn before_save<C>(mut self, _db: &C, insert: bool) -> Result<Self, DbErr>
+    async fn before_save<C>(mut self, _db: &C, _insert: bool) -> Result<Self, DbErr>
     where
         C: ConnectionTrait,
     {
-        use chrono::Utc;
-        use sea_orm::ActiveValue::Set;
-
-        if !insert {
-            // Only update updated_at on UPDATE, not INSERT
-            self.updated_at = Set(Utc::now().into());
+        #[cfg(feature = "no_db_triggers")]
+        {
+            use chrono::Utc;
+            use sea_orm::ActiveValue::Set;
+            let insert = _insert;
+            if !insert {
+                // Only update updated_at on UPDATE, not INSERT
+                self.updated_at = Set(Utc::now().into());
+            }
         }
 
         Ok(self)

@@ -2,6 +2,8 @@ pub mod modules;
 pub use modules::auth;
 pub use modules::cv;
 pub use modules::email;
+pub use modules::project;
+pub use modules::topic;
 pub mod health;
 pub mod shared;
 
@@ -39,6 +41,9 @@ use crate::modules::auth::application::use_cases::update_profile::UpdateUserProf
 use crate::modules::cv::application::use_cases::hard_delete_cv::HardDeleteCvUseCase;
 use crate::modules::email::application::ports::outgoing::user_email_notifier::UserEmailNotifier;
 
+use crate::modules::topic::application::ports::incoming::use_cases::CreateTopicUseCase;
+use crate::modules::topic::application::ports::incoming::use_cases::GetTopicsUseCase;
+use crate::modules::topic::application::ports::incoming::use_cases::SoftDeleteTopicUseCase;
 use crate::shared::api::custom_json_config;
 
 use actix_web::{web, App, HttpServer};
@@ -71,6 +76,9 @@ pub struct AppState {
     pub fetch_user_profile_use_case: Arc<dyn FetchUserProfileUseCase + Send + Sync>,
     pub update_user_profile_use_case: Arc<dyn UpdateUserProfileUseCase + Send + Sync>,
     pub hard_delete_cv_use_case: Arc<dyn HardDeleteCvUseCase + Send + Sync>,
+    pub create_topic_use_case: Arc<dyn CreateTopicUseCase + Send + Sync>,
+    pub get_topics_use_case: Arc<dyn GetTopicsUseCase + Send + Sync>,
+    pub soft_delete_topic_use_case: Arc<dyn SoftDeleteTopicUseCase + Send + Sync>,
 }
 
 #[actix_web::main]
@@ -86,6 +94,10 @@ async fn start() -> std::io::Result<()> {
             },
         },
         cv::{adapter::outgoing::CVArchiverPostgres, application::services::HardDeleteCvService},
+        topic::{
+            adapter::outgoing::{TopicQueryPostgres, TopicRepositoryPostgres},
+            application::services::{CreateTopicService, GetTopicsService, SoftDeleteTopicService},
+        },
     };
 
     tracing_subscriber::registry()
@@ -222,6 +234,13 @@ async fn start() -> std::io::Result<()> {
     let fetch_user_profile_service = FetchUserProfileService::new(user_query.clone());
     let update_user_profile_service = UpdateUserProfileService::new(user_repo.clone());
 
+    // Topics use cases, repo and query
+    let topic_repo = TopicRepositoryPostgres::new(Arc::clone(&db_arc));
+    let topic_query = TopicQueryPostgres::new(Arc::clone(&db_arc));
+    let create_topic_uc = CreateTopicService::new(topic_repo.clone());
+    let get_topics_uc = GetTopicsService::new(topic_query.clone());
+    let soft_delete_topic_uc = SoftDeleteTopicService::new(topic_query.clone(), topic_repo.clone());
+
     let state = AppState {
         fetch_cv_use_case: Arc::new(fetch_cv_use_case),
         fetch_cv_by_id_use_case: Arc::new(fetch_cv_by_id_use_case),
@@ -237,6 +256,9 @@ async fn start() -> std::io::Result<()> {
         fetch_user_profile_use_case: Arc::new(fetch_user_profile_service),
         update_user_profile_use_case: Arc::new(update_user_profile_service),
         hard_delete_cv_use_case: Arc::new(hard_delete_cv_use_case),
+        create_topic_use_case: Arc::new(create_topic_uc),
+        get_topics_use_case: Arc::new(get_topics_uc),
+        soft_delete_topic_use_case: Arc::new(soft_delete_topic_uc),
     };
 
     let token_provider_arc: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service);
@@ -286,6 +308,16 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::auth::adapter::incoming::web::routes::soft_delete_user_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::get_user_profile_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::update_user_profile_handler);
+    // Topic
+    cfg.service(crate::topic::adapter::incoming::web::routes::get_topics_handler);
+    cfg.service(crate::topic::adapter::incoming::web::routes::create_topic_handler);
+    cfg.service(crate::topic::adapter::incoming::web::routes::soft_delete_topic_handler);
+    // Project
+    cfg.service(crate::project::adapter::incoming::web::routes::get_projects_handler);
+    cfg.service(crate::project::adapter::incoming::web::routes::create_project_handler);
+    cfg.service(crate::project::adapter::incoming::web::routes::hard_delete_project_handler);
+    cfg.service(crate::project::adapter::incoming::web::routes::patch_project_handler);
+    cfg.service(crate::project::adapter::incoming::web::routes::soft_delete_project_handler);
 }
 
 #[cfg(not(tarpaulin_include))]

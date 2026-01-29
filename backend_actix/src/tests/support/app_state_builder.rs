@@ -14,6 +14,9 @@ use crate::cv::application::use_cases::hard_delete_cv::HardDeleteCvUseCase;
 use crate::cv::application::use_cases::patch_cv::IPatchCVUseCase;
 use crate::cv::application::use_cases::update_cv::IUpdateCVUseCase;
 use crate::tests::support::stubs::*;
+use crate::topic::application::ports::incoming::use_cases::{
+    CreateTopicUseCase, GetTopicsUseCase, SoftDeleteTopicUseCase,
+};
 use crate::AppState;
 use actix_web::web;
 use std::sync::Arc;
@@ -33,6 +36,9 @@ pub struct TestAppStateBuilder {
     fetch_user_profile: Option<Arc<dyn FetchUserProfileUseCase + Send + Sync>>,
     update_user_profile: Option<Arc<dyn UpdateUserProfileUseCase + Send + Sync>>,
     hard_delete_cv: Option<Arc<dyn HardDeleteCvUseCase + Send + Sync>>,
+    create_topic: Option<Arc<dyn CreateTopicUseCase + Send + Sync>>,
+    get_topics: Option<Arc<dyn GetTopicsUseCase + Send + Sync>>,
+    soft_delete_topic: Option<Arc<dyn SoftDeleteTopicUseCase + Send + Sync>>,
 }
 
 pub fn default_test_user_registration_orchestrator() -> Arc<UserRegistrationOrchestrator> {
@@ -62,6 +68,9 @@ impl Default for TestAppStateBuilder {
             fetch_user_profile: Some(Arc::new(StubFetchUserProfileUseCase)),
             update_user_profile: Some(Arc::new(StubUpdateUserProfileUseCase)),
             hard_delete_cv: Some(Arc::new(StubHardDeleteCvUseCase)),
+            create_topic: Some(Arc::new(StubCreateTopicUseCase)),
+            get_topics: Some(Arc::new(StubGetTopicsUseCase::success(vec![]))),
+            soft_delete_topic: Some(Arc::new(StubSoftDeleteTopicUseCase)),
         }
     }
 }
@@ -160,6 +169,27 @@ impl TestAppStateBuilder {
         self
     }
 
+    pub fn with_create_topic(
+        mut self,
+        uc: impl CreateTopicUseCase + Send + Sync + 'static,
+    ) -> Self {
+        self.create_topic = Some(Arc::new(uc));
+        self
+    }
+
+    pub fn with_get_topics(mut self, uc: impl GetTopicsUseCase + Send + Sync + 'static) -> Self {
+        self.get_topics = Some(Arc::new(uc));
+        self
+    }
+
+    pub fn with_soft_delete_topic(
+        mut self,
+        uc: impl SoftDeleteTopicUseCase + Send + Sync + 'static,
+    ) -> Self {
+        self.soft_delete_topic = Some(Arc::new(uc));
+        self
+    }
+
     pub fn build(self) -> web::Data<AppState> {
         web::Data::new(AppState {
             fetch_cv_use_case: self.fetch_cv.unwrap(),
@@ -176,6 +206,9 @@ impl TestAppStateBuilder {
             fetch_user_profile_use_case: self.fetch_user_profile.unwrap(),
             update_user_profile_use_case: self.update_user_profile.unwrap(),
             hard_delete_cv_use_case: self.hard_delete_cv.unwrap(),
+            create_topic_use_case: self.create_topic.unwrap(),
+            get_topics_use_case: self.get_topics.unwrap(),
+            soft_delete_topic_use_case: self.soft_delete_topic.unwrap(),
         })
     }
 }
