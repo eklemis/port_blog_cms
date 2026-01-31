@@ -25,11 +25,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Projects::Title).string_len(150).not_null())
                     .col(ColumnDef::new(Projects::Slug).string_len(150).not_null())
                     .col(ColumnDef::new(Projects::Description).text().not_null())
-                    .col(
-                        ColumnDef::new(Projects::TechStack)
-                            .array(ColumnType::Text)
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Projects::TechStack).json_binary().not_null())
                     .col(
                         ColumnDef::new(Projects::Screenshots)
                             .json_binary()
@@ -42,6 +38,12 @@ impl MigrationTrait for Migration {
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(Projects::IsDeleted)
+                            .boolean()
+                            .not_null()
+                            .default(false),
                     )
                     .col(
                         ColumnDef::new(Projects::UpdatedAt)
@@ -70,19 +72,31 @@ impl MigrationTrait for Migration {
             .get_connection()
             .execute_unprepared(
                 r#"
-                CREATE INDEX idx_projects_user_id
+                CREATE INDEX IF NOT EXISTS idx_projects_user_id
                 ON projects (user_id);
                 "#,
             )
             .await?;
 
-        // Enforce slug uniqueness per user
+        // Enforce GLOBAL slug uniqueness (case-insensitive)
+        // Using lower(slug) avoids Rust/rust collisions without needing citext.
         manager
             .get_connection()
             .execute_unprepared(
                 r#"
-                CREATE UNIQUE INDEX idx_projects_user_slug_unique
-                ON projects (user_id, slug);
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_slug_unique
+                ON projects (lower(slug));
+                "#,
+            )
+            .await?;
+        // GIN index for fast containment queries
+        // Handle fast retrieval for query like "find projects with tech X" or `SELECT * FROM projects WHERE tech_stack @> '["Rust"]';`
+        manager
+            .get_connection()
+            .execute_unprepared(
+                r#"
+                CREATE INDEX IF NOT EXISTS idx_projects_tech_stack
+                ON projects USING GIN (tech_stack);
                 "#,
             )
             .await?;
@@ -123,7 +137,7 @@ impl MigrationTrait for Migration {
             .execute_unprepared(
                 r#"
                 DROP INDEX IF EXISTS idx_projects_user_id;
-                DROP INDEX IF EXISTS idx_projects_user_slug_unique;
+                DROP INDEX IF EXISTS idx_projects_slug_unique;
                 "#,
             )
             .await?;
@@ -147,6 +161,7 @@ enum Projects {
     Screenshots,
     RepoUrl,
     LiveDemoUrl,
+    IsDeleted,
     CreatedAt,
     UpdatedAt,
 }

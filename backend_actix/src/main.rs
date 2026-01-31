@@ -266,6 +266,7 @@ async fn start() -> std::io::Result<()> {
     let db_for_server = Arc::clone(&db_arc);
 
     HttpServer::new(move || {
+        #[allow(unused_mut)]
         let mut app = App::new()
             .app_data(web::Data::new(state.clone()))
             .app_data(web::Data::new(Arc::clone(&token_provider_arc)))

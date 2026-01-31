@@ -8,7 +8,7 @@ use crate::modules::topic::application::ports::outgoing::{
 };
 
 // SeaORM entity imports
-use super::sea_orm_entity::{ActiveModel as TopicActiveModel, Model as TopicModel};
+use super::sea_orm_entity::topics::{ActiveModel as TopicActiveModel, Model as TopicModel};
 
 #[derive(Debug, Clone)]
 pub struct TopicRepositoryPostgres {

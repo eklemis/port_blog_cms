@@ -8,7 +8,9 @@ use crate::modules::topic::application::ports::outgoing::{
 };
 
 // SeaORM entity
-use super::sea_orm_entity::{Column as TopicColumn, Entity as TopicEntity, Model as TopicModel};
+use super::sea_orm_entity::topics::{
+    Column as TopicColumn, Entity as TopicEntity, Model as TopicModel,
+};
 
 #[derive(Debug, Clone)]
 pub struct TopicQueryPostgres {
