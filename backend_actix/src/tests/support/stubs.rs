@@ -28,9 +28,11 @@ use crate::email::application::ports::outgoing::user_email_notifier::{
     UserEmailNotificationError, UserEmailNotifier,
 };
 use crate::project::application::ports::incoming::use_cases::{
-    GetProjectsUseCase, GetSingleProjectError, GetSingleProjectUseCase,
+    GetProjectsUseCase, GetSingleProjectError, GetSingleProjectUseCase, PatchProjectError,
+    PatchProjectUseCase,
 };
 use crate::project::application::ports::outgoing::project_query::ProjectView;
+use crate::project::application::ports::outgoing::project_repository::PatchProjectData;
 use crate::tests::support::project_test_fixtures::empty_page_result;
 use crate::topic::application::ports::outgoing::TopicResult;
 use crate::{
@@ -401,5 +403,55 @@ impl GetSingleProjectUseCase for StubGetSingleProjectUseCase {
         _project_id: Uuid,
     ) -> Result<ProjectView, GetSingleProjectError> {
         self.result.clone()
+    }
+}
+
+#[derive(Clone)]
+pub struct StubPatchProjectUseCase {
+    result: Result<ProjectResult, PatchProjectError>,
+}
+
+impl StubPatchProjectUseCase {
+    pub fn success(data: ProjectResult) -> Self {
+        Self { result: Ok(data) }
+    }
+
+    pub fn not_found() -> Self {
+        Self {
+            result: Err(PatchProjectError::NotFound),
+        }
+    }
+
+    pub fn repo_error(msg: &str) -> Self {
+        Self {
+            result: Err(PatchProjectError::RepositoryError(msg.to_string())),
+        }
+    }
+}
+
+#[async_trait]
+impl PatchProjectUseCase for StubPatchProjectUseCase {
+    async fn execute(
+        &self,
+        _owner: UserId,
+        _project_id: Uuid,
+        _data: PatchProjectData,
+    ) -> Result<ProjectResult, PatchProjectError> {
+        self.result.clone()
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct DefaultStubPatchProjectUseCase;
+
+#[async_trait]
+impl PatchProjectUseCase for DefaultStubPatchProjectUseCase {
+    async fn execute(
+        &self,
+        _owner: UserId,
+        _project_id: Uuid,
+        _data: PatchProjectData,
+    ) -> Result<ProjectResult, PatchProjectError> {
+        unimplemented!("Not used in this test")
     }
 }

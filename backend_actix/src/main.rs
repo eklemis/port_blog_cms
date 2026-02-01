@@ -98,8 +98,9 @@ async fn start() -> std::io::Result<()> {
         cv::{adapter::outgoing::CVArchiverPostgres, application::services::HardDeleteCvService},
         project::{
             adapter::outgoing::{ProjectQueryPostgres, ProjectRepositoryPostgres},
-            application::service::{
-                CreateProjectService, GetProjectsService, GetSingleProjectService,
+            application::{
+                ports::outgoing::patch_project_service::PatchProjectService,
+                service::{CreateProjectService, GetProjectsService, GetSingleProjectService},
             },
         },
         topic::{
@@ -255,10 +256,12 @@ async fn start() -> std::io::Result<()> {
     let create_project_uc = CreateProjectService::new(project_repo.clone());
     let get_project_uc = GetProjectsService::new(project_query.clone());
     let get_single_project_uc = GetSingleProjectService::new(project_query.clone());
+    let patch_project_uc = PatchProjectService::new(project_repo.clone());
     let project_use_cases = ProjectUseCases {
         create: Arc::new(create_project_uc),
         get_list: Arc::new(get_project_uc),
         get_single: Arc::new(get_single_project_uc),
+        patch: Arc::new(patch_project_uc),
     };
 
     let state = AppState {

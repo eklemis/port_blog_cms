@@ -16,7 +16,7 @@ use crate::cv::application::use_cases::update_cv::IUpdateCVUseCase;
 use crate::modules::project::application::ports::incoming::use_cases::CreateProjectUseCase;
 use crate::modules::project::application::project_use_cases::ProjectUseCases;
 use crate::project::application::ports::incoming::use_cases::{
-    GetProjectsUseCase, GetSingleProjectUseCase,
+    GetProjectsUseCase, GetSingleProjectUseCase, PatchProjectUseCase,
 };
 use crate::tests::support::stubs::*;
 use crate::topic::application::ports::incoming::use_cases::{
@@ -83,6 +83,7 @@ impl Default for TestAppStateBuilder {
                 )),
                 get_list: Arc::new(DefaultStubGetProjectsUseCase),
                 get_single: Arc::new(StubGetSingleProjectUseCase::not_found()),
+                patch: Arc::new(DefaultStubPatchProjectUseCase),
             }),
         }
     }
@@ -233,6 +234,19 @@ impl TestAppStateBuilder {
             .expect("Project use cases must be initialized");
 
         project.get_single = Arc::new(uc);
+        self
+    }
+    pub fn with_patch_project(
+        mut self,
+        uc: impl PatchProjectUseCase + Send + Sync + 'static,
+    ) -> Self {
+        // ProjectUseCases is guaranteed to exist from Default
+        let project = self
+            .project
+            .as_mut()
+            .expect("Project use cases must be initialized");
+
+        project.patch = Arc::new(uc);
         self
     }
 
