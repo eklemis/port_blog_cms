@@ -13,6 +13,9 @@ use crate::cv::application::use_cases::fetch_user_cvs::IFetchCVUseCase;
 use crate::cv::application::use_cases::hard_delete_cv::HardDeleteCvUseCase;
 use crate::cv::application::use_cases::patch_cv::IPatchCVUseCase;
 use crate::cv::application::use_cases::update_cv::IUpdateCVUseCase;
+use crate::modules::project::application::ports::incoming::use_cases::CreateProjectUseCase;
+use crate::modules::project::application::project_use_cases::ProjectUseCases;
+use crate::project::application::ports::incoming::use_cases::GetProjectsUseCase;
 use crate::tests::support::stubs::*;
 use crate::topic::application::ports::incoming::use_cases::{
     CreateTopicUseCase, GetTopicsUseCase, SoftDeleteTopicUseCase,
@@ -39,6 +42,7 @@ pub struct TestAppStateBuilder {
     create_topic: Option<Arc<dyn CreateTopicUseCase + Send + Sync>>,
     get_topics: Option<Arc<dyn GetTopicsUseCase + Send + Sync>>,
     soft_delete_topic: Option<Arc<dyn SoftDeleteTopicUseCase + Send + Sync>>,
+    project: Option<ProjectUseCases>,
 }
 
 pub fn default_test_user_registration_orchestrator() -> Arc<UserRegistrationOrchestrator> {
@@ -71,6 +75,12 @@ impl Default for TestAppStateBuilder {
             create_topic: Some(Arc::new(StubCreateTopicUseCase)),
             get_topics: Some(Arc::new(StubGetTopicsUseCase::success(vec![]))),
             soft_delete_topic: Some(Arc::new(StubSoftDeleteTopicUseCase)),
+            project: Some(ProjectUseCases {
+                create: Arc::new(StubCreateProjectUseCase::repo_error(
+                    "not used in this test",
+                )),
+                get_list: Arc::new(DefaultStubGetProjectsUseCase),
+            }),
         }
     }
 }
@@ -189,6 +199,26 @@ impl TestAppStateBuilder {
         self.soft_delete_topic = Some(Arc::new(uc));
         self
     }
+    pub fn with_create_project_use_case(
+        mut self,
+        uc: impl CreateProjectUseCase + Send + Sync + 'static,
+    ) -> Self {
+        if let Some(mut p) = self.project.take() {
+            p.create = Arc::new(uc);
+            self.project = Some(p);
+        }
+        self
+    }
+    pub fn with_get_projects(
+        mut self,
+        uc: impl GetProjectsUseCase + Send + Sync + 'static,
+    ) -> Self {
+        if let Some(mut p) = self.project.take() {
+            p.get_list = Arc::new(uc);
+            self.project = Some(p);
+        }
+        self
+    }
 
     pub fn build(self) -> web::Data<AppState> {
         web::Data::new(AppState {
@@ -209,6 +239,7 @@ impl TestAppStateBuilder {
             create_topic_use_case: self.create_topic.unwrap(),
             get_topics_use_case: self.get_topics.unwrap(),
             soft_delete_topic_use_case: self.soft_delete_topic.unwrap(),
+            project: self.project.unwrap(),
         })
     }
 }

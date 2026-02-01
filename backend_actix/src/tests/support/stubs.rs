@@ -27,6 +27,8 @@ use crate::cv::domain::entities::CVInfo;
 use crate::email::application::ports::outgoing::user_email_notifier::{
     UserEmailNotificationError, UserEmailNotifier,
 };
+use crate::project::application::ports::incoming::use_cases::GetProjectsUseCase;
+use crate::tests::support::project_test_fixtures::empty_page_result;
 use crate::topic::application::ports::outgoing::TopicResult;
 use crate::{
     auth::application::use_cases::login_user::{LoginError, LoginRequest, LoginUserResponse},
@@ -300,5 +302,73 @@ pub struct StubSoftDeleteTopicUseCase;
 impl SoftDeleteTopicUseCase for StubSoftDeleteTopicUseCase {
     async fn execute(&self, _owner: UserId, _topic_id: Uuid) -> Result<(), SoftDeleteTopicError> {
         Ok(())
+    }
+}
+
+use crate::modules::project::application::ports::incoming::use_cases::{
+    CreateProjectError, CreateProjectUseCase,
+};
+use crate::modules::project::application::ports::outgoing::project_repository::{
+    CreateProjectData, ProjectResult,
+};
+
+#[derive(Clone)]
+pub struct StubCreateProjectUseCase {
+    result: Result<ProjectResult, CreateProjectError>,
+}
+
+impl StubCreateProjectUseCase {
+    pub fn success(data: ProjectResult) -> Self {
+        Self { result: Ok(data) }
+    }
+
+    pub fn slug_exists() -> Self {
+        Self {
+            result: Err(CreateProjectError::SlugAlreadyExists),
+        }
+    }
+
+    pub fn repo_error(msg: &str) -> Self {
+        Self {
+            result: Err(CreateProjectError::RepositoryError(msg.to_string())),
+        }
+    }
+}
+
+#[async_trait]
+impl CreateProjectUseCase for StubCreateProjectUseCase {
+    async fn execute(&self, _data: CreateProjectData) -> Result<ProjectResult, CreateProjectError> {
+        self.result.clone()
+    }
+}
+
+#[derive(Default, Clone)]
+struct DefaultStubCreateProjectUseCase;
+
+#[async_trait]
+impl CreateProjectUseCase for DefaultStubCreateProjectUseCase {
+    async fn execute(&self, _data: CreateProjectData) -> Result<ProjectResult, CreateProjectError> {
+        unimplemented!("Not used in this test")
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct DefaultStubGetProjectsUseCase;
+
+#[async_trait]
+impl GetProjectsUseCase for DefaultStubGetProjectsUseCase {
+    async fn execute(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _filter: crate::modules::project::application::ports::outgoing::project_query::ProjectListFilter,
+        _sort: crate::modules::project::application::ports::outgoing::project_query::ProjectSort,
+        _page: crate::modules::project::application::ports::outgoing::project_query::PageRequest,
+    ) -> Result<
+        crate::modules::project::application::ports::outgoing::project_query::PageResult<
+            crate::modules::project::application::ports::outgoing::project_query::ProjectCardView,
+        >,
+        crate::modules::project::application::ports::incoming::use_cases::GetProjectsError,
+    > {
+        Ok(empty_page_result())
     }
 }

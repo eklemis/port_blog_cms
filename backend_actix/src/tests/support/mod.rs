@@ -1,5 +1,6 @@
 pub mod app_state_builder;
 pub mod auth_helper;
+pub mod project_test_fixtures;
 pub mod stubs;
 
 #[cfg(test)]

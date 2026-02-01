@@ -100,7 +100,7 @@ pub struct PatchProjectData {
     pub live_demo_url: PatchField<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ProjectResult {
     pub id: Uuid,
     pub owner: UserId,

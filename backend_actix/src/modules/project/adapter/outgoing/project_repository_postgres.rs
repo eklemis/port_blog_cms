@@ -46,7 +46,7 @@ impl ProjectRepository for ProjectRepositoryPostgres {
             title: Set(data.title.trim().to_string()),
             slug: Set(data.slug.trim().to_lowercase()),
             description: Set(data.description),
-            tech_stack: Set(data.tech_stack),
+            tech_stack: Set(to_json(&data.tech_stack)?),
             screenshots: Set(to_json(&data.screenshots)?),
             repo_url: Set(data.repo_url),
             live_demo_url: Set(data.live_demo_url),
@@ -79,7 +79,7 @@ impl ProjectRepository for ProjectRepositoryPostgres {
         }
 
         if let PatchField::Value(tech) = data.tech_stack {
-            model.tech_stack = Set(tech);
+            model.tech_stack = Set(to_json(&tech)?);
         }
 
         if let PatchField::Value(screens) = data.screenshots {
@@ -146,7 +146,7 @@ fn model_to_result(model: projects::Model) -> Result<ProjectResult, ProjectRepos
         title: model.title,
         slug: model.slug,
         description: model.description,
-        tech_stack: model.tech_stack,
+        tech_stack: from_json(&model.tech_stack)?,
         screenshots: from_json(&model.screenshots)?,
         repo_url: model.repo_url,
         live_demo_url: model.live_demo_url,
@@ -220,7 +220,7 @@ mod tests {
             title: title.to_string(),
             slug: slug.to_string(),
             description: "Test description".to_string(),
-            tech_stack: vec!["Rust".to_string()],
+            tech_stack: serde_json::json!(["Rust"]),
             screenshots: serde_json::json!(["img1.png"]),
             repo_url: Some("https://github.com/test/repo".to_string()),
             live_demo_url: Some("https://demo.test.com".to_string()),
@@ -440,7 +440,7 @@ mod tests {
 
         let new_tech = vec!["Python".to_string(), "Django".to_string()];
         let mut mock_model = create_mock_project_model(project_id, user_id, "Title", "test-slug");
-        mock_model.tech_stack = new_tech.clone();
+        mock_model.tech_stack = serde_json::to_value(&new_tech).unwrap();
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_results(vec![vec![mock_model]])
@@ -620,7 +620,7 @@ mod tests {
         let mut mock_model =
             create_mock_project_model(project_id, user_id, "New Title", "test-slug");
         mock_model.description = "New Desc".to_string();
-        mock_model.tech_stack = new_tech.clone();
+        mock_model.tech_stack = serde_json::to_value(&new_tech).unwrap();
         mock_model.repo_url = None;
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)

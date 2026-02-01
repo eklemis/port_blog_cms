@@ -2,6 +2,7 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::auth::application::domain::entities::UserId;
@@ -28,7 +29,7 @@ pub struct ProjectView {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectCardView {
     pub id: Uuid,
     pub title: String,
@@ -46,7 +47,7 @@ pub struct ProjectListFilter {
     pub topic_id: Option<Uuid>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub enum ProjectSort {
     Newest,
     Oldest,
@@ -75,7 +76,7 @@ impl Default for PageRequest {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PageResult<T> {
     pub items: Vec<T>,
     pub page: u32,

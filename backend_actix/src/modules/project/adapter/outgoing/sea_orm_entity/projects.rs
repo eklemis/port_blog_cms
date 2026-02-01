@@ -23,7 +23,7 @@ pub struct Model {
 
     // Stored as JSONB (you decided to store array in JSONB)
     #[sea_orm(column_type = "JsonBinary")]
-    pub tech_stack: Vec<String>,
+    pub tech_stack: Json,
 
     #[sea_orm(column_type = "JsonBinary")]
     pub screenshots: Json,
