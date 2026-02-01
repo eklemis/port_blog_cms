@@ -98,7 +98,9 @@ async fn start() -> std::io::Result<()> {
         cv::{adapter::outgoing::CVArchiverPostgres, application::services::HardDeleteCvService},
         project::{
             adapter::outgoing::{ProjectQueryPostgres, ProjectRepositoryPostgres},
-            application::service::{CreateProjectService, GetProjectsService},
+            application::service::{
+                CreateProjectService, GetProjectsService, GetSingleProjectService,
+            },
         },
         topic::{
             adapter::outgoing::{TopicQueryPostgres, TopicRepositoryPostgres},
@@ -248,13 +250,15 @@ async fn start() -> std::io::Result<()> {
     let soft_delete_topic_uc = SoftDeleteTopicService::new(topic_query.clone(), topic_repo.clone());
 
     // Project use cases, repos and query
-    let project_repo = ProjectRepositoryPostgres::new(Arc::clone((&db_arc)));
-    let project_query = ProjectQueryPostgres::new(Arc::clone((&db_arc)));
+    let project_repo = ProjectRepositoryPostgres::new(Arc::clone(&db_arc));
+    let project_query = ProjectQueryPostgres::new(Arc::clone(&db_arc));
     let create_project_uc = CreateProjectService::new(project_repo.clone());
     let get_project_uc = GetProjectsService::new(project_query.clone());
+    let get_single_project_uc = GetSingleProjectService::new(project_query.clone());
     let project_use_cases = ProjectUseCases {
         create: Arc::new(create_project_uc),
         get_list: Arc::new(get_project_uc),
+        get_single: Arc::new(get_single_project_uc),
     };
 
     let state = AppState {

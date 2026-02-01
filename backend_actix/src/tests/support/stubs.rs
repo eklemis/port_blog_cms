@@ -27,7 +27,10 @@ use crate::cv::domain::entities::CVInfo;
 use crate::email::application::ports::outgoing::user_email_notifier::{
     UserEmailNotificationError, UserEmailNotifier,
 };
-use crate::project::application::ports::incoming::use_cases::GetProjectsUseCase;
+use crate::project::application::ports::incoming::use_cases::{
+    GetProjectsUseCase, GetSingleProjectError, GetSingleProjectUseCase,
+};
+use crate::project::application::ports::outgoing::project_query::ProjectView;
 use crate::tests::support::project_test_fixtures::empty_page_result;
 use crate::topic::application::ports::outgoing::TopicResult;
 use crate::{
@@ -370,5 +373,33 @@ impl GetProjectsUseCase for DefaultStubGetProjectsUseCase {
         crate::modules::project::application::ports::incoming::use_cases::GetProjectsError,
     > {
         Ok(empty_page_result())
+    }
+}
+
+#[derive(Clone)]
+pub struct StubGetSingleProjectUseCase {
+    result: Result<ProjectView, GetSingleProjectError>,
+}
+
+impl StubGetSingleProjectUseCase {
+    pub fn not_found() -> Self {
+        Self {
+            result: Err(GetSingleProjectError::NotFound),
+        }
+    }
+
+    pub fn success(view: ProjectView) -> Self {
+        Self { result: Ok(view) }
+    }
+}
+
+#[async_trait]
+impl GetSingleProjectUseCase for StubGetSingleProjectUseCase {
+    async fn execute(
+        &self,
+        _owner: UserId,
+        _project_id: Uuid,
+    ) -> Result<ProjectView, GetSingleProjectError> {
+        self.result.clone()
     }
 }

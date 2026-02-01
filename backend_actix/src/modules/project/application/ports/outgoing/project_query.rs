@@ -13,7 +13,7 @@ use crate::auth::application::domain::entities::UserId;
 // ──────────────────────────────────────────────────────────
 //
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ProjectView {
     pub id: Uuid,
     pub owner: UserId,
