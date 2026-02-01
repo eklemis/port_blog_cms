@@ -1,3 +1,4 @@
+use crate::auth::application::helpers::UserIdentityResolver;
 use crate::auth::application::orchestrator::user_registration::UserRegistrationOrchestrator;
 use crate::auth::application::use_cases::fetch_profile::FetchUserProfileUseCase;
 use crate::auth::application::use_cases::refresh_token::IRefreshTokenUseCase;
@@ -16,7 +17,7 @@ use crate::cv::application::use_cases::update_cv::IUpdateCVUseCase;
 use crate::modules::project::application::ports::incoming::use_cases::CreateProjectUseCase;
 use crate::modules::project::application::project_use_cases::ProjectUseCases;
 use crate::project::application::ports::incoming::use_cases::{
-    GetProjectsUseCase, GetSingleProjectUseCase, PatchProjectUseCase,
+    GetProjectsUseCase, GetPublicSingleProjectUseCase, GetSingleProjectUseCase, PatchProjectUseCase,
 };
 use crate::tests::support::stubs::*;
 use crate::topic::application::ports::incoming::use_cases::{
@@ -45,6 +46,7 @@ pub struct TestAppStateBuilder {
     get_topics: Option<Arc<dyn GetTopicsUseCase + Send + Sync>>,
     soft_delete_topic: Option<Arc<dyn SoftDeleteTopicUseCase + Send + Sync>>,
     project: Option<ProjectUseCases>,
+    user_identity_resolver: Option<UserIdentityResolver>,
 }
 
 pub fn default_test_user_registration_orchestrator() -> Arc<UserRegistrationOrchestrator> {
@@ -59,6 +61,7 @@ pub fn default_test_user_registration_orchestrator() -> Arc<UserRegistrationOrch
 
 impl Default for TestAppStateBuilder {
     fn default() -> Self {
+        let user_identity_resolver = UserIdentityResolver::new(Arc::new(DummyUserQuery));
         Self {
             fetch_cv: Some(Arc::new(StubFetchCVUseCase)),
             fetch_cv_by_id: Some(Arc::new(StubFetchCVByIdUseCase)),
@@ -83,8 +86,10 @@ impl Default for TestAppStateBuilder {
                 )),
                 get_list: Arc::new(DefaultStubGetProjectsUseCase),
                 get_single: Arc::new(StubGetSingleProjectUseCase::not_found()),
+                get_public_single: Arc::new(StubGetPublicSingleProjectUseCase::not_found()),
                 patch: Arc::new(DefaultStubPatchProjectUseCase),
             }),
+            user_identity_resolver: Some(user_identity_resolver),
         }
     }
 }
@@ -249,6 +254,26 @@ impl TestAppStateBuilder {
         project.patch = Arc::new(uc);
         self
     }
+    pub fn with_user_identity_resolver(
+        mut self,
+        resolver: crate::auth::application::helpers::UserIdentityResolver,
+    ) -> Self {
+        self.user_identity_resolver = Some(resolver);
+        self
+    }
+
+    pub fn with_get_public_single_project(
+        mut self,
+        uc: impl GetPublicSingleProjectUseCase + Send + Sync + 'static,
+    ) -> Self {
+        let project = self
+            .project
+            .as_mut()
+            .expect("Project use cases must be initialized");
+
+        project.get_public_single = Arc::new(uc);
+        self
+    }
 
     pub fn build(self) -> web::Data<AppState> {
         web::Data::new(AppState {
@@ -270,6 +295,7 @@ impl TestAppStateBuilder {
             get_topics_use_case: self.get_topics.unwrap(),
             soft_delete_topic_use_case: self.soft_delete_topic.unwrap(),
             project: self.project.unwrap(),
+            user_identity_resolver: self.user_identity_resolver.unwrap(),
         })
     }
 }

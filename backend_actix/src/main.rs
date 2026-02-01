@@ -34,6 +34,7 @@ use crate::cv::application::use_cases::update_cv::{IUpdateCVUseCase, UpdateCVUse
 
 use crate::email::adapter::outgoing::smtp_sender::SmtpEmailSender;
 use crate::email::application::services::UserEmailService;
+use crate::modules::auth::application::helpers::UserIdentityResolver;
 use crate::modules::auth::application::services::UpdateUserProfileService;
 use crate::modules::auth::application::use_cases::fetch_profile::FetchUserProfileUseCase;
 use crate::modules::auth::application::use_cases::refresh_token::IRefreshTokenUseCase;
@@ -81,6 +82,7 @@ pub struct AppState {
     pub get_topics_use_case: Arc<dyn GetTopicsUseCase + Send + Sync>,
     pub soft_delete_topic_use_case: Arc<dyn SoftDeleteTopicUseCase + Send + Sync>,
     pub project: ProjectUseCases,
+    pub user_identity_resolver: UserIdentityResolver,
 }
 
 #[actix_web::main]
@@ -100,7 +102,10 @@ async fn start() -> std::io::Result<()> {
             adapter::outgoing::{ProjectQueryPostgres, ProjectRepositoryPostgres},
             application::{
                 ports::outgoing::patch_project_service::PatchProjectService,
-                service::{CreateProjectService, GetProjectsService, GetSingleProjectService},
+                service::{
+                    CreateProjectService, GetProjectsService, GetPublicSingleProjectService,
+                    GetSingleProjectService,
+                },
             },
         },
         topic::{
@@ -192,7 +197,7 @@ async fn start() -> std::io::Result<()> {
 
     let redis_arc = Arc::new(redis_pool);
 
-    // Create repositories and use cases (unchanged)
+    // Create CV repositories and use cases (unchanged)
     let cv_repo = CVRepoPostgres::new(Arc::clone(&db_arc));
     let cv_archiver = CVArchiverPostgres::new(Arc::clone(&db_arc));
     let fetch_cv_use_case = FetchCVUseCase::new(cv_repo.clone());
@@ -202,6 +207,7 @@ async fn start() -> std::io::Result<()> {
     let patch_cv_use_case = PatchCVUseCase::new(cv_repo.clone());
     let hard_delete_cv_use_case = HardDeleteCvService::new(cv_archiver, cv_repo.clone());
 
+    // Auth related services and adapters
     let jwt_service = JwtTokenService::new(JwtConfig::from_env());
 
     let user_email_service =
@@ -242,6 +248,7 @@ async fn start() -> std::io::Result<()> {
     let soft_delete_user_use_case = SoftDeleteUserUseCase::new(user_repo.clone(), redis_token_repo);
     let fetch_user_profile_service = FetchUserProfileService::new(user_query.clone());
     let update_user_profile_service = UpdateUserProfileService::new(user_repo.clone());
+    let identity_resolver = UserIdentityResolver::new(Arc::new(user_query.clone()));
 
     // Topics use cases, repo and query
     let topic_repo = TopicRepositoryPostgres::new(Arc::clone(&db_arc));
@@ -257,10 +264,12 @@ async fn start() -> std::io::Result<()> {
     let get_project_uc = GetProjectsService::new(project_query.clone());
     let get_single_project_uc = GetSingleProjectService::new(project_query.clone());
     let patch_project_uc = PatchProjectService::new(project_repo.clone());
+    let get_public_single_project_uc = GetPublicSingleProjectService::new(project_query.clone());
     let project_use_cases = ProjectUseCases {
         create: Arc::new(create_project_uc),
         get_list: Arc::new(get_project_uc),
         get_single: Arc::new(get_single_project_uc),
+        get_public_single: Arc::new(get_public_single_project_uc),
         patch: Arc::new(patch_project_uc),
     };
 
@@ -283,6 +292,7 @@ async fn start() -> std::io::Result<()> {
         get_topics_use_case: Arc::new(get_topics_uc),
         soft_delete_topic_use_case: Arc::new(soft_delete_topic_uc),
         project: project_use_cases,
+        user_identity_resolver: identity_resolver,
     };
 
     let token_provider_arc: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service);
@@ -339,9 +349,11 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::topic::adapter::incoming::web::routes::soft_delete_topic_handler);
     // Project
     cfg.service(crate::project::adapter::incoming::web::routes::get_projects_handler);
+    cfg.service(crate::project::adapter::incoming::web::routes::get_public_projects_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::create_project_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::hard_delete_project_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::get_project_by_id_handler);
+    cfg.service(crate::project::adapter::incoming::web::routes::get_public_single_project_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::patch_project_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::soft_delete_project_handler);
 }

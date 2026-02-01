@@ -4,6 +4,8 @@ use async_trait::async_trait;
 use uuid::Uuid;
 
 use crate::auth::application::domain::entities::UserId;
+use crate::auth::application::ports::outgoing::user_query::{UserQueryError, UserQueryResult};
+use crate::auth::application::ports::outgoing::UserQuery;
 use crate::auth::application::use_cases::create_user::{CreateUserInput, CreateUserOutput};
 use crate::auth::application::use_cases::fetch_profile::{
     FetchUserError, FetchUserOutput, FetchUserProfileUseCase,
@@ -28,8 +30,8 @@ use crate::email::application::ports::outgoing::user_email_notifier::{
     UserEmailNotificationError, UserEmailNotifier,
 };
 use crate::project::application::ports::incoming::use_cases::{
-    GetProjectsUseCase, GetSingleProjectError, GetSingleProjectUseCase, PatchProjectError,
-    PatchProjectUseCase,
+    GetProjectsUseCase, GetPublicSingleProjectError, GetPublicSingleProjectUseCase,
+    GetSingleProjectError, GetSingleProjectUseCase, PatchProjectError, PatchProjectUseCase,
 };
 use crate::project::application::ports::outgoing::project_query::ProjectView;
 use crate::project::application::ports::outgoing::project_repository::PatchProjectData;
@@ -453,5 +455,62 @@ impl PatchProjectUseCase for DefaultStubPatchProjectUseCase {
         _data: PatchProjectData,
     ) -> Result<ProjectResult, PatchProjectError> {
         unimplemented!("Not used in this test")
+    }
+}
+
+#[derive(Clone)]
+pub struct DummyUserQuery;
+
+#[async_trait]
+impl UserQuery for DummyUserQuery {
+    async fn find_by_id(&self, _user_id: Uuid) -> Result<Option<UserQueryResult>, UserQueryError> {
+        Ok(None)
+    }
+
+    async fn find_by_email(&self, _email: &str) -> Result<Option<UserQueryResult>, UserQueryError> {
+        Ok(None)
+    }
+
+    async fn find_by_username(
+        &self,
+        _username: &str,
+    ) -> Result<Option<UserQueryResult>, UserQueryError> {
+        Ok(None)
+    }
+}
+
+#[derive(Clone)]
+pub struct StubGetPublicSingleProjectUseCase {
+    result: Result<ProjectView, GetPublicSingleProjectError>,
+}
+
+impl StubGetPublicSingleProjectUseCase {
+    pub fn not_found() -> Self {
+        Self {
+            result: Err(GetPublicSingleProjectError::NotFound),
+        }
+    }
+
+    pub fn success(view: ProjectView) -> Self {
+        Self { result: Ok(view) }
+    }
+
+    pub fn repo_error(msg: &str) -> Self {
+        Self {
+            result: Err(GetPublicSingleProjectError::RepositoryError(
+                msg.to_string(),
+            )),
+        }
+    }
+}
+
+#[async_trait]
+impl GetPublicSingleProjectUseCase for StubGetPublicSingleProjectUseCase {
+    async fn execute(
+        &self,
+        _owner: UserId,
+        _slug: &str,
+    ) -> Result<ProjectView, GetPublicSingleProjectError> {
+        self.result.clone()
     }
 }
