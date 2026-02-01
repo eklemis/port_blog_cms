@@ -86,11 +86,28 @@ impl ProjectQuery for ProjectQueryPostgres {
 
         // Apply search filter with ILIKE
         if let Some(ref search) = filter.search {
-            let search_pattern = format!("%{}%", search.trim());
+            let term = search.trim();
+            let search_pattern = format!("%{}%", term);
+
+            // tech_stack element ILIKE pattern
+            // Uses EXISTS with jsonb_array_elements_text(tech_stack)
+            let tech_stack_expr = Expr::cust_with_values(
+                r#"
+                    EXISTS (
+                        SELECT 1
+                        FROM jsonb_array_elements_text(tech_stack) AS elem
+                        WHERE elem ILIKE $1
+                    )
+                    "#,
+                [search_pattern.clone()],
+            );
+
             query = query.filter(
                 Condition::any()
                     .add(Expr::col(Column::Title).ilike(&search_pattern))
-                    .add(Expr::col(Column::Description).ilike(&search_pattern)),
+                    .add(Expr::col(Column::Description).ilike(&search_pattern))
+                    .add(Expr::col(Column::Slug).ilike(&search_pattern))
+                    .add(tech_stack_expr),
             );
         }
 
