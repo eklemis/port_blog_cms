@@ -1,6 +1,7 @@
 pub mod create_cv;
 pub mod fetch_cv_by_id;
 pub mod fetch_user_cvs;
+pub mod get_public_single_cv;
 pub mod hard_delete_cv;
 pub mod patch_cv;
 pub mod restore_cv;

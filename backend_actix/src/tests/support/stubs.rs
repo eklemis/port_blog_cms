@@ -22,6 +22,9 @@ use crate::auth::application::use_cases::soft_delete_user::{
 use crate::auth::application::use_cases::update_profile::{
     UpdateUserError, UpdateUserInput, UpdateUserOutput, UpdateUserProfileUseCase,
 };
+use crate::cv::application::use_cases::get_public_single_cv::{
+    GetPublicSingleCvError, GetPublicSingleCvUseCase,
+};
 use crate::cv::application::use_cases::hard_delete_cv::{HardDeleteCVError, HardDeleteCvUseCase};
 use crate::cv::application::use_cases::restore_cv::{RestoreCVError, RestoreDeletedCvUseCase};
 use crate::cv::application::use_cases::soft_delete_cv::{SoftDeleteCVError, SoftDeleteCvUseCase};
@@ -512,5 +515,39 @@ impl GetPublicSingleProjectUseCase for StubGetPublicSingleProjectUseCase {
         _slug: &str,
     ) -> Result<ProjectView, GetPublicSingleProjectError> {
         self.result.clone()
+    }
+}
+
+#[derive(Clone)]
+pub struct StubGetPublicSingleCvUseCase {
+    pub result: Result<CVInfo, GetPublicSingleCvError>,
+}
+
+#[async_trait]
+impl GetPublicSingleCvUseCase for StubGetPublicSingleCvUseCase {
+    async fn execute(
+        &self,
+        _owner_id: Uuid,
+        _cv_id: Uuid,
+    ) -> Result<CVInfo, GetPublicSingleCvError> {
+        self.result.clone()
+    }
+}
+
+impl StubGetPublicSingleCvUseCase {
+    pub fn success(cv: CVInfo) -> Arc<Self> {
+        Arc::new(Self { result: Ok(cv) })
+    }
+
+    pub fn not_found() -> Arc<Self> {
+        Arc::new(Self {
+            result: Err(GetPublicSingleCvError::NotFound),
+        })
+    }
+
+    pub fn repo_error(msg: &str) -> Arc<Self> {
+        Arc::new(Self {
+            result: Err(GetPublicSingleCvError::RepositoryError(msg.to_string())),
+        })
     }
 }

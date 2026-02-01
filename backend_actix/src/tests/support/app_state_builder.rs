@@ -11,6 +11,7 @@ use crate::auth::application::use_cases::{
 use crate::cv::application::use_cases::create_cv::ICreateCVUseCase;
 use crate::cv::application::use_cases::fetch_cv_by_id::IFetchCVByIdUseCase;
 use crate::cv::application::use_cases::fetch_user_cvs::IFetchCVUseCase;
+use crate::cv::application::use_cases::get_public_single_cv::GetPublicSingleCvUseCase;
 use crate::cv::application::use_cases::hard_delete_cv::HardDeleteCvUseCase;
 use crate::cv::application::use_cases::patch_cv::IPatchCVUseCase;
 use crate::cv::application::use_cases::update_cv::IUpdateCVUseCase;
@@ -30,6 +31,7 @@ use std::sync::Arc;
 pub struct TestAppStateBuilder {
     fetch_cv: Option<Arc<dyn IFetchCVUseCase + Send + Sync>>,
     fetch_cv_by_id: Option<Arc<dyn IFetchCVByIdUseCase + Send + Sync>>,
+    get_public_single_cv_use_case: Option<Arc<dyn GetPublicSingleCvUseCase + Send + Sync>>,
     create_cv: Option<Arc<dyn ICreateCVUseCase + Send + Sync>>,
     update_cv: Option<Arc<dyn IUpdateCVUseCase + Send + Sync>>,
     patch_cv: Option<Arc<dyn IPatchCVUseCase + Send + Sync>>,
@@ -65,6 +67,7 @@ impl Default for TestAppStateBuilder {
         Self {
             fetch_cv: Some(Arc::new(StubFetchCVUseCase)),
             fetch_cv_by_id: Some(Arc::new(StubFetchCVByIdUseCase)),
+            get_public_single_cv_use_case: Some(StubGetPublicSingleCvUseCase::not_found()),
             create_cv: Some(Arc::new(StubCreateCVUseCase)),
             update_cv: Some(Arc::new(StubUpdateCVUseCase)),
             patch_cv: Some(Arc::new(StubPatchCVUseCase)),
@@ -275,10 +278,21 @@ impl TestAppStateBuilder {
         self
     }
 
+    pub fn with_get_public_single_cv(
+        mut self,
+        uc: Arc<dyn GetPublicSingleCvUseCase + Send + Sync>,
+    ) -> Self {
+        self.get_public_single_cv_use_case = Some(uc);
+        self
+    }
+
     pub fn build(self) -> web::Data<AppState> {
         web::Data::new(AppState {
             fetch_cv_use_case: self.fetch_cv.unwrap(),
             fetch_cv_by_id_use_case: self.fetch_cv_by_id.unwrap(),
+            get_public_single_cv_use_case: self
+                .get_public_single_cv_use_case
+                .expect("get_public_single_cv_use_case not set"),
             create_cv_use_case: self.create_cv.unwrap(),
             update_cv_use_case: self.update_cv.unwrap(),
             patch_cv_use_case: self.patch_cv.unwrap(),

@@ -39,6 +39,7 @@ use crate::modules::auth::application::services::UpdateUserProfileService;
 use crate::modules::auth::application::use_cases::fetch_profile::FetchUserProfileUseCase;
 use crate::modules::auth::application::use_cases::refresh_token::IRefreshTokenUseCase;
 use crate::modules::auth::application::use_cases::update_profile::UpdateUserProfileUseCase;
+use crate::modules::cv::application::use_cases::get_public_single_cv::GetPublicSingleCvUseCase;
 use crate::modules::cv::application::use_cases::hard_delete_cv::HardDeleteCvUseCase;
 use crate::modules::email::application::ports::outgoing::user_email_notifier::UserEmailNotifier;
 
@@ -66,6 +67,7 @@ mod tests;
 pub struct AppState {
     pub fetch_cv_use_case: Arc<dyn IFetchCVUseCase + Send + Sync>,
     pub fetch_cv_by_id_use_case: Arc<dyn IFetchCVByIdUseCase + Send + Sync>,
+    pub get_public_single_cv_use_case: Arc<dyn GetPublicSingleCvUseCase + Send + Sync>,
     pub create_cv_use_case: Arc<dyn ICreateCVUseCase + Send + Sync>,
     pub update_cv_use_case: Arc<dyn IUpdateCVUseCase + Send + Sync>,
     pub patch_cv_use_case: Arc<dyn IPatchCVUseCase + Send + Sync>,
@@ -97,7 +99,10 @@ async fn start() -> std::io::Result<()> {
                 use_cases::refresh_token::RefreshTokenUseCase,
             },
         },
-        cv::{adapter::outgoing::CVArchiverPostgres, application::services::HardDeleteCvService},
+        cv::{
+            adapter::outgoing::{CVArchiverPostgres, CVQueryPostgres},
+            application::services::{GetPublicSingleCvService, HardDeleteCvService},
+        },
         project::{
             adapter::outgoing::{ProjectQueryPostgres, ProjectRepositoryPostgres},
             application::{
@@ -199,9 +204,13 @@ async fn start() -> std::io::Result<()> {
 
     // Create CV repositories and use cases (unchanged)
     let cv_repo = CVRepoPostgres::new(Arc::clone(&db_arc));
+    let cv_query = CVQueryPostgres::new(Arc::clone(&db_arc));
+
     let cv_archiver = CVArchiverPostgres::new(Arc::clone(&db_arc));
     let fetch_cv_use_case = FetchCVUseCase::new(cv_repo.clone());
     let fetch_cv_by_id_use_case = FetchCVByIdUseCase::new(cv_repo.clone());
+    let get_public_single_cv_uc = GetPublicSingleCvService::new(cv_query.clone());
+
     let create_cv_use_case = CreateCVUseCase::new(cv_repo.clone());
     let update_cv_use_case = UpdateCVUseCase::new(cv_repo.clone());
     let patch_cv_use_case = PatchCVUseCase::new(cv_repo.clone());
@@ -276,6 +285,7 @@ async fn start() -> std::io::Result<()> {
     let state = AppState {
         fetch_cv_use_case: Arc::new(fetch_cv_use_case),
         fetch_cv_by_id_use_case: Arc::new(fetch_cv_by_id_use_case),
+        get_public_single_cv_use_case: Arc::new(get_public_single_cv_uc),
         create_cv_use_case: Arc::new(create_cv_use_case),
         update_cv_use_case: Arc::new(update_cv_use_case),
         patch_cv_use_case: Arc::new(patch_cv_use_case),
@@ -330,6 +340,7 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     // CV
     cfg.service(crate::cv::adapter::incoming::web::routes::get_cvs_handler);
     cfg.service(crate::cv::adapter::incoming::web::routes::get_cv_by_id_handler);
+    cfg.service(crate::cv::adapter::incoming::web::routes::get_public_cv_by_id_handler);
     cfg.service(crate::cv::adapter::incoming::web::routes::create_cv_handler);
     cfg.service(crate::cv::adapter::incoming::web::routes::update_cv_handler);
     cfg.service(crate::cv::adapter::incoming::web::routes::patch_cv_handler);
