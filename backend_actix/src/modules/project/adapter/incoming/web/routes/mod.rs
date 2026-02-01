@@ -1,3 +1,4 @@
+mod add_project_topic;
 mod create_project;
 mod get_projects;
 mod get_public_projects;
@@ -5,8 +6,10 @@ mod get_public_single_project;
 mod get_single_project;
 mod hard_delete_project;
 mod patch_project;
+mod remove_project_topic;
 mod soft_delete_project;
 
+pub use add_project_topic::add_project_topic_handler;
 pub use create_project::create_project_handler;
 pub use get_projects::get_projects_handler;
 pub use get_public_projects::get_public_projects_handler;
@@ -14,4 +17,5 @@ pub use get_public_single_project::get_public_single_project_handler;
 pub use get_single_project::get_project_by_id_handler;
 pub use hard_delete_project::hard_delete_project_handler;
 pub use patch_project::patch_project_handler;
+pub use remove_project_topic::remove_project_topic_handler;
 pub use soft_delete_project::soft_delete_project_handler;

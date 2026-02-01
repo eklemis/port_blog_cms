@@ -104,12 +104,15 @@ async fn start() -> std::io::Result<()> {
             application::services::{GetPublicSingleCvService, HardDeleteCvService},
         },
         project::{
-            adapter::outgoing::{ProjectQueryPostgres, ProjectRepositoryPostgres},
+            adapter::outgoing::{
+                ProjectQueryPostgres, ProjectRepositoryPostgres, ProjectTopicRepositoryPostgres,
+            },
             application::{
                 ports::outgoing::patch_project_service::PatchProjectService,
                 service::{
-                    CreateProjectService, GetProjectsService, GetPublicSingleProjectService,
-                    GetSingleProjectService,
+                    AddProjectTopicService, CreateProjectService, GetProjectsService,
+                    GetPublicSingleProjectService, GetSingleProjectService,
+                    RemoveProjectTopicService,
                 },
             },
         },
@@ -268,18 +271,24 @@ async fn start() -> std::io::Result<()> {
 
     // Project use cases, repos and query
     let project_repo = ProjectRepositoryPostgres::new(Arc::clone(&db_arc));
+    let project_topic_repo = ProjectTopicRepositoryPostgres::new(Arc::clone(&db_arc));
     let project_query = ProjectQueryPostgres::new(Arc::clone(&db_arc));
     let create_project_uc = CreateProjectService::new(project_repo.clone());
     let get_project_uc = GetProjectsService::new(project_query.clone());
     let get_single_project_uc = GetSingleProjectService::new(project_query.clone());
     let patch_project_uc = PatchProjectService::new(project_repo.clone());
     let get_public_single_project_uc = GetPublicSingleProjectService::new(project_query.clone());
+    let add_topic_uc = AddProjectTopicService::new(project_topic_repo.clone());
+    let remove_topic_uc = RemoveProjectTopicService::new(project_topic_repo.clone());
+
     let project_use_cases = ProjectUseCases {
         create: Arc::new(create_project_uc),
         get_list: Arc::new(get_project_uc),
         get_single: Arc::new(get_single_project_uc),
         get_public_single: Arc::new(get_public_single_project_uc),
         patch: Arc::new(patch_project_uc),
+        add_topic: Arc::new(add_topic_uc),
+        remove_topic: Arc::new(remove_topic_uc),
     };
 
     let state = AppState {
@@ -367,6 +376,8 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::project::adapter::incoming::web::routes::get_public_single_project_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::patch_project_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::soft_delete_project_handler);
+    cfg.service(crate::project::adapter::incoming::web::routes::add_project_topic_handler);
+    cfg.service(crate::project::adapter::incoming::web::routes::remove_project_topic_handler);
 }
 
 #[cfg(not(tarpaulin_include))]

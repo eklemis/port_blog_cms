@@ -1,5 +1,6 @@
 use actix_web::{get, web, Responder};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::{
     auth::{
@@ -13,6 +14,7 @@ use crate::{
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct TopicResponse {
+    id: Uuid,
     title: String,
     description: String,
 }
@@ -26,6 +28,7 @@ pub async fn get_topics_handler(user: VerifiedUser, data: web::Data<AppState>) -
             let response = topics
                 .into_iter()
                 .map(|topic| TopicResponse {
+                    id: topic.id,
                     title: topic.title,
                     description: topic.description,
                 })

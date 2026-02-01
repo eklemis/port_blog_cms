@@ -33,8 +33,9 @@ use crate::email::application::ports::outgoing::user_email_notifier::{
     UserEmailNotificationError, UserEmailNotifier,
 };
 use crate::project::application::ports::incoming::use_cases::{
-    GetProjectsUseCase, GetPublicSingleProjectError, GetPublicSingleProjectUseCase,
-    GetSingleProjectError, GetSingleProjectUseCase, PatchProjectError, PatchProjectUseCase,
+    AddProjectTopicError, AddProjectTopicUseCase, GetProjectsUseCase, GetPublicSingleProjectError,
+    GetPublicSingleProjectUseCase, GetSingleProjectError, GetSingleProjectUseCase,
+    PatchProjectError, PatchProjectUseCase, RemoveProjectTopicError, RemoveProjectTopicUseCase,
 };
 use crate::project::application::ports::outgoing::project_query::ProjectView;
 use crate::project::application::ports::outgoing::project_repository::PatchProjectData;
@@ -549,5 +550,35 @@ impl StubGetPublicSingleCvUseCase {
         Arc::new(Self {
             result: Err(GetPublicSingleCvError::RepositoryError(msg.to_string())),
         })
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct StubAddProjectTopicUseCase;
+
+#[async_trait]
+impl AddProjectTopicUseCase for StubAddProjectTopicUseCase {
+    async fn execute(
+        &self,
+        _owner: UserId,
+        _project_id: Uuid,
+        _topic_id: Uuid,
+    ) -> Result<(), AddProjectTopicError> {
+        unimplemented!("StubAddProjectTopicUseCase not configured for this test")
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct StubRemoveProjectTopicUseCase;
+
+#[async_trait]
+impl RemoveProjectTopicUseCase for StubRemoveProjectTopicUseCase {
+    async fn execute(
+        &self,
+        _owner: UserId,
+        _project_id: Uuid,
+        _topic_id: Uuid,
+    ) -> Result<(), RemoveProjectTopicError> {
+        unimplemented!("StubRemoveProjectTopicUseCase not configured for this test")
     }
 }

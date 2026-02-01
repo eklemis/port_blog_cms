@@ -91,6 +91,8 @@ impl Default for TestAppStateBuilder {
                 get_single: Arc::new(StubGetSingleProjectUseCase::not_found()),
                 get_public_single: Arc::new(StubGetPublicSingleProjectUseCase::not_found()),
                 patch: Arc::new(DefaultStubPatchProjectUseCase),
+                add_topic: Arc::new(StubAddProjectTopicUseCase),
+                remove_topic: Arc::new(StubRemoveProjectTopicUseCase),
             }),
             user_identity_resolver: Some(user_identity_resolver),
         }
@@ -283,6 +285,36 @@ impl TestAppStateBuilder {
         uc: Arc<dyn GetPublicSingleCvUseCase + Send + Sync>,
     ) -> Self {
         self.get_public_single_cv_use_case = Some(uc);
+        self
+    }
+    pub fn with_add_project_topic<U>(mut self, uc: U) -> Self
+    where
+        U: crate::modules::project::application::ports::incoming::use_cases::AddProjectTopicUseCase
+            + Send
+            + Sync
+            + 'static,
+    {
+        let project = self
+            .project
+            .as_mut()
+            .expect("Project use cases must be initialized");
+
+        project.add_topic = std::sync::Arc::new(uc);
+        self
+    }
+    pub fn with_remove_project_topic<U>(mut self, uc: U) -> Self
+    where
+        U: crate::modules::project::application::ports::incoming::use_cases::RemoveProjectTopicUseCase
+            + Send
+            + Sync
+            + 'static,
+    {
+        let project = self
+            .project
+            .as_mut()
+            .expect("Project use cases must be initialized");
+
+        project.remove_topic = std::sync::Arc::new(uc);
         self
     }
 

@@ -1,5 +1,4 @@
 use actix_web::{delete, web, Responder};
-use serde::{Deserialize, Serialize};
 
 use crate::{
     auth::adapter::incoming::web::extractors::auth::VerifiedUser, shared::api::ApiResponse,
@@ -8,8 +7,8 @@ use crate::{
 
 #[delete("/api/projects")]
 pub async fn hard_delete_project_handler(
-    user: VerifiedUser,
-    data: web::Data<AppState>,
+    _user: VerifiedUser,
+    _data: web::Data<AppState>,
 ) -> impl Responder {
     ApiResponse::no_content()
 }

@@ -4,9 +4,7 @@ use tracing::error;
 
 use crate::auth::adapter::incoming::web::extractors::auth::VerifiedUser;
 use crate::auth::application::domain::entities::UserId;
-use crate::modules::project::application::ports::incoming::use_cases::{
-    CreateProjectError, CreateProjectUseCase,
-};
+use crate::modules::project::application::ports::incoming::use_cases::CreateProjectError;
 use crate::modules::project::application::ports::outgoing::project_repository::CreateProjectData;
 use crate::shared::api::ApiResponse;
 use crate::AppState;

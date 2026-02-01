@@ -7,3 +7,4 @@ pub mod sea_orm_entity;
 pub use project_archiver_postgres::ProjectArchiverPostgres;
 pub use project_query_postgres::ProjectQueryPostgres;
 pub use project_repository_postgres::ProjectRepositoryPostgres;
+pub use project_topic_repository_postgres::ProjectTopicRepositoryPostgres;
