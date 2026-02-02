@@ -105,14 +105,15 @@ async fn start() -> std::io::Result<()> {
         },
         project::{
             adapter::outgoing::{
-                ProjectQueryPostgres, ProjectRepositoryPostgres, ProjectTopicRepositoryPostgres,
+                ProjectArchiverPostgres, ProjectQueryPostgres, ProjectRepositoryPostgres,
+                ProjectTopicRepositoryPostgres,
             },
             application::{
                 ports::outgoing::patch_project_service::PatchProjectService,
                 service::{
                     AddProjectTopicService, ClearProjectTopicsService, CreateProjectService,
                     GetProjectTopicsService, GetProjectsService, GetPublicSingleProjectService,
-                    GetSingleProjectService, RemoveProjectTopicService,
+                    GetSingleProjectService, HardDeleteProjectService, RemoveProjectTopicService,
                 },
             },
         },
@@ -272,6 +273,8 @@ async fn start() -> std::io::Result<()> {
     // Project use cases, repos and query
     let project_repo = ProjectRepositoryPostgres::new(Arc::clone(&db_arc));
     let project_topic_repo = ProjectTopicRepositoryPostgres::new(Arc::clone(&db_arc));
+    let project_archiver = ProjectArchiverPostgres::new(Arc::clone(&db_arc));
+
     let project_query = ProjectQueryPostgres::new(Arc::clone(&db_arc));
     let create_project_uc = CreateProjectService::new(project_repo.clone());
     let get_project_uc = GetProjectsService::new(project_query.clone());
@@ -282,13 +285,16 @@ async fn start() -> std::io::Result<()> {
     let remove_topic_uc = RemoveProjectTopicService::new(project_topic_repo.clone());
     let clear_topics_uc = ClearProjectTopicsService::new(project_topic_repo.clone());
     let get_project_topics_uc = GetProjectTopicsService::new(project_query.clone());
+    let hard_delete_project_uc = HardDeleteProjectService::new(project_archiver.clone());
 
     let project_use_cases = ProjectUseCases {
         create: Arc::new(create_project_uc),
+        hard_delete: Arc::new(hard_delete_project_uc),
+        patch: Arc::new(patch_project_uc),
         get_list: Arc::new(get_project_uc),
         get_single: Arc::new(get_single_project_uc),
         get_public_single: Arc::new(get_public_single_project_uc),
-        patch: Arc::new(patch_project_uc),
+
         add_topic: Arc::new(add_topic_uc),
         get_topics: Arc::new(get_project_topics_uc),
         remove_topic: Arc::new(remove_topic_uc),

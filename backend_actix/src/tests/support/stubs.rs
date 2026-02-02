@@ -36,8 +36,8 @@ use crate::project::application::ports::incoming::use_cases::{
     AddProjectTopicError, AddProjectTopicUseCase, ClearProjectTopicsError,
     ClearProjectTopicsUseCase, GetProjectTopicsError, GetProjectTopicsUseCase, GetProjectsUseCase,
     GetPublicSingleProjectError, GetPublicSingleProjectUseCase, GetSingleProjectError,
-    GetSingleProjectUseCase, PatchProjectError, PatchProjectUseCase, RemoveProjectTopicError,
-    RemoveProjectTopicUseCase,
+    GetSingleProjectUseCase, HardDeleteProjectError, HardDeleteProjectUseCase, PatchProjectError,
+    PatchProjectUseCase, RemoveProjectTopicError, RemoveProjectTopicUseCase,
 };
 use crate::project::application::ports::outgoing::project_query::{ProjectTopicItem, ProjectView};
 use crate::project::application::ports::outgoing::project_repository::PatchProjectData;
@@ -610,5 +610,19 @@ impl GetProjectTopicsUseCase for StubGetProjectTopicsUseCase {
         _project_id: Uuid,
     ) -> Result<Vec<ProjectTopicItem>, GetProjectTopicsError> {
         unimplemented!("StubGetProjectTopicsUseCase not configured for this test")
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct StubHardDeleteProjectUseCase;
+
+#[async_trait]
+impl HardDeleteProjectUseCase for StubHardDeleteProjectUseCase {
+    async fn execute(
+        &self,
+        _owner: UserId,
+        _project_id: Uuid,
+    ) -> Result<(), HardDeleteProjectError> {
+        unimplemented!("StubHardDeleteProjectUseCase not configured for this test")
     }
 }

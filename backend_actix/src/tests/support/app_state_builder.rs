@@ -95,6 +95,7 @@ impl Default for TestAppStateBuilder {
                 get_topics: Arc::new(StubGetProjectTopicsUseCase),
                 remove_topic: Arc::new(StubRemoveProjectTopicUseCase),
                 clear_topics: Arc::new(StubClearProjectTopicsUseCase),
+                hard_delete: Arc::new(StubHardDeleteProjectUseCase),
             }),
             user_identity_resolver: Some(user_identity_resolver),
         }
@@ -347,6 +348,21 @@ impl TestAppStateBuilder {
             .expect("Project use cases must be initialized");
 
         project.get_topics = std::sync::Arc::new(uc);
+        self
+    }
+    pub fn with_hard_delete_project<U>(mut self, uc: U) -> Self
+    where
+        U: crate::modules::project::application::ports::incoming::use_cases::HardDeleteProjectUseCase
+            + Send
+            + Sync
+            + 'static,
+    {
+        let project = self
+            .project
+            .as_mut()
+            .expect("Project use cases must be initialized");
+
+        project.hard_delete = std::sync::Arc::new(uc);
         self
     }
 
