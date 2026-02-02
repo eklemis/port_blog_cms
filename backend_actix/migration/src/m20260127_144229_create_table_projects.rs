@@ -158,7 +158,7 @@ enum Projects {
     Slug,
     Description,
     TechStack,
-    Screenshots,
+    Screenshots, //Old Design Decision - Just Ignored
     RepoUrl,
     LiveDemoUrl,
     IsDeleted,

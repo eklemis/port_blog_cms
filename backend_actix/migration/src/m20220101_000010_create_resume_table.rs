@@ -158,11 +158,11 @@ enum Resumes {
     UserId,
     Role,
     Bio,
-    PhotoUrl,
+    PhotoUrl, //Old Design Decision - Just Ignored
     CoreSkills,
     Educations,
     Experiences,
-    HighlightedProjects,
+    HighlightedProjects, //Old Design Decision - Just Ignored
     ContactInfo,
     CreatedAt,
     UpdatedAt,
