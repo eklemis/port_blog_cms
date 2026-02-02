@@ -16,6 +16,7 @@ use crate::modules::project::application::ports::outgoing::project_query::{
     PageRequest, PageResult, ProjectCardView, ProjectListFilter, ProjectQuery, ProjectQueryError,
     ProjectSort, ProjectView,
 };
+use crate::project::application::ports::outgoing::project_query::ProjectTopicItem;
 
 // ============================================================================
 // Repository Implementation
@@ -49,9 +50,9 @@ impl ProjectQuery for ProjectQueryPostgres {
             .map_err(map_db_err)?
             .ok_or(ProjectQueryError::NotFound)?;
 
-        let topic_ids = self.get_project_topics(project_id).await?;
+        let topics = self.get_project_topics(project_id).await?;
 
-        model_to_view(project, topic_ids)
+        model_to_view(project, topics)
     }
 
     async fn get_by_slug(&self, slug: &str) -> Result<ProjectView, ProjectQueryError> {
@@ -65,9 +66,9 @@ impl ProjectQuery for ProjectQueryPostgres {
             .map_err(map_db_err)?
             .ok_or(ProjectQueryError::NotFound)?;
 
-        let topic_ids = self.get_project_topics(project.id).await?;
+        let topics = self.get_project_topics(project.id).await?;
 
-        model_to_view(project, topic_ids)
+        model_to_view(project, topics)
     }
 
     async fn list(
@@ -157,17 +158,62 @@ impl ProjectQuery for ProjectQueryPostgres {
         })
     }
 
-    async fn get_project_topics(&self, project_id: Uuid) -> Result<Vec<Uuid>, ProjectQueryError> {
-        let topic_ids = project_topics::Entity::find()
-            .filter(project_topics::Column::ProjectId.eq(project_id))
-            .select_only()
-            .column(project_topics::Column::TopicId)
-            .into_tuple::<Uuid>()
-            .all(&*self.db)
-            .await
-            .map_err(map_db_err)?;
+    async fn get_project_topics(
+        &self,
+        project_id: Uuid,
+    ) -> Result<Vec<ProjectTopicItem>, ProjectQueryError> {
+        use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
 
-        Ok(topic_ids)
+        let stmt = Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            r#"
+            SELECT
+                p.id AS project_id,
+                t.id AS topic_id,
+                t.title AS topic_title,
+                t.description AS topic_description
+            FROM projects p
+            LEFT JOIN project_topics pt ON pt.project_id = p.id
+            LEFT JOIN topics t ON t.id = pt.topic_id
+            WHERE p.id = $1
+              AND p.is_deleted = false
+            ORDER BY t.title ASC NULLS LAST
+            "#,
+            [project_id.into()],
+        );
+
+        let rows = self.db.query_all(stmt).await.map_err(map_db_err)?;
+
+        // project not found: no rows
+        if rows.is_empty() {
+            return Err(ProjectQueryError::NotFound);
+        }
+
+        let mut topics = Vec::new();
+
+        for row in rows {
+            // topic_id will be NULL when project exists but has no topics
+            let topic_id: Option<Uuid> = row
+                .try_get("", "topic_id")
+                .map_err(|e| ProjectQueryError::SerializationError(e.to_string()))?;
+
+            if let Some(id) = topic_id {
+                let title: String = row
+                    .try_get("", "topic_title")
+                    .map_err(|e| ProjectQueryError::SerializationError(e.to_string()))?;
+                let description: String = row
+                    .try_get("", "topic_description")
+                    .map_err(|e| ProjectQueryError::SerializationError(e.to_string()))?;
+
+                topics.push(ProjectTopicItem {
+                    id,
+                    title,
+                    description,
+                });
+            }
+        }
+
+        Ok(topics)
     }
 
     async fn slug_exists(&self, slug: &str) -> Result<bool, ProjectQueryError> {
@@ -190,7 +236,7 @@ impl ProjectQuery for ProjectQueryPostgres {
 
 fn model_to_view(
     model: projects::Model,
-    topic_ids: Vec<Uuid>,
+    topics: Vec<ProjectTopicItem>,
 ) -> Result<ProjectView, ProjectQueryError> {
     Ok(ProjectView {
         id: model.id,
@@ -202,7 +248,7 @@ fn model_to_view(
         screenshots: from_json(&model.screenshots)?,
         repo_url: model.repo_url,
         live_demo_url: model.live_demo_url,
-        topic_ids,
+        topics,
         created_at: model.created_at.into(),
         updated_at: model.updated_at.into(),
     })
@@ -238,11 +284,11 @@ fn map_db_err(e: DbErr) -> ProjectQueryError {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use super::*;
     use chrono::Utc;
-    use sea_orm::sea_query::Value;
-    use sea_orm::{DatabaseBackend, MockDatabase};
-    use std::collections::BTreeMap;
+    use sea_orm::{DatabaseBackend, MockDatabase, Value};
 
     fn create_mock_project_model(
         id: Uuid,
@@ -274,6 +320,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_by_id_success() {
+        use sea_orm::sea_query::Value;
+        use std::collections::BTreeMap;
+
         let project_id = Uuid::new_v4();
         let user_id = Uuid::new_v4();
         let topic_id = Uuid::new_v4();
@@ -283,10 +332,24 @@ mod tests {
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_results(vec![vec![mock_project]]) // 1st query: projects::Model
-            .append_query_results(vec![vec![BTreeMap::from([(
-                "topic_id".to_string(),
-                Value::Uuid(Some(Box::new(topic_id))),
-            )])]]) // 2nd query: projection => one-column row
+            .append_query_results(vec![vec![BTreeMap::from([
+                (
+                    "project_id".to_string(),
+                    Value::Uuid(Some(Box::new(project_id))),
+                ),
+                (
+                    "topic_id".to_string(),
+                    Value::Uuid(Some(Box::new(topic_id))),
+                ),
+                (
+                    "topic_title".to_string(),
+                    Value::String(Some(Box::new("Rust".to_string()))),
+                ),
+                (
+                    "topic_description".to_string(),
+                    Value::String(Some(Box::new("Systems".to_string()))),
+                ),
+            ])]])
             .into_connection();
 
         let query = ProjectQueryPostgres::new(Arc::new(db));
@@ -296,8 +359,8 @@ mod tests {
         let view = result.unwrap();
         assert_eq!(view.id, project_id);
         assert_eq!(view.title, "Test Project");
-        assert_eq!(view.topic_ids.len(), 1);
-        assert_eq!(view.topic_ids[0], topic_id);
+        assert_eq!(view.topics.len(), 1);
+        assert_eq!(view.topics[0].id, topic_id);
     }
 
     #[tokio::test]
@@ -318,6 +381,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_by_id_no_topics() {
+        use sea_orm::sea_query::Value;
+        use std::collections::BTreeMap;
+
         let project_id = Uuid::new_v4();
         let user_id = Uuid::new_v4();
 
@@ -326,7 +392,15 @@ mod tests {
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_results(vec![vec![mock_project]])
-            .append_query_results(vec![Vec::<project_topics::Model>::new()])
+            .append_query_results(vec![vec![BTreeMap::from([
+                (
+                    "project_id".to_string(),
+                    Value::Uuid(Some(Box::new(project_id))),
+                ),
+                ("topic_id".to_string(), Value::Uuid(None)),
+                ("topic_title".to_string(), Value::String(None)),
+                ("topic_description".to_string(), Value::String(None)),
+            ])]])
             .into_connection();
 
         let query = ProjectQueryPostgres::new(Arc::new(db));
@@ -334,7 +408,7 @@ mod tests {
 
         assert!(result.is_ok());
         let view = result.unwrap();
-        assert!(view.topic_ids.is_empty());
+        assert!(view.topics.is_empty());
     }
 
     // ========================================================================
@@ -351,7 +425,15 @@ mod tests {
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_results(vec![vec![mock_project]])
-            .append_query_results(vec![Vec::<project_topics::Model>::new()])
+            .append_query_results(vec![vec![BTreeMap::from([
+                (
+                    "project_id".to_string(),
+                    Value::Uuid(Some(Box::new(project_id))),
+                ),
+                ("topic_id".to_string(), Value::Uuid(None)),
+                ("topic_title".to_string(), Value::String(None)),
+                ("topic_description".to_string(), Value::String(None)),
+            ])]])
             .into_connection();
 
         let query = ProjectQueryPostgres::new(Arc::new(db));
@@ -372,7 +454,15 @@ mod tests {
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_results(vec![vec![mock_project]])
-            .append_query_results(vec![Vec::<project_topics::Model>::new()])
+            .append_query_results(vec![vec![BTreeMap::from([
+                (
+                    "project_id".to_string(),
+                    Value::Uuid(Some(Box::new(project_id))),
+                ),
+                ("topic_id".to_string(), Value::Uuid(None)),
+                ("topic_title".to_string(), Value::String(None)),
+                ("topic_description".to_string(), Value::String(None)),
+            ])]])
             .into_connection();
 
         let query = ProjectQueryPostgres::new(Arc::new(db));
@@ -409,14 +499,42 @@ mod tests {
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_results(vec![vec![
-                BTreeMap::from([(
-                    "topic_id".to_string(),
-                    Value::Uuid(Some(Box::new(topic_id_1))),
-                )]),
-                BTreeMap::from([(
-                    "topic_id".to_string(),
-                    Value::Uuid(Some(Box::new(topic_id_2))),
-                )]),
+                BTreeMap::from([
+                    (
+                        "project_id".to_string(),
+                        Value::Uuid(Some(Box::new(project_id))),
+                    ),
+                    (
+                        "topic_id".to_string(),
+                        Value::Uuid(Some(Box::new(topic_id_1))),
+                    ),
+                    (
+                        "topic_title".to_string(),
+                        Value::String(Some(Box::new("Rust".to_string()))),
+                    ),
+                    (
+                        "topic_description".to_string(),
+                        Value::String(Some(Box::new("Systems".to_string()))),
+                    ),
+                ]),
+                BTreeMap::from([
+                    (
+                        "project_id".to_string(),
+                        Value::Uuid(Some(Box::new(project_id))),
+                    ),
+                    (
+                        "topic_id".to_string(),
+                        Value::Uuid(Some(Box::new(topic_id_2))),
+                    ),
+                    (
+                        "topic_title".to_string(),
+                        Value::String(Some(Box::new("Actix".to_string()))),
+                    ),
+                    (
+                        "topic_description".to_string(),
+                        Value::String(Some(Box::new("Web".to_string()))),
+                    ),
+                ]),
             ]])
             .into_connection();
 
@@ -426,16 +544,27 @@ mod tests {
         assert!(result.is_ok());
         let topics = result.unwrap();
         assert_eq!(topics.len(), 2);
-        assert!(topics.contains(&topic_id_1));
-        assert!(topics.contains(&topic_id_2));
+        assert_eq!(topics[0].id, topic_id_1);
+        assert_eq!(topics[1].id, topic_id_2);
     }
 
     #[tokio::test]
     async fn test_get_project_topics_empty() {
+        use sea_orm::sea_query::Value;
+        use std::collections::BTreeMap;
+
         let project_id = Uuid::new_v4();
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results(vec![Vec::<project_topics::Model>::new()])
+            .append_query_results(vec![vec![BTreeMap::from([
+                (
+                    "project_id".to_string(),
+                    Value::Uuid(Some(Box::new(project_id))),
+                ),
+                ("topic_id".to_string(), Value::Uuid(None)), // <-- NULL topic
+                ("topic_title".to_string(), Value::String(None)),
+                ("topic_description".to_string(), Value::String(None)),
+            ])]])
             .into_connection();
 
         let query = ProjectQueryPostgres::new(Arc::new(db));
@@ -546,12 +675,21 @@ mod tests {
         let topic_id = Uuid::new_v4();
         let model = create_mock_project_model(project_id, user_id, "Test", "test-slug");
 
-        let result = model_to_view(model, vec![topic_id]);
+        let topics = vec![ProjectTopicItem {
+            id: topic_id,
+            title: "Rust".to_string(),
+            description: "Systems programming".to_string(),
+        }];
+
+        let result = model_to_view(model, topics);
 
         assert!(result.is_ok());
         let view = result.unwrap();
+
         assert_eq!(view.id, project_id);
-        assert_eq!(view.topic_ids.len(), 1);
-        assert_eq!(view.topic_ids[0], topic_id);
+        assert_eq!(view.topics.len(), 1);
+        assert_eq!(view.topics[0].id, topic_id);
+        assert_eq!(view.topics[0].title, "Rust");
+        assert_eq!(view.topics[0].description, "Systems programming");
     }
 }

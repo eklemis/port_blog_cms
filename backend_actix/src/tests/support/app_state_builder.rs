@@ -92,6 +92,7 @@ impl Default for TestAppStateBuilder {
                 get_public_single: Arc::new(StubGetPublicSingleProjectUseCase::not_found()),
                 patch: Arc::new(DefaultStubPatchProjectUseCase),
                 add_topic: Arc::new(StubAddProjectTopicUseCase),
+                get_topics: Arc::new(StubGetProjectTopicsUseCase),
                 remove_topic: Arc::new(StubRemoveProjectTopicUseCase),
                 clear_topics: Arc::new(StubClearProjectTopicsUseCase),
             }),
@@ -331,6 +332,21 @@ impl TestAppStateBuilder {
             .expect("Project use cases must be initialized");
 
         project.clear_topics = std::sync::Arc::new(uc);
+        self
+    }
+    pub fn with_get_project_topics<U>(mut self, uc: U) -> Self
+    where
+        U: crate::modules::project::application::ports::incoming::use_cases::GetProjectTopicsUseCase
+            + Send
+            + Sync
+            + 'static,
+    {
+        let project = self
+            .project
+            .as_mut()
+            .expect("Project use cases must be initialized");
+
+        project.get_topics = std::sync::Arc::new(uc);
         self
     }
 

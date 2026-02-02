@@ -1,6 +1,7 @@
 mod add_project_topic;
 mod clear_project_topics;
 mod create_project;
+mod get_project_topics;
 mod get_projects;
 mod get_public_projects;
 mod get_public_single_project;
@@ -13,6 +14,7 @@ mod soft_delete_project;
 pub use add_project_topic::add_project_topic_handler;
 pub use clear_project_topics::clear_project_topics_handler;
 pub use create_project::create_project_handler;
+pub use get_project_topics::get_project_topics_handler;
 pub use get_projects::get_projects_handler;
 pub use get_public_projects::get_public_projects_handler;
 pub use get_public_single_project::get_public_single_project_handler;

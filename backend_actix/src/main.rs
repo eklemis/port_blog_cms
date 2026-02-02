@@ -111,8 +111,8 @@ async fn start() -> std::io::Result<()> {
                 ports::outgoing::patch_project_service::PatchProjectService,
                 service::{
                     AddProjectTopicService, ClearProjectTopicsService, CreateProjectService,
-                    GetProjectsService, GetPublicSingleProjectService, GetSingleProjectService,
-                    RemoveProjectTopicService,
+                    GetProjectTopicsService, GetProjectsService, GetPublicSingleProjectService,
+                    GetSingleProjectService, RemoveProjectTopicService,
                 },
             },
         },
@@ -281,6 +281,7 @@ async fn start() -> std::io::Result<()> {
     let add_topic_uc = AddProjectTopicService::new(project_topic_repo.clone());
     let remove_topic_uc = RemoveProjectTopicService::new(project_topic_repo.clone());
     let clear_topics_uc = ClearProjectTopicsService::new(project_topic_repo.clone());
+    let get_project_topics_uc = GetProjectTopicsService::new(project_query.clone());
 
     let project_use_cases = ProjectUseCases {
         create: Arc::new(create_project_uc),
@@ -289,6 +290,7 @@ async fn start() -> std::io::Result<()> {
         get_public_single: Arc::new(get_public_single_project_uc),
         patch: Arc::new(patch_project_uc),
         add_topic: Arc::new(add_topic_uc),
+        get_topics: Arc::new(get_project_topics_uc),
         remove_topic: Arc::new(remove_topic_uc),
         clear_topics: Arc::new(clear_topics_uc),
     };
@@ -379,6 +381,7 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::project::adapter::incoming::web::routes::patch_project_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::soft_delete_project_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::add_project_topic_handler);
+    cfg.service(crate::project::adapter::incoming::web::routes::get_project_topics_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::remove_project_topic_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::clear_project_topics_handler);
 }

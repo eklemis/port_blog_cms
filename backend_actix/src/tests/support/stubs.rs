@@ -34,11 +34,12 @@ use crate::email::application::ports::outgoing::user_email_notifier::{
 };
 use crate::project::application::ports::incoming::use_cases::{
     AddProjectTopicError, AddProjectTopicUseCase, ClearProjectTopicsError,
-    ClearProjectTopicsUseCase, GetProjectsUseCase, GetPublicSingleProjectError,
-    GetPublicSingleProjectUseCase, GetSingleProjectError, GetSingleProjectUseCase,
-    PatchProjectError, PatchProjectUseCase, RemoveProjectTopicError, RemoveProjectTopicUseCase,
+    ClearProjectTopicsUseCase, GetProjectTopicsError, GetProjectTopicsUseCase, GetProjectsUseCase,
+    GetPublicSingleProjectError, GetPublicSingleProjectUseCase, GetSingleProjectError,
+    GetSingleProjectUseCase, PatchProjectError, PatchProjectUseCase, RemoveProjectTopicError,
+    RemoveProjectTopicUseCase,
 };
-use crate::project::application::ports::outgoing::project_query::ProjectView;
+use crate::project::application::ports::outgoing::project_query::{ProjectTopicItem, ProjectView};
 use crate::project::application::ports::outgoing::project_repository::PatchProjectData;
 use crate::tests::support::project_test_fixtures::empty_page_result;
 use crate::topic::application::ports::outgoing::TopicResult;
@@ -595,5 +596,19 @@ impl ClearProjectTopicsUseCase for StubClearProjectTopicsUseCase {
         _project_id: Uuid,
     ) -> Result<(), ClearProjectTopicsError> {
         unimplemented!("StubClearProjectTopicsUseCase not configured for this test")
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct StubGetProjectTopicsUseCase;
+
+#[async_trait]
+impl GetProjectTopicsUseCase for StubGetProjectTopicsUseCase {
+    async fn execute(
+        &self,
+        _owner: UserId,
+        _project_id: Uuid,
+    ) -> Result<Vec<ProjectTopicItem>, GetProjectTopicsError> {
+        unimplemented!("StubGetProjectTopicsUseCase not configured for this test")
     }
 }

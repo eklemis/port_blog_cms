@@ -182,7 +182,7 @@ mod tests {
             screenshots: vec!["img.png".to_string()],
             repo_url: None,
             live_demo_url: None,
-            topic_ids: vec![],
+            topics: vec![],
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }

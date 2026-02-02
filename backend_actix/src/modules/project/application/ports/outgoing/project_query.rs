@@ -13,6 +13,13 @@ use crate::auth::application::domain::entities::UserId;
 // ──────────────────────────────────────────────────────────
 //
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectTopicItem {
+    pub id: Uuid,
+    pub title: String,
+    pub description: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct ProjectView {
     pub id: Uuid,
@@ -24,7 +31,7 @@ pub struct ProjectView {
     pub screenshots: Vec<String>,
     pub repo_url: Option<String>,
     pub live_demo_url: Option<String>,
-    pub topic_ids: Vec<Uuid>,
+    pub topics: Vec<ProjectTopicItem>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -130,7 +137,10 @@ pub trait ProjectQuery: Send + Sync {
     ) -> Result<PageResult<ProjectCardView>, ProjectQueryError>;
 
     /// Sometimes caller needs only topic IDs for a project.
-    async fn get_project_topics(&self, project_id: Uuid) -> Result<Vec<Uuid>, ProjectQueryError>;
+    async fn get_project_topics(
+        &self,
+        project_id: Uuid,
+    ) -> Result<Vec<ProjectTopicItem>, ProjectQueryError>;
 
     /// Helper to support slug generator later
     async fn slug_exists(&self, slug: &str) -> Result<bool, ProjectQueryError>;

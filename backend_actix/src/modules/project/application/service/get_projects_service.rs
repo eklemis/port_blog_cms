@@ -59,6 +59,9 @@ mod tests {
         PageRequest, PageResult, ProjectCardView, ProjectListFilter, ProjectQuery,
         ProjectQueryError, ProjectSort,
     };
+    use crate::project::application::ports::outgoing::project_query::{
+        ProjectTopicItem, ProjectView,
+    };
 
     /* --------------------------------------------------
      * Mock ProjectQuery
@@ -85,20 +88,11 @@ mod tests {
             &self,
             _owner: UserId,
             _project_id: Uuid,
-        ) -> Result<
-            crate::modules::project::application::ports::outgoing::project_query::ProjectView,
-            ProjectQueryError,
-        > {
+        ) -> Result<ProjectView, ProjectQueryError> {
             unimplemented!("not used in GetProjectsService tests")
         }
 
-        async fn get_by_slug(
-            &self,
-            _slug: &str,
-        ) -> Result<
-            crate::modules::project::application::ports::outgoing::project_query::ProjectView,
-            ProjectQueryError,
-        > {
+        async fn get_by_slug(&self, _slug: &str) -> Result<ProjectView, ProjectQueryError> {
             unimplemented!("not used in GetProjectsService tests")
         }
 
@@ -114,8 +108,8 @@ mod tests {
 
         async fn get_project_topics(
             &self,
-            _project_id: Uuid,
-        ) -> Result<Vec<Uuid>, ProjectQueryError> {
+            project_id: Uuid,
+        ) -> Result<Vec<ProjectTopicItem>, ProjectQueryError> {
             unimplemented!("not used in GetProjectsService tests")
         }
 

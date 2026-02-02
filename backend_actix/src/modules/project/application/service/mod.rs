@@ -1,6 +1,7 @@
 mod add_project_topic_service;
 mod clear_project_topics_service;
 mod create_project_service;
+mod get_project_topics_service;
 mod get_projects_service;
 mod get_public_single_project_service;
 mod get_single_project_service;
@@ -8,6 +9,7 @@ mod remove_project_topic_service;
 pub use add_project_topic_service::AddProjectTopicService;
 pub use clear_project_topics_service::ClearProjectTopicsService;
 pub use create_project_service::CreateProjectService;
+pub use get_project_topics_service::GetProjectTopicsService;
 pub use get_projects_service::GetProjectsService;
 pub use get_public_single_project_service::GetPublicSingleProjectService;
 pub use get_single_project_service::GetSingleProjectService;

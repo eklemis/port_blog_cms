@@ -59,9 +59,12 @@ mod tests {
     use async_trait::async_trait;
     use uuid::Uuid;
 
-    use crate::modules::project::application::ports::outgoing::project_query::{
-        PageRequest, PageResult, ProjectCardView, ProjectListFilter, ProjectQuery,
-        ProjectQueryError, ProjectSort, ProjectView,
+    use crate::{
+        modules::project::application::ports::outgoing::project_query::{
+            PageRequest, PageResult, ProjectCardView, ProjectListFilter, ProjectQuery,
+            ProjectQueryError, ProjectSort, ProjectView,
+        },
+        project::application::ports::outgoing::project_query::ProjectTopicItem,
     };
 
     /* --------------------------------------------------
@@ -110,7 +113,7 @@ mod tests {
         async fn get_project_topics(
             &self,
             _project_id: Uuid,
-        ) -> Result<Vec<Uuid>, ProjectQueryError> {
+        ) -> Result<Vec<ProjectTopicItem>, ProjectQueryError> {
             unimplemented!("not used in GetPublicSingleProjectService tests")
         }
 
@@ -134,7 +137,7 @@ mod tests {
             screenshots: vec!["img.png".to_string()],
             repo_url: None,
             live_demo_url: None,
-            topic_ids: vec![],
+            topics: vec![],
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
         }
