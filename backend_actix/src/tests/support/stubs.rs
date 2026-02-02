@@ -33,7 +33,8 @@ use crate::email::application::ports::outgoing::user_email_notifier::{
     UserEmailNotificationError, UserEmailNotifier,
 };
 use crate::project::application::ports::incoming::use_cases::{
-    AddProjectTopicError, AddProjectTopicUseCase, GetProjectsUseCase, GetPublicSingleProjectError,
+    AddProjectTopicError, AddProjectTopicUseCase, ClearProjectTopicsError,
+    ClearProjectTopicsUseCase, GetProjectsUseCase, GetPublicSingleProjectError,
     GetPublicSingleProjectUseCase, GetSingleProjectError, GetSingleProjectUseCase,
     PatchProjectError, PatchProjectUseCase, RemoveProjectTopicError, RemoveProjectTopicUseCase,
 };
@@ -580,5 +581,19 @@ impl RemoveProjectTopicUseCase for StubRemoveProjectTopicUseCase {
         _topic_id: Uuid,
     ) -> Result<(), RemoveProjectTopicError> {
         unimplemented!("StubRemoveProjectTopicUseCase not configured for this test")
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct StubClearProjectTopicsUseCase;
+
+#[async_trait]
+impl ClearProjectTopicsUseCase for StubClearProjectTopicsUseCase {
+    async fn execute(
+        &self,
+        _owner: UserId,
+        _project_id: Uuid,
+    ) -> Result<(), ClearProjectTopicsError> {
+        unimplemented!("StubClearProjectTopicsUseCase not configured for this test")
     }
 }

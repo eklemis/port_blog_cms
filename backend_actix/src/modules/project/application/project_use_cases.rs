@@ -5,8 +5,8 @@ use crate::{
         CreateProjectUseCase, GetProjectsUseCase,
     },
     project::application::ports::incoming::use_cases::{
-        AddProjectTopicUseCase, GetPublicSingleProjectUseCase, GetSingleProjectUseCase,
-        PatchProjectUseCase, RemoveProjectTopicUseCase,
+        AddProjectTopicUseCase, ClearProjectTopicsUseCase, GetPublicSingleProjectUseCase,
+        GetSingleProjectUseCase, PatchProjectUseCase, RemoveProjectTopicUseCase,
     },
 };
 
@@ -19,4 +19,5 @@ pub struct ProjectUseCases {
     pub patch: Arc<dyn PatchProjectUseCase + Send + Sync>,
     pub add_topic: Arc<dyn AddProjectTopicUseCase + Send + Sync>,
     pub remove_topic: Arc<dyn RemoveProjectTopicUseCase + Send + Sync>,
+    pub clear_topics: Arc<dyn ClearProjectTopicsUseCase + Send + Sync>,
 }
