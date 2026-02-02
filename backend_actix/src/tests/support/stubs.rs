@@ -22,6 +22,7 @@ use crate::auth::application::use_cases::soft_delete_user::{
 use crate::auth::application::use_cases::update_profile::{
     UpdateUserError, UpdateUserInput, UpdateUserOutput, UpdateUserProfileUseCase,
 };
+use crate::cv::application::ports::outgoing::{CVListFilter, CVPageRequest, CVPageResult, CVSort};
 use crate::cv::application::use_cases::get_public_single_cv::{
     GetPublicSingleCvError, GetPublicSingleCvUseCase,
 };
@@ -74,7 +75,13 @@ pub struct StubFetchCVUseCase;
 
 #[async_trait]
 impl IFetchCVUseCase for StubFetchCVUseCase {
-    async fn execute(&self, _user_id: Uuid) -> Result<Vec<CVInfo>, FetchCVError> {
+    async fn execute(
+        &self,
+        user_id: Uuid,
+        filter: CVListFilter,
+        sort: CVSort,
+        page: CVPageRequest,
+    ) -> Result<CVPageResult<CVInfo>, FetchCVError> {
         unimplemented!("Not used in this test")
     }
 }

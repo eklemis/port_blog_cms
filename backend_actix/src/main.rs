@@ -28,7 +28,7 @@ use crate::auth::application::use_cases::{
 use crate::cv::adapter::outgoing::cv_repo_postgres::CVRepoPostgres;
 use crate::cv::application::use_cases::create_cv::{CreateCVUseCase, ICreateCVUseCase};
 use crate::cv::application::use_cases::fetch_cv_by_id::{FetchCVByIdUseCase, IFetchCVByIdUseCase};
-use crate::cv::application::use_cases::fetch_user_cvs::{FetchCVUseCase, IFetchCVUseCase};
+use crate::cv::application::use_cases::fetch_user_cvs::{FetchCVService, IFetchCVUseCase};
 use crate::cv::application::use_cases::patch_cv::{IPatchCVUseCase, PatchCVUseCase};
 use crate::cv::application::use_cases::update_cv::{IUpdateCVUseCase, UpdateCVUseCase};
 
@@ -211,7 +211,7 @@ async fn start() -> std::io::Result<()> {
     let cv_query = CVQueryPostgres::new(Arc::clone(&db_arc));
 
     let cv_archiver = CVArchiverPostgres::new(Arc::clone(&db_arc));
-    let fetch_cv_use_case = FetchCVUseCase::new(cv_repo.clone());
+    let fetch_cv_use_case = FetchCVService::new(cv_query.clone());
     let fetch_cv_by_id_use_case = FetchCVByIdUseCase::new(cv_repo.clone());
     let get_public_single_cv_uc = GetPublicSingleCvService::new(cv_query.clone());
 

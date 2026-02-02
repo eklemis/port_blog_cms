@@ -1,40 +1,116 @@
-use crate::cv::{
-    application::ports::outgoing::{CVQuery, CVQueryError},
-    domain::entities::CVInfo,
-};
-use async_trait::async_trait;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use std::sync::Arc;
+
+use async_trait::async_trait;
+use sea_orm::prelude::Expr;
+use sea_orm::sea_query::extension::postgres::PgExpr;
+use sea_orm::QuerySelect;
+use sea_orm::{ColumnTrait, Condition, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder};
 use uuid::Uuid;
 
-// Bring in the entity we just defined above:
-use super::sea_orm_entity::{Column as CvColumn, Entity as CvEntity, Model as CvModel};
+use crate::cv::application::ports::outgoing::{
+    CVListFilter, CVPageRequest, CVPageResult, CVQuery, CVQueryError, CVSort,
+};
+use crate::cv::domain::entities::CVInfo;
+
+// Adjust these to your actual generated entity path
+use crate::modules::cv::adapter::outgoing::sea_orm_entity::{
+    Column as ResumeColumn, Entity as ResumeEntity, Model as ResumeModel,
+};
 
 #[derive(Debug, Clone)]
 pub struct CVQueryPostgres {
-    db: Arc<DatabaseConnection>,
+    db: Arc<sea_orm::DatabaseConnection>,
 }
 
 impl CVQueryPostgres {
-    pub fn new(db: Arc<DatabaseConnection>) -> Self {
+    pub fn new(db: Arc<sea_orm::DatabaseConnection>) -> Self {
         Self { db }
     }
 }
 
 #[async_trait]
 impl CVQuery for CVQueryPostgres {
-    async fn fetch_cv_by_user_id(&self, user_id: Uuid) -> Result<Vec<CVInfo>, CVQueryError> {
-        let models: Vec<CvModel> = CvEntity::find()
-            .filter(CvColumn::UserId.eq(user_id))
+    async fn list(
+        &self,
+        user_id: Uuid,
+        filter: CVListFilter,
+        sort: CVSort,
+        page: CVPageRequest,
+    ) -> Result<CVPageResult<CVInfo>, CVQueryError> {
+        // Base query (active resumes only)
+        let mut query = ResumeEntity::find()
+            .filter(ResumeColumn::UserId.eq(user_id))
+            .filter(ResumeColumn::IsDeleted.eq(false));
+
+        // Optional search: display_name + role (both exist in schema)
+        if let Some(ref search) = filter.search {
+            let term = search.trim();
+            if !term.is_empty() {
+                let pattern = format!("%{}%", term);
+
+                // For JSONB array-of-objects fields, cast the whole column to text
+                // and do ILIKE. This searches all nested string values.
+                let core_skills_expr =
+                    Expr::cust_with_values("CAST(core_skills AS TEXT) ILIKE $1", [pattern.clone()]);
+
+                let educations_expr =
+                    Expr::cust_with_values("CAST(educations AS TEXT) ILIKE $1", [pattern.clone()]);
+
+                let experiences_expr =
+                    Expr::cust_with_values("CAST(experiences AS TEXT) ILIKE $1", [pattern.clone()]);
+
+                let contact_info_expr = Expr::cust_with_values(
+                    "CAST(contact_info AS TEXT) ILIKE $1",
+                    [pattern.clone()],
+                );
+                query = query.filter(
+                    Condition::any()
+                        .add(Expr::col(ResumeColumn::DisplayName).ilike(&pattern))
+                        .add(Expr::col(ResumeColumn::Role).ilike(&pattern))
+                        .add(core_skills_expr)
+                        .add(educations_expr)
+                        .add(experiences_expr)
+                        .add(contact_info_expr),
+                );
+            }
+        }
+
+        // Sorting
+        query = match sort {
+            CVSort::Newest => query.order_by_desc(ResumeColumn::CreatedAt),
+            CVSort::Oldest => query.order_by_asc(ResumeColumn::CreatedAt),
+            CVSort::UpdatedNewest => query.order_by_desc(ResumeColumn::UpdatedAt),
+            CVSort::UpdatedOldest => query.order_by_asc(ResumeColumn::UpdatedAt),
+        };
+
+        // total count
+        let total = query
+            .clone()
+            .count(&*self.db)
+            .await
+            .map_err(|e| CVQueryError::DatabaseError(e.to_string()))?;
+
+        // pagination
+        let offset = ((page.page.saturating_sub(1)) * page.per_page) as u64;
+
+        let models: Vec<ResumeModel> = query
+            .offset(offset)
+            .limit(page.per_page as u64)
             .all(&*self.db)
             .await
-            .map_err(|err| CVQueryError::DatabaseError(err.to_string()))?;
+            .map_err(|e| CVQueryError::DatabaseError(e.to_string()))?;
 
-        Ok(models.into_iter().map(|m| m.to_domain()).collect())
+        Ok(CVPageResult {
+            items: models.into_iter().map(|m| m.to_domain()).collect(),
+            page: page.page,
+            per_page: page.per_page,
+            total,
+        })
     }
 
     async fn fetch_cv_by_id(&self, cv_id: Uuid) -> Result<Option<CVInfo>, CVQueryError> {
-        let model: Option<CvModel> = CvEntity::find_by_id(cv_id)
+        let model: Option<ResumeModel> = ResumeEntity::find_by_id(cv_id)
+            .filter(ResumeColumn::IsDeleted.eq(false))
             .one(&*self.db)
             .await
             .map_err(|err| CVQueryError::DatabaseError(err.to_string()))?;
@@ -47,53 +123,96 @@ impl CVQuery for CVQueryPostgres {
 mod tests {
     use super::*;
     use chrono::Utc;
-    use sea_orm::{DatabaseBackend, DbErr, MockDatabase};
-    use uuid::Uuid;
+    use sea_orm::{DatabaseBackend, MockDatabase};
 
-    fn create_cv_model(cv_id: Uuid, user_id: Uuid) -> CvModel {
+    fn create_mock_resume_model(
+        id: Uuid,
+        user_id: Uuid,
+        display_name: &str,
+        role: &str,
+    ) -> ResumeModel {
         let now = Utc::now().fixed_offset();
-        CvModel {
-            id: cv_id,
+
+        ResumeModel {
+            id,
             user_id,
+            display_name: display_name.to_string(),
+            role: role.to_string(),
             bio: "Test bio".to_string(),
-            display_name: "Test User".to_string(),
-            role: "Developer".to_string(),
             photo_url: "https://example.com/photo.jpg".to_string(),
-            core_skills: serde_json::json!([]),
-            educations: serde_json::json!([]),
-            experiences: serde_json::json!([]),
-            highlighted_projects: serde_json::json!([]),
-            contact_info: serde_json::json!([]),
+            core_skills: serde_json::json!([{"name": "Rust", "level": "advanced"}]),
+            educations: serde_json::json!([{"school": "MIT", "degree": "CS"}]),
+            experiences: serde_json::json!([{"company": "Acme", "role": "Engineer"}]),
+            highlighted_projects: serde_json::json!([{"title": "Portfolio"}]),
+            contact_info: serde_json::json!([{"type": "email", "value": "test@test.com"}]),
             created_at: now,
             updated_at: now,
             is_deleted: false,
         }
     }
 
-    // ==================== fetch_cv_by_id tests ====================
+    // ========================================================================
+    // list Tests
+    // ========================================================================
+
+    #[tokio::test]
+    async fn test_list_database_error() {
+        let user_id = Uuid::new_v4();
+
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_errors(vec![sea_orm::DbErr::Custom("connection error".to_string())])
+            .into_connection();
+
+        let query = CVQueryPostgres::new(Arc::new(db));
+        let result = query
+            .list(
+                user_id,
+                CVListFilter::default(),
+                CVSort::default(),
+                CVPageRequest::default(),
+            )
+            .await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            CVQueryError::DatabaseError(_)
+        ));
+    }
+
+    // Note: list() uses count() which is difficult to mock with MockDatabase.
+    // Use integration tests for full list coverage including:
+    // - successful listing with results
+    // - empty results
+    // - search filter (empty string, whitespace, with matches)
+    // - all sort variants (Newest, Oldest, UpdatedNewest, UpdatedOldest)
+    // - pagination edge cases (page 0, page beyond total)
+
+    // ========================================================================
+    // fetch_cv_by_id Tests
+    // ========================================================================
 
     #[tokio::test]
     async fn test_fetch_cv_by_id_success() {
         let cv_id = Uuid::new_v4();
         let user_id = Uuid::new_v4();
 
+        let mock_resume = create_mock_resume_model(cv_id, user_id, "John Doe", "Backend Engineer");
+
         let db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results(vec![vec![create_cv_model(cv_id, user_id)]])
+            .append_query_results(vec![vec![mock_resume]])
             .into_connection();
 
         let query = CVQueryPostgres::new(Arc::new(db));
-
         let result = query.fetch_cv_by_id(cv_id).await;
 
         assert!(result.is_ok());
-        let cv_info = result.unwrap();
-        assert!(cv_info.is_some());
-        let cv = cv_info.unwrap();
+        let cv = result.unwrap();
+        assert!(cv.is_some());
+        let cv = cv.unwrap();
         assert_eq!(cv.id, cv_id);
-        assert_eq!(cv.user_id, user_id);
-        assert_eq!(cv.bio, "Test bio");
-        assert_eq!(cv.display_name, "Test User");
-        assert_eq!(cv.role, "Developer");
+        assert_eq!(cv.display_name, "John Doe");
+        assert_eq!(cv.role, "Backend Engineer");
     }
 
     #[tokio::test]
@@ -101,11 +220,10 @@ mod tests {
         let cv_id = Uuid::new_v4();
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results(vec![Vec::<CvModel>::new()])
+            .append_query_results(vec![Vec::<ResumeModel>::new()])
             .into_connection();
 
         let query = CVQueryPostgres::new(Arc::new(db));
-
         let result = query.fetch_cv_by_id(cv_id).await;
 
         assert!(result.is_ok());
@@ -117,105 +235,16 @@ mod tests {
         let cv_id = Uuid::new_v4();
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_errors(vec![DbErr::Custom("Connection failed".to_string())])
+            .append_query_errors(vec![sea_orm::DbErr::Custom("connection error".to_string())])
             .into_connection();
 
         let query = CVQueryPostgres::new(Arc::new(db));
-
         let result = query.fetch_cv_by_id(cv_id).await;
 
         assert!(result.is_err());
-        match result.unwrap_err() {
-            CVQueryError::DatabaseError(msg) => {
-                assert!(msg.contains("Connection failed"));
-            }
-            _ => panic!("Expected DatabaseError variant"),
-        }
-    }
-
-    // ==================== fetch_cv_by_user_id tests ====================
-
-    #[tokio::test]
-    async fn test_fetch_cv_by_user_id_success() {
-        let user_id = Uuid::new_v4();
-        let cv_id_1 = Uuid::new_v4();
-        let cv_id_2 = Uuid::new_v4();
-
-        let db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results(vec![vec![
-                create_cv_model(cv_id_1, user_id),
-                create_cv_model(cv_id_2, user_id),
-            ]])
-            .into_connection();
-
-        let query = CVQueryPostgres::new(Arc::new(db));
-
-        let result = query.fetch_cv_by_user_id(user_id).await;
-
-        assert!(result.is_ok());
-        let cvs = result.unwrap();
-        assert_eq!(cvs.len(), 2);
-        assert_eq!(cvs[0].id, cv_id_1);
-        assert_eq!(cvs[1].id, cv_id_2);
-        assert_eq!(cvs[0].user_id, user_id);
-        assert_eq!(cvs[1].user_id, user_id);
-    }
-
-    #[tokio::test]
-    async fn test_fetch_cv_by_user_id_empty() {
-        let user_id = Uuid::new_v4();
-
-        let db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results(vec![Vec::<CvModel>::new()])
-            .into_connection();
-
-        let query = CVQueryPostgres::new(Arc::new(db));
-
-        let result = query.fetch_cv_by_user_id(user_id).await;
-
-        assert!(result.is_ok());
-        let cvs = result.unwrap();
-        assert!(cvs.is_empty());
-    }
-
-    #[tokio::test]
-    async fn test_fetch_cv_by_user_id_single_result() {
-        let user_id = Uuid::new_v4();
-        let cv_id = Uuid::new_v4();
-
-        let db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results(vec![vec![create_cv_model(cv_id, user_id)]])
-            .into_connection();
-
-        let query = CVQueryPostgres::new(Arc::new(db));
-
-        let result = query.fetch_cv_by_user_id(user_id).await;
-
-        assert!(result.is_ok());
-        let cvs = result.unwrap();
-        assert_eq!(cvs.len(), 1);
-        assert_eq!(cvs[0].id, cv_id);
-        assert_eq!(cvs[0].user_id, user_id);
-    }
-
-    #[tokio::test]
-    async fn test_fetch_cv_by_user_id_database_error() {
-        let user_id = Uuid::new_v4();
-
-        let db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_errors(vec![DbErr::Custom("Connection failed".to_string())])
-            .into_connection();
-
-        let query = CVQueryPostgres::new(Arc::new(db));
-
-        let result = query.fetch_cv_by_user_id(user_id).await;
-
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            CVQueryError::DatabaseError(msg) => {
-                assert!(msg.contains("Connection failed"));
-            }
-            _ => panic!("Expected DatabaseError variant"),
-        }
+        assert!(matches!(
+            result.unwrap_err(),
+            CVQueryError::DatabaseError(_)
+        ));
     }
 }

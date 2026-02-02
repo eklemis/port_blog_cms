@@ -61,6 +61,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cv::application::ports::outgoing::{CVListFilter, CVSort};
+    use crate::cv::application::ports::outgoing::{CVPageRequest, CVPageResult};
     use async_trait::async_trait;
 
     #[derive(Clone)]
@@ -86,7 +88,13 @@ mod tests {
 
     #[async_trait]
     impl CVQuery for MockCVQuery {
-        async fn fetch_cv_by_user_id(&self, _user_id: Uuid) -> Result<Vec<CVInfo>, CVQueryError> {
+        async fn list(
+            &self,
+            _user_id: Uuid,
+            _filter: CVListFilter,
+            _sort: CVSort,
+            _page: CVPageRequest,
+        ) -> Result<CVPageResult<CVInfo>, CVQueryError> {
             unimplemented!("not used in GetPublicSingleCvService tests")
         }
 

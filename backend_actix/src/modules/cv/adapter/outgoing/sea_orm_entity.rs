@@ -1,12 +1,13 @@
 use crate::cv::application::ports::outgoing::CreateCVData;
 use crate::cv::domain::entities::CVInfo;
 use sea_orm::entity::prelude::*;
+use serde::{Deserialize, Serialize};
 use serde_json;
 use serde_json::Value as JsonValue;
 use uuid::Uuid;
 
 // This is the SeaORM model that directly represents the "cv" table
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "resumes")]
 pub struct Model {
     #[sea_orm(primary_key)]
@@ -14,14 +15,20 @@ pub struct Model {
 
     pub user_id: Uuid,
     pub bio: String,
+    #[sea_orm(column_type = "Text", string_len = 150)]
     pub display_name: String,
+    #[sea_orm(column_type = "Text", string_len = 150)]
     pub role: String,
     pub photo_url: String,
 
+    #[sea_orm(column_type = "JsonBinary")]
     pub core_skills: JsonValue,
+    #[sea_orm(column_type = "JsonBinary")]
     pub educations: JsonValue,
+    #[sea_orm(column_type = "JsonBinary")]
     pub experiences: JsonValue,
     pub highlighted_projects: JsonValue,
+    #[sea_orm(column_type = "JsonBinary")]
     pub contact_info: JsonValue,
 
     pub created_at: DateTimeWithTimeZone,
