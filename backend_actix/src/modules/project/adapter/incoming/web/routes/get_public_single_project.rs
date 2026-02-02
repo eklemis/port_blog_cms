@@ -3,9 +3,13 @@ use serde::Deserialize;
 use tracing::error;
 
 use crate::{
-    auth::application::helpers::ResolveUserIdError,
+    auth::{
+        adapter::incoming::web::extractors::auth::resolve_owner_id_or_response,
+        application::{domain::entities::UserId, helpers::ResolveUserIdError},
+    },
     modules::project::application::ports::incoming::use_cases::GetPublicSingleProjectError,
-    shared::api::ApiResponse, AppState,
+    shared::api::ApiResponse,
+    AppState,
 };
 
 #[derive(Debug, Deserialize)]
@@ -21,32 +25,17 @@ pub async fn get_public_single_project_handler(
 ) -> impl Responder {
     let path = path.into_inner();
 
-    // Resolve username -> UserId (route responsibility)
-    let owner = match data
-        .user_identity_resolver
-        .by_username(&path.username)
-        .await
-    {
-        Ok(owner) => owner,
-
-        Err(ResolveUserIdError::NotFound) => {
-            return ApiResponse::not_found("USER_NOT_FOUND", "User not found");
-        }
-
-        Err(ResolveUserIdError::RepositoryError(msg)) => {
-            error!(
-                "Repository error resolving username {}: {}",
-                path.username, msg
-            );
-            return ApiResponse::internal_error();
-        }
+    // Resolve owner_id from username
+    let owner_id = match resolve_owner_id_or_response(&data, &path.username).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
     };
 
     // Use case: owner + slug -> ProjectView
     match data
         .project
         .get_public_single
-        .execute(owner, &path.project_slug)
+        .execute(UserId::from(owner_id), &path.project_slug)
         .await
     {
         Ok(project) => ApiResponse::success(project),

@@ -3,9 +3,13 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::{
-    auth::application::helpers::ResolveUserIdError,
+    auth::{
+        adapter::incoming::web::extractors::auth::resolve_owner_id_or_response,
+        application::helpers::ResolveUserIdError,
+    },
     cv::application::use_cases::get_public_single_cv::GetPublicSingleCvError,
-    shared::api::ApiResponse, AppState,
+    shared::api::ApiResponse,
+    AppState,
 };
 
 #[get("/api/public/cvs/{username}/{cv_id}")]
@@ -16,15 +20,9 @@ pub async fn get_public_cv_by_id_handler(
     let (username, cv_id) = path.into_inner();
 
     // Resolve owner_id from username
-    let owner_id = match data.user_identity_resolver.by_username(&username).await {
-        Ok(owner_id) => owner_id,
-        Err(ResolveUserIdError::NotFound) => {
-            return ApiResponse::not_found("USER_NOT_FOUND", "User not found");
-        }
-        Err(ResolveUserIdError::RepositoryError(msg)) => {
-            error!("Repository error resolving username {}: {}", username, msg);
-            return ApiResponse::internal_error();
-        }
+    let owner_id = match resolve_owner_id_or_response(&data, &username).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
     };
 
     // Fetch the CV publicly (still owner-scoped)

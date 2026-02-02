@@ -37,10 +37,8 @@ pub async fn remove_project_topic_handler(
         Err(RemoveProjectTopicError::ProjectNotFound) => {
             ApiResponse::not_found("PROJECT_NOT_FOUND", "Project not found")
         }
-        // Unreachable path. Need to be refactor
-        Err(RemoveProjectTopicError::TopicNotFound) => {
-            ApiResponse::not_found("TOPIC_NOT_FOUND", "Topic not found")
-        }
+        // Intentionally not exposed for now (DELETE is idempotent at API level)
+        Err(RemoveProjectTopicError::TopicNotFound) => ApiResponse::no_content(),
 
         Err(RemoveProjectTopicError::RepositoryError(msg)) => {
             error!("Failed to remove topic from project: {}", msg);
@@ -216,11 +214,7 @@ mod tests {
             .to_request();
 
         let resp = test::call_service(&app, req).await;
-        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
-
-        let body: Value = test::read_body_json(resp).await;
-        assert_eq!(body["success"], false);
-        assert_eq!(body["error"]["code"], "TOPIC_NOT_FOUND");
+        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
     }
 
     #[actix_web::test]

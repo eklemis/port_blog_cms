@@ -1,12 +1,12 @@
-use actix_web::{dev::Payload, Error as ActixError, FromRequest, HttpRequest, HttpResponse};
+use actix_web::{dev::Payload, web, Error as ActixError, FromRequest, HttpRequest, HttpResponse};
 use std::{
     future::{ready, Ready},
     sync::Arc,
 };
 use uuid::Uuid;
 
-use crate::auth::application::ports::outgoing::token_provider::TokenProvider;
-use crate::shared::api::ApiResponse;
+use crate::{auth::application::helpers::ResolveUserIdError, shared::api::ApiResponse};
+use crate::{auth::application::ports::outgoing::token_provider::TokenProvider, AppState};
 
 /// Represents an authenticated user (verified or not)
 #[derive(Debug, Clone)]
@@ -104,4 +104,22 @@ fn extract_token_from_header(req: &HttpRequest) -> Option<String> {
         .ok()?
         .strip_prefix("Bearer ")
         .map(|s| s.to_string())
+}
+
+pub async fn resolve_owner_id_or_response(
+    data: &web::Data<AppState>,
+    username: &str,
+) -> Result<Uuid, HttpResponse> {
+    match data.user_identity_resolver.by_username(username).await {
+        Ok(owner_id) => Ok(owner_id.value()),
+
+        Err(ResolveUserIdError::NotFound) => {
+            Err(ApiResponse::not_found("USER_NOT_FOUND", "User not found"))
+        }
+
+        Err(ResolveUserIdError::RepositoryError(msg)) => {
+            tracing::error!("Repository error resolving username {}: {}", username, msg);
+            Err(ApiResponse::internal_error())
+        }
+    }
 }

@@ -1,6 +1,8 @@
 use actix_web::{get, web, Responder};
 use tracing::error;
 
+use crate::auth::adapter::incoming::web::extractors::auth::resolve_owner_id_or_response;
+use crate::auth::application::domain::entities::UserId;
 use crate::auth::application::helpers::ResolveUserIdError;
 use crate::modules::project::adapter::incoming::web::routes::get_projects::GetProjectsQuery;
 use crate::modules::project::application::ports::incoming::use_cases::GetProjectsError;
@@ -22,25 +24,17 @@ pub async fn get_public_projects_handler(
     let username = path.into_inner();
     let (filter, page, sort) = query.into_inner().into();
 
-    // 1. Resolve username → UserId
-    let owner = match data.user_identity_resolver.by_username(&username).await {
-        Ok(user_id) => user_id,
-
-        Err(ResolveUserIdError::NotFound) => {
-            return ApiResponse::not_found("USER_NOT_FOUND", "User not found");
-        }
-
-        Err(ResolveUserIdError::RepositoryError(msg)) => {
-            error!("Failed to resolve username {}: {}", username, msg);
-            return ApiResponse::internal_error();
-        }
+    // 1. Resolve owner_id from username
+    let owner_id = match resolve_owner_id_or_response(&data, &username).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
     };
 
     // 2. Delegate to existing use case
     match data
         .project
         .get_list
-        .execute(owner, filter, sort, page)
+        .execute(UserId::from(owner_id), filter, sort, page)
         .await
     {
         Ok(result) => ApiResponse::success(result),
