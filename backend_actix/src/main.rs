@@ -2,6 +2,7 @@ pub mod modules;
 pub use modules::auth;
 pub use modules::cv;
 pub use modules::email;
+pub use modules::multimedia;
 pub use modules::project;
 pub use modules::topic;
 pub mod health;
