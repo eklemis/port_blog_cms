@@ -1,0 +1,21 @@
+export const sectionTitles = {
+	summary: 'eummary',
+	experience: 'experience',
+	projects: 'projects',
+	education: 'education',
+	languages: 'languages',
+	certification: 'certification',
+	skills: 'skills',
+	training: 'training/courses',
+	volunteering: 'volunteering',
+	achievements: 'key achievements',
+	references: 'references',
+	publications: 'publications',
+	strengths: 'strengths',
+	interests: 'interests',
+	socialMedia: 'find me online',
+	awards: 'awards',
+	industryExpertise: 'industry expertise',
+	myTime: 'my time',
+	custom: 'custom title'
+};

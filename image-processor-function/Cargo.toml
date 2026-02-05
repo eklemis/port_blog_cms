@@ -1,0 +1,39 @@
+[package]
+name = "image-processor-function"
+version = "0.1.0"
+edition = "2021"
+
+[profile.release]
+opt-level = 3        # Already default, explicit is fine
+debug = false        # Already default
+lto = "fat"          # Enable LTO
+panic = "abort"      # Abort on panic to reduce binary size
+codegen-units = 1    # Maximize potential for optimizations
+strip = "symbols"    # Strip debug symbols
+
+[dependencies]
+actix-web = "4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1.49.0", features = ["rt-multi-thread", "macros"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# GCS client
+google-cloud-storage = "0.22"
+google-cloud-auth = "0.17"
+
+# Image processing (fast_image_resize stack)
+fast_image_resize = "5"
+image = { version = "0.25", features = ["jpeg", "png", "webp"] }
+webp = "0.3"
+
+# Parallelism
+rayon = "1.10"
+
+# Memory allocator (better performance for image processing)
+tikv-jemallocator = "0.6"
+
+# Async utilities
+futures = "0.3"

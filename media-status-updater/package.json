@@ -1,0 +1,15 @@
+{
+  "name": "media-status-updater",
+  "version": "1.0.0",
+  "description": "listen to manifest file creation and update media record in the database",
+  "main": "index.js",
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.3.0",
+    "@google-cloud/storage": "^7.7.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Eklemis Ndun",
+  "license": "ISC"
+}

@@ -1,0 +1,46 @@
+{
+  "media_id": "abc123",
+  "state": "ready",
+  "pipeline_version": "v1",
+  "updated_at": "2026-02-05T10:12:36Z",
+
+  "original": {
+    "bucket": "media-originals",
+    "path": "originals/abc123/source",
+    "width": 4032,
+    "height": 3024
+  },
+
+  "variants": [
+    {
+      "size": 150,
+      "path": "variants/abc123/150.webp",
+      "width": 150,
+      "height": 150
+    },
+    {
+      "size": 320,
+      "path": "variants/abc123/320.webp",
+      "width": 320,
+      "height": 240
+    },
+    {
+      "size": 768,
+      "path": "variants/abc123/768.webp",
+      "width": 768,
+      "height": 576
+    },
+    {
+      "size": 1200,
+      "path": "variants/abc123/1200.webp",
+      "width": 1200,
+      "height": 900
+    }
+  ],
+
+  "metrics": {
+    "processing_ms": 412,
+    "encoder": "webp",
+    "quality": 80
+  }
+}

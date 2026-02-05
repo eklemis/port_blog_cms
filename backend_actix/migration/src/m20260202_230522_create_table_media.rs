@@ -55,6 +55,23 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         // =====================================================
+        // Create enum type for media.status
+        // =====================================================
+        manager
+            .get_connection()
+            .execute_unprepared(
+                r#"
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'media_status') THEN
+                        CREATE TYPE media_status AS ENUM ('pending', 'processing', 'ready', 'failed');
+                    END IF;
+                END$$;
+                "#,
+            )
+            .await?;
+
+        // =====================================================
         // Create media table
         // =====================================================
         manager
@@ -119,9 +136,18 @@ impl MigrationTrait for Migration {
                     // =========================================
                     .col(
                         ColumnDef::new(Media::Status)
-                            .string_len(50)
+                            .custom(Alias::new("media_status"))
                             .not_null()
-                            .default("pending"),
+                            .default(Expr::cust("'pending'::media_status")),
+                    )
+                    // =========================================
+                    // Metadata (JSON)
+                    // =========================================
+                    .col(
+                        ColumnDef::new(Media::Metadata)
+                            .json_binary()
+                            .not_null()
+                            .default(Expr::cust("'{}'::jsonb")),
                     )
                     // =========================================
                     // Audit timestamps
@@ -265,7 +291,19 @@ impl MigrationTrait for Migration {
         // Drop table
         manager
             .drop_table(Table::drop().table(Media::Table).to_owned())
-            .await
+            .await?;
+
+        // Drop enum type (only if nothing else depends on it)
+        manager
+            .get_connection()
+            .execute_unprepared(
+                r#"
+                DROP TYPE IF EXISTS media_status;
+                "#,
+            )
+            .await?;
+
+        Ok(())
     }
 }
 
@@ -283,6 +321,7 @@ enum Media {
     Height,
     DurationSeconds,
     Status,
+    Metadata,
     CreatedAt,
     UpdatedAt,
     DeletedAt,
