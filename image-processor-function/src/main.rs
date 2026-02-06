@@ -16,6 +16,7 @@ use google_cloud_storage::{
 use image::{DynamicImage, GenericImageView, ImageReader};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::io::Cursor;
 use std::path::Path;
 use std::sync::Arc;
@@ -95,14 +96,16 @@ struct ManifestVariant {
 }
 
 #[derive(Serialize)]
-struct ManifestExpectedVariant {
-    size: u32,
-    path: String,
-}
-
-#[derive(Serialize)]
 struct ManifestMetrics {
+    /// Total wall-clock time (download + processing + uploads + manifest)
+    total_ms: u64,
+    /// Download time from GCS
+    download_ms: u64,
+    /// CPU processing time (decode + resize + encode)
     processing_ms: u64,
+    /// Upload time for variants + manifest
+    upload_ms: u64,
+
     encoder: String,
     quality: u32,
 }
@@ -117,14 +120,6 @@ struct ManifestError {
 #[derive(Serialize)]
 #[serde(tag = "state")]
 enum Manifest {
-    #[serde(rename = "processing")]
-    Processing {
-        media_id: String,
-        pipeline_version: String,
-        updated_at: String,
-        original: ManifestOriginal,
-        expected_variants: Vec<ManifestExpectedVariant>,
-    },
     #[serde(rename = "ready")]
     Ready {
         media_id: String,
@@ -148,7 +143,7 @@ fn now_iso8601() -> String {
 }
 
 // =============================================================================
-// Image processing with rayon parallelism
+// Image processing
 // =============================================================================
 
 struct ResizeTarget {
@@ -186,47 +181,50 @@ fn resize_to_webp(
         )
         .map_err(|e| format!("Resize failed: {}", e))?;
 
-    // Handle optional center crop for thumbnails
-    let final_buffer: Vec<u8>;
-    let (final_width, final_height) = if let Some(crop_size) = target.crop_square {
-        let x = (target.width.saturating_sub(crop_size)) / 2;
-        let y = (target.height.saturating_sub(crop_size)) / 2;
+    // Non-crop variants borrow dst buffer (no copy).
+    // Cropped thumbnail needs an owned cropped buffer.
+    let (final_width, final_height, final_pixels): (u32, u32, Cow<[u8]>) =
+        if let Some(crop_size) = target.crop_square {
+            let x = (target.width.saturating_sub(crop_size)) / 2;
+            let y = (target.height.saturating_sub(crop_size)) / 2;
 
-        let src_buf = dst_image.buffer();
-        let bytes_per_pixel = match src.pixel_type() {
-            PixelType::U8x3 => 3,
-            PixelType::U8x4 => 4,
-            _ => 3,
+            let src_buf = dst_image.buffer();
+            let bytes_per_pixel = match src.pixel_type() {
+                PixelType::U8x3 => 3,
+                PixelType::U8x4 => 4,
+                _ => 3,
+            };
+
+            let src_stride = target.width as usize * bytes_per_pixel;
+            let crop_stride = crop_size as usize * bytes_per_pixel;
+
+            let mut cropped =
+                Vec::with_capacity(crop_size as usize * crop_size as usize * bytes_per_pixel);
+            for row in 0..crop_size {
+                let src_offset = ((y + row) as usize * src_stride) + (x as usize * bytes_per_pixel);
+                cropped.extend_from_slice(&src_buf[src_offset..src_offset + crop_stride]);
+            }
+
+            (crop_size, crop_size, Cow::Owned(cropped))
+        } else {
+            (
+                target.width,
+                target.height,
+                Cow::Borrowed(dst_image.buffer()),
+            )
         };
-        let src_stride = target.width as usize * bytes_per_pixel;
-        let crop_stride = crop_size as usize * bytes_per_pixel;
 
-        let mut cropped =
-            Vec::with_capacity(crop_size as usize * crop_size as usize * bytes_per_pixel);
-        for row in 0..crop_size {
-            let src_offset = ((y + row) as usize * src_stride) + (x as usize * bytes_per_pixel);
-            cropped.extend_from_slice(&src_buf[src_offset..src_offset + crop_stride]);
-        }
-        final_buffer = cropped;
-        (crop_size, crop_size)
-    } else {
-        final_buffer = dst_image.buffer().to_vec();
-        (target.width, target.height)
-    };
-
-    // Encode to WebP
     let webp_data = match src.pixel_type() {
         PixelType::U8x4 => {
-            Encoder::from_rgba(&final_buffer, final_width, final_height).encode(WEBP_QUALITY)
+            Encoder::from_rgba(&final_pixels, final_width, final_height).encode(WEBP_QUALITY)
         }
-        _ => Encoder::from_rgb(&final_buffer, final_width, final_height).encode(WEBP_QUALITY),
+        _ => Encoder::from_rgb(&final_pixels, final_width, final_height).encode(WEBP_QUALITY),
     };
 
     Ok((webp_data.to_vec(), final_width, final_height))
 }
 
 fn process_image(bytes: &[u8]) -> Result<ProcessedImage, String> {
-    // Decode image
     let img = ImageReader::new(Cursor::new(bytes))
         .with_guessed_format()
         .map_err(|e| format!("Failed to guess format: {}", e))?
@@ -235,27 +233,21 @@ fn process_image(bytes: &[u8]) -> Result<ProcessedImage, String> {
 
     let (w, h) = img.dimensions();
 
-    // Convert to fast_image_resize Image format
-    let src_image = match &img {
-        DynamicImage::ImageRgb8(rgb) => {
-            Image::from_vec_u8(w, h, rgb.as_raw().to_vec(), PixelType::U8x3)
-                .map_err(|e| format!("Failed to create image: {}", e))?
-        }
+    // Move pixel buffer out (avoid full-frame clone)
+    let src_image = match img {
+        DynamicImage::ImageRgb8(rgb) => Image::from_vec_u8(w, h, rgb.into_raw(), PixelType::U8x3)
+            .map_err(|e| format!("Failed to create image: {}", e))?,
         DynamicImage::ImageRgba8(rgba) => {
-            Image::from_vec_u8(w, h, rgba.as_raw().to_vec(), PixelType::U8x4)
+            Image::from_vec_u8(w, h, rgba.into_raw(), PixelType::U8x4)
                 .map_err(|e| format!("Failed to create image: {}", e))?
         }
-        _ => {
-            let rgb = img.to_rgb8();
+        other => {
+            let rgb = other.to_rgb8();
             Image::from_vec_u8(w, h, rgb.into_raw(), PixelType::U8x3)
                 .map_err(|e| format!("Failed to create image: {}", e))?
         }
     };
 
-    // Drop original to free memory
-    drop(img);
-
-    // Build resize targets
     let mut targets: Vec<ResizeTarget> = Vec::with_capacity(4);
 
     // 150x150 thumbnail (scale then crop)
@@ -281,7 +273,7 @@ fn process_image(bytes: &[u8]) -> Result<ProcessedImage, String> {
         });
     }
 
-    // Process targets in parallel using rayon
+    // Process targets in parallel using rayon (kept)
     let variants: Result<Vec<ImageVariant>, String> = targets
         .par_iter()
         .map(|target| {
@@ -393,10 +385,11 @@ fn extract_cloud_event_headers(req: &HttpRequest) -> Option<CloudEventHeaders> {
 }
 
 fn is_processable_image(name: &str, content_type: Option<&str>) -> bool {
-    let by_extension = name.to_lowercase().ends_with(".jpg")
-        || name.to_lowercase().ends_with(".jpeg")
-        || name.to_lowercase().ends_with(".png")
-        || name.to_lowercase().ends_with(".webp");
+    let lower = name.to_lowercase();
+    let by_extension = lower.ends_with(".jpg")
+        || lower.ends_with(".jpeg")
+        || lower.ends_with(".png")
+        || lower.ends_with(".webp");
 
     let by_content_type = content_type
         .map(|ct| ct.starts_with("image/"))
@@ -406,48 +399,27 @@ fn is_processable_image(name: &str, content_type: Option<&str>) -> bool {
 }
 
 /// Check if this is a folder creation event (not a real file)
-/// GCS folders are zero-byte objects ending with /
 fn is_folder_marker(name: &str, size: Option<&str>) -> bool {
-    // Folder markers end with /
     if name.ends_with('/') {
         return true;
     }
 
-    // Also check for zero-byte objects without extension (likely folder placeholders)
     let is_zero_bytes = size.map(|s| s == "0").unwrap_or(false);
     let has_no_extension = !name.contains('.') || name.ends_with('/');
 
     is_zero_bytes && has_no_extension
 }
 
-/// Extract media_id from path like "quarantine/abc123/photo.jpg" -> "abc123"
-/// or "quarantine/photo.jpg" -> "photo"
+/// Extract media_id from path like "fold-097/photo.jpg" -> "fold-097"
 fn extract_media_id(name: &str) -> String {
-    let without_quarantine = name.trim_start_matches("quarantine/");
-
-    // Check if there's a subfolder structure
-    if let Some((folder, _)) = without_quarantine.split_once('/') {
+    if let Some((folder, _)) = name.split_once('/') {
         folder.to_string()
     } else {
-        // No subfolder, use filename without extension as media_id
-        without_quarantine
-            .rsplit_once('.')
+        name.rsplit_once('.')
             .map(|(s, _)| s)
-            .unwrap_or(without_quarantine)
+            .unwrap_or(name)
             .to_string()
     }
-}
-
-/// Build expected variant paths for processing manifest
-fn build_expected_variants(media_id: &str) -> Vec<ManifestExpectedVariant> {
-    let sizes = [150u32, 320, 768, 1200];
-    sizes
-        .iter()
-        .map(|&size| ManifestExpectedVariant {
-            size,
-            path: format!("variants/{}/{}.webp", media_id, size),
-        })
-        .collect()
 }
 
 async fn handle_gcs_event(
@@ -455,7 +427,7 @@ async fn handle_gcs_event(
     body: web::Bytes,
     gcs_client: web::Data<Arc<GcsClient>>,
 ) -> HttpResponse {
-    let start_time = Instant::now();
+    let total_start = Instant::now();
 
     // Extract CloudEvent metadata
     let headers = match extract_cloud_event_headers(&req) {
@@ -508,7 +480,7 @@ async fn handle_gcs_event(
     let media_id = extract_media_id(&gcs_data.name);
     let client = gcs_client.get_ref();
 
-    // Skip folder creation events entirely (no manifest)
+    // Skip folder creation events
     if is_folder_marker(&gcs_data.name, gcs_data.size.as_deref()) {
         info!(file_name = %gcs_data.name, "Skipping folder marker");
         return HttpResponse::Ok().json(FunctionResponse {
@@ -518,11 +490,10 @@ async fn handle_gcs_event(
         });
     }
 
-    // Check if this is an image we should process
+    // Validate file type
     if !is_processable_image(&gcs_data.name, gcs_data.content_type.as_deref()) {
         info!(file_name = %gcs_data.name, "Skipping non-image file");
 
-        // Upload failed manifest
         let manifest = Manifest::Failed {
             media_id: media_id.clone(),
             pipeline_version: PIPELINE_VERSION.to_string(),
@@ -533,9 +504,7 @@ async fn handle_gcs_event(
                 stage: "validation".to_string(),
             },
         };
-        if let Err(e) = upload_manifest(client, &media_id, &manifest).await {
-            error!(error = %e, "Failed to upload failed manifest");
-        }
+        let _ = upload_manifest(client, &media_id, &manifest).await;
 
         return HttpResponse::Ok().json(FunctionResponse {
             status: "skipped".to_string(),
@@ -544,30 +513,13 @@ async fn handle_gcs_event(
         });
     }
 
-    // Upload processing manifest
-    let processing_manifest = Manifest::Processing {
-        media_id: media_id.clone(),
-        pipeline_version: PIPELINE_VERSION.to_string(),
-        updated_at: now_iso8601(),
-        original: ManifestOriginal {
-            bucket: gcs_data.bucket.clone(),
-            path: gcs_data.name.clone(),
-            width: None,
-            height: None,
-        },
-        expected_variants: build_expected_variants(&media_id),
-    };
-    if let Err(e) = upload_manifest(client, &media_id, &processing_manifest).await {
-        error!(error = %e, "Failed to upload processing manifest");
-    }
-
-    // Download the original image
+    // Download original
+    let download_start = Instant::now();
     let image_bytes = match download_from_gcs(client, &gcs_data.bucket, &gcs_data.name).await {
         Ok(bytes) => bytes,
         Err(e) => {
             error!(error = %e, "Failed to download image");
 
-            // Upload failed manifest
             let manifest = Manifest::Failed {
                 media_id: media_id.clone(),
                 pipeline_version: PIPELINE_VERSION.to_string(),
@@ -578,9 +530,7 @@ async fn handle_gcs_event(
                     stage: "download".to_string(),
                 },
             };
-            if let Err(me) = upload_manifest(client, &media_id, &manifest).await {
-                error!(error = %me, "Failed to upload failed manifest");
-            }
+            let _ = upload_manifest(client, &media_id, &manifest).await;
 
             return HttpResponse::InternalServerError().json(FunctionResponse {
                 status: "error".to_string(),
@@ -589,29 +539,26 @@ async fn handle_gcs_event(
             });
         }
     };
+    let download_ms = download_start.elapsed().as_millis() as u64;
 
-    info!(size_bytes = image_bytes.len(), "Downloaded original image");
-
-    // Process image (CPU-intensive, run in blocking thread pool)
+    // Process (CPU)
+    let processing_start = Instant::now();
     let processed = match tokio::task::spawn_blocking(move || process_image(&image_bytes)).await {
         Ok(Ok(p)) => p,
         Ok(Err(e)) => {
             error!(error = %e, "Image processing failed");
 
-            // Upload failed manifest
             let manifest = Manifest::Failed {
                 media_id: media_id.clone(),
                 pipeline_version: PIPELINE_VERSION.to_string(),
                 updated_at: now_iso8601(),
                 error: ManifestError {
-                    code: "DECODE_ERROR".to_string(),
+                    code: "PROCESSING_ERROR".to_string(),
                     message: e.clone(),
-                    stage: "decode".to_string(),
+                    stage: "processing".to_string(),
                 },
             };
-            if let Err(me) = upload_manifest(client, &media_id, &manifest).await {
-                error!(error = %me, "Failed to upload failed manifest");
-            }
+            let _ = upload_manifest(client, &media_id, &manifest).await;
 
             return HttpResponse::InternalServerError().json(FunctionResponse {
                 status: "error".to_string(),
@@ -622,7 +569,6 @@ async fn handle_gcs_event(
         Err(e) => {
             error!(error = %e, "Task panicked");
 
-            // Upload failed manifest
             let manifest = Manifest::Failed {
                 media_id: media_id.clone(),
                 pipeline_version: PIPELINE_VERSION.to_string(),
@@ -633,9 +579,7 @@ async fn handle_gcs_event(
                     stage: "processing".to_string(),
                 },
             };
-            if let Err(me) = upload_manifest(client, &media_id, &manifest).await {
-                error!(error = %me, "Failed to upload failed manifest");
-            }
+            let _ = upload_manifest(client, &media_id, &manifest).await;
 
             return HttpResponse::InternalServerError().json(FunctionResponse {
                 status: "error".to_string(),
@@ -644,30 +588,36 @@ async fn handle_gcs_event(
             });
         }
     };
+    let processing_ms = processing_start.elapsed().as_millis() as u64;
 
-    let output_bucket = output_bucket();
-
-    // Build variant info for manifest before moving data
-    let variant_info: Vec<(u32, String, u32, u32)> = processed
-        .variants
-        .iter()
-        .map(|v| {
-            let size: u32 = v.suffix.parse().unwrap_or(0);
-            let path = format!("variants/{}/{}.webp", media_id, v.suffix);
-            (size, path, v.width, v.height)
-        })
-        .collect();
-
-    // Upload all variants concurrently
     let stem = Path::new(&gcs_data.name)
         .file_stem()
         .and_then(|n| n.to_str())
         .unwrap_or(&gcs_data.name);
+
+    let output_bucket = output_bucket();
+
+    // Variant info for manifest
+    let variant_info: Vec<ManifestVariant> = processed
+        .variants
+        .iter()
+        .map(|v| {
+            let size: u32 = v.suffix.parse().unwrap_or(0);
+            ManifestVariant {
+                size,
+                path: format!("variants/{}/{}_{}.webp", media_id, stem, v.suffix),
+                width: v.width,
+                height: v.height,
+            }
+        })
+        .collect();
+
+    // Upload futures for variants
     let upload_futures: Vec<_> = processed
         .variants
         .into_iter()
         .map(|variant| {
-            let output_name = format!("variants/{}/{}_{}.webp", media_id, &stem, variant.suffix);
+            let output_name = format!("variants/{}/{}_{}.webp", media_id, stem, variant.suffix);
             let bucket = output_bucket.clone();
             let client = client.clone();
 
@@ -678,14 +628,16 @@ async fn handle_gcs_event(
         })
         .collect();
 
-    let results = join_all(upload_futures).await;
+    // Measure uploads (variants + manifest)
+    let upload_start = Instant::now();
 
-    // Collect results
+    // Upload variants concurrently
+    let variant_results = join_all(upload_futures).await;
+
     let mut created = Vec::new();
     let mut errors = Vec::new();
-
-    for result in results {
-        match result {
+    for r in variant_results {
+        match r {
             Ok(name) => created.push(name),
             Err(e) => errors.push(e),
         }
@@ -694,7 +646,6 @@ async fn handle_gcs_event(
     if !errors.is_empty() {
         error!(?errors, "Some uploads failed");
 
-        // Upload failed manifest
         let manifest = Manifest::Failed {
             media_id: media_id.clone(),
             pipeline_version: PIPELINE_VERSION.to_string(),
@@ -705,9 +656,7 @@ async fn handle_gcs_event(
                 stage: "upload".to_string(),
             },
         };
-        if let Err(me) = upload_manifest(client, &media_id, &manifest).await {
-            error!(error = %me, "Failed to upload failed manifest");
-        }
+        let _ = upload_manifest(client, &media_id, &manifest).await;
 
         return HttpResponse::InternalServerError().json(FunctionResponse {
             status: "partial_error".to_string(),
@@ -716,10 +665,8 @@ async fn handle_gcs_event(
         });
     }
 
-    let processing_ms = start_time.elapsed().as_millis() as u64;
-
-    // Upload ready manifest
-    let ready_manifest = Manifest::Ready {
+    // Now build a READY manifest with final metrics (upload_ms/total_ms set AFTER timing)
+    let mut ready_manifest = Manifest::Ready {
         media_id: media_id.clone(),
         pipeline_version: PIPELINE_VERSION.to_string(),
         updated_at: now_iso8601(),
@@ -729,28 +676,67 @@ async fn handle_gcs_event(
             width: Some(processed.original_width),
             height: Some(processed.original_height),
         },
-        variants: variant_info
-            .into_iter()
-            .map(|(size, path, width, height)| ManifestVariant {
-                size,
-                path,
-                width,
-                height,
-            })
-            .collect(),
+        variants: variant_info,
         metrics: ManifestMetrics {
+            total_ms: 0,
+            download_ms,
             processing_ms,
+            upload_ms: 0,
             encoder: "webp".to_string(),
             quality: WEBP_QUALITY as u32,
         },
     };
+
+    // Upload manifest last
     if let Err(e) = upload_manifest(client, &media_id, &ready_manifest).await {
-        error!(error = %e, "Failed to upload ready manifest");
+        error!(error = %e, "Failed to upload manifest");
+
+        let manifest = Manifest::Failed {
+            media_id: media_id.clone(),
+            pipeline_version: PIPELINE_VERSION.to_string(),
+            updated_at: now_iso8601(),
+            error: ManifestError {
+                code: "UPLOAD_ERROR".to_string(),
+                message: format!("Manifest upload failed: {}", e),
+                stage: "upload".to_string(),
+            },
+        };
+        let _ = upload_manifest(client, &media_id, &manifest).await;
+
+        return HttpResponse::InternalServerError().json(FunctionResponse {
+            status: "error".to_string(),
+            message: format!("Manifest upload failed: {}", e),
+            variants_created: Some(created),
+        });
+    }
+
+    // Now we can finalize metrics and write a final manifest with accurate upload_ms/total_ms.
+    // (We re-upload the manifest once more, overwriting the previous one.)
+    let upload_ms = upload_start.elapsed().as_millis() as u64;
+    let total_ms = total_start.elapsed().as_millis() as u64;
+
+    if let Manifest::Ready { metrics, .. } = &mut ready_manifest {
+        metrics.upload_ms = upload_ms;
+        metrics.total_ms = total_ms;
+    }
+
+    // Overwrite manifest.json with final metrics
+    if let Err(e) = upload_manifest(client, &media_id, &ready_manifest).await {
+        // At this point variants exist; we still return an error but you’ll have variants.
+        error!(error = %e, "Failed to upload final manifest with metrics");
+        return HttpResponse::InternalServerError().json(FunctionResponse {
+            status: "error".to_string(),
+            message: format!("Failed to upload final manifest with metrics: {}", e),
+            variants_created: Some(created),
+        });
     }
 
     info!(
         variants_created = ?created,
-        processing_ms = processing_ms,
+        download_ms,
+        processing_ms,
+        upload_ms,
+        total_ms,
         "Successfully processed image"
     );
 
@@ -767,7 +753,7 @@ async fn health() -> HttpResponse {
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-    // Configure rayon to use available CPUs (2 vCPUs on Cloud Run)
+    // Configure rayon thread pool
     let num_threads = std::env::var("RAYON_NUM_THREADS")
         .ok()
         .and_then(|s| s.parse().ok())

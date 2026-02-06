@@ -91,59 +91,60 @@ gcloud run deploy "${SERVICE_NAME}" \
     --platform=managed \
     --no-allow-unauthenticated \
     --memory=2Gi \
-    --cpu=2 \
+    --cpu=4 \
     --min-instances=0 \
     --max-instances=2 \
-    --timeout=60s \
-    --concurrency=1 # One image at a time, rayon uses both CPUs
+    --timeout=120s \
+    --set-env-vars=RAYON_NUM_THREADS=4 \
+    --concurrency=1 # One image at a time, rayon uses all CPUs
 
 # =============================================================================
 # Set up Eventarc trigger for GCS events
 # =============================================================================
-echo "⚡ Creating Eventarc trigger..."
+# echo "⚡ Creating Eventarc trigger..."
 
 # Get the Cloud Storage service account for the project
-GCS_SERVICE_ACCOUNT="$(gsutil kms serviceaccount -p "${PROJECT_ID}")"
+# GCS_SERVICE_ACCOUNT="$(gsutil kms serviceaccount -p "${PROJECT_ID}")"
 
 # Grant the pubsub.publisher role to the GCS service account
 # (required for Eventarc to receive GCS events)
-echo "   Granting Pub/Sub publisher role to GCS service account..."
-gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
-    --member="serviceAccount:${GCS_SERVICE_ACCOUNT}" \
-    --role="roles/pubsub.publisher" \
-    --condition=None \
-    --quiet
+# echo "   Granting Pub/Sub publisher role to GCS service account..."
+# gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+#     --member="serviceAccount:${GCS_SERVICE_ACCOUNT}" \
+#     --role="roles/pubsub.publisher" \
+#     --condition=None \
+#     --quiet
 
-# Get the default compute service account
-COMPUTE_SA="$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
+# # Get the default compute service account
+# COMPUTE_SA="$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
 
-# Grant eventarc.eventReceiver role to the compute service account
-echo "   Granting Eventarc receiver role to compute service account..."
-gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
-    --member="serviceAccount:${COMPUTE_SA}" \
-    --role="roles/eventarc.eventReceiver" \
-    --condition=None \
-    --quiet
+# # Grant eventarc.eventReceiver role to the compute service account
+# echo "   Granting Eventarc receiver role to compute service account..."
+# gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+#     --member="serviceAccount:${COMPUTE_SA}" \
+#     --role="roles/eventarc.eventReceiver" \
+#     --condition=None \
+#     --quiet
 
-# Delete existing trigger if it exists (for re-deployment)
-if gcloud eventarc triggers describe "${SERVICE_NAME}-trigger" \
-    --location="${REGION}" &>/dev/null; then
-    echo "   Deleting existing trigger..."
-    gcloud eventarc triggers delete "${SERVICE_NAME}-trigger" \
-        --location="${REGION}" \
-        --quiet
-fi
+# # Delete existing trigger if it exists (for re-deployment)
+# if gcloud eventarc triggers describe "${SERVICE_NAME}-trigger" \
+#     --location="${REGION}" &>/dev/null; then
+#     echo "   Deleting existing trigger..."
+#     gcloud eventarc triggers delete "${SERVICE_NAME}-trigger" \
+#         --location="${REGION}" \
+#         --quiet
+# fi
 
-# Create the Eventarc trigger
-# This triggers on object finalization (upload complete) in the specified bucket
-echo "   Creating new trigger..."
-gcloud eventarc triggers create "${SERVICE_NAME}-trigger" \
-    --location="${REGION}" \
-    --destination-run-service="${SERVICE_NAME}" \
-    --destination-run-region="${REGION}" \
-    --event-filters="type=google.cloud.storage.object.v1.finalized" \
-    --event-filters="bucket=${BUCKET_NAME}" \
-    --service-account="${COMPUTE_SA}"
+# # Create the Eventarc trigger
+# # This triggers on object finalization (upload complete) in the specified bucket
+# echo "   Creating new trigger..."
+# gcloud eventarc triggers create "${SERVICE_NAME}-trigger" \
+#     --location="${REGION}" \
+#     --destination-run-service="${SERVICE_NAME}" \
+#     --destination-run-region="${REGION}" \
+#     --event-filters="type=google.cloud.storage.object.v1.finalized" \
+#     --event-filters="bucket=${BUCKET_NAME}" \
+#     --service-account="${COMPUTE_SA}"
 
 # =============================================================================
 # Set up lifecycle rules for buckets
