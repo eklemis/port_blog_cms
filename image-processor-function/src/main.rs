@@ -8,6 +8,7 @@ use futures::future::join_all;
 use google_cloud_storage::{
     client::{Client as GcsClient, ClientConfig},
     http::objects::{
+        delete::DeleteObjectRequest,
         download::Range,
         get::GetObjectRequest,
         upload::{Media, UploadObjectRequest, UploadType},
@@ -104,6 +105,7 @@ struct RuleError {
 }
 
 fn validate_and_decode(bytes: &[u8]) -> Result<(DynamicImage, AllowedFormat), RuleError> {
+    // Authoritative max size enforcement (do not remove)
     if bytes.len() > MAX_FILE_BYTES {
         return Err(RuleError {
             code: RuleCode::TooLargeBytes,
@@ -218,13 +220,9 @@ struct ManifestVariant {
 
 #[derive(Serialize)]
 struct ManifestMetrics {
-    /// Total wall-clock time (download + processing + uploads + manifest)
     total_ms: u64,
-    /// Download time from GCS
     download_ms: u64,
-    /// CPU processing time (decode + resize + encode)
     processing_ms: u64,
-    /// Upload time for variants + manifest
     upload_ms: u64,
     encoder: String,
     quality: u32,
@@ -276,16 +274,11 @@ fn failed_manifest(media_id: String, code: &str, message: String, stage: &str) -
 }
 
 fn failed_manifest_from_rule(media_id: String, err: RuleError) -> Manifest {
-    failed_manifest(
-        media_id,
-        err.code.as_str(),
-        err.message,
-        err.stage, // "validation"
-    )
+    failed_manifest(media_id, err.code.as_str(), err.message, err.stage)
 }
 
 // =============================================================================
-// Image processing (keeps your algorithm, removes extra copies)
+// Image processing (keeps algorithm, reduces copies)
 // =============================================================================
 
 struct ResizeTarget {
@@ -355,7 +348,7 @@ fn resize_to_webp(
             )
         };
 
-    // EXIF is effectively stripped because we re-encode from raw pixels to WebP (no metadata carryover).
+    // EXIF is effectively stripped: outputs are re-encoded from raw pixels to WebP.
     let webp_data = match src.pixel_type() {
         PixelType::U8x4 => {
             Encoder::from_rgba(&final_pixels, final_width, final_height).encode(WEBP_QUALITY)
@@ -501,6 +494,30 @@ async fn upload_manifest(
     .await
 }
 
+async fn delete_from_gcs(client: &GcsClient, bucket: &str, name: &str) -> Result<(), String> {
+    let req = DeleteObjectRequest {
+        bucket: bucket.to_string(),
+        object: name.to_string(),
+        ..Default::default()
+    };
+
+    client
+        .delete_object(&req)
+        .await
+        .map_err(|e| format!("Failed to delete from GCS: {}", e))?;
+
+    Ok(())
+}
+
+async fn delete_original_best_effort(client: &GcsClient, bucket: &str, name: &str) {
+    match delete_from_gcs(client, bucket, name).await {
+        Ok(_) => info!(bucket = bucket, object = name, "Deleted original object"),
+        Err(e) => {
+            warn!(error = %e, bucket = bucket, object = name, "Failed to delete original object")
+        }
+    }
+}
+
 // =============================================================================
 // Request handler
 // =============================================================================
@@ -612,6 +629,7 @@ async fn handle_gcs_event(
         bucket = %gcs_data.bucket,
         file_name = %gcs_data.name,
         content_type = ?gcs_data.content_type,
+        size = ?gcs_data.size,
         "Processing upload event"
     );
 
@@ -630,21 +648,67 @@ async fn handle_gcs_event(
 
     // Fast skip non-image by metadata (enforcement happens after download)
     if !is_processable_image_by_metadata(&gcs_data.name, gcs_data.content_type.as_deref()) {
-        info!(file_name = %gcs_data.name, "Skipping non-image file");
+        info!(file_name = %gcs_data.name, "Skipping non-image file (metadata)");
 
         let manifest = failed_manifest(
             media_id.clone(),
             "INVALID_FILE_TYPE",
-            "Not a processable image".to_string(),
+            "Not a processable image (metadata)".to_string(),
             "validation",
         );
         let _ = upload_manifest(client, &media_id, &manifest).await;
+
+        // Business rule: invalid type -> delete immediately (best effort)
+        delete_original_best_effort(client, &gcs_data.bucket, &gcs_data.name).await;
 
         return HttpResponse::Ok().json(FunctionResponse {
             status: "skipped".to_string(),
             message: "Not a processable image".to_string(),
             variants_created: None,
         });
+    }
+
+    // -------------------------------------------------------------------------
+    // Minimal metadata pre-check (size only): skip download if object is too big.
+    // Still keep the authoritative bytes.len() check after download.
+    // -------------------------------------------------------------------------
+    if let Some(size_str) = gcs_data.size.as_deref() {
+        if let Ok(size) = size_str.parse::<u64>() {
+            if size > MAX_FILE_BYTES as u64 {
+                info!(
+                    size,
+                    max = MAX_FILE_BYTES as u64,
+                    "Skipping: file too large (metadata)"
+                );
+
+                let manifest = failed_manifest(
+                    media_id.clone(),
+                    RuleCode::TooLargeBytes.as_str(),
+                    format!(
+                        "File too large per metadata: {} bytes (max {})",
+                        size, MAX_FILE_BYTES
+                    ),
+                    "validation",
+                );
+                let _ = upload_manifest(client, &media_id, &manifest).await;
+
+                // Business rule: too large -> delete immediately (best effort)
+                delete_original_best_effort(client, &gcs_data.bucket, &gcs_data.name).await;
+
+                return HttpResponse::Ok().json(FunctionResponse {
+                    status: "skipped".to_string(),
+                    message: "File too large (metadata pre-check)".to_string(),
+                    variants_created: None,
+                });
+            }
+        } else {
+            warn!(
+                size_str,
+                "Could not parse gcs_data.size; continuing to download"
+            );
+        }
+    } else {
+        warn!("Missing gcs_data.size; continuing to download");
     }
 
     // Download original
@@ -669,21 +733,49 @@ async fn handle_gcs_event(
 
     // Validate + decode + process (CPU)
     let processing_start = Instant::now();
-    let processed = match tokio::task::spawn_blocking(move || {
-        let (img, _fmt) = validate_and_decode(&image_bytes)?;
-        process_dynamic_image(img).map_err(|msg| RuleError {
-            code: RuleCode::DecodeFailed,
-            message: msg,
-            stage: "processing",
+    let processed_or_rule_err: Result<ProcessedImage, RuleError> =
+        match tokio::task::spawn_blocking(move || {
+            let (img, _fmt) = validate_and_decode(&image_bytes)?;
+            process_dynamic_image(img).map_err(|msg| RuleError {
+                code: RuleCode::DecodeFailed,
+                message: msg,
+                stage: "processing",
+            })
         })
-    })
-    .await
-    {
-        Ok(Ok(p)) => p,
-        Ok(Err(rule_err)) => {
+        .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                error!(error = %e, "Task panicked");
+                let manifest = failed_manifest(
+                    media_id.clone(),
+                    "INTERNAL_ERROR",
+                    "Internal processing error".to_string(),
+                    "processing",
+                );
+                let _ = upload_manifest(client, &media_id, &manifest).await;
+
+                return HttpResponse::InternalServerError().json(FunctionResponse {
+                    status: "error".to_string(),
+                    message: "Internal processing error".to_string(),
+                    variants_created: None,
+                });
+            }
+        };
+
+    let processing_ms = processing_start.elapsed().as_millis() as u64;
+
+    let processed = match processed_or_rule_err {
+        Ok(p) => p,
+        Err(rule_err) => {
             error!(error = ?rule_err, "Validation/processing failed");
+
             let manifest = failed_manifest_from_rule(media_id.clone(), rule_err);
             let _ = upload_manifest(client, &media_id, &manifest).await;
+
+            // Business rules not met -> delete immediately (best effort)
+            // (We delete the original object in the upload bucket.)
+            delete_original_best_effort(client, &gcs_data.bucket, &gcs_data.name).await;
 
             return HttpResponse::Ok().json(FunctionResponse {
                 status: "skipped".to_string(),
@@ -691,24 +783,7 @@ async fn handle_gcs_event(
                 variants_created: None,
             });
         }
-        Err(e) => {
-            error!(error = %e, "Task panicked");
-            let manifest = failed_manifest(
-                media_id.clone(),
-                "INTERNAL_ERROR",
-                "Internal processing error".to_string(),
-                "processing",
-            );
-            let _ = upload_manifest(client, &media_id, &manifest).await;
-
-            return HttpResponse::InternalServerError().json(FunctionResponse {
-                status: "error".to_string(),
-                message: "Internal processing error".to_string(),
-                variants_created: None,
-            });
-        }
     };
-    let processing_ms = processing_start.elapsed().as_millis() as u64;
 
     // Output naming
     let stem = Path::new(&gcs_data.name)
@@ -733,7 +808,7 @@ async fn handle_gcs_event(
         })
         .collect();
 
-    // Build upload futures for variants
+    // Upload futures for variants
     let upload_futures: Vec<_> = processed
         .variants
         .into_iter()
@@ -781,7 +856,7 @@ async fn handle_gcs_event(
         });
     }
 
-    // Build final manifest with correct metrics (upload_ms + total_ms are computed after manifest upload)
+    // Build ready manifest (we will overwrite once to ensure upload_ms/total_ms are correct)
     let mut ready_manifest = Manifest::Ready {
         media_id: media_id.clone(),
         pipeline_version: PIPELINE_VERSION.to_string(),
@@ -803,7 +878,7 @@ async fn handle_gcs_event(
         },
     };
 
-    // Upload manifest
+    // Upload manifest once (then overwrite with accurate upload_ms/total_ms)
     if let Err(e) = upload_manifest(client, &media_id, &ready_manifest).await {
         error!(error = %e, "Failed to upload manifest");
         let manifest = failed_manifest(
@@ -821,15 +896,16 @@ async fn handle_gcs_event(
         });
     }
 
-    // Now we can finalize upload_ms/total_ms accurately (includes manifest upload above)
+    // Finalize upload_ms/total_ms accurately (includes variant uploads + both manifest uploads)
+    // We intentionally overwrite manifest.json to guarantee correct metrics.
     let upload_ms = upload_start.elapsed().as_millis() as u64;
     let total_ms = total_start.elapsed().as_millis() as u64;
 
-    // Overwrite manifest once with final metrics (cheap + guarantees correctness)
     if let Manifest::Ready { metrics, .. } = &mut ready_manifest {
         metrics.upload_ms = upload_ms;
         metrics.total_ms = total_ms;
     }
+
     if let Err(e) = upload_manifest(client, &media_id, &ready_manifest).await {
         error!(error = %e, "Failed to upload final manifest with metrics");
         return HttpResponse::InternalServerError().json(FunctionResponse {
