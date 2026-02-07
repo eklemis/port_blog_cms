@@ -45,6 +45,127 @@ const RESIZE_WIDTHS: [u32; 3] = [320, 768, 1200];
 const WEBP_QUALITY: f32 = 80.0;
 
 // =============================================================================
+// Business rules
+// =============================================================================
+
+const MAX_FILE_BYTES: usize = 5 * 1024 * 1024; // 5MB
+const MAX_TOTAL_PIXELS: u64 = 20_000_000; // 20MP
+const MAX_DIMENSION: u32 = 6000; // max width/height
+
+#[derive(Clone, Copy, Debug)]
+enum AllowedFormat {
+    Jpeg,
+    Png,
+    Webp,
+}
+
+fn detect_format(bytes: &[u8]) -> Option<AllowedFormat> {
+    // JPEG: FF D8 FF
+    if bytes.len() >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF {
+        return Some(AllowedFormat::Jpeg);
+    }
+    // PNG: 89 50 4E 47 0D 0A 1A 0A
+    if bytes.len() >= 8 && &bytes[..8] == b"\x89PNG\r\n\x1a\n" {
+        return Some(AllowedFormat::Png);
+    }
+    // WEBP: RIFF .... WEBP
+    if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+        return Some(AllowedFormat::Webp);
+    }
+    None
+}
+
+#[derive(Debug)]
+enum RuleCode {
+    InvalidType,
+    TooLargeBytes,
+    TooLargePixels,
+    TooLargeDimensions,
+    DecodeFailed,
+}
+
+impl RuleCode {
+    fn as_str(&self) -> &'static str {
+        match self {
+            RuleCode::InvalidType => "INVALID_TYPE",
+            RuleCode::TooLargeBytes => "MAX_SIZE_EXCEEDED",
+            RuleCode::TooLargePixels => "MAX_PIXELS_EXCEEDED",
+            RuleCode::TooLargeDimensions => "MAX_DIM_EXCEEDED",
+            RuleCode::DecodeFailed => "DECODE_FAILED",
+        }
+    }
+}
+
+#[derive(Debug)]
+struct RuleError {
+    code: RuleCode,
+    message: String,
+    stage: &'static str, // "validation" | "processing"
+}
+
+fn validate_and_decode(bytes: &[u8]) -> Result<(DynamicImage, AllowedFormat), RuleError> {
+    if bytes.len() > MAX_FILE_BYTES {
+        return Err(RuleError {
+            code: RuleCode::TooLargeBytes,
+            message: format!(
+                "File too large: {} bytes (max {} bytes)",
+                bytes.len(),
+                MAX_FILE_BYTES
+            ),
+            stage: "validation",
+        });
+    }
+
+    let fmt = detect_format(bytes).ok_or_else(|| RuleError {
+        code: RuleCode::InvalidType,
+        message: "Only JPEG, PNG, and WEBP are allowed".to_string(),
+        stage: "validation",
+    })?;
+
+    // Decode (CPU-bound)
+    let img = ImageReader::new(Cursor::new(bytes))
+        .with_guessed_format()
+        .map_err(|e| RuleError {
+            code: RuleCode::DecodeFailed,
+            message: format!("Failed to guess format: {e}"),
+            stage: "validation",
+        })?
+        .decode()
+        .map_err(|e| RuleError {
+            code: RuleCode::DecodeFailed,
+            message: format!("Failed to decode image: {e}"),
+            stage: "validation",
+        })?;
+
+    let (w, h) = img.dimensions();
+
+    if w > MAX_DIMENSION || h > MAX_DIMENSION {
+        return Err(RuleError {
+            code: RuleCode::TooLargeDimensions,
+            message: format!(
+                "Image too large: {}x{} (max {}x{})",
+                w, h, MAX_DIMENSION, MAX_DIMENSION
+            ),
+            stage: "validation",
+        });
+    }
+
+    let pixels = (w as u64) * (h as u64);
+    if pixels > MAX_TOTAL_PIXELS {
+        return Err(RuleError {
+            code: RuleCode::TooLargePixels,
+            message: format!(
+                "Image has too many pixels: {} (max {})",
+                pixels, MAX_TOTAL_PIXELS
+            ),
+            stage: "validation",
+        });
+    }
+
+    Ok((img, fmt))
+}
+
+// =============================================================================
 // CloudEvent structures
 // =============================================================================
 
@@ -105,7 +226,6 @@ struct ManifestMetrics {
     processing_ms: u64,
     /// Upload time for variants + manifest
     upload_ms: u64,
-
     encoder: String,
     quality: u32,
 }
@@ -142,8 +262,30 @@ fn now_iso8601() -> String {
     Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string()
 }
 
+fn failed_manifest(media_id: String, code: &str, message: String, stage: &str) -> Manifest {
+    Manifest::Failed {
+        media_id,
+        pipeline_version: PIPELINE_VERSION.to_string(),
+        updated_at: now_iso8601(),
+        error: ManifestError {
+            code: code.to_string(),
+            message,
+            stage: stage.to_string(),
+        },
+    }
+}
+
+fn failed_manifest_from_rule(media_id: String, err: RuleError) -> Manifest {
+    failed_manifest(
+        media_id,
+        err.code.as_str(),
+        err.message,
+        err.stage, // "validation"
+    )
+}
+
 // =============================================================================
-// Image processing
+// Image processing (keeps your algorithm, removes extra copies)
 // =============================================================================
 
 struct ResizeTarget {
@@ -182,27 +324,26 @@ fn resize_to_webp(
         .map_err(|e| format!("Resize failed: {}", e))?;
 
     // Non-crop variants borrow dst buffer (no copy).
-    // Cropped thumbnail needs an owned cropped buffer.
+    // Thumbnail crop needs an owned cropped buffer.
     let (final_width, final_height, final_pixels): (u32, u32, Cow<[u8]>) =
         if let Some(crop_size) = target.crop_square {
             let x = (target.width.saturating_sub(crop_size)) / 2;
             let y = (target.height.saturating_sub(crop_size)) / 2;
 
             let src_buf = dst_image.buffer();
-            let bytes_per_pixel = match src.pixel_type() {
+            let bpp = match src.pixel_type() {
                 PixelType::U8x3 => 3,
                 PixelType::U8x4 => 4,
                 _ => 3,
             };
 
-            let src_stride = target.width as usize * bytes_per_pixel;
-            let crop_stride = crop_size as usize * bytes_per_pixel;
+            let src_stride = target.width as usize * bpp;
+            let crop_stride = crop_size as usize * bpp;
 
-            let mut cropped =
-                Vec::with_capacity(crop_size as usize * crop_size as usize * bytes_per_pixel);
+            let mut cropped = Vec::with_capacity(crop_size as usize * crop_size as usize * bpp);
             for row in 0..crop_size {
-                let src_offset = ((y + row) as usize * src_stride) + (x as usize * bytes_per_pixel);
-                cropped.extend_from_slice(&src_buf[src_offset..src_offset + crop_stride]);
+                let off = ((y + row) as usize * src_stride) + (x as usize * bpp);
+                cropped.extend_from_slice(&src_buf[off..off + crop_stride]);
             }
 
             (crop_size, crop_size, Cow::Owned(cropped))
@@ -214,6 +355,7 @@ fn resize_to_webp(
             )
         };
 
+    // EXIF is effectively stripped because we re-encode from raw pixels to WebP (no metadata carryover).
     let webp_data = match src.pixel_type() {
         PixelType::U8x4 => {
             Encoder::from_rgba(&final_pixels, final_width, final_height).encode(WEBP_QUALITY)
@@ -224,16 +366,10 @@ fn resize_to_webp(
     Ok((webp_data.to_vec(), final_width, final_height))
 }
 
-fn process_image(bytes: &[u8]) -> Result<ProcessedImage, String> {
-    let img = ImageReader::new(Cursor::new(bytes))
-        .with_guessed_format()
-        .map_err(|e| format!("Failed to guess format: {}", e))?
-        .decode()
-        .map_err(|e| format!("Failed to decode image: {}", e))?;
-
+fn process_dynamic_image(img: DynamicImage) -> Result<ProcessedImage, String> {
     let (w, h) = img.dimensions();
 
-    // Move pixel buffer out (avoid full-frame clone)
+    // Convert to fast_image_resize::Image without cloning entire buffers
     let src_image = match img {
         DynamicImage::ImageRgb8(rgb) => Image::from_vec_u8(w, h, rgb.into_raw(), PixelType::U8x3)
             .map_err(|e| format!("Failed to create image: {}", e))?,
@@ -248,6 +384,7 @@ fn process_image(bytes: &[u8]) -> Result<ProcessedImage, String> {
         }
     };
 
+    // Build resize targets
     let mut targets: Vec<ResizeTarget> = Vec::with_capacity(4);
 
     // 150x150 thumbnail (scale then crop)
@@ -273,7 +410,7 @@ fn process_image(bytes: &[u8]) -> Result<ProcessedImage, String> {
         });
     }
 
-    // Process targets in parallel using rayon (kept)
+    // Parallel variants (kept)
     let variants: Result<Vec<ImageVariant>, String> = targets
         .par_iter()
         .map(|target| {
@@ -384,7 +521,8 @@ fn extract_cloud_event_headers(req: &HttpRequest) -> Option<CloudEventHeaders> {
     })
 }
 
-fn is_processable_image(name: &str, content_type: Option<&str>) -> bool {
+/// Fast skip using metadata only (real enforcement happens after download via magic-bytes + decode)
+fn is_processable_image_by_metadata(name: &str, content_type: Option<&str>) -> bool {
     let lower = name.to_lowercase();
     let by_extension = lower.ends_with(".jpg")
         || lower.ends_with(".jpeg")
@@ -490,20 +628,16 @@ async fn handle_gcs_event(
         });
     }
 
-    // Validate file type
-    if !is_processable_image(&gcs_data.name, gcs_data.content_type.as_deref()) {
+    // Fast skip non-image by metadata (enforcement happens after download)
+    if !is_processable_image_by_metadata(&gcs_data.name, gcs_data.content_type.as_deref()) {
         info!(file_name = %gcs_data.name, "Skipping non-image file");
 
-        let manifest = Manifest::Failed {
-            media_id: media_id.clone(),
-            pipeline_version: PIPELINE_VERSION.to_string(),
-            updated_at: now_iso8601(),
-            error: ManifestError {
-                code: "INVALID_FILE_TYPE".to_string(),
-                message: "Not a processable image file".to_string(),
-                stage: "validation".to_string(),
-            },
-        };
+        let manifest = failed_manifest(
+            media_id.clone(),
+            "INVALID_FILE_TYPE",
+            "Not a processable image".to_string(),
+            "validation",
+        );
         let _ = upload_manifest(client, &media_id, &manifest).await;
 
         return HttpResponse::Ok().json(FunctionResponse {
@@ -520,16 +654,8 @@ async fn handle_gcs_event(
         Err(e) => {
             error!(error = %e, "Failed to download image");
 
-            let manifest = Manifest::Failed {
-                media_id: media_id.clone(),
-                pipeline_version: PIPELINE_VERSION.to_string(),
-                updated_at: now_iso8601(),
-                error: ManifestError {
-                    code: "DOWNLOAD_ERROR".to_string(),
-                    message: e.clone(),
-                    stage: "download".to_string(),
-                },
-            };
+            let manifest =
+                failed_manifest(media_id.clone(), "DOWNLOAD_ERROR", e.clone(), "download");
             let _ = upload_manifest(client, &media_id, &manifest).await;
 
             return HttpResponse::InternalServerError().json(FunctionResponse {
@@ -541,44 +667,38 @@ async fn handle_gcs_event(
     };
     let download_ms = download_start.elapsed().as_millis() as u64;
 
-    // Process (CPU)
+    // Validate + decode + process (CPU)
     let processing_start = Instant::now();
-    let processed = match tokio::task::spawn_blocking(move || process_image(&image_bytes)).await {
+    let processed = match tokio::task::spawn_blocking(move || {
+        let (img, _fmt) = validate_and_decode(&image_bytes)?;
+        process_dynamic_image(img).map_err(|msg| RuleError {
+            code: RuleCode::DecodeFailed,
+            message: msg,
+            stage: "processing",
+        })
+    })
+    .await
+    {
         Ok(Ok(p)) => p,
-        Ok(Err(e)) => {
-            error!(error = %e, "Image processing failed");
-
-            let manifest = Manifest::Failed {
-                media_id: media_id.clone(),
-                pipeline_version: PIPELINE_VERSION.to_string(),
-                updated_at: now_iso8601(),
-                error: ManifestError {
-                    code: "PROCESSING_ERROR".to_string(),
-                    message: e.clone(),
-                    stage: "processing".to_string(),
-                },
-            };
+        Ok(Err(rule_err)) => {
+            error!(error = ?rule_err, "Validation/processing failed");
+            let manifest = failed_manifest_from_rule(media_id.clone(), rule_err);
             let _ = upload_manifest(client, &media_id, &manifest).await;
 
-            return HttpResponse::InternalServerError().json(FunctionResponse {
-                status: "error".to_string(),
-                message: e,
+            return HttpResponse::Ok().json(FunctionResponse {
+                status: "skipped".to_string(),
+                message: "Business rule validation failed".to_string(),
                 variants_created: None,
             });
         }
         Err(e) => {
             error!(error = %e, "Task panicked");
-
-            let manifest = Manifest::Failed {
-                media_id: media_id.clone(),
-                pipeline_version: PIPELINE_VERSION.to_string(),
-                updated_at: now_iso8601(),
-                error: ManifestError {
-                    code: "INTERNAL_ERROR".to_string(),
-                    message: "Internal processing error".to_string(),
-                    stage: "processing".to_string(),
-                },
-            };
+            let manifest = failed_manifest(
+                media_id.clone(),
+                "INTERNAL_ERROR",
+                "Internal processing error".to_string(),
+                "processing",
+            );
             let _ = upload_manifest(client, &media_id, &manifest).await;
 
             return HttpResponse::InternalServerError().json(FunctionResponse {
@@ -590,14 +710,15 @@ async fn handle_gcs_event(
     };
     let processing_ms = processing_start.elapsed().as_millis() as u64;
 
+    // Output naming
     let stem = Path::new(&gcs_data.name)
         .file_stem()
         .and_then(|n| n.to_str())
         .unwrap_or(&gcs_data.name);
 
-    let output_bucket = output_bucket();
+    let out_bucket = output_bucket();
 
-    // Variant info for manifest
+    // Manifest variant info
     let variant_info: Vec<ManifestVariant> = processed
         .variants
         .iter()
@@ -612,13 +733,13 @@ async fn handle_gcs_event(
         })
         .collect();
 
-    // Upload futures for variants
+    // Build upload futures for variants
     let upload_futures: Vec<_> = processed
         .variants
         .into_iter()
         .map(|variant| {
             let output_name = format!("variants/{}/{}_{}.webp", media_id, stem, variant.suffix);
-            let bucket = output_bucket.clone();
+            let bucket = out_bucket.clone();
             let client = client.clone();
 
             async move {
@@ -628,10 +749,9 @@ async fn handle_gcs_event(
         })
         .collect();
 
-    // Measure uploads (variants + manifest)
+    // Upload timing (variants + manifest)
     let upload_start = Instant::now();
 
-    // Upload variants concurrently
     let variant_results = join_all(upload_futures).await;
 
     let mut created = Vec::new();
@@ -646,16 +766,12 @@ async fn handle_gcs_event(
     if !errors.is_empty() {
         error!(?errors, "Some uploads failed");
 
-        let manifest = Manifest::Failed {
-            media_id: media_id.clone(),
-            pipeline_version: PIPELINE_VERSION.to_string(),
-            updated_at: now_iso8601(),
-            error: ManifestError {
-                code: "UPLOAD_ERROR".to_string(),
-                message: format!("Some uploads failed: {:?}", errors),
-                stage: "upload".to_string(),
-            },
-        };
+        let manifest = failed_manifest(
+            media_id.clone(),
+            "UPLOAD_ERROR",
+            format!("Some variant uploads failed: {:?}", errors),
+            "upload",
+        );
         let _ = upload_manifest(client, &media_id, &manifest).await;
 
         return HttpResponse::InternalServerError().json(FunctionResponse {
@@ -665,7 +781,7 @@ async fn handle_gcs_event(
         });
     }
 
-    // Now build a READY manifest with final metrics (upload_ms/total_ms set AFTER timing)
+    // Build final manifest with correct metrics (upload_ms + total_ms are computed after manifest upload)
     let mut ready_manifest = Manifest::Ready {
         media_id: media_id.clone(),
         pipeline_version: PIPELINE_VERSION.to_string(),
@@ -687,20 +803,15 @@ async fn handle_gcs_event(
         },
     };
 
-    // Upload manifest last
+    // Upload manifest
     if let Err(e) = upload_manifest(client, &media_id, &ready_manifest).await {
         error!(error = %e, "Failed to upload manifest");
-
-        let manifest = Manifest::Failed {
-            media_id: media_id.clone(),
-            pipeline_version: PIPELINE_VERSION.to_string(),
-            updated_at: now_iso8601(),
-            error: ManifestError {
-                code: "UPLOAD_ERROR".to_string(),
-                message: format!("Manifest upload failed: {}", e),
-                stage: "upload".to_string(),
-            },
-        };
+        let manifest = failed_manifest(
+            media_id.clone(),
+            "UPLOAD_ERROR",
+            format!("Manifest upload failed: {}", e),
+            "upload",
+        );
         let _ = upload_manifest(client, &media_id, &manifest).await;
 
         return HttpResponse::InternalServerError().json(FunctionResponse {
@@ -710,19 +821,16 @@ async fn handle_gcs_event(
         });
     }
 
-    // Now we can finalize metrics and write a final manifest with accurate upload_ms/total_ms.
-    // (We re-upload the manifest once more, overwriting the previous one.)
+    // Now we can finalize upload_ms/total_ms accurately (includes manifest upload above)
     let upload_ms = upload_start.elapsed().as_millis() as u64;
     let total_ms = total_start.elapsed().as_millis() as u64;
 
+    // Overwrite manifest once with final metrics (cheap + guarantees correctness)
     if let Manifest::Ready { metrics, .. } = &mut ready_manifest {
         metrics.upload_ms = upload_ms;
         metrics.total_ms = total_ms;
     }
-
-    // Overwrite manifest.json with final metrics
     if let Err(e) = upload_manifest(client, &media_id, &ready_manifest).await {
-        // At this point variants exist; we still return an error but you’ll have variants.
         error!(error = %e, "Failed to upload final manifest with metrics");
         return HttpResponse::InternalServerError().json(FunctionResponse {
             status: "error".to_string(),

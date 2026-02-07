@@ -143,6 +143,7 @@ impl MigrationTrait for Migration {
                     // =========================================
                     // Metadata (JSON)
                     // =========================================
+                    // Record processing
                     .col(
                         ColumnDef::new(Media::Metadata)
                             .json_binary()
