@@ -17,6 +17,9 @@ use crate::cv::application::use_cases::patch_cv::IPatchCVUseCase;
 use crate::cv::application::use_cases::update_cv::IUpdateCVUseCase;
 use crate::modules::project::application::ports::incoming::use_cases::CreateProjectUseCase;
 use crate::modules::project::application::project_use_cases::ProjectUseCases;
+use crate::multimedia::application::domain::policies::upload_policy::UploadPolicy;
+use crate::multimedia::application::media_use_cases::MultimediaUseCases;
+use crate::multimedia::application::ports::incoming::use_cases::CreateUploadMediaUrlUseCase;
 use crate::project::application::ports::incoming::use_cases::{
     GetProjectsUseCase, GetPublicSingleProjectUseCase, GetSingleProjectUseCase, PatchProjectUseCase,
 };
@@ -48,6 +51,7 @@ pub struct TestAppStateBuilder {
     get_topics: Option<Arc<dyn GetTopicsUseCase + Send + Sync>>,
     soft_delete_topic: Option<Arc<dyn SoftDeleteTopicUseCase + Send + Sync>>,
     project: Option<ProjectUseCases>,
+    multimedia: Option<MultimediaUseCases>,
     user_identity_resolver: Option<UserIdentityResolver>,
 }
 
@@ -96,6 +100,9 @@ impl Default for TestAppStateBuilder {
                 remove_topic: Arc::new(StubRemoveProjectTopicUseCase),
                 clear_topics: Arc::new(StubClearProjectTopicsUseCase),
                 hard_delete: Arc::new(StubHardDeleteProjectUseCase),
+            }),
+            multimedia: Some(MultimediaUseCases {
+                create_signed_post_url: Arc::new(StubCreateUploadMediaUrlUseCase),
             }),
             user_identity_resolver: Some(user_identity_resolver),
         }
@@ -365,7 +372,18 @@ impl TestAppStateBuilder {
         project.hard_delete = std::sync::Arc::new(uc);
         self
     }
+    pub fn with_create_upload_media_url(
+        mut self,
+        uc: impl CreateUploadMediaUrlUseCase + Send + Sync + 'static,
+    ) -> Self {
+        let multimedia = self
+            .multimedia
+            .as_mut()
+            .expect("Multimedia use cases must be initialized");
 
+        multimedia.create_signed_post_url = Arc::new(uc);
+        self
+    }
     pub fn build(self) -> web::Data<AppState> {
         web::Data::new(AppState {
             fetch_cv_use_case: self.fetch_cv.unwrap(),
@@ -389,7 +407,9 @@ impl TestAppStateBuilder {
             get_topics_use_case: self.get_topics.unwrap(),
             soft_delete_topic_use_case: self.soft_delete_topic.unwrap(),
             project: self.project.unwrap(),
+            multimedia: self.multimedia.unwrap(),
             user_identity_resolver: self.user_identity_resolver.unwrap(),
+            multimedia_upload_policy: UploadPolicy::from_env(),
         })
     }
 }

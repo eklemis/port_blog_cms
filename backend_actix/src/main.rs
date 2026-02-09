@@ -44,6 +44,8 @@ use crate::modules::cv::application::use_cases::get_public_single_cv::GetPublicS
 use crate::modules::cv::application::use_cases::hard_delete_cv::HardDeleteCvUseCase;
 use crate::modules::email::application::ports::outgoing::user_email_notifier::UserEmailNotifier;
 
+use crate::modules::multimedia::application::domain::policies::upload_policy::UploadPolicy;
+use crate::modules::multimedia::application::media_use_cases::MultimediaUseCases;
 use crate::modules::project::application::project_use_cases::ProjectUseCases;
 use crate::modules::topic::application::ports::incoming::use_cases::CreateTopicUseCase;
 use crate::modules::topic::application::ports::incoming::use_cases::GetTopicsUseCase;
@@ -54,6 +56,7 @@ use actix_web::{web, App, HttpServer};
 use deadpool_redis::{Config, Runtime};
 
 use sea_orm::{ConnectOptions, Database};
+use sqlx::postgres::PgConnectOptions;
 use std::env;
 use std::sync::Arc;
 use std::time::Duration;
@@ -85,7 +88,9 @@ pub struct AppState {
     pub get_topics_use_case: Arc<dyn GetTopicsUseCase + Send + Sync>,
     pub soft_delete_topic_use_case: Arc<dyn SoftDeleteTopicUseCase + Send + Sync>,
     pub project: ProjectUseCases,
+    pub multimedia: MultimediaUseCases,
     pub user_identity_resolver: UserIdentityResolver,
+    pub multimedia_upload_policy: UploadPolicy,
 }
 
 #[actix_web::main]
@@ -104,18 +109,23 @@ async fn start() -> std::io::Result<()> {
             adapter::outgoing::{CVArchiverPostgres, CVQueryPostgres},
             application::services::{GetPublicSingleCvService, HardDeleteCvService},
         },
+        multimedia::{
+            adapter::outgoing::{cloud_storage::GcsStorageQuery, db::MediaRepositoryPostgres},
+            application::{
+                domain::policies::upload_policy,
+                ports::incoming::services::CreateUploadMediaUrlService,
+            },
+        },
         project::{
             adapter::outgoing::{
                 ProjectArchiverPostgres, ProjectQueryPostgres, ProjectRepositoryPostgres,
                 ProjectTopicRepositoryPostgres,
             },
-            application::{
-                ports::outgoing::patch_project_service::PatchProjectService,
-                service::{
-                    AddProjectTopicService, ClearProjectTopicsService, CreateProjectService,
-                    GetProjectTopicsService, GetProjectsService, GetPublicSingleProjectService,
-                    GetSingleProjectService, HardDeleteProjectService, RemoveProjectTopicService,
-                },
+            application::service::{
+                AddProjectTopicService, ClearProjectTopicsService, CreateProjectService,
+                GetProjectTopicsService, GetProjectsService, GetPublicSingleProjectService,
+                GetSingleProjectService, HardDeleteProjectService, PatchProjectService,
+                RemoveProjectTopicService,
             },
         },
         topic::{
@@ -157,6 +167,7 @@ async fn start() -> std::io::Result<()> {
 
     // Load Env. variables
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set in .env file");
+
     let host = env::var("HOST").expect("HOST is not set in .env file");
     let port = env::var("PORT").expect("PORT is not set in .env file");
     let redis_url = env::var("REDIS_URL").expect("REDIS_URL is not set in .env file");
@@ -186,17 +197,20 @@ async fn start() -> std::io::Result<()> {
 
     // Database connection
     let mut opt = ConnectOptions::new(db_url);
-    opt.max_connections(50)
-        .min_connections(10)
-        .connect_timeout(Duration::from_secs(5))
-        .acquire_timeout(Duration::from_secs(5))
+    // IMPORTANT for PgBouncer / pooled connections
+    opt.map_sqlx_postgres_opts(|pg: PgConnectOptions| pg.statement_cache_capacity(0));
+    opt.max_connections(5)
+        .min_connections(0)
+        .connect_timeout(Duration::from_secs(30))
+        .acquire_timeout(Duration::from_secs(10))
         .idle_timeout(Duration::from_secs(300))
         .max_lifetime(Duration::from_secs(1800))
         .sqlx_logging(false);
 
-    let conn = Database::connect(opt)
-        .await
-        .expect("Failed to connect to database");
+    let conn = Database::connect(opt).await.unwrap_or_else(|e| {
+        eprintln!("DB connect error: {e:?}");
+        std::process::exit(1);
+    });
 
     let db_arc = Arc::new(conn);
 
@@ -302,6 +316,16 @@ async fn start() -> std::io::Result<()> {
         clear_topics: Arc::new(clear_topics_uc),
     };
 
+    // Mulitmedia Use Cases
+    let storage_query = GcsStorageQuery::new();
+    let media_repo = MediaRepositoryPostgres::new(Arc::clone(&db_arc));
+    let create_uoload_media_signed_url =
+        CreateUploadMediaUrlService::new(storage_query, media_repo);
+    let media_use_cases = MultimediaUseCases {
+        create_signed_post_url: Arc::new(create_uoload_media_signed_url),
+    };
+    let image_upload_policy = UploadPolicy::from_env();
+
     let state = AppState {
         fetch_cv_use_case: Arc::new(fetch_cv_use_case),
         fetch_cv_by_id_use_case: Arc::new(fetch_cv_by_id_use_case),
@@ -322,7 +346,9 @@ async fn start() -> std::io::Result<()> {
         get_topics_use_case: Arc::new(get_topics_uc),
         soft_delete_topic_use_case: Arc::new(soft_delete_topic_uc),
         project: project_use_cases,
+        multimedia: media_use_cases,
         user_identity_resolver: identity_resolver,
+        multimedia_upload_policy: image_upload_policy,
     };
 
     let token_provider_arc: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service);
@@ -391,10 +417,15 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::project::adapter::incoming::web::routes::get_project_topics_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::remove_project_topic_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::clear_project_topics_handler);
+    // Multimedia
+    cfg.service(crate::multimedia::adapter::incoming::web::routes::init_upload_handler);
 }
 
 #[cfg(not(tarpaulin_include))]
 fn main() {
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
     if let Err(e) = start() {
         eprintln!("Error starting app: {e}");
     }

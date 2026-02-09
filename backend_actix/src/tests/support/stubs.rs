@@ -33,6 +33,9 @@ use crate::cv::domain::entities::CVInfo;
 use crate::email::application::ports::outgoing::user_email_notifier::{
     UserEmailNotificationError, UserEmailNotifier,
 };
+use crate::multimedia::application::ports::incoming::use_cases::{
+    CreateAttachmentCommand, CreateMediaCommand, CreateUploadMediaUrlUseCase, CreateUrlError,
+};
 use crate::project::application::ports::incoming::use_cases::{
     AddProjectTopicError, AddProjectTopicUseCase, ClearProjectTopicsError,
     ClearProjectTopicsUseCase, GetProjectTopicsError, GetProjectTopicsUseCase, GetProjectsUseCase,
@@ -631,5 +634,19 @@ impl HardDeleteProjectUseCase for StubHardDeleteProjectUseCase {
         _project_id: Uuid,
     ) -> Result<(), HardDeleteProjectError> {
         unimplemented!("StubHardDeleteProjectUseCase not configured for this test")
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct StubCreateUploadMediaUrlUseCase;
+
+#[async_trait]
+impl CreateUploadMediaUrlUseCase for StubCreateUploadMediaUrlUseCase {
+    async fn execute(
+        &self,
+        _media_command: CreateMediaCommand,
+        _attachment_command: CreateAttachmentCommand,
+    ) -> Result<String, CreateUrlError> {
+        unimplemented!("StubCreateUploadMediaUrlUseCase not configured for this test")
     }
 }
