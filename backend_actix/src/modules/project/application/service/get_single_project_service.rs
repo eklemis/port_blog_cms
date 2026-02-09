@@ -108,7 +108,7 @@ mod tests {
 
         async fn get_project_topics(
             &self,
-            project_id: Uuid,
+            _project_id: Uuid,
         ) -> Result<Vec<ProjectTopicItem>, ProjectQueryError> {
             unimplemented!("not used in GetSingleProjectService tests")
         }
