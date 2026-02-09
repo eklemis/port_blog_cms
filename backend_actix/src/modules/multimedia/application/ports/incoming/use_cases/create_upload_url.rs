@@ -428,12 +428,16 @@ impl From<SignUrlError> for CreateUrlError {
         CreateUrlError::StorageError(error.to_string())
     }
 }
-
+#[derive(Debug, Clone)]
+pub struct CreateMediaResult {
+    pub url: String,
+    pub media_id: Uuid,
+}
 #[async_trait]
 pub trait CreateUploadMediaUrlUseCase: Send + Sync {
     async fn execute(
         &self,
         media_command: CreateMediaCommand,
         attachment_command: CreateAttachmentCommand,
-    ) -> Result<String, CreateUrlError>;
+    ) -> Result<CreateMediaResult, CreateUrlError>;
 }

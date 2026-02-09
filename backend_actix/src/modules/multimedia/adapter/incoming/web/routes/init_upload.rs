@@ -58,6 +58,7 @@ pub struct InitUploadRequest {
 #[serde(rename_all = "camelCase")]
 pub struct InitUploadResponse {
     pub upload_url: String,
+    pub media_id: Uuid,
 }
 
 //
@@ -111,7 +112,10 @@ pub async fn init_upload_handler(
         .execute(media_command, attachment_command)
         .await
     {
-        Ok(upload_url) => ApiResponse::created(InitUploadResponse { upload_url }),
+        Ok(result) => ApiResponse::created(InitUploadResponse {
+            upload_url: result.url,
+            media_id: result.media_id,
+        }),
 
         Err(CreateUrlError::StorageError(e)) => {
             error!("Storage error creating upload URL: {}", e);
@@ -186,7 +190,9 @@ mod tests {
 
     use crate::auth::adapter::outgoing::jwt::{JwtConfig, JwtTokenService};
     use crate::auth::application::ports::outgoing::token_provider::TokenProvider;
-    use crate::multimedia::application::ports::incoming::use_cases::CreateUploadMediaUrlUseCase;
+    use crate::multimedia::application::ports::incoming::use_cases::{
+        CreateMediaResult, CreateUploadMediaUrlUseCase,
+    };
     use crate::tests::support::app_state_builder::TestAppStateBuilder;
 
     /* --------------------------------------------------
@@ -195,12 +201,17 @@ mod tests {
 
     #[derive(Clone)]
     struct MockCreateUploadUrlUseCase {
-        result: Result<String, CreateUrlError>,
+        result: Result<CreateMediaResult, CreateUrlError>,
     }
 
     impl MockCreateUploadUrlUseCase {
         fn success(url: String) -> Self {
-            Self { result: Ok(url) }
+            Self {
+                result: Ok(CreateMediaResult {
+                    url,
+                    media_id: Uuid::new_v4(),
+                }),
+            }
         }
 
         fn storage_error(msg: &str) -> Self {
@@ -222,7 +233,7 @@ mod tests {
             &self,
             _media_command: CreateMediaCommand,
             _attachment_command: CreateAttachmentCommand,
-        ) -> Result<String, CreateUrlError> {
+        ) -> Result<CreateMediaResult, CreateUrlError> {
             self.result.clone()
         }
     }

@@ -2,8 +2,8 @@ use async_trait::async_trait;
 
 use crate::multimedia::application::ports::{
     incoming::use_cases::{
-        make_object_key, CreateAttachmentCommand, CreateMediaCommand, CreateUploadMediaUrlUseCase,
-        CreateUrlError,
+        make_object_key, CreateAttachmentCommand, CreateMediaCommand, CreateMediaResult,
+        CreateUploadMediaUrlUseCase, CreateUrlError,
     },
     outgoing::{
         cloud_storage::{MediaInfo, StorageQuery},
@@ -43,7 +43,7 @@ where
         &self,
         media_command: CreateMediaCommand,
         attachment_command: CreateAttachmentCommand,
-    ) -> Result<String, CreateUrlError> {
+    ) -> Result<CreateMediaResult, CreateUrlError> {
         // 1) Persist media + attachment atomically.
         let tx = RecordMediaTx {
             media: media_command.to_new_media(),
@@ -75,7 +75,10 @@ where
             .await
             .map_err(CreateUrlError::from)?;
 
-        Ok(url)
+        Ok(CreateMediaResult {
+            url,
+            media_id: recorded.media_id,
+        })
     }
 }
 
@@ -284,12 +287,12 @@ mod tests {
         let svc = CreateUploadMediaUrlService::new(storage.clone(), repo.clone());
 
         let (media_cmd, attachment_cmd) = build_valid_commands("bucket-a");
-        let url = svc
+        let media_result = svc
             .execute(media_cmd, attachment_cmd)
             .await
             .expect("success");
 
-        assert_eq!(url, expected_url);
+        assert_eq!(media_result.url, expected_url);
 
         // Repo called with tx
         let tx = repo.captured().expect("repo should be called");

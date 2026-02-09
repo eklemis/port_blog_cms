@@ -34,7 +34,8 @@ use crate::email::application::ports::outgoing::user_email_notifier::{
     UserEmailNotificationError, UserEmailNotifier,
 };
 use crate::multimedia::application::ports::incoming::use_cases::{
-    CreateAttachmentCommand, CreateMediaCommand, CreateUploadMediaUrlUseCase, CreateUrlError,
+    CreateAttachmentCommand, CreateMediaCommand, CreateMediaResult, CreateUploadMediaUrlUseCase,
+    CreateUrlError,
 };
 use crate::project::application::ports::incoming::use_cases::{
     AddProjectTopicError, AddProjectTopicUseCase, ClearProjectTopicsError,
@@ -646,7 +647,7 @@ impl CreateUploadMediaUrlUseCase for StubCreateUploadMediaUrlUseCase {
         &self,
         _media_command: CreateMediaCommand,
         _attachment_command: CreateAttachmentCommand,
-    ) -> Result<String, CreateUrlError> {
+    ) -> Result<CreateMediaResult, CreateUrlError> {
         unimplemented!("StubCreateUploadMediaUrlUseCase not configured for this test")
     }
 }
