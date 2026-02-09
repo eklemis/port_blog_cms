@@ -216,6 +216,7 @@ struct ManifestVariant {
     path: String,
     width: u32,
     height: u32,
+    file_size_bytes: usize,
 }
 
 #[derive(Serialize)]
@@ -804,6 +805,7 @@ async fn handle_gcs_event(
                 path: format!("variants/{}/{}_{}.webp", media_id, stem, v.suffix),
                 width: v.width,
                 height: v.height,
+                file_size_bytes: v.data.len(), // ← Add this line
             }
         })
         .collect();
