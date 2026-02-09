@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use uuid::Uuid;
 
 use crate::auth::application::domain::entities::UserId;
 use crate::modules::project::application::ports::outgoing::project_query::ProjectView;
