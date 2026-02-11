@@ -68,6 +68,13 @@ trait GcsClient: Send + Sync {
         ttl: Duration,
     ) -> Result<String, String>;
 
+    async fn sign_get_url(
+        &self,
+        bucket_resource: &str,
+        object_name: &str,
+        ttl: Duration,
+    ) -> Result<String, String>;
+
     async fn download_object_bytes(
         &self,
         bucket_resource: &str,
@@ -88,6 +95,15 @@ impl GcsClient for ArcGcsClient {
         ttl: Duration,
     ) -> Result<String, String> {
         self.0.sign_put_url(bucket_resource, object_name, ttl).await
+    }
+
+    async fn sign_get_url(
+        &self,
+        bucket_resource: &str,
+        object_name: &str,
+        ttl: Duration,
+    ) -> Result<String, String> {
+        self.0.sign_get_url(bucket_resource, object_name, ttl).await
     }
 
     async fn download_object_bytes(
@@ -156,6 +172,21 @@ impl StorageQuery for GcsStorageQuery {
 
         client
             .sign_put_url(&bucket, &object, self.signed_url_ttl)
+            .await
+            .map_err(|e| map_sign_error(&e))
+    }
+
+    async fn get_signed_read_url(&self, media_info: MediaInfo) -> Result<String, SignUrlError> {
+        let client = self
+            .get_client()
+            .await
+            .map_err(|_| SignUrlError::Infrastructure)?;
+
+        let bucket = bucket_resource(media_info.bucket_name());
+        let object = media_info.object_name().to_string();
+
+        client
+            .sign_get_url(&bucket, &object, self.signed_url_ttl)
             .await
             .map_err(|e| map_sign_error(&e))
     }
@@ -252,6 +283,25 @@ impl GcsClient for RealGcsClient {
         Ok(url)
     }
 
+    async fn sign_get_url(
+        &self,
+        bucket_resource: &str,
+        object_name: &str,
+        ttl: Duration,
+    ) -> Result<String, String> {
+        let url = google_cloud_storage::builder::storage::SignedUrlBuilder::for_object(
+            bucket_resource.to_string(),
+            object_name.to_string(),
+        )
+        .with_method(google_cloud_storage::http::Method::GET)
+        .with_expiration(ttl)
+        .sign_with(&self.signer)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        Ok(url)
+    }
+
     async fn download_object_bytes(
         &self,
         bucket_resource: &str,
@@ -289,18 +339,22 @@ mod tests {
     use crate::multimedia::application::ports::outgoing::cloud_storage::MediaInfo;
 
     struct FakeGcsClient {
-        last_sign_call: Mutex<Option<(String, String, Duration)>>,
+        last_sign_put_call: Mutex<Option<(String, String, Duration)>>,
+        last_sign_get_call: Mutex<Option<(String, String, Duration)>>,
         last_download_call: Mutex<Option<(String, String)>>,
-        sign_result: Mutex<Result<String, String>>,
+        sign_put_result: Mutex<Result<String, String>>,
+        sign_get_result: Mutex<Result<String, String>>,
         download_result: Mutex<Result<Vec<u8>, String>>,
     }
 
     impl Default for FakeGcsClient {
         fn default() -> Self {
             Self {
-                last_sign_call: Mutex::new(None),
+                last_sign_put_call: Mutex::new(None),
+                last_sign_get_call: Mutex::new(None),
                 last_download_call: Mutex::new(None),
-                sign_result: Mutex::new(Ok("ok".to_string())),
+                sign_put_result: Mutex::new(Ok("ok".to_string())),
+                sign_get_result: Mutex::new(Ok("ok".to_string())),
                 download_result: Mutex::new(Ok(Vec::new())),
             }
         }
@@ -311,8 +365,12 @@ mod tests {
             Self::default()
         }
 
-        fn set_sign_result(&self, r: Result<String, String>) {
-            *self.sign_result.lock().unwrap() = r;
+        fn set_sign_put_result(&self, r: Result<String, String>) {
+            *self.sign_put_result.lock().unwrap() = r;
+        }
+
+        fn set_sign_get_result(&self, r: Result<String, String>) {
+            *self.sign_get_result.lock().unwrap() = r;
         }
 
         fn set_download_result(&self, r: Result<Vec<u8>, String>) {
@@ -328,10 +386,22 @@ mod tests {
             object_name: &str,
             ttl: Duration,
         ) -> Result<String, String> {
-            *self.last_sign_call.lock().unwrap() =
+            *self.last_sign_put_call.lock().unwrap() =
                 Some((bucket_resource.to_string(), object_name.to_string(), ttl));
 
-            self.sign_result.lock().unwrap().clone()
+            self.sign_put_result.lock().unwrap().clone()
+        }
+
+        async fn sign_get_url(
+            &self,
+            bucket_resource: &str,
+            object_name: &str,
+            ttl: Duration,
+        ) -> Result<String, String> {
+            *self.last_sign_get_call.lock().unwrap() =
+                Some((bucket_resource.to_string(), object_name.to_string(), ttl));
+
+            self.sign_get_result.lock().unwrap().clone()
         }
 
         async fn download_object_bytes(
@@ -362,7 +432,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_signed_upload_url_success_and_uses_bucket_resource() {
         let fake = Arc::new(FakeGcsClient::new());
-        fake.set_sign_result(Ok("https://signed.example".to_string()));
+        fake.set_sign_put_result(Ok("https://signed.example".to_string()));
 
         let svc = GcsStorageQuery::with_client(fake.clone(), Duration::from_secs(123));
 
@@ -372,7 +442,7 @@ mod tests {
             .unwrap();
         assert_eq!(url, "https://signed.example");
 
-        let call = fake.last_sign_call.lock().unwrap().clone().unwrap();
+        let call = fake.last_sign_put_call.lock().unwrap().clone().unwrap();
         assert_eq!(call.0, "projects/_/buckets/blogport-cms-upload");
         assert_eq!(call.1, "abc.webp");
         assert_eq!(call.2, Duration::from_secs(123));
@@ -381,7 +451,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_signed_upload_url_maps_access_denied() {
         let fake = Arc::new(FakeGcsClient::new());
-        fake.set_sign_result(Err("Permission denied".to_string()));
+        fake.set_sign_put_result(Err("Permission denied".to_string()));
 
         let svc = GcsStorageQuery::with_client(fake, SIGNED_URL_TTL);
         let err = svc
@@ -395,7 +465,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_signed_upload_url_maps_bucket_not_found() {
         let fake = Arc::new(FakeGcsClient::new());
-        fake.set_sign_result(Err("Bucket not found (404)".to_string()));
+        fake.set_sign_put_result(Err("Bucket not found (404)".to_string()));
 
         let svc = GcsStorageQuery::with_client(fake, SIGNED_URL_TTL);
         let err = svc
@@ -409,7 +479,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_signed_upload_url_maps_configuration() {
         let fake = Arc::new(FakeGcsClient::new());
-        fake.set_sign_result(Err("Invalid configuration".to_string()));
+        fake.set_sign_put_result(Err("Invalid configuration".to_string()));
 
         let svc = GcsStorageQuery::with_client(fake, SIGNED_URL_TTL);
         let err = svc
@@ -423,11 +493,87 @@ mod tests {
     #[tokio::test]
     async fn test_get_signed_upload_url_maps_infrastructure_fallback() {
         let fake = Arc::new(FakeGcsClient::new());
-        fake.set_sign_result(Err("some weird error".to_string()));
+        fake.set_sign_put_result(Err("some weird error".to_string()));
 
         let svc = GcsStorageQuery::with_client(fake, SIGNED_URL_TTL);
         let err = svc
             .get_signed_upload_url(sample_media_info())
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, SignUrlError::Infrastructure));
+    }
+
+    // -----------------------
+    // get_signed_read_url
+    // -----------------------
+
+    #[tokio::test]
+    async fn test_get_signed_read_url_success_and_uses_bucket_resource() {
+        let fake = Arc::new(FakeGcsClient::new());
+        fake.set_sign_get_result(Ok("https://signed-read.example".to_string()));
+
+        let svc = GcsStorageQuery::with_client(fake.clone(), Duration::from_secs(456));
+
+        let url = svc.get_signed_read_url(sample_media_info()).await.unwrap();
+        assert_eq!(url, "https://signed-read.example");
+
+        let call = fake.last_sign_get_call.lock().unwrap().clone().unwrap();
+        assert_eq!(call.0, "projects/_/buckets/blogport-cms-upload");
+        assert_eq!(call.1, "abc.webp");
+        assert_eq!(call.2, Duration::from_secs(456));
+    }
+
+    #[tokio::test]
+    async fn test_get_signed_read_url_maps_access_denied() {
+        let fake = Arc::new(FakeGcsClient::new());
+        fake.set_sign_get_result(Err("Access forbidden".to_string()));
+
+        let svc = GcsStorageQuery::with_client(fake, SIGNED_URL_TTL);
+        let err = svc
+            .get_signed_read_url(sample_media_info())
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, SignUrlError::AccessDenied));
+    }
+
+    #[tokio::test]
+    async fn test_get_signed_read_url_maps_bucket_not_found() {
+        let fake = Arc::new(FakeGcsClient::new());
+        fake.set_sign_get_result(Err("Bucket 404".to_string()));
+
+        let svc = GcsStorageQuery::with_client(fake, SIGNED_URL_TTL);
+        let err = svc
+            .get_signed_read_url(sample_media_info())
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, SignUrlError::BucketNotFound));
+    }
+
+    #[tokio::test]
+    async fn test_get_signed_read_url_maps_configuration() {
+        let fake = Arc::new(FakeGcsClient::new());
+        fake.set_sign_get_result(Err("Configuration error".to_string()));
+
+        let svc = GcsStorageQuery::with_client(fake, SIGNED_URL_TTL);
+        let err = svc
+            .get_signed_read_url(sample_media_info())
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, SignUrlError::Configuration));
+    }
+
+    #[tokio::test]
+    async fn test_get_signed_read_url_maps_infrastructure_fallback() {
+        let fake = Arc::new(FakeGcsClient::new());
+        fake.set_sign_get_result(Err("unexpected error".to_string()));
+
+        let svc = GcsStorageQuery::with_client(fake, SIGNED_URL_TTL);
+        let err = svc
+            .get_signed_read_url(sample_media_info())
             .await
             .unwrap_err();
 

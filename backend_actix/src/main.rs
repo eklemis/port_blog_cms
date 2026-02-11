@@ -110,10 +110,15 @@ async fn start() -> std::io::Result<()> {
             application::services::{GetPublicSingleCvService, HardDeleteCvService},
         },
         multimedia::{
-            adapter::outgoing::{cloud_storage::GcsStorageQuery, db::MediaRepositoryPostgres},
+            adapter::outgoing::{
+                cloud_storage::GcsStorageQuery,
+                db::{MediaQueryPostgres, MediaRepositoryPostgres},
+            },
             application::{
                 domain::policies::upload_policy,
-                ports::incoming::services::CreateUploadMediaUrlService,
+                ports::incoming::services::{
+                    CreateUploadMediaUrlService, GetVariantReadUrlService,
+                },
             },
         },
         project::{
@@ -319,10 +324,13 @@ async fn start() -> std::io::Result<()> {
     // Mulitmedia Use Cases
     let storage_query = GcsStorageQuery::new();
     let media_repo = MediaRepositoryPostgres::new(Arc::clone(&db_arc));
-    let create_uoload_media_signed_url =
-        CreateUploadMediaUrlService::new(storage_query, media_repo);
+    let create_upload_media_signed_url =
+        CreateUploadMediaUrlService::new(storage_query.clone(), media_repo);
+    let media_query = MediaQueryPostgres::new(Arc::clone(&db_arc));
+    let create_variant_get_url = GetVariantReadUrlService::new(storage_query, media_query);
     let media_use_cases = MultimediaUseCases {
-        create_signed_post_url: Arc::new(create_uoload_media_signed_url),
+        create_signed_post_url: Arc::new(create_upload_media_signed_url),
+        create_signed_get_url: Arc::new(create_variant_get_url),
     };
     let image_upload_policy = UploadPolicy::from_env();
 
@@ -419,6 +427,7 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::project::adapter::incoming::web::routes::clear_project_topics_handler);
     // Multimedia
     cfg.service(crate::multimedia::adapter::incoming::web::routes::init_upload_handler);
+    cfg.service(crate::multimedia::adapter::incoming::web::routes::get_variant_read_url_handler);
 }
 
 #[cfg(not(tarpaulin_include))]

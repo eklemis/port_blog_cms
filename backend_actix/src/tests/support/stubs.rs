@@ -35,8 +35,10 @@ use crate::email::application::ports::outgoing::user_email_notifier::{
 };
 use crate::multimedia::application::ports::incoming::use_cases::{
     CreateAttachmentCommand, CreateMediaCommand, CreateMediaResult, CreateUploadMediaUrlUseCase,
-    CreateUrlError,
+    CreateUrlError, GetReadUrlError, GetUrlCommand, GetUrlResult, GetVariantReadUrlUseCase,
 };
+use crate::multimedia::application::ports::outgoing::cloud_storage::StorageQuery;
+use crate::multimedia::application::ports::outgoing::db::MediaQuery;
 use crate::project::application::ports::incoming::use_cases::{
     AddProjectTopicError, AddProjectTopicUseCase, ClearProjectTopicsError,
     ClearProjectTopicsUseCase, GetProjectTopicsError, GetProjectTopicsUseCase, GetProjectsUseCase,
@@ -649,5 +651,15 @@ impl CreateUploadMediaUrlUseCase for StubCreateUploadMediaUrlUseCase {
         _attachment_command: CreateAttachmentCommand,
     ) -> Result<CreateMediaResult, CreateUrlError> {
         unimplemented!("StubCreateUploadMediaUrlUseCase not configured for this test")
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct StubGetVariantReadUrlService;
+
+#[async_trait]
+impl GetVariantReadUrlUseCase for StubGetVariantReadUrlService {
+    async fn execute(&self, _command: GetUrlCommand) -> Result<GetUrlResult, GetReadUrlError> {
+        unimplemented!()
     }
 }

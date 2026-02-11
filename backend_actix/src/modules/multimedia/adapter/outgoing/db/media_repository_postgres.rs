@@ -152,7 +152,7 @@ impl MediaRepositoryPostgres {
         }
 
         match ext.as_str() {
-            "jpg" | "jpeg" | "png" | "webp" => Ok(format!("{}.{}", media_id, ext)),
+            "jpg" | "jpeg" | "png" | "webp" => Ok(format!("{}/{}", media_id, original_name)),
             _ => Err(RecordMediaError::DatabaseError(format!(
                 "invalid extension: {}",
                 ext

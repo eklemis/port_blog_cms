@@ -19,7 +19,9 @@ use crate::modules::project::application::ports::incoming::use_cases::CreateProj
 use crate::modules::project::application::project_use_cases::ProjectUseCases;
 use crate::multimedia::application::domain::policies::upload_policy::UploadPolicy;
 use crate::multimedia::application::media_use_cases::MultimediaUseCases;
-use crate::multimedia::application::ports::incoming::use_cases::CreateUploadMediaUrlUseCase;
+use crate::multimedia::application::ports::incoming::use_cases::{
+    CreateUploadMediaUrlUseCase, GetVariantReadUrlUseCase,
+};
 use crate::project::application::ports::incoming::use_cases::{
     GetProjectsUseCase, GetPublicSingleProjectUseCase, GetSingleProjectUseCase, PatchProjectUseCase,
 };
@@ -103,6 +105,7 @@ impl Default for TestAppStateBuilder {
             }),
             multimedia: Some(MultimediaUseCases {
                 create_signed_post_url: Arc::new(StubCreateUploadMediaUrlUseCase),
+                create_signed_get_url: Arc::new(StubGetVariantReadUrlService),
             }),
             user_identity_resolver: Some(user_identity_resolver),
         }
@@ -382,6 +385,18 @@ impl TestAppStateBuilder {
             .expect("Multimedia use cases must be initialized");
 
         multimedia.create_signed_post_url = Arc::new(uc);
+        self
+    }
+    pub fn with_create_signed_get_url(
+        mut self,
+        uc: impl GetVariantReadUrlUseCase + Send + Sync + 'static,
+    ) -> Self {
+        let multimedia = self
+            .multimedia
+            .as_mut()
+            .expect("Multimedia use cases must be initialized");
+
+        multimedia.create_signed_get_url = Arc::new(uc);
         self
     }
     pub fn build(self) -> web::Data<AppState> {

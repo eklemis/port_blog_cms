@@ -5,7 +5,7 @@ use uuid::Uuid;
 use crate::auth::application::domain::entities::UserId;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "lowercase")]
 pub enum MediaState {
     Pending,
     Processing,
@@ -15,28 +15,40 @@ pub enum MediaState {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MediaStateInfo {
-    owner: UserId,
-    media_id: Uuid,
-    updated_at: String,
-    status: MediaState,
+    pub owner: UserId,
+    pub media_id: Uuid,
+    pub updated_at: String,
+    pub status: MediaState,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
 pub enum MediaSize {
     Thumbnail,
     Small,
     Medium,
     Large,
 }
+impl fmt::Display for MediaSize {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            MediaSize::Thumbnail => "thumbnail",
+            MediaSize::Small => "small",
+            MediaSize::Medium => "medium",
+            MediaSize::Large => "large",
+        };
+        write!(f, "{}", s)
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MediaVariant {
-    size: MediaSize,
+    pub size: MediaSize,
     // targeting internal route that will provide signed url
-    path: String,
+    pub path: String,
 }
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MediaRole {
     Avatar,
     #[default]

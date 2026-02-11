@@ -66,6 +66,7 @@ where
         let media_info =
             MediaInfo::try_new(recorded.bucket_name, object_key, recorded.attachment_target)
                 .map_err(|e| CreateUrlError::StorageError(e.to_string()))?;
+        tracing::info!("media_info for signing: {:?}", &media_info);
 
         // 4) Ask storage adapter for signed upload URL (async).
         // IMPORTANT: Avoid `map_err(Into::into)` ambiguity by mapping explicitly.
@@ -187,7 +188,12 @@ mod tests {
             *self.captured_info.lock().unwrap() = Some(media_info);
             self.result.lock().unwrap().clone()
         }
-
+        async fn get_signed_read_url(
+            &self,
+            _media_info: MediaInfo,
+        ) -> Result<String, SignUrlError> {
+            unimplemented!()
+        }
         async fn get_latest_manifest(
             &self,
             _media_id: &str,

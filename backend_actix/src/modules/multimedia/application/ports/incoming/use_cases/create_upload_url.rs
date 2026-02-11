@@ -124,9 +124,9 @@ pub fn make_object_key(
     media_id: Uuid,
     original_name: &str,
 ) -> Result<String, UploadUrlCommandError> {
-    let ext = ext_lower(original_name)?;
-    validate_ext(&ext)?;
-    Ok(format!("{}.{}", media_id, ext))
+    // let ext = ext_lower(original_name)?;
+    // validate_ext(&ext)?;
+    Ok(format!("{}/{}", media_id, original_name))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
