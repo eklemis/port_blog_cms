@@ -1,190 +1,117 @@
-# Cloud Run Deployment: Public Service + App JWT Auth
+# Cloud Run Deployment Scripts
 
-This guide deploys the Rust **backend_actix** service to Google Cloud Run as a **public** HTTP service, protected by your **existing JWT auth** at the application layer.
+Two-script approach for faster iteration:
 
-It uses:
-- Cloud Run (public access)
-- Secret Manager (DATABASE_URL, REDIS_URL, JWT_SECRET, SMTP_PASSWORD)
-- Normal environment variables for non-secrets
+## Scripts
 
-Using:
-- Neon Postgres (remote)
-- Upstash Redis (remote)
-
----
-
-## What is the output
-
-- A public Cloud Run URL like `https://<service>-<hash>-<region>.a.run.app`
-- Cloud Run has:
-  - **Secrets** injected as env vars: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `SMTP_PASSWORD`
-  - **Non-secrets** set as env vars: `JWT_ISSUER`, expiries, SMTP host/user, Argon2 settings, bucket name, etc.
-- Your frontend calls the API normally and sends `Authorization: Bearer <JWT>` (no Google service-account key in browser code).
-
----
-
-## Step 1 — Make the app Cloud Run compatible (required)
-
-Cloud Run requires the container to listen on `0.0.0.0:$PORT` (PORT is provided by Cloud Run; usually 8080).
-
-### 1.1 Update HOST/PORT reading
-
-In the `start()` function, these mus applied:
-
-```rust
-let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
-let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
-```
-
-Why:
-- Cloud Run does **not** set HOST.
-- Cloud Run **does** set PORT.
-- Defaulting makes local dev and Cloud Run both work.
-
-Commit this change.
-
----
-
-## Step 2 — Add Dockerfile (required)
-
-Create `Dockerfile` in repo root:
-
-```dockerfile
-# ---- build stage ----
-FROM rust:1.88 as builder
-WORKDIR /app
-COPY Cargo.toml Cargo.lock ./
-COPY . .
-RUN cargo build --release
-
-# ---- runtime stage ----
-FROM debian:bookworm-slim
-WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/target/release/backend_actix /app/server
-ENV HOST=0.0.0.0
-ENV PORT=8080
-EXPOSE 8080
-CMD ["/app/server"]
-```
-
----
-
-## Step 3 — One-time GCP setup (do once per project)
-
-### 3.1 Login + set project + set region
+### `build.sh` - Build Container Image
+Run this **only when your code changes** (~15-20 minutes)
 
 ```bash
-gcloud auth login
-gcloud config set project YOUR_PROJECT_ID
-gcloud config set run/region asia-southeast2
+chmod +x build.sh
+./build.sh
 ```
 
-### 3.2 Enable required APIs
+**What it does:**
+- Builds your Rust application using Cloud Build
+- Pushes image to Google Container Registry
+- Uses faster build machines (e2-highcpu-8)
+
+**Environment variables:**
+- `SERVICE_NAME` - Service name (default: backend-actix)
+- `PROJECT_ID` - GCP project (auto-detected from gcloud config)
+- `IMAGE_TAG` - Image tag (default: latest)
+
+### `deploy.sh` - Deploy to Cloud Run
+Run this **every time you need to update configuration** (~1-2 minutes)
 
 ```bash
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com secretmanager.googleapis.com
+chmod +x deploy.sh
+./deploy.sh
 ```
 
----
+**What it does:**
+- Creates/updates secrets in Secret Manager
+- Prompts for configuration (CPU, memory, env vars)
+- Grants permissions to service account
+- Deploys the pre-built image to Cloud Run
 
-## Step 4 — Run the bootstrap script (recommended)
+**Environment variables:**
+- All the same as build.sh, plus:
+- `REGION` - Cloud Run region (auto-detected from gcloud config)
+- Any secret/config values (DATABASE_URL, REDIS_URL, etc.)
 
-The script:
-1) Deploys Cloud Run service (public)
-2) Detects the runtime service account (no guessing)
-3) Creates/updates secrets (safe prompts)
-4) Grants secret access to the runtime service account
-5) Attaches secrets to Cloud Run as env vars
-6) Sets non-secret env vars
-7) Prints the service URL + log command
+## Typical Workflow
 
-### 4.1 Run
-
-From repo root:
-
+### First time setup:
 ```bash
-chmod +x bootstrap_gcp.sh
-./bootstrap_gcp.sh
+# 1. Build the image
+./build.sh
+
+# 2. Deploy with configuration
+./deploy.sh
 ```
 
-You will be prompted for secrets (hidden input) and then for non-secrets (normal input).
-
-### 4.2 Optional: skip prompts by exporting variables
-
+### When you change code:
 ```bash
-export SERVICE_NAME="backend-actix"
-export REGION="asia-southeast2"         # optional if already set in gcloud config
-export PROJECT_ID="your-project-id"     # optional if already set in gcloud config
+# 1. Build new image
+./build.sh
 
-export DATABASE_URL="postgres://..."
+# 2. Deploy (reuses existing config if you set env vars)
+export DATABASE_URL="postgresql://..."
 export REDIS_URL="rediss://..."
-export JWT_SECRET="..."
-export SMTP_PASSWORD="..."
-
-export JWT_ISSUER="Lotion"
-export JWT_ACCESS_EXPIRY=3600
-export JWT_REFRESH_EXPIRY=86400
-export JWT_VERIFICATION_EXPIRY=86400
-export SMTP_SERVER="smtp.example.com"
-export SMTP_PORT=587
-export SMTP_USERNAME="smtp-user"
-export EMAIL_FROM="noreply@example.com"
-export ARGON2_MEMORY_KIB=4096
-export ARGON2_ITERATIONS=3
-export ARGON2_PARALLELISM=1
-export MULTIMEDIA_UPLOAD_BUCKET="your-bucket"
-
-./bootstrap_gcp.sh
+# ... set other secrets
+./deploy.sh
 ```
 
----
+### When you only change configuration (fast!):
+```bash
+# Just deploy with new config
+./deploy.sh
+```
 
-## Step 5 — Verify
+## Using Different Image Tags
 
-### 5.1 Get service URL
+To deploy a specific version:
 
 ```bash
-gcloud run services describe backend-actix \
-  --region "$(gcloud config get-value run/region)" \
-  --format='value(status.url)'
+# Build with a tag
+IMAGE_TAG="v1.2.3" ./build.sh
+
+# Deploy that specific tag
+IMAGE_TAG="v1.2.3" ./deploy.sh
 ```
 
-### 5.2 Read logs
+Or use git commit hash:
 
 ```bash
-gcloud run services logs read backend-actix \
-  --region "$(gcloud config get-value run/region)" \
-  --limit 100
+# Build
+IMAGE_TAG="$(git rev-parse --short HEAD)" ./build.sh
+
+# Deploy
+IMAGE_TAG="$(git rev-parse --short HEAD)" ./deploy.sh
 ```
 
----
+## Skip Prompts with Environment Variables
 
-## Step 6 — Day-2 operations (repeatable)
-
-### Deploy new code (keeps existing env + secrets)
+Set all values as environment variables to skip prompts:
 
 ```bash
-gcloud run deploy backend-actix \
-  --source . \
-  --region "$(gcloud config get-value run/region)" \
-  --no-invoker-iam-check
+export DATABASE_URL="postgresql://..."
+export REDIS_URL="rediss://..."
+export JWT_SECRET="your-secret"
+export SMTP_PASSWORD="smtp-pass"
+export RUST_ENV="production"
+export CPU="2"
+export MEMORY="1Gi"
+export MULTIMEDIA_UPLOAD_BUCKET="your-bucket-name"
+# ... etc
+
+./deploy.sh  # No prompts!
 ```
 
-### Rotate a secret value (keeps mapping to latest)
+## Time Savings
 
-```bash
-echo -n 'new-value' | gcloud secrets versions add JWT_SECRET --data-file=-
-```
-
-No need to re-run `--set-secrets` if you mapped `:latest`.
-
----
-
-## Important security note
-
-Do **not** put any Google service account key in your frontend (browser). With Option A:
-- Cloud Run is public
-- Your API uses JWT auth
-- Frontend sends `Authorization: Bearer <token>`
+- **Full deployment (build + deploy)**: 15-20 minutes
+- **Config-only deployment**: 1-2 minutes
+- **Savings**: 90% faster when you only need to update configuration!
