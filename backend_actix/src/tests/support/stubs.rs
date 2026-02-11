@@ -36,9 +36,9 @@ use crate::email::application::ports::outgoing::user_email_notifier::{
 use crate::multimedia::application::ports::incoming::use_cases::{
     CreateAttachmentCommand, CreateMediaCommand, CreateMediaResult, CreateUploadMediaUrlUseCase,
     CreateUrlError, GetReadUrlError, GetUrlCommand, GetUrlResult, GetVariantReadUrlUseCase,
+    ListMediaCommand, ListMediaError, ListMediaUseCase, MediaItem,
 };
-use crate::multimedia::application::ports::outgoing::cloud_storage::StorageQuery;
-use crate::multimedia::application::ports::outgoing::db::MediaQuery;
+
 use crate::project::application::ports::incoming::use_cases::{
     AddProjectTopicError, AddProjectTopicUseCase, ClearProjectTopicsError,
     ClearProjectTopicsUseCase, GetProjectTopicsError, GetProjectTopicsUseCase, GetProjectsUseCase,
@@ -83,10 +83,10 @@ pub struct StubFetchCVUseCase;
 impl IFetchCVUseCase for StubFetchCVUseCase {
     async fn execute(
         &self,
-        user_id: Uuid,
-        filter: CVListFilter,
-        sort: CVSort,
-        page: CVPageRequest,
+        _user_id: Uuid,
+        _filter: CVListFilter,
+        _sort: CVSort,
+        _page: CVPageRequest,
     ) -> Result<CVPageResult<CVInfo>, FetchCVError> {
         unimplemented!("Not used in this test")
     }
@@ -660,6 +660,15 @@ pub struct StubGetVariantReadUrlService;
 #[async_trait]
 impl GetVariantReadUrlUseCase for StubGetVariantReadUrlService {
     async fn execute(&self, _command: GetUrlCommand) -> Result<GetUrlResult, GetReadUrlError> {
+        unimplemented!()
+    }
+}
+
+pub struct StubListMediaUseCase;
+
+#[async_trait]
+impl ListMediaUseCase for StubListMediaUseCase {
+    async fn execute(&self, _command: ListMediaCommand) -> Result<Vec<MediaItem>, ListMediaError> {
         unimplemented!()
     }
 }

@@ -66,7 +66,6 @@ where
         let media_info =
             MediaInfo::try_new(recorded.bucket_name, object_key, recorded.attachment_target)
                 .map_err(|e| CreateUrlError::StorageError(e.to_string()))?;
-        tracing::info!("media_info for signing: {:?}", &media_info);
 
         // 4) Ask storage adapter for signed upload URL (async).
         // IMPORTANT: Avoid `map_err(Into::into)` ambiguity by mapping explicitly.

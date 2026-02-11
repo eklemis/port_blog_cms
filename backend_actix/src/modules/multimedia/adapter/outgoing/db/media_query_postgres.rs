@@ -270,7 +270,13 @@ impl MediaQuery for MediaQueryPostgres {
             let attachable_id: Uuid = row.try_get("", "attachable_id").map_err(Self::map_db_err)?;
             let status: String = row.try_get("", "status").map_err(Self::map_db_err)?;
             let role: String = row.try_get("", "role").map_err(Self::map_db_err)?;
-            let position: i32 = row.try_get("", "position").map_err(Self::map_db_err)?;
+            let position_i32: i32 = row.try_get("", "position").map_err(Self::map_db_err)?;
+            let position: u8 = position_i32.try_into().map_err(|_| {
+                MediaQueryError::DatabaseError(format!(
+                    "invalid position (out of range): {}",
+                    position_i32
+                ))
+            })?;
             let alt_text: String = row.try_get("", "alt_text").map_err(Self::map_db_err)?;
             let caption: String = row.try_get("", "caption").map_err(Self::map_db_err)?;
             let original_filename: String = row
@@ -287,7 +293,7 @@ impl MediaQuery for MediaQueryPostgres {
                 attachment_target_id: attachable_id,
                 status: Self::parse_media_state(&status)?,
                 role: Self::parse_media_role(&role)?,
-                position: position as i16,
+                position: position,
                 alt_text,
                 caption,
                 original_filename,
@@ -316,7 +322,7 @@ impl MediaQuery for MediaQueryPostgres {
         let attachable_id: Uuid = row.try_get("", "attachable_id").map_err(Self::map_db_err)?;
         let status: String = row.try_get("", "status").map_err(Self::map_db_err)?;
         let role: String = row.try_get("", "role").map_err(Self::map_db_err)?;
-        let position: i32 = row.try_get("", "position").map_err(Self::map_db_err)?;
+        let position: u8 = row.try_get("", "position").map_err(Self::map_db_err)?;
         let alt_text: String = row.try_get("", "alt_text").map_err(Self::map_db_err)?;
         let caption: String = row.try_get("", "caption").map_err(Self::map_db_err)?;
         let original_filename: String = row
@@ -333,7 +339,7 @@ impl MediaQuery for MediaQueryPostgres {
             attachment_target_id: attachable_id,
             status: Self::parse_media_state(&status)?,
             role: Self::parse_media_role(&role)?,
-            position: position as i16,
+            position: position,
             alt_text,
             caption,
             original_filename,
@@ -474,7 +480,7 @@ mod tests {
                     ("attachable_id", Value::Uuid(Some(Box::new(attachable_id)))),
                     ("status", Value::String(Some(Box::new("ready".to_string())))),
                     ("role", Value::String(Some(Box::new("profile".to_string())))),
-                    ("position", Value::Int(Some(0))),
+                    ("position", Value::TinyUnsigned(Some(0))),
                     ("alt_text", Value::String(Some(Box::new("alt".to_string())))),
                     (
                         "caption",
@@ -591,7 +597,7 @@ mod tests {
                     ("attachable_id", Value::Uuid(Some(Box::new(attachable_id)))),
                     ("status", Value::String(Some(Box::new("ready".to_string())))),
                     ("role", Value::String(Some(Box::new("profile".to_string())))),
-                    ("position", Value::Int(Some(0))),
+                    ("position", Value::TinyUnsigned(Some(0))),
                     ("alt_text", Value::String(Some(Box::new("".to_string())))),
                     ("caption", Value::String(Some(Box::new("".to_string())))),
                     (
@@ -647,7 +653,7 @@ mod tests {
                         "role",
                         Value::String(Some(Box::new("screenshoot".to_string()))),
                     ),
-                    ("position", Value::Int(Some(2))),
+                    ("position", Value::TinyUnsigned(Some(2))),
                     (
                         "alt_text",
                         Value::String(Some(Box::new("screenshot".to_string()))),
@@ -715,7 +721,7 @@ mod tests {
                         "role",
                         Value::String(Some(Box::new("invalid_role".to_string()))),
                     ),
-                    ("position", Value::Int(Some(0))),
+                    ("position", Value::TinyUnsigned(Some(0))),
                     ("alt_text", Value::String(Some(Box::new("".to_string())))),
                     ("caption", Value::String(Some(Box::new("".to_string())))),
                     (
@@ -762,7 +768,7 @@ mod tests {
                     ("attachable_id", Value::Uuid(Some(Box::new(attachable_id)))),
                     ("status", Value::String(Some(Box::new("ready".to_string())))),
                     ("role", Value::String(Some(Box::new("profile".to_string())))),
-                    ("position", Value::Int(Some(0))),
+                    ("position", Value::TinyUnsigned(Some(0))),
                     ("alt_text", Value::String(Some(Box::new("".to_string())))),
                     ("caption", Value::String(Some(Box::new("".to_string())))),
                     (
@@ -898,7 +904,7 @@ mod tests {
                     ("attachable_id", Value::Uuid(Some(Box::new(attachable_id)))),
                     ("status", Value::String(Some(Box::new("ready".to_string())))),
                     ("role", Value::String(Some(Box::new("profile".to_string())))),
-                    ("position", Value::Int(Some(0))),
+                    ("position", Value::TinyUnsigned(Some(0))),
                     ("alt_text", Value::String(Some(Box::new("".to_string())))),
                     ("caption", Value::String(Some(Box::new("".to_string())))),
                     (

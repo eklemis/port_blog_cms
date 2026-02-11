@@ -270,8 +270,6 @@ mod tests {
     use super::RedisTokenRepository;
     use crate::modules::auth::application::ports::outgoing::token_repository::TokenRepository;
     use chrono::{Duration, Utc};
-    use deadpool_redis::{Config, Runtime};
-    use std::sync::Arc;
     use std::sync::Once;
     use uuid::Uuid;
 

@@ -20,7 +20,7 @@ use crate::modules::project::application::project_use_cases::ProjectUseCases;
 use crate::multimedia::application::domain::policies::upload_policy::UploadPolicy;
 use crate::multimedia::application::media_use_cases::MultimediaUseCases;
 use crate::multimedia::application::ports::incoming::use_cases::{
-    CreateUploadMediaUrlUseCase, GetVariantReadUrlUseCase,
+    CreateUploadMediaUrlUseCase, GetVariantReadUrlUseCase, ListMediaUseCase,
 };
 use crate::project::application::ports::incoming::use_cases::{
     GetProjectsUseCase, GetPublicSingleProjectUseCase, GetSingleProjectUseCase, PatchProjectUseCase,
@@ -106,6 +106,7 @@ impl Default for TestAppStateBuilder {
             multimedia: Some(MultimediaUseCases {
                 create_signed_post_url: Arc::new(StubCreateUploadMediaUrlUseCase),
                 create_signed_get_url: Arc::new(StubGetVariantReadUrlService),
+                list_media: Arc::new(StubListMediaUseCase),
             }),
             user_identity_resolver: Some(user_identity_resolver),
         }
@@ -397,6 +398,15 @@ impl TestAppStateBuilder {
             .expect("Multimedia use cases must be initialized");
 
         multimedia.create_signed_get_url = Arc::new(uc);
+        self
+    }
+    pub fn with_list_media(mut self, uc: impl ListMediaUseCase + Send + Sync + 'static) -> Self {
+        let multimedia = self
+            .multimedia
+            .as_mut()
+            .expect("Multimedia use cases must be initialized");
+
+        multimedia.list_media = Arc::new(uc);
         self
     }
     pub fn build(self) -> web::Data<AppState> {

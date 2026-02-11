@@ -114,11 +114,8 @@ async fn start() -> std::io::Result<()> {
                 cloud_storage::GcsStorageQuery,
                 db::{MediaQueryPostgres, MediaRepositoryPostgres},
             },
-            application::{
-                domain::policies::upload_policy,
-                ports::incoming::services::{
-                    CreateUploadMediaUrlService, GetVariantReadUrlService,
-                },
+            application::ports::incoming::services::{
+                CreateUploadMediaUrlService, GetVariantReadUrlService, ListMediaService,
             },
         },
         project::{
@@ -170,12 +167,13 @@ async fn start() -> std::io::Result<()> {
         dotenvy::dotenv().ok();
     }
 
-    // Load Env. variables
+    // Postgres and Redis
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set in .env file");
+    let redis_url = env::var("REDIS_URL").expect("REDIS_URL is not set in .env file");
 
+    // Application host and port
     let host = env::var("HOST").expect("HOST is not set in .env file");
     let port = env::var("PORT").expect("PORT is not set in .env file");
-    let redis_url = env::var("REDIS_URL").expect("REDIS_URL is not set in .env file");
 
     // SMTP SETUPS
     let from_email = std::env::var("EMAIL_FROM").expect("EMAIL_FROM not set");
@@ -327,10 +325,12 @@ async fn start() -> std::io::Result<()> {
     let create_upload_media_signed_url =
         CreateUploadMediaUrlService::new(storage_query.clone(), media_repo);
     let media_query = MediaQueryPostgres::new(Arc::clone(&db_arc));
-    let create_variant_get_url = GetVariantReadUrlService::new(storage_query, media_query);
+    let create_variant_get_url = GetVariantReadUrlService::new(storage_query, media_query.clone());
+    let list_media = ListMediaService::new(media_query);
     let media_use_cases = MultimediaUseCases {
         create_signed_post_url: Arc::new(create_upload_media_signed_url),
         create_signed_get_url: Arc::new(create_variant_get_url),
+        list_media: Arc::new(list_media),
     };
     let image_upload_policy = UploadPolicy::from_env();
 
@@ -428,6 +428,7 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     // Multimedia
     cfg.service(crate::multimedia::adapter::incoming::web::routes::init_upload_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::get_variant_read_url_handler);
+    cfg.service(crate::multimedia::adapter::incoming::web::routes::list_media_handler);
 }
 
 #[cfg(not(tarpaulin_include))]

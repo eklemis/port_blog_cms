@@ -29,7 +29,7 @@ pub struct MediaAttachment {
     pub attachment_target_id: Uuid,
     pub status: MediaState,
     pub role: MediaRole,
-    pub position: i16,
+    pub position: u8,
     pub alt_text: String,
     pub caption: String,
     pub original_filename: String,
