@@ -314,8 +314,6 @@ impl GcsClient for RealGcsClient {
             .await
             .map_err(|e| e.to_string())?;
 
-        use futures::StreamExt;
-
         let mut out: Vec<u8> = Vec::new();
         while let Some(chunk) = stream.next().await {
             let chunk = chunk.map_err(|e| e.to_string())?;

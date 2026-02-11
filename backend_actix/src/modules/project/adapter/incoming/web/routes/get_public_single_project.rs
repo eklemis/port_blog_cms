@@ -5,7 +5,7 @@ use tracing::error;
 use crate::{
     auth::{
         adapter::incoming::web::extractors::auth::resolve_owner_id_or_response,
-        application::{domain::entities::UserId, helpers::ResolveUserIdError},
+        application::domain::entities::UserId,
     },
     modules::project::application::ports::incoming::use_cases::GetPublicSingleProjectError,
     shared::api::ApiResponse,

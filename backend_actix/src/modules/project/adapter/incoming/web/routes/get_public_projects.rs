@@ -3,7 +3,6 @@ use tracing::error;
 
 use crate::auth::adapter::incoming::web::extractors::auth::resolve_owner_id_or_response;
 use crate::auth::application::domain::entities::UserId;
-use crate::auth::application::helpers::ResolveUserIdError;
 use crate::modules::project::adapter::incoming::web::routes::get_projects::GetProjectsQuery;
 use crate::modules::project::application::ports::incoming::use_cases::GetProjectsError;
 use crate::shared::api::ApiResponse;

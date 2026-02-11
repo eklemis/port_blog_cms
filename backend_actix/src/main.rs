@@ -172,8 +172,10 @@ async fn start() -> std::io::Result<()> {
     let redis_url = env::var("REDIS_URL").expect("REDIS_URL is not set in .env file");
 
     // Application host and port
-    let host = env::var("HOST").expect("HOST is not set in .env file");
-    let port = env::var("PORT").expect("PORT is not set in .env file");
+    let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+    let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
+    let server_url = format!("{host}:{port}");
+    println!("Server run on: {}", server_url);
 
     // SMTP SETUPS
     let from_email = std::env::var("EMAIL_FROM").expect("EMAIL_FROM not set");
@@ -194,9 +196,6 @@ async fn start() -> std::io::Result<()> {
 
         SmtpEmailSender::new(&smtp_server, &smtp_user, &smtp_pass, &from_email)
     };
-
-    let server_url = format!("{host}:{port}");
-    println!("Server run on: {}", server_url);
 
     // Database connection
     let mut opt = ConnectOptions::new(db_url);

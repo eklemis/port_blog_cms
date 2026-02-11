@@ -3,13 +3,9 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::{
-    auth::{
-        adapter::incoming::web::extractors::auth::resolve_owner_id_or_response,
-        application::helpers::ResolveUserIdError,
-    },
+    auth::adapter::incoming::web::extractors::auth::resolve_owner_id_or_response,
     cv::application::use_cases::get_public_single_cv::GetPublicSingleCvError,
-    shared::api::ApiResponse,
-    AppState,
+    shared::api::ApiResponse, AppState,
 };
 
 #[get("/api/public/cvs/{username}/{cv_id}")]
