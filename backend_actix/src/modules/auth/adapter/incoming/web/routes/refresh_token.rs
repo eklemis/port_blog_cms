@@ -1,26 +1,123 @@
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::application::use_cases::refresh_token::{RefreshTokenError, RefreshTokenRequest};
 use crate::shared::api::ApiResponse;
 use crate::AppState;
 use actix_web::{post, web, Responder};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tracing::{error, info, warn};
+use utoipa::ToSchema;
 
-#[derive(Serialize)]
-struct RefreshTokenResponseBody {
+#[derive(Serialize, Deserialize, ToSchema)]
+pub struct RefreshTokenResponseBody {
+    /// New JWT access token
+    #[schema(example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")]
     access_token: String,
+
+    /// New JWT refresh token
+    #[schema(example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")]
     refresh_token: String,
 }
 
-/// **🔄 Refresh Access Token API Endpoint**
+#[derive(Deserialize, ToSchema)]
+pub struct RefreshTokenRequestDto {
+    /// Refresh token to exchange for new tokens
+    #[schema(example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")]
+    pub refresh_token: String,
+}
+
+/// Refresh access token
+///
+/// Exchanges a valid refresh token for a new access token and refresh token pair.
+/// The old refresh token is revoked and cannot be reused.
+#[utoipa::path(
+    post,
+    path = "/api/auth/refresh",
+    tag = "auth",
+    request_body = RefreshTokenRequestDto,  // Or RefreshTokenRequest if it has Deserialize + ToSchema
+    responses(
+        (
+            status = 200,
+            description = "Token refreshed successfully",
+            body = inline(SuccessResponse<RefreshTokenResponseBody>),
+            example = json!({
+                "success": true,
+                "data": {
+                    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                }
+            })
+        ),
+        (
+            status = 400,
+            description = "Bad request - invalid token type or token not yet valid",
+            body = ErrorResponse,
+            examples(
+                ("Invalid token type" = (value = json!({
+                    "success": false,
+                    "error": {
+                        "code": "INVALID_TOKEN_TYPE",
+                        "message": "Invalid token type. Please use a refresh token."
+                    }
+                }))),
+                ("Token not yet valid" = (value = json!({
+                    "success": false,
+                    "error": {
+                        "code": "TOKEN_NOT_YET_VALID",
+                        "message": "Token is not yet valid"
+                    }
+                })))
+            )
+        ),
+        (
+            status = 401,
+            description = "Unauthorized - token expired or invalid",
+            body = ErrorResponse,
+            examples(
+                ("Token expired" = (value = json!({
+                    "success": false,
+                    "error": {
+                        "code": "TOKEN_EXPIRED",
+                        "message": "Refresh token has expired. Please login again."
+                    }
+                }))),
+                ("Token invalid" = (value = json!({
+                    "success": false,
+                    "error": {
+                        "code": "TOKEN_INVALID",
+                        "message": "Invalid refresh token"
+                    }
+                })))
+            )
+        ),
+        (
+            status = 500,
+            description = "Internal server error",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "An unexpected error occurred"
+                }
+            })
+        ),
+    )
+)]
 #[post("/api/auth/refresh")]
 pub async fn refresh_token_handler(
-    req: web::Json<RefreshTokenRequest>,
+    req: web::Json<RefreshTokenRequestDto>,
     data: web::Data<AppState>,
 ) -> impl Responder {
     let use_case = &data.refresh_token_use_case;
-    let request = req.into_inner();
+    let dto = req.into_inner();
 
     info!("Token refresh attempt");
+    let request = match RefreshTokenRequest::new(dto.refresh_token) {
+        Ok(req) => req,
+        Err(e) => {
+            return ApiResponse::bad_request("VALIDATION_ERROR", &e.to_string());
+        }
+    };
 
     let result = use_case.execute(request).await;
 

@@ -1,3 +1,4 @@
+use crate::api::schemas::ErrorResponse;
 use crate::auth::adapter::incoming::web::extractors::auth::AuthenticatedUser;
 use crate::auth::application::use_cases::soft_delete_user::{
     SoftDeleteUserError, SoftDeleteUserRequest,
@@ -7,6 +8,60 @@ use crate::AppState;
 use actix_web::{delete, web, Responder};
 use tracing::error;
 
+/// Delete current user account
+///
+/// Soft deletes the authenticated user's account. The account is marked as deleted
+/// but data is retained in the database. This action requires authentication.
+#[utoipa::path(
+    delete,
+    path = "/api/users/me",
+    tag = "users",
+    responses(
+        (
+            status = 204,
+            description = "User account deleted successfully"
+        ),
+        (
+            status = 401,
+            description = "Not authenticated or not authorized",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": {
+                    "code": "USER_UNAUTHORIZED",
+                    "message": "You are not authorized to delete this account"
+                }
+            })
+        ),
+        (
+            status = 404,
+            description = "User not found",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": {
+                    "code": "USER_NOT_FOUND",
+                    "message": "User not found"
+                }
+            })
+        ),
+        (
+            status = 500,
+            description = "Internal server error",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "An unexpected error occurred"
+                }
+            })
+        ),
+    ),
+    security(
+        ("BearerAuth" = [])
+    )
+)]
 #[delete("/api/users/me")]
 pub async fn soft_delete_user_handler(
     user: AuthenticatedUser,

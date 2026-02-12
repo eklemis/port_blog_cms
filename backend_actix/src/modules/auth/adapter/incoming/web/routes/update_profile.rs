@@ -1,3 +1,4 @@
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::{
     auth::{
         adapter::incoming::web::extractors::auth::AuthenticatedUser,
@@ -12,20 +13,98 @@ use crate::{
 use actix_web::{put, web, Responder};
 use serde::{Deserialize, Serialize};
 use tracing::error;
+use utoipa::ToSchema;
 
-#[derive(Deserialize)]
-struct UpdateUserRequest {
+#[derive(Deserialize, ToSchema)]
+pub struct UpdateUserRequest {
+    /// New full name for the user
+    #[schema(example = "John Smith")]
     full_name: String,
 }
 
-#[derive(Serialize)]
-struct UpdateUserResponse {
+#[derive(Serialize, ToSchema)]
+pub struct UpdateUserResponse {
+    /// User ID (UUID)
+    #[schema(example = "123e4567-e89b-12d3-a456-426614174000")]
     user_id: String,
+
+    /// Email address
+    #[schema(example = "john@example.com")]
     email: String,
+
+    /// Username
+    #[schema(example = "johndoe")]
     username: String,
+
+    /// Updated full name
+    #[schema(example = "John Smith")]
     full_name: String,
 }
 
+/// Update current user profile
+///
+/// Updates the authenticated user's profile information. Currently only full name can be updated.
+#[utoipa::path(
+    put,
+    path = "/api/users/me",
+    tag = "users",
+    request_body = UpdateUserRequest,
+    responses(
+        (
+            status = 200,
+            description = "Profile updated successfully",
+            body = inline(SuccessResponse<UpdateUserResponse>),
+            example = json!({
+                "success": true,
+                "data": {
+                    "userId": "123e4567-e89b-12d3-a456-426614174000",
+                    "email": "john@example.com",
+                    "username": "johndoe",
+                    "fullName": "John Smith"
+                }
+            })
+        ),
+        (
+            status = 400,
+            description = "Invalid full name",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": {
+                    "code": "INVALID_FULL_NAME",
+                    "message": "Full name must be between 2 and 100 characters"
+                }
+            })
+        ),
+        (
+            status = 401,
+            description = "Not authenticated",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "Authentication required"
+                }
+            })
+        ),
+        (
+            status = 500,
+            description = "Internal server error",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "An unexpected error occurred"
+                }
+            })
+        ),
+    ),
+    security(
+        ("BearerAuth" = [])
+    )
+)]
 #[put("/api/users/me")]
 pub async fn update_user_profile_handler(
     user: AuthenticatedUser,

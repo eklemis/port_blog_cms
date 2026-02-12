@@ -5,6 +5,7 @@ pub use modules::email;
 pub use modules::multimedia;
 pub use modules::project;
 pub use modules::topic;
+pub mod api;
 pub mod health;
 pub mod shared;
 
@@ -63,6 +64,7 @@ use std::time::Duration;
 
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use utoipa::OpenApi;
 
 #[cfg(test)]
 mod tests;
@@ -240,8 +242,13 @@ async fn start() -> std::io::Result<()> {
     // Auth related services and adapters
     let jwt_service = JwtTokenService::new(JwtConfig::from_env());
 
-    let user_email_service =
-        UserEmailService::new(jwt_service.clone(), smtp_sender, String::from(&server_url));
+    let verification_handler_url = env::var("VERIFICATION_HANDLER_URL")
+        .unwrap_or_else(|_| "0.0.0.0:5177/email/verification".to_string());
+    let user_email_service = UserEmailService::new(
+        jwt_service.clone(),
+        smtp_sender,
+        String::from(&verification_handler_url),
+    );
 
     let user_repo = UserRepositoryPostgres::new(Arc::clone(&db_arc));
     let user_query = UserQueryPostgres::new(Arc::clone(&db_arc));
@@ -363,6 +370,11 @@ async fn start() -> std::io::Result<()> {
     let db_for_server = Arc::clone(&db_arc);
 
     HttpServer::new(move || {
+        use utoipa::OpenApi;
+        use utoipa_swagger_ui::SwaggerUi;
+
+        use crate::api::openapi::ApiDoc;
+
         #[allow(unused_mut)]
         let mut app = App::new()
             .app_data(web::Data::new(state.clone()))
@@ -370,6 +382,11 @@ async fn start() -> std::io::Result<()> {
             .app_data(web::Data::new(Arc::clone(&db_for_server)))
             .app_data(web::Data::new(Arc::clone(&redis_arc)))
             .app_data(custom_json_config())
+            // ✅ Swagger UI service
+            .service(
+                SwaggerUi::new("/swagger-ui/{_:.*}")
+                    .url("/api-docs/openapi.json", ApiDoc::openapi()),
+            )
             .configure(init_routes);
 
         // Conditionally add test routes

@@ -1,16 +1,89 @@
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::application::use_cases::verify_user_email::VerifyUserEmailError;
 use crate::shared::api::ApiResponse;
 use crate::AppState;
 use actix_web::{web, HttpRequest, Responder};
 use serde::Serialize;
 use tracing::error;
+use utoipa::ToSchema;
 
-#[derive(Serialize)]
-struct VerifyEmailResponse {
+#[derive(Serialize, ToSchema)]
+pub struct VerifyEmailResponse {
+    /// Success message
+    #[schema(example = "Email verified successfully")]
     message: String,
 }
 
-/// **🚀 Verify User Email API Endpoint**
+/// Verify user email address
+///
+/// Verifies a user's email address using the token sent via email during registration.
+/// Once verified, the user can access endpoints that require verified status.
+#[utoipa::path(
+    get,
+    path = "/api/auth/email-verification/{token}",
+    tag = "auth",
+    params(
+        ("token" = String, Path, description = "Email verification token from the registration email")
+    ),
+    responses(
+        (
+            status = 200,
+            description = "Email verified successfully",
+            body = inline(SuccessResponse<VerifyEmailResponse>),
+            example = json!({
+                "success": true,
+                "data": {
+                    "message": "Email verified successfully"
+                }
+            })
+        ),
+        (
+            status = 400,
+            description = "Invalid or expired token",
+            body = ErrorResponse,
+            examples(
+                ("Token expired" = (value = json!({
+                    "success": false,
+                    "error": {
+                        "code": "TOKEN_EXPIRED",
+                        "message": "Token has expired"
+                    }
+                }))),
+                ("Token invalid" = (value = json!({
+                    "success": false,
+                    "error": {
+                        "code": "TOKEN_INVALID",
+                        "message": "Invalid token"
+                    }
+                })))
+            )
+        ),
+        (
+            status = 404,
+            description = "User not found",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": {
+                    "code": "USER_NOT_FOUND",
+                    "message": "User not found"
+                }
+            })
+        ),
+        (
+            status = 500,
+            description = "Internal server error",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "An unexpected error occurred"
+                }
+            })
+        ),
+    )
+)]
 #[actix_web::get("/api/auth/email-verification/{token}")]
 pub async fn verify_user_email_handler(
     req: HttpRequest,

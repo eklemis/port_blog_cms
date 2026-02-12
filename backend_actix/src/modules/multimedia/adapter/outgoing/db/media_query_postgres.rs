@@ -270,13 +270,7 @@ impl MediaQuery for MediaQueryPostgres {
             let attachable_id: Uuid = row.try_get("", "attachable_id").map_err(Self::map_db_err)?;
             let status: String = row.try_get("", "status").map_err(Self::map_db_err)?;
             let role: String = row.try_get("", "role").map_err(Self::map_db_err)?;
-            let position_i32: i32 = row.try_get("", "position").map_err(Self::map_db_err)?;
-            let position: u8 = position_i32.try_into().map_err(|_| {
-                MediaQueryError::DatabaseError(format!(
-                    "invalid position (out of range): {}",
-                    position_i32
-                ))
-            })?;
+            let position: u8 = row.try_get("", "position").map_err(Self::map_db_err)?;
             let alt_text: String = row.try_get("", "alt_text").map_err(Self::map_db_err)?;
             let caption: String = row.try_get("", "caption").map_err(Self::map_db_err)?;
             let original_filename: String = row

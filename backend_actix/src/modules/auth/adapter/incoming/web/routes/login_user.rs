@@ -1,36 +1,143 @@
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::application::use_cases::login_user::LoginError;
 use crate::auth::application::use_cases::login_user::LoginRequest;
 use crate::shared::api::ApiResponse;
 use crate::AppState;
 use actix_web::{post, web, Responder};
+use serde::Deserialize;
 use serde::Serialize;
 use tracing::{error, info, warn};
 
-#[derive(Serialize)]
-struct LoginResponse {
+use utoipa::ToSchema;
+
+/// Login request from client
+#[derive(Deserialize, ToSchema)]
+pub struct LoginRequestDto {
+    /// Email address
+    #[schema(example = "john@example.com")]
+    pub email: String,
+
+    /// Password
+    #[schema(example = "SecurePass123!")]
+    pub password: String,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct LoginResponse {
+    /// JWT access token (short-lived)
+    #[schema(example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")]
     access_token: String,
+
+    /// JWT refresh token (long-lived)
+    #[schema(example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")]
     refresh_token: String,
+
+    /// Authenticated user information
     user: LoginUserInfo,
 }
 
-#[derive(Serialize)]
-struct LoginUserInfo {
+#[derive(Serialize, ToSchema)]
+pub struct LoginUserInfo {
+    /// User ID (UUID)
+    #[schema(example = "123e4567-e89b-12d3-a456-426614174000")]
     id: String,
+
+    /// Username
+    #[schema(example = "johndoe")]
     username: String,
+
+    /// Email address
+    #[schema(example = "john@example.com")]
     email: String,
+
+    /// Whether the user has verified their email
+    #[schema(example = true)]
     is_verified: bool,
 }
 
-/// **🔐 Login User API Endpoint**
+/// User login
+///
+/// Authenticates a user with email and password, returns JWT access and refresh tokens.
+#[utoipa::path(
+    post,
+    path = "/api/auth/login",
+    tag = "auth",
+    request_body = LoginRequestDto,  // ✅ Use the DTO
+    responses(
+        (
+            status = 200,
+            description = "Login successful",
+            body = inline(SuccessResponse<LoginResponse>),
+            example = json!({
+                "success": true,
+                "data": {
+                    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                    "user": {
+                        "id": "123e4567-e89b-12d3-a456-426614174000",
+                        "username": "johndoe",
+                        "email": "john@example.com",
+                        "isVerified": true
+                    }
+                }
+            })
+        ),
+        (
+            status = 401,
+            description = "Invalid credentials",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": {
+                    "code": "INVALID_CREDENTIALS",
+                    "message": "Invalid email or password"
+                }
+            })
+        ),
+        (
+            status = 403,
+            description = "Account has been deleted",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": {
+                    "code": "USER_DELETED",
+                    "message": "This account has been deleted"
+                }
+            })
+        ),
+        (
+            status = 500,
+            description = "Internal server error",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "An unexpected error occurred"
+                }
+            })
+        ),
+    )
+)]
 #[post("/api/auth/login")]
 pub async fn login_user_handler(
-    req: web::Json<LoginRequest>,
+    req: web::Json<LoginRequestDto>,
     data: web::Data<AppState>,
 ) -> impl Responder {
     let use_case = &data.login_user_use_case;
-    let request = req.into_inner();
+    let dto = req.into_inner();
 
-    info!(email = %request.email(), "Login attempt");
+    info!(email = %dto.email, "Login attempt");
+
+    // ✅ Convert DTO to domain LoginRequest
+    let request = match LoginRequest::new(dto.email, dto.password) {
+        Ok(req) => req,
+        Err(e) => {
+            // Handle validation error if LoginRequest::new validates
+            return ApiResponse::bad_request("VALIDATION_ERROR", &e.to_string());
+        }
+    };
 
     let result = use_case.execute(request).await;
 

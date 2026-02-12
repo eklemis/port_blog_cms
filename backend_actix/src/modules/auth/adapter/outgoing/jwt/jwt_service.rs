@@ -308,23 +308,26 @@ mod tests {
     #[test]
     fn test_invalid_signature() {
         load_test_env();
+
+        // service secret (bisa dari env, bisa fallback)
         let service = create_test_jwt_service();
         let user_id = Uuid::new_v4();
 
-        // Generate a valid token
         let token = service.generate_access_token(user_id, true).unwrap();
 
-        // Create a different service with different secret
+        // pastikan berbeda dari secret service (apa pun nilai env-nya)
+        let different_secret = format!("{}_DIFFERENT", service.config.secret_key);
+
         let different_config = JwtConfig {
-            secret_key: "FAKE_JWT_SECRET_DO_NOT_USE".to_string(),
+            secret_key: different_secret,
             issuer: "test".to_string(),
             access_token_expiry: 3600,
             refresh_token_expiry: 86400,
             verification_token_expiry: 86400,
         };
+
         let different_service = JwtTokenService::new(different_config);
 
-        // Try to verify with different secret
         let result = different_service.verify_token(&token);
 
         assert!(result.is_err());

@@ -1,25 +1,70 @@
+use crate::api::schemas::SuccessResponse;
 use crate::modules::auth::application::use_cases::logout_user::{LogoutError, LogoutRequest};
 use crate::shared::api::ApiResponse;
 use crate::AppState;
 use actix_web::{post, web, Responder};
-use serde::Serialize;
-use tracing::{error, info};
+use serde::{Deserialize, Serialize};
+use tracing::{error, info, warn};
+use utoipa::ToSchema;
 
-#[derive(Serialize)]
-struct LogoutResponseBody {
+/// Logout request from client
+#[derive(Deserialize, ToSchema)]
+pub struct LogoutRequestDto {
+    /// Refresh token to revoke (optional)
+    #[serde(default)]
+    #[schema(example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")]
+    pub refresh_token: Option<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct LogoutResponseBody {
+    /// Success message
+    #[schema(example = "Logged out successfully")]
     message: String,
 }
 
-/// **🚪 Logout User API Endpoint**
+/// User logout
+///
+/// Revokes the provided refresh token, preventing it from being used to generate new access tokens.
+/// Even if token revocation fails internally, the client is informed of successful logout for better UX.
+#[utoipa::path(
+    post,
+    path = "/api/auth/logout",
+    tag = "auth",
+    request_body = LogoutRequestDto,
+    responses(
+        (
+            status = 200,
+            description = "Logout successful",
+            body = inline(SuccessResponse<LogoutResponseBody>),
+            example = json!({
+                "success": true,
+                "data": {
+                    "message": "Logged out successfully"
+                }
+            })
+        ),
+    )
+)]
 #[post("/api/auth/logout")]
 pub async fn logout_user_handler(
-    req: web::Json<LogoutRequest>,
+    req: web::Json<LogoutRequestDto>,
     data: web::Data<AppState>,
 ) -> impl Responder {
     let use_case = &data.logout_user_use_case;
-    let request = req.into_inner();
+    let dto = req.into_inner();
 
     info!("User logout attempt");
+
+    // Convert DTO to domain LogoutRequest
+    // Convert DTO to domain LogoutRequest - handle validation
+    let request = match LogoutRequest::new(dto.refresh_token) {
+        Ok(req) => req,
+        Err(e) => {
+            warn!("Invalid logout request: {}", e);
+            return ApiResponse::bad_request("INVALID_REQUEST", &e.to_string());
+        }
+    };
 
     let result = use_case.execute(request).await;
 

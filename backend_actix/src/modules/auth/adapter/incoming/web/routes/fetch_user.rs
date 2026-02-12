@@ -7,18 +7,95 @@ use crate::{
     AppState,
 };
 
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use actix_web::{get, web, Responder};
 use serde::Serialize;
 use tracing::error;
+use utoipa::ToSchema;
 
-#[derive(Serialize)]
-struct UserProfileResponse {
+#[derive(Serialize, ToSchema)]
+pub struct UserProfileResponse {
+    /// User ID (UUID)
+    #[schema(example = "123e4567-e89b-12d3-a456-426614174000")]
     user_id: String,
+
+    /// Email address
+    #[schema(example = "john@example.com")]
     email: String,
+
+    /// Username
+    #[schema(example = "johndoe")]
     username: String,
+
+    /// Full name
+    #[schema(example = "John Doe")]
     full_name: String,
 }
 
+/// Get current user profile
+///
+/// Returns the profile information for the authenticated user.
+/// Requires a valid JWT access token.
+#[utoipa::path(
+    get,
+    path = "/api/users/me",
+    tag = "users",
+    responses(
+        (
+            status = 200,
+            description = "User profile retrieved successfully",
+            body = inline(SuccessResponse<UserProfileResponse>),
+            example = json!({
+                "success": true,
+                "data": {
+                    "userId": "123e4567-e89b-12d3-a456-426614174000",
+                    "email": "john@example.com",
+                    "username": "johndoe",
+                    "fullName": "John Doe"
+                }
+            })
+        ),
+        (
+            status = 401,
+            description = "Not authenticated",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "Authentication required"
+                }
+            })
+        ),
+        (
+            status = 404,
+            description = "User not found",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": {
+                    "code": "USER_NOT_FOUND",
+                    "message": "User not found: User does not exist"
+                }
+            })
+        ),
+        (
+            status = 500,
+            description = "Internal server error",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "An unexpected error occurred"
+                }
+            })
+        ),
+    ),
+    security(
+        ("BearerAuth" = [])
+    )
+)]
 #[get("/api/users/me")]
 pub async fn get_user_profile_handler(
     user: AuthenticatedUser,

@@ -1,3 +1,4 @@
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::application::orchestrator::user_registration::UserRegistrationError;
 use crate::auth::application::use_cases::create_user::CreateUserInput;
 use crate::modules::auth::application::use_cases::create_user::CreateUserError;
@@ -6,27 +7,56 @@ use crate::AppState;
 use actix_web::{post, web, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 use tracing::{error, info, warn};
+use utoipa::ToSchema;
 
-/// **📥 Request Structure for Creating a User**
-#[derive(Serialize, Deserialize)]
+/// Request body for user registration
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct CreateUserRequest {
+    /// Username (unique identifier)
+    #[schema(example = "johndoe")]
     pub username: String,
+
+    /// Email address
+    #[schema(example = "john@example.com")]
     pub email: String,
+
+    /// Password (minimum 8 characters)
+    #[schema(example = "SecurePass123!")]
     pub password: String,
+
+    /// Full name of the user
+    #[schema(example = "John Doe")]
     pub full_name: String,
 }
 
-#[derive(Serialize)]
-struct RegisterUserResponse {
+#[derive(Serialize, ToSchema)]
+pub struct RegisterUserResponse {
+    /// Success message
+    #[schema(
+        example = "User created successfully. Please check your email to verify your account."
+    )]
     message: String,
+
+    /// Created user details
     user: RegisteredUser,
 }
 
-#[derive(Serialize)]
-struct RegisteredUser {
+#[derive(Serialize, ToSchema)]
+pub struct RegisteredUser {
+    /// User ID (UUID)
+    #[schema(example = "123e4567-e89b-12d3-a456-426614174000")]
     id: String,
+
+    /// Username
+    #[schema(example = "johndoe")]
     username: String,
+
+    /// Email address
+    #[schema(example = "john@example.com")]
     email: String,
+
+    /// Full name
+    #[schema(example = "John Doe")]
     full_name: String,
 }
 
@@ -93,7 +123,94 @@ fn map_create_user_error(err: CreateUserError, req: &CreateUserRequest) -> HttpR
     }
 }
 
-/// **🚀 Register User API Endpoint**
+/// Register a new user
+///
+/// Creates a new user account and sends a verification email.
+/// The user must verify their email before they can access protected endpoints.
+#[utoipa::path(
+    post,
+    path = "/api/auth/register",
+    tag = "auth",
+    request_body = CreateUserRequest,
+    responses(
+        (
+            status = 201,
+            description = "User created successfully",
+            body = inline(SuccessResponse<RegisterUserResponse>),
+            example = json!({
+                "success": true,
+                "data": {
+                    "message": "User created successfully. Please check your email to verify your account.",
+                    "user": {
+                        "id": "123e4567-e89b-12d3-a456-426614174000",
+                        "username": "johndoe",
+                        "email": "john@example.com",
+                        "fullName": "John Doe"
+                    }
+                }
+            })
+        ),
+        (
+            status = 400,
+            description = "Validation error",
+            body = ErrorResponse,
+            examples(
+                ("Invalid username" = (value = json!({
+                    "success": false,
+                    "error": {
+                        "code": "INVALID_USERNAME",
+                        "message": "Username must be between 3 and 30 characters"
+                    }
+                }))),
+                ("Invalid email" = (value = json!({
+                    "success": false,
+                    "error": {
+                        "code": "INVALID_EMAIL",
+                        "message": "Invalid email format"
+                    }
+                }))),
+                ("Invalid password" = (value = json!({
+                    "success": false,
+                    "error": {
+                        "code": "INVALID_PASSWORD",
+                        "message": "Password must be at least 8 characters"
+                    }
+                }))),
+                ("Invalid full name" = (value = json!({
+                    "success": false,
+                    "error": {
+                        "code": "INVALID_FULL_NAME",
+                        "message": "Full name is required"
+                    }
+                })))
+            )
+        ),
+        (
+            status = 409,
+            description = "User already exists",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": {
+                    "code": "USER_ALREADY_EXISTS",
+                    "message": "User already exists"
+                }
+            })
+        ),
+        (
+            status = 500,
+            description = "Internal server error",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "An unexpected error occurred"
+                }
+            })
+        ),
+    )
+)]
 #[post("/api/auth/register")]
 pub async fn register_user_handler(
     req: web::Json<CreateUserRequest>,
