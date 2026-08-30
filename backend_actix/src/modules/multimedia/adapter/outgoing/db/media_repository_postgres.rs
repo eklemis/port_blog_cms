@@ -5,6 +5,7 @@ use sea_orm::{DatabaseBackend, DatabaseConnection, DbErr, Statement, Transaction
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::auth::application::domain::entities::UserId;
 use crate::multimedia::application::{
     domain::entities::{MediaState, MediaStateInfo, MediaVariant},
     ports::outgoing::db::{
@@ -265,6 +266,47 @@ impl MediaRepository for MediaRepositoryPostgres {
         _data: UpdateMediaStateData,
     ) -> Result<MediaStateInfo, MediaRepositoryError> {
         todo!()
+    }
+
+    async fn soft_delete(
+        &self,
+        owner: UserId,
+        media_id: Uuid,
+    ) -> Result<(), MediaRepositoryError> {
+        // `deleted_at IS NULL` keeps this idempotent at the SQL level: a second
+        // delete matches no row, which is then reported as success below only
+        // if the row exists and is already deleted.
+        let result = self
+            .db
+            .execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                r#"UPDATE media SET deleted_at = NOW(), updated_at = NOW()
+                   WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL"#,
+                [media_id.into(), owner.value().into()],
+            ))
+            .await
+            .map_err(|e| MediaRepositoryError::DatabaseError(e.to_string()))?;
+
+        if result.rows_affected() > 0 {
+            return Ok(());
+        }
+
+        // Nothing updated: either the row is absent, owned by someone else, or
+        // already deleted. Only the last of those is success.
+        let existing = self
+            .db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                r#"SELECT id FROM media WHERE id = $1 AND user_id = $2"#,
+                [media_id.into(), owner.value().into()],
+            ))
+            .await
+            .map_err(|e| MediaRepositoryError::DatabaseError(e.to_string()))?;
+
+        match existing {
+            Some(_) => Ok(()),
+            None => Err(MediaRepositoryError::NotFound),
+        }
     }
 
     async fn record_single_variant(

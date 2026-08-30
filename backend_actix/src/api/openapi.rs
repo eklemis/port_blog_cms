@@ -99,6 +99,7 @@ use crate::topic::application::ports::outgoing::TopicResult;
         crate::multimedia::adapter::incoming::web::routes::init_upload_handler,
         crate::multimedia::adapter::incoming::web::routes::get_variant_read_url_handler,
         crate::multimedia::adapter::incoming::web::routes::list_media_handler,
+        crate::multimedia::adapter::incoming::web::routes::delete_media_handler,
     ),
     components(
         schemas(

@@ -35,7 +35,8 @@ use crate::email::application::ports::outgoing::user_email_notifier::{
 };
 use crate::multimedia::application::ports::incoming::use_cases::{
     CreateAttachmentCommand, CreateMediaCommand, CreateMediaResult, CreateUploadMediaUrlUseCase,
-    CreateUrlError, GetReadUrlError, GetUrlCommand, GetUrlResult, GetVariantReadUrlUseCase,
+    CreateUrlError, DeleteMediaError, DeleteMediaUseCase, GetReadUrlError, GetUrlCommand,
+    GetUrlResult, GetVariantReadUrlUseCase,
     ListMediaCommand, ListMediaError, ListMediaUseCase, MediaItem,
 };
 
@@ -666,6 +667,16 @@ impl CreateUploadMediaUrlUseCase for StubCreateUploadMediaUrlUseCase {
         _attachment_command: CreateAttachmentCommand,
     ) -> Result<CreateMediaResult, CreateUrlError> {
         unimplemented!("StubCreateUploadMediaUrlUseCase not configured for this test")
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct StubDeleteMediaUseCase;
+
+#[async_trait]
+impl DeleteMediaUseCase for StubDeleteMediaUseCase {
+    async fn execute(&self, _owner: UserId, _media_id: Uuid) -> Result<(), DeleteMediaError> {
+        unimplemented!("StubDeleteMediaUseCase not configured for this test")
     }
 }
 

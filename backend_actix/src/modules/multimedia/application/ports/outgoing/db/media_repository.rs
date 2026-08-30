@@ -111,4 +111,15 @@ pub trait MediaRepository: Send + Sync {
         &self,
         data: Vec<MediaVariantRecord>,
     ) -> Result<Vec<MediaVariant>, MediaRepositoryError>;
+
+    /// Marks a media row deleted by stamping `deleted_at`.
+    ///
+    /// Storage objects are left in place: the upload bucket is reaped by a GCS
+    /// lifecycle rule, and every read path already filters `deleted_at IS NULL`,
+    /// so the media disappears from listings and signed-URL requests at once.
+    ///
+    /// Scoped by owner, so another user's media reports `NotFound` rather than
+    /// revealing that it exists.
+    async fn soft_delete(&self, owner: UserId, media_id: Uuid)
+        -> Result<(), MediaRepositoryError>;
 }
