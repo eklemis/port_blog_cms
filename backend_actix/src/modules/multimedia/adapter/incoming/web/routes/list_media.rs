@@ -22,7 +22,6 @@ pub struct ListMediaPath {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
-#[serde(rename_all = "lowercase")]
 pub struct ListMediaResponse {
     rows: Vec<MediaItem>,
 }

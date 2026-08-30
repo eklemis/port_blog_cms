@@ -22,7 +22,6 @@ use utoipa::ToSchema;
 //
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct InitUploadRequest {
     // File metadata
     pub file_name: String,
@@ -57,7 +56,6 @@ pub struct InitUploadRequest {
 //
 
 #[derive(Debug, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct InitUploadResponse {
     pub upload_url: String,
     pub media_id: Uuid,
@@ -75,7 +73,6 @@ pub struct InitUploadResponse {
 /// never pass through this API. The media row is created in `pending` state and
 /// only becomes readable once processing completes.
 ///
-/// Note this DTO is camelCase (`fileName`, `mimeType`), unlike most of the API.
 /// Limits come from the server-side upload policy: 5 MB, 6000 px per side, and
 /// `image/jpeg`, `image/png`, or `image/webp` only.
 #[utoipa::path(
@@ -91,8 +88,8 @@ pub struct InitUploadResponse {
             example = json!({
                 "success": true,
                 "data": {
-                    "uploadUrl": "https://storage.googleapis.com/...",
-                    "mediaId": "123e4567-e89b-12d3-a456-426614174000"
+                    "upload_url": "https://storage.googleapis.com/...",
+                    "media_id": "123e4567-e89b-12d3-a456-426614174000"
                 }
             })
         ),
@@ -367,7 +364,7 @@ mod tests {
         assert_eq!(body["success"], true);
 
         let data = body["data"].clone();
-        assert_eq!(data["uploadUrl"], upload_url);
+        assert_eq!(data["upload_url"], upload_url);
     }
 
     /* --------------------------------------------------

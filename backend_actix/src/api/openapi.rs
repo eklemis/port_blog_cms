@@ -360,5 +360,59 @@ mod tests {
             "these routes are served but absent from the OpenAPI document: {missing:?}"
         );
     }
-}
 
+    /// Collects the keys of every `properties` object at any depth, which is
+    /// exactly the set of JSON field names the API puts on the wire. Schema
+    /// names themselves are PascalCase by convention and are not collected.
+    fn collect_property_names(node: &Value, out: &mut BTreeSet<String>) {
+        match node {
+            Value::Object(map) => {
+                if let Some(Value::Object(props)) = map.get("properties") {
+                    out.extend(props.keys().cloned());
+                }
+                for value in map.values() {
+                    collect_property_names(value, out);
+                }
+            }
+            Value::Array(items) => {
+                for item in items {
+                    collect_property_names(item, out);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// The API serialises snake_case throughout. Two structs in `init_upload`
+    /// once carried `rename_all = "camelCase"`, which made a single endpoint
+    /// disagree with every other one and was easy to miss by reading code.
+    /// Pinning it here means a stray rename fails the suite instead of
+    /// surprising a client.
+    ///
+    /// This governs field names only. Enum *values* are lowercase by design
+    /// (`MediaSize::Thumbnail` serialises as `thumbnail`) and are not
+    /// property names, so they are unaffected.
+    #[test]
+    fn every_response_field_is_snake_case() {
+        let doc = doc();
+
+        let mut properties = BTreeSet::new();
+        collect_property_names(&doc, &mut properties);
+
+        assert!(
+            properties.len() > 40,
+            "only {} properties found; the collector is probably broken",
+            properties.len()
+        );
+
+        let offenders: Vec<_> = properties
+            .iter()
+            .filter(|name| name.chars().any(|c| c.is_uppercase()))
+            .collect();
+
+        assert!(
+            offenders.is_empty(),
+            "these API fields are not snake_case: {offenders:?}"
+        );
+    }
+}

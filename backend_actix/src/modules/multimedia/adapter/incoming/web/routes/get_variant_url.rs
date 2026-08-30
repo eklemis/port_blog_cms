@@ -30,7 +30,6 @@ pub struct GetVariantPath {
 //
 
 #[derive(Debug, Serialize, ToSchema)]
-#[serde(rename_all = "lowercase")]
 pub struct GetVariantUrlResponse {
     pub media_id: Uuid,
     pub size: MediaSize,
