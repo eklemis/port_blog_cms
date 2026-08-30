@@ -8,3 +8,8 @@
 *.npmrc
 *.envrc
 .envrc
+
+# graphify knowledge graph — regenerated from source, ~30s at zero API cost via
+# `graphify extract . --code-only --no-cluster && graphify cluster-only . --no-label`.
+# cache/, graph.json and graph.html alone are ~16MB of churn-heavy generated data.
+graphify-out/
