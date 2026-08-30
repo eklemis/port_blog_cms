@@ -10,6 +10,7 @@ mod m20260202_231146_create_table_media_attachments;
 mod m20260202_231525_create_table_media_variants;
 mod m20260830_000001_create_table_blog_posts;
 mod m20260830_000002_create_table_blog_post_topics;
+mod m20260830_000003_fix_projects_slug_uniqueness;
 
 pub struct Migrator;
 
@@ -27,6 +28,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260202_231525_create_table_media_variants::Migration),
             Box::new(m20260830_000001_create_table_blog_posts::Migration),
             Box::new(m20260830_000002_create_table_blog_post_topics::Migration),
+            Box::new(m20260830_000003_fix_projects_slug_uniqueness::Migration),
         ]
     }
 }
