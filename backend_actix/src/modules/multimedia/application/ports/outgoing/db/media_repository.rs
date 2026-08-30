@@ -83,6 +83,11 @@ pub struct UpdateMediaStateData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MediaVariantRecord {
     pub owner: UserId,
+
+    /// The media this variant belongs to. `media_variants.media_id` is NOT
+    /// NULL, so without it a variant cannot be attached to anything.
+    pub media_id: Uuid,
+
     pub size: MediaSize,
     pub bucket_name: String,
     pub object_key: String,

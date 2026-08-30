@@ -129,6 +129,57 @@ impl MediaRepositoryPostgres {
         RecordMediaError::DatabaseError(e.to_string())
     }
 
+    /// Upserts one variant row, keyed on the `(media_id, variant_type)` unique
+    /// index so re-processing the same media replaces rather than duplicates.
+    ///
+    /// Note the table carries a second unique index on
+    /// `(bucket_name, object_key)`. A conflict there is not absorbed by this
+    /// upsert and surfaces as a database error, which is the honest outcome:
+    /// two variants claiming one storage object is a pipeline bug, not
+    /// something to paper over.
+    async fn upsert_variant<C: ConnectionTrait>(
+        conn: &C,
+        data: &MediaVariantRecord,
+    ) -> Result<MediaVariant, MediaRepositoryError> {
+        let variant_type = data.size.to_string();
+
+        conn.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            r#"INSERT INTO media_variants (
+                   id, media_id, variant_type, bucket_name, object_key,
+                   mime_type, file_size_bytes, width, height, created_at
+               )
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+               ON CONFLICT (media_id, variant_type) DO UPDATE SET
+                   bucket_name = EXCLUDED.bucket_name,
+                   object_key = EXCLUDED.object_key,
+                   mime_type = EXCLUDED.mime_type,
+                   file_size_bytes = EXCLUDED.file_size_bytes,
+                   width = EXCLUDED.width,
+                   height = EXCLUDED.height"#,
+            [
+                Uuid::new_v4().into(),
+                data.media_id.into(),
+                variant_type.clone().into(),
+                data.bucket_name.trim().into(),
+                data.object_key.trim().into(),
+                data.mime_type.trim().into(),
+                (data.file_size_bytes as i64).into(),
+                data.width_px.map(|v| v as i32).into(),
+                data.height_px.map(|v| v as i32).into(),
+            ],
+        ))
+        .await
+        .map_err(|e| MediaRepositoryError::DatabaseError(e.to_string()))?;
+
+        Ok(MediaVariant {
+            size: data.size.clone(),
+            // The internal read route, not the storage location: callers reach
+            // bytes through a signed URL, so bucket and key stay private.
+            path: format!("/api/media/{}/{}", data.media_id, variant_type),
+        })
+    }
+
     fn media_state_to_db_str(state: &MediaState) -> &'static str {
         match state {
             MediaState::Pending => "pending",
@@ -261,11 +312,52 @@ impl MediaRepository for MediaRepositoryPostgres {
         Self::record_media_tx_with_db(&db, tx).await
     }
 
+    /// Sets a media row's processing state.
+    ///
+    /// Scoped by owner and skips soft-deleted rows.
+    ///
+    /// Deliberately weaker than the sibling `media-status-updater` Cloud
+    /// Function, which owns the manifest-driven path and additionally refuses
+    /// to leave a terminal state and rejects out-of-order events via
+    /// `updated_at <= $manifest_ts`. `UpdateMediaStateData` carries no
+    /// timestamp, so there is no ordering signal to enforce here. Use this for
+    /// direct or administrative transitions; do not wire it to the manifest
+    /// pipeline, or the two writers will race and this one will win by
+    /// clobbering.
     async fn set_media_state(
         &self,
-        _data: UpdateMediaStateData,
+        data: UpdateMediaStateData,
     ) -> Result<MediaStateInfo, MediaRepositoryError> {
-        todo!()
+        let status_str = Self::media_state_to_db_str(&data.status);
+
+        let row = self
+            .db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                r#"UPDATE media
+                   SET status = $1::media_status, updated_at = NOW()
+                   WHERE id = $2 AND user_id = $3 AND deleted_at IS NULL
+                   RETURNING updated_at"#,
+                [
+                    status_str.into(),
+                    data.media_id.into(),
+                    data.owner.value().into(),
+                ],
+            ))
+            .await
+            .map_err(|e| MediaRepositoryError::DatabaseError(e.to_string()))?
+            .ok_or(MediaRepositoryError::NotFound)?;
+
+        let updated_at: chrono::DateTime<chrono::FixedOffset> = row
+            .try_get("", "updated_at")
+            .map_err(|e| MediaRepositoryError::DatabaseError(e.to_string()))?;
+
+        Ok(MediaStateInfo {
+            owner: data.owner,
+            media_id: data.media_id,
+            updated_at: updated_at.to_rfc3339(),
+            status: data.status,
+        })
     }
 
     async fn soft_delete(
@@ -311,16 +403,49 @@ impl MediaRepository for MediaRepositoryPostgres {
 
     async fn record_single_variant(
         &self,
-        _data: MediaVariantRecord,
+        data: MediaVariantRecord,
     ) -> Result<MediaVariant, MediaRepositoryError> {
-        todo!()
+        let db = &*self.db;
+        Self::upsert_variant(db, &data).await
     }
 
+    /// Records a batch of variants atomically.
+    ///
+    /// All-or-nothing: the processing pipeline publishes a media item's
+    /// variants as one manifest, and a partial set would advertise sizes that
+    /// do not exist behind the read route.
     async fn record_variants(
         &self,
-        _data: Vec<MediaVariantRecord>,
+        data: Vec<MediaVariantRecord>,
     ) -> Result<Vec<MediaVariant>, MediaRepositoryError> {
-        todo!()
+        if data.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let txn = self
+            .db
+            .begin()
+            .await
+            .map_err(|e| MediaRepositoryError::DatabaseError(e.to_string()))?;
+
+        let mut recorded = Vec::with_capacity(data.len());
+        for record in &data {
+            match Self::upsert_variant(&txn, record).await {
+                Ok(v) => recorded.push(v),
+                Err(e) => {
+                    // Ignore rollback failure: the original error is the one
+                    // worth reporting, and the transaction is dropped either way.
+                    let _ = txn.rollback().await;
+                    return Err(e);
+                }
+            }
+        }
+
+        txn.commit()
+            .await
+            .map_err(|e| MediaRepositoryError::DatabaseError(e.to_string()))?;
+
+        Ok(recorded)
     }
 }
 
@@ -596,3 +721,219 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod state_and_variant_tests {
+    use super::*;
+    use crate::auth::application::domain::entities::UserId;
+    use crate::multimedia::application::domain::entities::MediaSize;
+    use sea_orm::{MockDatabase, MockExecResult, Value};
+    use std::collections::BTreeMap;
+
+    fn make_row(data: Vec<(&str, Value)>) -> BTreeMap<String, Value> {
+        data.into_iter().map(|(k, v)| (k.to_string(), v)).collect()
+    }
+
+    fn variant(media_id: Uuid, size: MediaSize) -> MediaVariantRecord {
+        MediaVariantRecord {
+            owner: UserId::from(Uuid::new_v4()),
+            media_id,
+            size,
+            bucket_name: "  blogport-cms-ready  ".to_string(),
+            object_key: "  media/obj.webp  ".to_string(),
+            mime_type: "  image/webp  ".to_string(),
+            file_size_bytes: 2048,
+            width_px: Some(320),
+            height_px: Some(240),
+        }
+    }
+
+    fn exec_ok(n: u64) -> MockExecResult {
+        MockExecResult {
+            last_insert_id: 0,
+            rows_affected: n,
+        }
+    }
+
+    // -----------------------
+    // set_media_state
+    // -----------------------
+
+    #[tokio::test]
+    async fn set_media_state_returns_the_new_state() {
+        let now = chrono::Utc::now().fixed_offset();
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![make_row(vec![(
+                "updated_at",
+                Value::ChronoDateTimeWithTimeZone(Some(Box::new(now))),
+            )])]])
+            .into_connection();
+
+        let repo = MediaRepositoryPostgres::new(Arc::new(db));
+        let owner = UserId::from(Uuid::new_v4());
+        let media_id = Uuid::new_v4();
+
+        let info = repo
+            .set_media_state(UpdateMediaStateData {
+                owner,
+                media_id,
+                status: MediaState::Ready,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(info.media_id, media_id);
+        assert_eq!(info.status, MediaState::Ready);
+        assert_eq!(info.updated_at, now.to_rfc3339());
+    }
+
+    /// The UPDATE is scoped by owner and skips soft-deleted rows, so "no row
+    /// returned" covers absent, not-yours, and already-deleted alike.
+    #[tokio::test]
+    async fn set_media_state_reports_not_found_when_no_row_matches() {
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
+            .into_connection();
+
+        let repo = MediaRepositoryPostgres::new(Arc::new(db));
+        let err = repo
+            .set_media_state(UpdateMediaStateData {
+                owner: UserId::from(Uuid::new_v4()),
+                media_id: Uuid::new_v4(),
+                status: MediaState::Failed,
+            })
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, MediaRepositoryError::NotFound));
+    }
+
+    #[tokio::test]
+    async fn set_media_state_surfaces_database_errors() {
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_errors([DbErr::Custom("db down".to_string())])
+            .into_connection();
+
+        let repo = MediaRepositoryPostgres::new(Arc::new(db));
+        let err = repo
+            .set_media_state(UpdateMediaStateData {
+                owner: UserId::from(Uuid::new_v4()),
+                media_id: Uuid::new_v4(),
+                status: MediaState::Processing,
+            })
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, MediaRepositoryError::DatabaseError(m) if m.contains("db down")));
+    }
+
+    // -----------------------
+    // record_single_variant
+    // -----------------------
+
+    /// The returned `path` is the internal read route, not the storage
+    /// location, so bucket and object key never reach the caller.
+    #[tokio::test]
+    async fn record_single_variant_returns_the_internal_read_path() {
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_exec_results([exec_ok(1)])
+            .into_connection();
+
+        let repo = MediaRepositoryPostgres::new(Arc::new(db));
+        let media_id = Uuid::new_v4();
+
+        let v = repo
+            .record_single_variant(variant(media_id, MediaSize::Thumbnail))
+            .await
+            .unwrap();
+
+        assert_eq!(v.size, MediaSize::Thumbnail);
+        assert_eq!(v.path, format!("/api/media/{media_id}/thumbnail"));
+        assert!(!v.path.contains("blogport-cms-ready"));
+    }
+
+    #[tokio::test]
+    async fn record_single_variant_surfaces_database_errors() {
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_exec_errors([DbErr::Custom("conflict".to_string())])
+            .into_connection();
+
+        let repo = MediaRepositoryPostgres::new(Arc::new(db));
+        let err = repo
+            .record_single_variant(variant(Uuid::new_v4(), MediaSize::Large))
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, MediaRepositoryError::DatabaseError(m) if m.contains("conflict")));
+    }
+
+    // -----------------------
+    // record_variants
+    // -----------------------
+
+    #[tokio::test]
+    async fn record_variants_writes_every_size() {
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_exec_results([exec_ok(1), exec_ok(1), exec_ok(1)])
+            .into_connection();
+
+        let repo = MediaRepositoryPostgres::new(Arc::new(db));
+        let media_id = Uuid::new_v4();
+
+        let out = repo
+            .record_variants(vec![
+                variant(media_id, MediaSize::Thumbnail),
+                variant(media_id, MediaSize::Medium),
+                variant(media_id, MediaSize::Large),
+            ])
+            .await
+            .unwrap();
+
+        let sizes: Vec<_> = out.iter().map(|v| v.size.clone()).collect();
+        assert_eq!(
+            sizes,
+            vec![MediaSize::Thumbnail, MediaSize::Medium, MediaSize::Large]
+        );
+    }
+
+    /// An empty batch must not open a transaction or fail; nothing to record is
+    /// a valid outcome, not an error.
+    #[tokio::test]
+    async fn record_variants_accepts_an_empty_batch() {
+        let db = MockDatabase::new(DatabaseBackend::Postgres).into_connection();
+        let repo = MediaRepositoryPostgres::new(Arc::new(db));
+
+        assert!(repo.record_variants(vec![]).await.unwrap().is_empty());
+    }
+
+    /// All-or-nothing: a media item's variants are published together, and a
+    /// partial set would advertise sizes the read route cannot serve.
+    ///
+    /// This pins that the whole call fails rather than returning the rows that
+    /// happened to succeed. It does not prove a ROLLBACK reached the server —
+    /// MockDatabase does not record transaction statements — so that guarantee
+    /// rests on the code path, not on this assertion.
+    #[tokio::test]
+    async fn record_variants_fails_the_whole_batch_when_one_row_fails() {
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_exec_results([exec_ok(1)])
+            .append_exec_errors([DbErr::Custom("second row failed".to_string())])
+            .into_connection();
+
+        let repo = MediaRepositoryPostgres::new(Arc::new(db));
+        let media_id = Uuid::new_v4();
+
+        let err = repo
+            .record_variants(vec![
+                variant(media_id, MediaSize::Thumbnail),
+                variant(media_id, MediaSize::Medium),
+            ])
+            .await
+            .unwrap_err();
+
+        assert!(
+            matches!(err, MediaRepositoryError::DatabaseError(m) if m.contains("second row failed"))
+        );
+    }
+}
+
