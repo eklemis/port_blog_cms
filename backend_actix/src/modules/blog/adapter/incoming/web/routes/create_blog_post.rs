@@ -131,6 +131,7 @@ mod tests {
             access_token_expiry: 3600,
             refresh_token_expiry: 86400,
             verification_token_expiry: 86400,
+            password_reset_expiry: 3600,
         })
     }
 

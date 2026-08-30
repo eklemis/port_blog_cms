@@ -141,7 +141,15 @@ mod tests {
         fn verify_verification_token(&self, _token: &str) -> Result<Uuid, TokenError> {
             unimplemented!("Not used in get_topics tests")
         }
-    }
+    
+        fn generate_password_reset_token(&self, _user_id: Uuid) -> Result<String, TokenError> {
+            unimplemented!()
+        }
+
+        fn verify_password_reset_token(&self, _token: &str) -> Result<Uuid, TokenError> {
+            unimplemented!()
+        }
+}
 
     // ============================================================
     // Helpers

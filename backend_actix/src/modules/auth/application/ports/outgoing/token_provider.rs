@@ -36,7 +36,7 @@ pub struct TokenClaims {
     pub exp: i64,           // Expiration timestamp
     pub iat: i64,           // Issued at timestamp - ADD THIS
     pub nbf: i64,           // Not before timestamp - ADD THIS
-    pub token_type: String, // "access", "refresh", or "verification"
+    pub token_type: String, // "access", "refresh", "verification", or "password_reset"
     pub is_verified: bool,  // User verification status
 }
 
@@ -52,4 +52,14 @@ pub trait TokenProvider: Send + Sync {
     fn refresh_access_token(&self, refresh_token: &str) -> Result<String, TokenError>;
     fn generate_verification_token(&self, user_id: Uuid) -> Result<String, TokenError>;
     fn verify_verification_token(&self, token: &str) -> Result<Uuid, TokenError>;
+
+    /// Mints a token scoped to password reset.
+    ///
+    /// Deliberately a distinct `token_type` rather than reusing the
+    /// verification token: otherwise a link mailed to confirm an address could
+    /// be replayed to set a password, and vice versa.
+    fn generate_password_reset_token(&self, user_id: Uuid) -> Result<String, TokenError>;
+
+    /// Accepts only tokens minted by `generate_password_reset_token`.
+    fn verify_password_reset_token(&self, token: &str) -> Result<Uuid, TokenError>;
 }

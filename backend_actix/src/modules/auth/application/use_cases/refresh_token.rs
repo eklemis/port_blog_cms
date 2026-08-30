@@ -198,6 +198,7 @@ mod tests {
             access_token_expiry: 3600,
             refresh_token_expiry: 86400,
             verification_token_expiry: 86400,
+            password_reset_expiry: 3600,
         })
     }
 
@@ -348,6 +349,7 @@ mod tests {
             access_token_expiry: 3600,
             refresh_token_expiry: -60, // Expired token
             verification_token_expiry: 86400,
+            password_reset_expiry: 3600,
         });
 
         let user_id = Uuid::new_v4();
@@ -424,6 +426,7 @@ mod tests {
             access_token_expiry: 3600,
             refresh_token_expiry: 86400,
             verification_token_expiry: 86400,
+            password_reset_expiry: 3600,
         });
 
         let jwt_service2 = create_jwt_service(); // Different secret

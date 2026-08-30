@@ -94,6 +94,7 @@ mod tests {
             access_token_expiry: 3600,
             refresh_token_expiry: 86400,
             verification_token_expiry: 86400,
+            password_reset_expiry: 3600,
         });
         let token = j.generate_access_token(Uuid::new_v4(), verified).unwrap();
         let provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(j);

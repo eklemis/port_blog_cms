@@ -164,6 +164,32 @@ impl TokenProvider for JwtTokenService {
         Ok(claims.sub)
     }
 
+    fn generate_password_reset_token(&self, user_id: Uuid) -> Result<String, TokenError> {
+        // `is_verified` is false here and never read on this path: resetting a
+        // password must work for an account that has not confirmed its email,
+        // or a user who mistyped their address at signup is locked out.
+        self.generate_token(
+            user_id,
+            false,
+            "password_reset",
+            self.config.password_reset_expiry,
+        )
+    }
+
+    fn verify_password_reset_token(&self, token: &str) -> Result<Uuid, TokenError> {
+        let claims = self.verify_token(token)?;
+
+        if claims.token_type != "password_reset" {
+            tracing::warn!(
+                "Token type mismatch: expected 'password_reset', got '{}'",
+                claims.token_type
+            );
+            return Err(TokenError::InvalidTokenType("password_reset".to_string()));
+        }
+
+        Ok(claims.sub)
+    }
+
     fn generate_verification_token(&self, user_id: Uuid) -> Result<String, TokenError> {
         let token_expiry = self.config.verification_token_expiry;
         self.generate_token(user_id, false, "verification", token_expiry)
@@ -185,6 +211,7 @@ mod tests {
             access_token_expiry: 3600,        // 1 hour
             refresh_token_expiry: 86400,      // 24 hours
             verification_token_expiry: 86400, // 24 hours
+            password_reset_expiry: 3600,
         };
         JwtTokenService::new(config)
     }
@@ -199,6 +226,7 @@ mod tests {
             access_token_expiry: 3600,
             refresh_token_expiry: 86400,
             verification_token_expiry: 86400,
+            password_reset_expiry: 3600,
         };
 
         let jwt_service = JwtTokenService::new(config);
@@ -281,6 +309,7 @@ mod tests {
             access_token_expiry: -35, // Already expired (beyond leeway)
             refresh_token_expiry: 86400,
             verification_token_expiry: 86400,
+            password_reset_expiry: 3600,
         };
 
         let jwt_service = JwtTokenService::new(config);
@@ -324,6 +353,7 @@ mod tests {
             access_token_expiry: 3600,
             refresh_token_expiry: 86400,
             verification_token_expiry: 86400,
+            password_reset_expiry: 3600,
         };
 
         let different_service = JwtTokenService::new(different_config);
@@ -501,6 +531,7 @@ mod tests {
             access_token_expiry: 3600,
             refresh_token_expiry: -32, // 1 second
             verification_token_expiry: 86400,
+            password_reset_expiry: 3600,
         };
         let service = JwtTokenService::new(config);
         let user_id = Uuid::new_v4();
@@ -684,5 +715,67 @@ mod tests {
         // Both services should produce valid tokens
         assert!(service.verify_token(&token1).is_ok());
         assert!(cloned_service.verify_token(&token2).is_ok());
+    }
+
+
+    // ======================================================================
+    // Password reset token scoping
+    //
+    // The whole point of a distinct token_type: a link mailed for one purpose
+    // must not be redeemable for another.
+    // ======================================================================
+
+    #[test]
+    fn password_reset_token_round_trips() {
+        let svc = create_test_jwt_service();
+        let user_id = Uuid::new_v4();
+
+        let token = svc.generate_password_reset_token(user_id).unwrap();
+        assert_eq!(svc.verify_password_reset_token(&token).unwrap(), user_id);
+    }
+
+    /// An email-confirmation link must not be redeemable to set a password.
+    #[test]
+    fn a_verification_token_is_rejected_as_a_reset_token() {
+        let svc = create_test_jwt_service();
+        let token = svc.generate_verification_token(Uuid::new_v4()).unwrap();
+
+        assert!(matches!(
+            svc.verify_password_reset_token(&token),
+            Err(TokenError::InvalidTokenType(t)) if t == "password_reset"
+        ));
+    }
+
+    /// And the reverse: a reset link must not confirm an email address.
+    #[test]
+    fn a_reset_token_is_rejected_as_a_verification_token() {
+        let svc = create_test_jwt_service();
+        let token = svc.generate_password_reset_token(Uuid::new_v4()).unwrap();
+
+        assert!(matches!(
+            svc.verify_verification_token(&token),
+            Err(TokenError::InvalidTokenType(t)) if t == "verification"
+        ));
+    }
+
+    /// An access token is the most commonly available token to an attacker, so
+    /// it is worth pinning that it cannot be redeemed either.
+    #[test]
+    fn an_access_token_is_rejected_as_a_reset_token() {
+        let svc = create_test_jwt_service();
+        let token = svc.generate_access_token(Uuid::new_v4(), true).unwrap();
+
+        assert!(matches!(
+            svc.verify_password_reset_token(&token),
+            Err(TokenError::InvalidTokenType(_))
+        ));
+    }
+
+    #[test]
+    fn a_reset_token_is_rejected_as_a_refresh_token() {
+        let svc = create_test_jwt_service();
+        let token = svc.generate_password_reset_token(Uuid::new_v4()).unwrap();
+
+        assert!(svc.refresh_access_token(&token).is_err());
     }
 }

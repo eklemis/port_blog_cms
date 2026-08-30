@@ -1,3 +1,9 @@
+use crate::auth::application::use_cases::request_password_reset::{
+    IRequestPasswordResetUseCase, RequestPasswordResetError,
+};
+use crate::auth::application::use_cases::reset_password::{
+    IResetPasswordUseCase, ResetPasswordError,
+};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -860,5 +866,25 @@ impl GetBlogPostTopicsUseCase for StubGetBlogPostTopics {
         _p: Uuid,
     ) -> Result<Vec<BlogPostTopic>, GetBlogPostError> {
         unimplemented!("StubGetBlogPostTopics not configured for this test")
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct StubRequestPasswordReset;
+
+#[async_trait]
+impl IRequestPasswordResetUseCase for StubRequestPasswordReset {
+    async fn execute(&self, _email: &str) -> Result<(), RequestPasswordResetError> {
+        unimplemented!("StubRequestPasswordReset not configured for this test")
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct StubResetPassword;
+
+#[async_trait]
+impl IResetPasswordUseCase for StubResetPassword {
+    async fn execute(&self, _token: &str, _password: &str) -> Result<(), ResetPasswordError> {
+        unimplemented!("StubResetPassword not configured for this test")
     }
 }

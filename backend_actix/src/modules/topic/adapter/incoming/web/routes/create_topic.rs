@@ -195,7 +195,15 @@ mod tests {
         fn verify_verification_token(&self, _token: &str) -> Result<Uuid, TokenError> {
             unimplemented!("Not used in create_topic tests")
         }
-    }
+    
+        fn generate_password_reset_token(&self, _user_id: Uuid) -> Result<String, TokenError> {
+            unimplemented!()
+        }
+
+        fn verify_password_reset_token(&self, _token: &str) -> Result<Uuid, TokenError> {
+            unimplemented!()
+        }
+}
 
     // ============================================================
     // CreateTopic Use Case Mock

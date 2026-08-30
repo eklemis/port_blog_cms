@@ -7,6 +7,10 @@ pub struct JwtConfig {
     pub access_token_expiry: i64,       // Expiration in seconds
     pub refresh_token_expiry: i64,      // Expiration in seconds
     pub verification_token_expiry: i64, // Expiration in seconds
+    /// Shorter than verification by default: a reset link is a live credential
+    /// for the account, so its useful lifetime should be the time a person
+    /// needs to read one email, not a day.
+    pub password_reset_expiry: i64, // Expiration in seconds
 }
 
 impl JwtConfig {
@@ -31,6 +35,7 @@ impl JwtConfig {
         let access_token_expiry = Self::parse_expiry("JWT_ACCESS_EXPIRY", "1800");
         let refresh_token_expiry = Self::parse_expiry("JWT_REFRESH_EXPIRY", "604800");
         let verification_token_expiry = Self::parse_expiry("JWT_VERIFICATION_EXPIRY", "86400");
+        let password_reset_expiry = Self::parse_expiry("JWT_PASSWORD_RESET_EXPIRY", "3600");
 
         // Validate expiry values
         if access_token_expiry <= 0 || access_token_expiry > 86400 {
@@ -49,6 +54,7 @@ impl JwtConfig {
             access_token_expiry,
             refresh_token_expiry,
             verification_token_expiry,
+            password_reset_expiry,
         }
     }
 }

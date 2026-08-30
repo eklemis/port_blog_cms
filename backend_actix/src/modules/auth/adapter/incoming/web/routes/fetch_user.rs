@@ -196,7 +196,15 @@ mod tests {
         fn verify_verification_token(&self, _token: &str) -> Result<Uuid, TokenError> {
             unimplemented!()
         }
-    }
+    
+        fn generate_password_reset_token(&self, _user_id: Uuid) -> Result<String, TokenError> {
+            unimplemented!()
+        }
+
+        fn verify_password_reset_token(&self, _token: &str) -> Result<Uuid, TokenError> {
+            unimplemented!()
+        }
+}
 
     fn create_fetch_user_output(user_id: Uuid) -> FetchUserOutput {
         FetchUserOutput {

@@ -2,6 +2,8 @@ use crate::auth::application::helpers::UserIdentityResolver;
 use crate::auth::application::orchestrator::user_registration::UserRegistrationOrchestrator;
 use crate::auth::application::use_cases::fetch_profile::FetchUserProfileUseCase;
 use crate::auth::application::use_cases::refresh_token::IRefreshTokenUseCase;
+use crate::auth::application::use_cases::request_password_reset::IRequestPasswordResetUseCase;
+use crate::auth::application::use_cases::reset_password::IResetPasswordUseCase;
 use crate::auth::application::use_cases::soft_delete_user::ISoftDeleteUserUseCase;
 use crate::auth::application::use_cases::update_profile::UpdateUserProfileUseCase;
 use crate::auth::application::use_cases::{
@@ -55,6 +57,8 @@ pub struct TestAppStateBuilder {
     verify_user_email: Option<Arc<dyn IVerifyUserEmailUseCase + Send + Sync>>,
     login_user: Option<Arc<dyn ILoginUserUseCase + Send + Sync>>,
     refresh_token: Option<Arc<dyn IRefreshTokenUseCase + Send + Sync>>,
+    request_password_reset: Option<Arc<dyn IRequestPasswordResetUseCase + Send + Sync>>,
+    reset_password: Option<Arc<dyn IResetPasswordUseCase + Send + Sync>>,
     logout_user: Option<Arc<dyn ILogoutUseCase + Send + Sync>>,
     soft_delete_user: Option<Arc<dyn ISoftDeleteUserUseCase + Send + Sync>>,
     fetch_user_profile: Option<Arc<dyn FetchUserProfileUseCase + Send + Sync>>,
@@ -95,6 +99,8 @@ impl Default for TestAppStateBuilder {
             verify_user_email: Some(Arc::new(StubVerifyUserEmailUseCase)),
             login_user: Some(Arc::new(StubLoginUserUseCase)),
             refresh_token: Some(Arc::new(StubRefreshTokenUseCase)),
+            request_password_reset: Some(Arc::new(StubRequestPasswordReset)),
+            reset_password: Some(Arc::new(StubResetPassword)),
             logout_user: Some(Arc::new(StubLogoutUserUseCase)),
             soft_delete_user: Some(Arc::new(StubSoftDeleteUserUseCase)),
             fetch_user_profile: Some(Arc::new(StubFetchUserProfileUseCase)),
@@ -223,6 +229,22 @@ impl TestAppStateBuilder {
     pub fn with_blog_get_topics(mut self, uc: impl GetBlogPostTopicsUseCase + Send + Sync + 'static) -> Self {
         let blog = self.blog.as_mut().expect("Blog use cases must be initialized");
         blog.get_topics = std::sync::Arc::new(uc);
+        self
+    }
+
+    pub fn with_request_password_reset(
+        mut self,
+        uc: impl IRequestPasswordResetUseCase + Send + Sync + 'static,
+    ) -> Self {
+        self.request_password_reset = Some(Arc::new(uc));
+        self
+    }
+
+    pub fn with_reset_password(
+        mut self,
+        uc: impl IResetPasswordUseCase + Send + Sync + 'static,
+    ) -> Self {
+        self.reset_password = Some(Arc::new(uc));
         self
     }
 
@@ -584,6 +606,8 @@ impl TestAppStateBuilder {
             verify_user_email_use_case: self.verify_user_email.unwrap(),
             login_user_use_case: self.login_user.unwrap(),
             refresh_token_use_case: self.refresh_token.unwrap(),
+            request_password_reset_use_case: self.request_password_reset.unwrap(),
+            reset_password_use_case: self.reset_password.unwrap(),
             logout_user_use_case: self.logout_user.unwrap(),
             soft_delete_user_use_case: self.soft_delete_user.unwrap(),
             fetch_user_profile_use_case: self.fetch_user_profile.unwrap(),

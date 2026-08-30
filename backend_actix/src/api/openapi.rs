@@ -18,8 +18,8 @@ use utoipa::OpenApi;
 use crate::auth::adapter::incoming::web::routes::{
     CreateUserRequest, LoginRequestDto, LoginResponse, LoginUserInfo, LogoutRequestDto,
     LogoutResponseBody, RefreshTokenRequestDto, RefreshTokenResponseBody, RegisterUserResponse,
-    RegisteredUser, UpdateUserRequest, UpdateUserResponse, UserProfileResponse,
-    VerifyEmailResponse,
+    PasswordResetResponse, RegisteredUser, RequestPasswordResetDto, ResetPasswordDto,
+    UpdateUserRequest, UpdateUserResponse, UserProfileResponse, VerifyEmailResponse,
 };
 use crate::cv::application::ports::outgoing::{
     CVPageResult, // Just import the generic type
@@ -65,6 +65,8 @@ use crate::topic::application::ports::outgoing::TopicResult;
         crate::auth::adapter::incoming::web::routes::get_user_profile_handler,
         crate::auth::adapter::incoming::web::routes::refresh_token_handler,
         crate::auth::adapter::incoming::web::routes::verify_user_email_handler,
+        crate::auth::adapter::incoming::web::routes::request_password_reset_handler,
+        crate::auth::adapter::incoming::web::routes::reset_password_handler,
 
         // User endpoints
         crate::auth::adapter::incoming::web::routes::update_user_profile_handler,
@@ -148,6 +150,9 @@ use crate::topic::application::ports::outgoing::TopicResult;
             UpdateUserRequest,
             UpdateUserResponse,
             VerifyEmailResponse,
+            RequestPasswordResetDto,
+            ResetPasswordDto,
+            PasswordResetResponse,
 
             // CV wire types. These live in the adapter, not the domain, so
             // `cv::domain::entities` carries no HTTP concerns.
