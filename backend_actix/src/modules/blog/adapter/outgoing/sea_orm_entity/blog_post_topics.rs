@@ -1,0 +1,49 @@
+use sea_orm::entity::prelude::*;
+use serde::{Deserialize, Serialize};
+
+/// Composite primary key on `(blog_post_id, topic_id)`, matching the migration.
+///
+/// There is no surrogate `id` column. Note `project_topics` declares one in its
+/// entity while its migration creates the same composite key and no `id`, which
+/// is a mismatch worth correcting there.
+#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
+#[sea_orm(table_name = "blog_post_topics")]
+pub struct Model {
+    #[sea_orm(primary_key, auto_increment = false, column_type = "Uuid")]
+    pub blog_post_id: Uuid,
+
+    #[sea_orm(primary_key, auto_increment = false, column_type = "Uuid")]
+    pub topic_id: Uuid,
+
+    #[sea_orm(column_type = "TimestampWithTimeZone")]
+    pub created_at: DateTimeWithTimeZone,
+}
+
+#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+pub enum Relation {
+    #[sea_orm(
+        belongs_to = "super::blog_posts::Entity",
+        from = "Column::BlogPostId",
+        to = "super::blog_posts::Column::Id",
+        on_delete = "Cascade",
+        on_update = "Cascade"
+    )]
+    BlogPosts,
+
+    #[sea_orm(
+        belongs_to = "crate::topic::adapter::outgoing::sea_orm_entity::topics::Entity",
+        from = "Column::TopicId",
+        to = "crate::topic::adapter::outgoing::sea_orm_entity::topics::Column::Id",
+        on_delete = "Cascade",
+        on_update = "Cascade"
+    )]
+    Topics,
+}
+
+impl Related<super::blog_posts::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::BlogPosts.def()
+    }
+}
+
+impl ActiveModelBehavior for ActiveModel {}
