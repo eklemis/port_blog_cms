@@ -26,7 +26,7 @@ use crate::multimedia::adapter::incoming::web::routes::{
 use crate::multimedia::application::domain::entities::{
     AttachmentTarget, MediaRole, MediaSize, MediaState,
 };
-use crate::multimedia::application::ports::incoming::use_cases::MediaItem;
+use crate::multimedia::application::ports::incoming::use_cases::{MediaDetail, MediaItem};
 use crate::project::adapter::incoming::web::routes::{
     AddProjectTopicRequest, CreateProjectRequest, PatchProjectRequest, RemoveProjectTopicRequest,
 };
@@ -100,6 +100,7 @@ use crate::topic::application::ports::outgoing::TopicResult;
         crate::multimedia::adapter::incoming::web::routes::get_variant_read_url_handler,
         crate::multimedia::adapter::incoming::web::routes::list_media_handler,
         crate::multimedia::adapter::incoming::web::routes::delete_media_handler,
+        crate::multimedia::adapter::incoming::web::routes::get_media_handler,
     ),
     components(
         schemas(
@@ -172,6 +173,7 @@ use crate::topic::application::ports::outgoing::TopicResult;
             GetVariantUrlResponse,
             ListMediaResponse,
             MediaItem,
+            MediaDetail,
             AttachmentTarget,
             MediaRole,
             MediaSize,

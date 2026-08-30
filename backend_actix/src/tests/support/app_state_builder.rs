@@ -22,7 +22,8 @@ use crate::modules::project::application::project_use_cases::ProjectUseCases;
 use crate::multimedia::application::domain::policies::upload_policy::UploadPolicy;
 use crate::multimedia::application::media_use_cases::MultimediaUseCases;
 use crate::multimedia::application::ports::incoming::use_cases::{
-    CreateUploadMediaUrlUseCase, DeleteMediaUseCase, GetVariantReadUrlUseCase, ListMediaUseCase,
+    CreateUploadMediaUrlUseCase, DeleteMediaUseCase, GetMediaUseCase, GetVariantReadUrlUseCase,
+    ListMediaUseCase,
 };
 use crate::project::application::ports::incoming::use_cases::{
     GetProjectsUseCase, GetPublicSingleProjectUseCase, GetSingleProjectUseCase, PatchProjectUseCase,
@@ -115,6 +116,7 @@ impl Default for TestAppStateBuilder {
                 create_signed_get_url: Arc::new(StubGetVariantReadUrlService),
                 list_media: Arc::new(StubListMediaUseCase),
                 delete_media: Arc::new(StubDeleteMediaUseCase),
+                get_media: Arc::new(StubGetMediaUseCase),
             }),
             user_identity_resolver: Some(user_identity_resolver),
         }
@@ -415,6 +417,15 @@ impl TestAppStateBuilder {
         project.soft_delete = std::sync::Arc::new(uc);
         self
     }
+    pub fn with_get_media(mut self, uc: impl GetMediaUseCase + Send + Sync + 'static) -> Self {
+        let multimedia = self
+            .multimedia
+            .as_mut()
+            .expect("Multimedia use cases must be initialized");
+        multimedia.get_media = std::sync::Arc::new(uc);
+        self
+    }
+
     pub fn with_delete_media(mut self, uc: impl DeleteMediaUseCase + Send + Sync + 'static) -> Self {
         let multimedia = self
             .multimedia

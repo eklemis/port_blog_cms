@@ -124,8 +124,8 @@ async fn start() -> std::io::Result<()> {
                 db::{MediaQueryPostgres, MediaRepositoryPostgres},
             },
             application::ports::incoming::services::{
-                CreateUploadMediaUrlService, DeleteMediaService, GetVariantReadUrlService,
-                ListMediaService,
+                CreateUploadMediaUrlService, DeleteMediaService, GetMediaService,
+                GetVariantReadUrlService, ListMediaService,
             },
         },
         project::{
@@ -346,12 +346,14 @@ async fn start() -> std::io::Result<()> {
         CreateUploadMediaUrlService::new(storage_query.clone(), media_repo);
     let media_query = MediaQueryPostgres::new(Arc::clone(&db_arc));
     let create_variant_get_url = GetVariantReadUrlService::new(storage_query, media_query.clone());
+    let get_media_uc = GetMediaService::new(media_query.clone());
     let list_media = ListMediaService::new(media_query);
     let media_use_cases = MultimediaUseCases {
         create_signed_post_url: Arc::new(create_upload_media_signed_url),
         create_signed_get_url: Arc::new(create_variant_get_url),
         list_media: Arc::new(list_media),
         delete_media: Arc::new(delete_media_uc),
+        get_media: Arc::new(get_media_uc),
     };
     let image_upload_policy = UploadPolicy::from_env();
 
@@ -469,6 +471,7 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::multimedia::adapter::incoming::web::routes::get_variant_read_url_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::list_media_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::delete_media_handler);
+    cfg.service(crate::multimedia::adapter::incoming::web::routes::get_media_handler);
 }
 
 #[cfg(not(tarpaulin_include))]
