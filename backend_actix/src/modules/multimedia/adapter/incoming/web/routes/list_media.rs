@@ -18,7 +18,7 @@ use utoipa::ToSchema;
 
 #[derive(Debug, Deserialize)]
 pub struct ListMediaPath {
-    attachment_target: String,
+    target: String,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -41,17 +41,17 @@ fn parse_attachment_target(s: &str) -> Result<AttachmentTarget, HttpResponse> {
 
 /// List the caller's media for one attachment target
 ///
-/// `attachment_target` is matched literally against the lowercase forms
+/// `target` is matched literally against the lowercase forms
 /// `user`, `resume`, `project`, and `blog_post`. Note that the same enum
 /// serialises in PascalCase inside response bodies (`Resume`, `BlogPost`),
 /// so the path form and the body form differ.
 #[utoipa::path(
     get,
-    path = "/api/media/{attachment_target}",
+    path = "/api/media/by-target/{target}",
     tag = "media",
     params(
         (
-            "attachment_target" = String,
+            "target" = String,
             Path,
             description = "Attachment target: user, resume, project, or blog_post"
         )
@@ -77,13 +77,13 @@ fn parse_attachment_target(s: &str) -> Result<AttachmentTarget, HttpResponse> {
     ),
     security(("BearerAuth" = []))
 )]
-#[get("/api/media/{attachment_target}")]
+#[get("/api/media/by-target/{target}")]
 pub async fn list_media_handler(
     user: VerifiedUser,
     path: web::Path<ListMediaPath>,
     data: web::Data<AppState>,
 ) -> impl Responder {
-    let attachment_target = match parse_attachment_target(&path.attachment_target) {
+    let attachment_target = match parse_attachment_target(&path.target) {
         Ok(t) => t,
         Err(resp) => return resp,
     };
@@ -214,7 +214,7 @@ mod tests {
         .await;
 
         let req = test::TestRequest::get()
-            .uri("/api/media/resume")
+            .uri("/api/media/by-target/resume")
             .insert_header(("Authorization", format!("Bearer {}", token(user_id, true))))
             .to_request();
 
@@ -251,7 +251,7 @@ mod tests {
         .await;
 
         let req = test::TestRequest::get()
-            .uri("/api/media/unknown_target")
+            .uri("/api/media/by-target/unknown_target")
             .insert_header(("Authorization", format!("Bearer {}", token(user_id, true))))
             .to_request();
 
@@ -290,7 +290,7 @@ mod tests {
         .await;
 
         let req = test::TestRequest::get()
-            .uri("/api/media/resume")
+            .uri("/api/media/by-target/resume")
             .insert_header(("Authorization", format!("Bearer {}", token(user_id, true))))
             .to_request();
 
@@ -325,7 +325,7 @@ mod tests {
         .await;
 
         let req = test::TestRequest::get()
-            .uri("/api/media/resume")
+            .uri("/api/media/by-target/resume")
             .insert_header(("Authorization", format!("Bearer {}", token(user_id, false))))
             .to_request();
 
