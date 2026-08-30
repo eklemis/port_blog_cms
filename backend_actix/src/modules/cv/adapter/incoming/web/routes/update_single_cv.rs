@@ -1,11 +1,11 @@
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::adapter::incoming::web::extractors::auth::VerifiedUser;
+use crate::cv::adapter::incoming::web::dto::{
+    ContactDetailDto, CoreSkillDto, CvResponse, EducationDto, ExperienceDto,
+    HighlightedProjectDto,
+};
 use crate::cv::application::ports::outgoing::UpdateCVData;
 use crate::cv::application::use_cases::update_cv::UpdateCVError;
-use crate::cv::domain::entities::{
-    ContactDetail, ContactType, CoreSkill, Education, Experience, HighlightedProject,
-};
-use crate::api::schemas::{ErrorResponse, SuccessResponse};
-use crate::cv::domain::CVInfo;
 use crate::shared::api::ApiResponse;
 use crate::AppState;
 use actix_web::{put, web, Responder};
@@ -14,56 +14,18 @@ use tracing::error;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
-#[schema(as = UpdateEducationRequest)]
-pub struct EducationRequest {
-    pub degree: String,
-    pub institution: String,
-    pub graduation_year: i32,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
-#[schema(as = UpdateExperienceRequest)]
-pub struct ExperienceRequest {
-    pub company: String,
-    pub position: String,
-    pub location: String,
-    pub start_date: String,
-    pub end_date: Option<String>,
-    pub description: String,
-    pub tasks: Vec<String>,
-    pub achievements: Vec<String>,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
-#[schema(as = UpdateHighlightedProjectRequest)]
-pub struct HighlightedProjectRequest {
-    pub id: String,
-    pub title: String,
-    pub slug: String,
-    pub short_description: String,
-}
-
-type ContactTypeRequest = ContactType;
-
-#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
-pub struct ContactDetailRequest {
-    pub title: String,
-    pub contact_type: ContactTypeRequest,
-    pub content: String,
-}
-
+/// Full replacement body for a CV.
 #[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct UpdateCVRequest {
     pub bio: String,
     pub role: String,
     pub photo_url: String,
     pub display_name: String,
-    pub core_skills: Vec<CoreSkill>,
-    pub educations: Vec<EducationRequest>,
-    pub experiences: Vec<ExperienceRequest>,
-    pub highlighted_projects: Vec<HighlightedProjectRequest>,
-    pub contact_info: Vec<ContactDetailRequest>,
+    pub core_skills: Vec<CoreSkillDto>,
+    pub educations: Vec<EducationDto>,
+    pub experiences: Vec<ExperienceDto>,
+    pub highlighted_projects: Vec<HighlightedProjectDto>,
+    pub contact_info: Vec<ContactDetailDto>,
 }
 
 /// Replace a CV
@@ -83,7 +45,7 @@ pub struct UpdateCVRequest {
         (
             status = 200,
             description = "CV replaced successfully",
-            body = inline(SuccessResponse<CVInfo>)
+            body = inline(SuccessResponse<CvResponse>)
         ),
         (status = 400, description = "Malformed request body", body = ErrorResponse),
         (status = 401, description = "Not authenticated", body = ErrorResponse),
@@ -115,56 +77,16 @@ pub async fn update_cv_handler(
         role: req.role.clone(),
         display_name: req.display_name.clone(),
         photo_url: req.photo_url.clone(),
-        core_skills: req
-            .core_skills
-            .iter()
-            .map(|e| CoreSkill {
-                title: e.title.clone(),
-                description: e.description.clone(),
-            })
-            .collect(),
-        educations: req
-            .educations
-            .iter()
-            .map(|e| Education {
-                degree: e.degree.clone(),
-                institution: e.institution.clone(),
-                graduation_year: e.graduation_year,
-            })
-            .collect(),
-        experiences: req
-            .experiences
-            .iter()
-            .map(|exp| Experience {
-                company: exp.company.clone(),
-                position: exp.position.clone(),
-                location: exp.location.clone(),
-                start_date: exp.start_date.clone(),
-                end_date: exp.end_date.clone(),
-                description: exp.description.clone(),
-                tasks: exp.tasks.clone(),
-                achievements: exp.achievements.clone(),
-            })
-            .collect(),
+        core_skills: req.core_skills.iter().cloned().map(Into::into).collect(),
+        educations: req.educations.iter().cloned().map(Into::into).collect(),
+        experiences: req.experiences.iter().cloned().map(Into::into).collect(),
         highlighted_projects: req
             .highlighted_projects
             .iter()
-            .map(|hp| HighlightedProject {
-                id: hp.id.clone(),
-                title: hp.title.clone(),
-                slug: hp.slug.clone(),
-                short_description: hp.short_description.clone(),
-            })
+            .cloned()
+            .map(Into::into)
             .collect(),
-        contact_info: req
-            .contact_info
-            .iter()
-            .map(|cd| ContactDetail {
-                title: cd.title.clone(),
-                contact_type: cd.contact_type.clone(),
-                content: cd.content.clone(),
-            })
-            .collect(),
+        contact_info: req.contact_info.iter().cloned().map(Into::into).collect(),
     };
 
     match data
@@ -172,7 +94,7 @@ pub async fn update_cv_handler(
         .execute(user.user_id, cv_id, cv_data)
         .await
     {
-        Ok(updated) => ApiResponse::success(updated),
+        Ok(updated) => ApiResponse::success(CvResponse::from(updated)),
         Err(UpdateCVError::CVNotFound) => ApiResponse::not_found("CV_NOT_FOUND", "CV not found"),
         Err(UpdateCVError::RepositoryError(e)) => {
             error!("Repository error updating CV: {}", e);
@@ -185,7 +107,15 @@ pub async fn update_cv_handler(
 mod tests {
     use crate::{
         auth::application::ports::outgoing::token_provider::TokenProvider,
-        cv::{application::use_cases::update_cv::IUpdateCVUseCase, domain::CVInfo},
+        cv::{
+            application::use_cases::update_cv::IUpdateCVUseCase,
+            // The handler itself no longer touches domain entities; only these
+            // tests do, to build the CVInfo the mocked use case returns.
+            domain::entities::{
+                ContactDetail, ContactType, CoreSkill, Education, Experience, HighlightedProject,
+            },
+            domain::CVInfo,
+        },
         tests::support::{
             app_state_builder::TestAppStateBuilder,
             auth_helper::test_helpers::create_test_jwt_service,
@@ -193,6 +123,8 @@ mod tests {
     };
 
     use super::*;
+    // Only the tests build wire-side contact values.
+    use crate::cv::adapter::incoming::web::dto::ContactTypeDto;
     use actix_web::{test, web, App};
     use async_trait::async_trait;
     use std::sync::Arc;
@@ -337,7 +269,7 @@ mod tests {
                 bio: "Software Engineer with 5 years of experience".to_string(),
                 role: "Software Engineer".to_string(),
                 photo_url: "https://example.com/photo.jpg".to_string(),
-                educations: vec![EducationRequest {
+                educations: vec![EducationDto {
                     degree: "Bachelor of Computer Science".to_string(),
                     institution: "MIT".to_string(),
                     graduation_year: 2018,
@@ -429,16 +361,16 @@ mod tests {
                 role: "QA Engineer".to_string(),
                 bio: "Testing specialist".to_string(),
                 photo_url: "https://example.com/qa.jpg".to_string(),
-                core_skills: vec![CoreSkill {
+                core_skills: vec![CoreSkillDto {
                     title: "Testing".to_string(),
                     description: "Quality assurance".to_string(),
                 }],
-                educations: vec![EducationRequest {
+                educations: vec![EducationDto {
                     degree: "B.A.".to_string(),
                     institution: "Test University".to_string(),
                     graduation_year: 2019,
                 }],
-                experiences: vec![ExperienceRequest {
+                experiences: vec![ExperienceDto {
                     company: "TestCo".to_string(),
                     position: "QA Lead".to_string(),
                     location: "Boston, MA".to_string(),
@@ -448,14 +380,14 @@ mod tests {
                     tasks: vec!["Test planning".to_string(), "Automation".to_string()],
                     achievements: vec!["Zero critical bugs in production".to_string()],
                 }],
-                highlighted_projects: vec![HighlightedProjectRequest {
+                highlighted_projects: vec![HighlightedProjectDto {
                     id: "test-proj".to_string(),
                     title: "Test Automation Framework".to_string(),
                     slug: "test-automation".to_string(),
                     short_description: "Automated testing solution".to_string(),
                 }],
-                contact_info: vec![ContactDetailRequest {
-                    contact_type: ContactType::WebPage,
+                contact_info: vec![ContactDetailDto {
+                    contact_type: ContactTypeDto::WebPage,
                     title: "Portfolio".to_string(),
                     content: "https://qa-portfolio.com".to_string(),
                 }],

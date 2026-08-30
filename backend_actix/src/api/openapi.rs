@@ -1,11 +1,11 @@
 use crate::api::schemas::{ErrorDetail, ErrorResponse, SuccessResponse};
-use crate::cv::adapter::incoming::web::routes::{
-    ContactDetailRequest, CreateCVRequest, EducationRequest, ExperienceRequest,
-    HighlightedProjectRequest, PatchCVRequest, ReplaceOp, UpdateCVRequest,
-    UpdateEducationRequest, UpdateExperienceRequest, UpdateHighlightedProjectRequest,
+use crate::cv::adapter::incoming::web::dto::{
+    ContactDetailDto, ContactTypeDto, CoreSkillDto, CvResponse, EducationDto, ExperienceDto,
+    HighlightedProjectDto,
 };
-use crate::cv::domain::entities::{ContactDetail, ContactType, CoreSkill};
-use crate::cv::domain::{CVInfo, Education, Experience, HighlightedProject};
+use crate::cv::adapter::incoming::web::routes::{
+    CreateCVRequest, PatchCVRequest, ReplaceOp, UpdateCVRequest,
+};
 use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
 use utoipa::OpenApi;
 
@@ -125,29 +125,27 @@ use crate::topic::application::ports::outgoing::TopicResult;
             UpdateUserResponse,
             VerifyEmailResponse,
 
-            // CV Response
-            CVInfo,
-
-            // CV Request DTOs
-            CreateCVRequest,
-            EducationRequest,
-            ExperienceRequest,
-            HighlightedProjectRequest,
-            CVPageResult<CVInfo>,
+            // CV wire types. These live in the adapter, not the domain, so
+            // `cv::domain::entities` carries no HTTP concerns.
+            CvResponse,
+            CoreSkillDto,
+            EducationDto,
+            ExperienceDto,
+            HighlightedProjectDto,
+            ContactDetailDto,
+            ContactTypeDto,
+            CVPageResult<CvResponse>,
             CVSort,
 
-            // CV update / patch DTOs
+            // CV request bodies
+            CreateCVRequest,
             UpdateCVRequest,
-            UpdateEducationRequest,
-            UpdateExperienceRequest,
-            UpdateHighlightedProjectRequest,
-            ContactDetailRequest,
             PatchCVRequest,
-            ReplaceOp<CoreSkill>,
-            ReplaceOp<Education>,
-            ReplaceOp<Experience>,
-            ReplaceOp<HighlightedProject>,
-            ReplaceOp<ContactDetail>,
+            ReplaceOp<CoreSkillDto>,
+            ReplaceOp<EducationDto>,
+            ReplaceOp<ExperienceDto>,
+            ReplaceOp<HighlightedProjectDto>,
+            ReplaceOp<ContactDetailDto>,
             // Topic DTOs
             CreateTopicRequest,
             TopicResponse,
@@ -176,13 +174,6 @@ use crate::topic::application::ports::outgoing::TopicResult;
             MediaSize,
             MediaState,
 
-            // CV Domain Entities
-            CoreSkill,
-            ContactDetail,
-            ContactType,
-            Education,
-            Experience,
-            HighlightedProject,
         )
     ),
     modifiers(&SecurityAddon),
@@ -416,3 +407,4 @@ mod tests {
         );
     }
 }
+

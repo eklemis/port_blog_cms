@@ -6,7 +6,7 @@ use crate::{
     api::schemas::{ErrorResponse, SuccessResponse},
     auth::adapter::incoming::web::extractors::auth::resolve_owner_id_or_response,
     cv::application::use_cases::get_public_single_cv::GetPublicSingleCvError,
-    cv::domain::CVInfo,
+    cv::adapter::incoming::web::dto::CvResponse,
     shared::api::ApiResponse, AppState,
 };
 
@@ -27,7 +27,7 @@ use crate::{
         (
             status = 200,
             description = "CV retrieved successfully",
-            body = inline(SuccessResponse<CVInfo>)
+            body = inline(SuccessResponse<CvResponse>)
         ),
         (
             status = 404,
@@ -60,7 +60,7 @@ pub async fn get_public_cv_by_id_handler(
         .execute(owner_id.into(), cv_id)
         .await
     {
-        Ok(cv) => ApiResponse::success(cv),
+        Ok(cv) => ApiResponse::success(CvResponse::from(cv)),
 
         Err(GetPublicSingleCvError::NotFound) => {
             ApiResponse::not_found("CV_NOT_FOUND", "CV not found")

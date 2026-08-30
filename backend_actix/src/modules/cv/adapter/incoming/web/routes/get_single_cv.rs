@@ -6,7 +6,7 @@ use crate::{
     api::schemas::{ErrorResponse, SuccessResponse},
     auth::adapter::incoming::web::extractors::auth::VerifiedUser,
     cv::application::use_cases::fetch_cv_by_id::FetchCVByIdError,
-    cv::domain::CVInfo,
+    cv::adapter::incoming::web::dto::CvResponse,
     shared::api::ApiResponse,
     AppState,
 };
@@ -27,7 +27,7 @@ use crate::{
         (
             status = 200,
             description = "CV retrieved successfully",
-            body = inline(SuccessResponse<CVInfo>)
+            body = inline(SuccessResponse<CvResponse>)
         ),
         (status = 401, description = "Not authenticated", body = ErrorResponse),
         (status = 403, description = "Email not verified", body = ErrorResponse),
@@ -57,7 +57,7 @@ pub async fn get_cv_by_id_handler(
         .execute(user.user_id, cv_id)
         .await
     {
-        Ok(cv) => ApiResponse::success(cv),
+        Ok(cv) => ApiResponse::success(CvResponse::from(cv)),
 
         Err(FetchCVByIdError::CVNotFound) => ApiResponse::not_found("CV_NOT_FOUND", "CV not found"),
 

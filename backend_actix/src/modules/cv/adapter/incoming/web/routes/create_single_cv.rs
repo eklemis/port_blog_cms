@@ -1,11 +1,11 @@
 use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::adapter::incoming::web::extractors::auth::VerifiedUser;
+use crate::cv::adapter::incoming::web::dto::{
+    ContactDetailDto, CoreSkillDto, CvResponse, EducationDto, ExperienceDto,
+    HighlightedProjectDto,
+};
 use crate::cv::application::ports::outgoing::CreateCVData;
 use crate::cv::application::use_cases::create_cv::CreateCVError;
-use crate::cv::domain::entities::{
-    ContactDetail, CoreSkill, Education, Experience, HighlightedProject,
-};
-use crate::cv::domain::CVInfo;
 use crate::shared::api::ApiResponse;
 use crate::AppState;
 use actix_web::{post, web, Responder};
@@ -31,89 +31,11 @@ pub struct CreateCVRequest {
     #[schema(example = "https://example.com/photos/profile.jpg")]
     pub photo_url: String,
 
-    /// List of core skills
-    pub core_skills: Vec<CoreSkill>,
-
-    /// Educational background
-    pub educations: Vec<EducationRequest>,
-
-    /// Work experience
-    pub experiences: Vec<ExperienceRequest>,
-
-    /// Highlighted projects
-    pub highlighted_projects: Vec<HighlightedProjectRequest>,
-
-    /// Contact information
-    pub contact_info: Vec<ContactDetail>,
-}
-
-#[derive(Deserialize, Serialize, ToSchema)]
-pub struct EducationRequest {
-    /// Degree obtained
-    #[schema(example = "Bachelor of Science in Computer Science")]
-    pub degree: String,
-
-    /// Educational institution
-    #[schema(example = "MIT")]
-    pub institution: String,
-
-    /// Year of graduation
-    #[schema(example = 2015)]
-    pub graduation_year: i32,
-}
-
-#[derive(Deserialize, Serialize, ToSchema)]
-pub struct ExperienceRequest {
-    /// Company name
-    #[schema(example = "Tech Corp")]
-    pub company: String,
-
-    /// Job position/title
-    #[schema(example = "Senior Backend Engineer")]
-    pub position: String,
-
-    /// Work location
-    #[schema(example = "San Francisco, CA")]
-    pub location: String,
-
-    /// Start date (ISO format or readable string)
-    #[schema(example = "2020-01")]
-    pub start_date: String,
-
-    /// End date (None if current position)
-    #[schema(example = "2023-12")]
-    pub end_date: Option<String>,
-
-    /// Job description
-    #[schema(example = "Led backend development team...")]
-    pub description: String,
-
-    /// Key tasks and responsibilities
-    #[schema(example = json!(["Designed microservices architecture", "Mentored junior developers"]))]
-    pub tasks: Vec<String>,
-
-    /// Notable achievements
-    #[schema(example = json!(["Reduced latency by 40%", "Increased test coverage to 90%"]))]
-    pub achievements: Vec<String>,
-}
-
-#[derive(Deserialize, Serialize, ToSchema)]
-pub struct HighlightedProjectRequest {
-    /// Project ID
-    #[schema(example = "proj-123")]
-    pub id: String,
-
-    /// Project title
-    #[schema(example = "E-commerce Platform")]
-    pub title: String,
-
-    /// URL-friendly slug
-    #[schema(example = "ecommerce-platform")]
-    pub slug: String,
-
-    /// Short project description
-    #[schema(example = "A scalable e-commerce platform built with microservices")]
-    pub short_description: String,
+    pub core_skills: Vec<CoreSkillDto>,
+    pub educations: Vec<EducationDto>,
+    pub experiences: Vec<ExperienceDto>,
+    pub highlighted_projects: Vec<HighlightedProjectDto>,
+    pub contact_info: Vec<ContactDetailDto>,
 }
 
 #[utoipa::path(
@@ -125,7 +47,7 @@ pub struct HighlightedProjectRequest {
         (
             status = 201,
             description = "CV created successfully",
-            body = inline(SuccessResponse<CVInfo>),
+            body = inline(SuccessResponse<CvResponse>),
             example = json!({
                 "success": true,
                 "data": {
@@ -176,60 +98,19 @@ pub async fn create_cv_handler(
         bio: req.bio,
         display_name: req.display_name,
         photo_url: req.photo_url,
-        core_skills: req
-            .core_skills
-            .into_iter()
-            .map(|e| CoreSkill {
-                title: e.title,
-                description: e.description,
-            })
-            .collect(),
-        educations: req
-            .educations
-            .into_iter()
-            .map(|e| Education {
-                degree: e.degree,
-                institution: e.institution,
-                graduation_year: e.graduation_year,
-            })
-            .collect(),
-        experiences: req
-            .experiences
-            .into_iter()
-            .map(|exp| Experience {
-                company: exp.company,
-                position: exp.position,
-                location: exp.location,
-                start_date: exp.start_date,
-                end_date: exp.end_date,
-                description: exp.description,
-                tasks: exp.tasks,
-                achievements: exp.achievements,
-            })
-            .collect(),
+        core_skills: req.core_skills.into_iter().map(Into::into).collect(),
+        educations: req.educations.into_iter().map(Into::into).collect(),
+        experiences: req.experiences.into_iter().map(Into::into).collect(),
         highlighted_projects: req
             .highlighted_projects
             .into_iter()
-            .map(|hp| HighlightedProject {
-                id: hp.id,
-                title: hp.title,
-                slug: hp.slug,
-                short_description: hp.short_description,
-            })
+            .map(Into::into)
             .collect(),
-        contact_info: req
-            .contact_info
-            .into_iter()
-            .map(|cd| ContactDetail {
-                title: cd.title,
-                contact_type: cd.contact_type,
-                content: cd.content,
-            })
-            .collect(),
+        contact_info: req.contact_info.into_iter().map(Into::into).collect(),
     };
 
     match data.create_cv_use_case.execute(user.user_id, cv_data).await {
-        Ok(created) => ApiResponse::created(created),
+        Ok(created) => ApiResponse::created(CvResponse::from(created)),
 
         Err(CreateCVError::RepositoryError(e)) => {
             error!("Repository error creating CV: {}", e);
@@ -246,8 +127,11 @@ mod tests {
     use crate::cv::application::ports::outgoing::CreateCVData;
     use crate::cv::application::use_cases::create_cv::{CreateCVError, ICreateCVUseCase};
     use crate::cv::domain::entities::{
-        CVInfo, ContactDetail, ContactType, CoreSkill, Education, Experience, HighlightedProject,
+        CVInfo, Education, Experience, HighlightedProject,
     };
+    // Only the tests build wire-side contact values, so this import lives here
+    // rather than at file scope.
+    use crate::cv::adapter::incoming::web::dto::ContactTypeDto;
     use crate::tests::support::app_state_builder::TestAppStateBuilder;
     use actix_web::{http::StatusCode, test, web, App};
     use async_trait::async_trait;
@@ -322,21 +206,21 @@ mod tests {
     fn full_request() -> CreateCVRequest {
         CreateCVRequest {
             core_skills: vec![
-                CoreSkill {
+                CoreSkillDto {
                     title: "Rust".to_string(),
                     description: "Systems programming".to_string(),
                 },
-                CoreSkill {
+                CoreSkillDto {
                     title: "Python".to_string(),
                     description: "Backend development".to_string(),
                 },
             ],
-            educations: vec![EducationRequest {
+            educations: vec![EducationDto {
                 degree: "B.Sc. Computer Science".to_string(),
                 institution: "MIT".to_string(),
                 graduation_year: 2020,
             }],
-            experiences: vec![ExperienceRequest {
+            experiences: vec![ExperienceDto {
                 company: "TechCorp".to_string(),
                 position: "Senior Developer".to_string(),
                 location: "San Francisco, CA".to_string(),
@@ -346,20 +230,20 @@ mod tests {
                 tasks: vec!["Designed APIs".to_string(), "Mentored juniors".to_string()],
                 achievements: vec!["Increased performance by 50%".to_string()],
             }],
-            highlighted_projects: vec![HighlightedProjectRequest {
+            highlighted_projects: vec![HighlightedProjectDto {
                 id: "proj-1".to_string(),
                 title: "E-commerce Platform".to_string(),
                 slug: "ecommerce-platform".to_string(),
                 short_description: "Full-stack e-commerce solution".to_string(),
             }],
             contact_info: vec![
-                ContactDetail {
-                    contact_type: ContactType::PhoneNumber,
+                ContactDetailDto {
+                    contact_type: ContactTypeDto::PhoneNumber,
                     title: "Mobile".to_string(),
                     content: "+1234567890".to_string(),
                 },
-                ContactDetail {
-                    contact_type: ContactType::WebPage,
+                ContactDetailDto {
+                    contact_type: ContactTypeDto::WebPage,
                     title: "LinkedIn".to_string(),
                     content: "https://linkedin.com/in/johndoe".to_string(),
                 },
@@ -376,7 +260,11 @@ mod tests {
             role: "Software Engineer".to_string(),
             bio: "Experienced developer passionate about clean code".to_string(),
             photo_url: "https://example.com/photo.jpg".to_string(),
-            core_skills: full_request().core_skills,
+            core_skills: full_request()
+                .core_skills
+                .into_iter()
+                .map(Into::into)
+                .collect(),
             educations: vec![Education {
                 degree: "B.Sc. Computer Science".to_string(),
                 institution: "MIT".to_string(),
@@ -398,7 +286,11 @@ mod tests {
                 slug: "ecommerce-platform".to_string(),
                 short_description: "Full-stack e-commerce solution".to_string(),
             }],
-            contact_info: full_request().contact_info,
+            contact_info: full_request()
+                .contact_info
+                .into_iter()
+                .map(Into::into)
+                .collect(),
         }
     }
 

@@ -7,7 +7,7 @@ use crate::auth::adapter::incoming::web::extractors::auth::VerifiedUser;
 use crate::cv::application::ports::outgoing::CVPageResult;
 use crate::cv::application::ports::outgoing::{CVListFilter, CVPageRequest, CVSort};
 use crate::cv::application::use_cases::fetch_user_cvs::FetchCVError;
-use crate::cv::domain::CVInfo;
+use crate::cv::adapter::incoming::web::dto::CvResponse;
 use crate::shared::api::ApiResponse;
 use crate::AppState;
 use utoipa::IntoParams;
@@ -65,7 +65,7 @@ impl From<GetCVsQuery> for (CVListFilter, CVPageRequest, CVSort) {
         (
             status = 200,
             description = "CVs retrieved successfully",
-            body = inline(SuccessResponse<CVPageResult<CVInfo>>),  // ✅ Just use inline with the full generic type
+            body = inline(SuccessResponse<CVPageResult<CvResponse>>),  // ✅ Just use inline with the full generic type
             example = json!({
                 "success": true,
                 "data": {
@@ -118,7 +118,12 @@ pub async fn get_cvs_handler(
         .execute(user.user_id, filter, sort, page)
         .await
     {
-        Ok(result) => ApiResponse::success(result),
+        Ok(result) => ApiResponse::success(CVPageResult {
+            items: result.items.into_iter().map(CvResponse::from).collect(),
+            page: result.page,
+            per_page: result.per_page,
+            total: result.total,
+        }),
 
         Err(FetchCVError::QueryFailed(msg)) => {
             error!("Failed to list CVs: {}", msg);

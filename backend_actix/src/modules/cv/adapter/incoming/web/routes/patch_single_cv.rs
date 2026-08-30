@@ -1,11 +1,10 @@
 use crate::auth::adapter::incoming::web::extractors::auth::VerifiedUser;
+use crate::cv::adapter::incoming::web::dto::{
+    ContactDetailDto, CoreSkillDto, CvResponse, EducationDto, ExperienceDto, HighlightedProjectDto,
+};
 use crate::cv::application::ports::outgoing::PatchCVData;
 use crate::cv::application::use_cases::patch_cv::PatchCVError;
-use crate::cv::domain::entities::{
-    ContactDetail, CoreSkill, Education, Experience, HighlightedProject,
-};
 use crate::api::schemas::{ErrorResponse, SuccessResponse};
-use crate::cv::domain::CVInfo;
 use crate::shared::api::ApiResponse;
 use crate::AppState;
 use actix_web::patch;
@@ -33,11 +32,11 @@ pub struct PatchCVRequest {
     pub photo_url: Option<String>,
     pub display_name: Option<String>,
 
-    pub core_skills: Option<ReplaceOp<CoreSkill>>,
-    pub educations: Option<ReplaceOp<Education>>,
-    pub experiences: Option<ReplaceOp<Experience>>,
-    pub highlighted_projects: Option<ReplaceOp<HighlightedProject>>,
-    pub contact_info: Option<ReplaceOp<ContactDetail>>,
+    pub core_skills: Option<ReplaceOp<CoreSkillDto>>,
+    pub educations: Option<ReplaceOp<EducationDto>>,
+    pub experiences: Option<ReplaceOp<ExperienceDto>>,
+    pub highlighted_projects: Option<ReplaceOp<HighlightedProjectDto>>,
+    pub contact_info: Option<ReplaceOp<ContactDetailDto>>,
 }
 
 /// Partially update a CV
@@ -57,7 +56,7 @@ pub struct PatchCVRequest {
         (
             status = 200,
             description = "CV updated successfully",
-            body = inline(SuccessResponse<CVInfo>)
+            body = inline(SuccessResponse<CvResponse>)
         ),
         (status = 400, description = "Malformed request body", body = ErrorResponse),
         (status = 401, description = "Not authenticated", body = ErrorResponse),
@@ -89,14 +88,26 @@ pub async fn patch_cv_handler(
         display_name: req.display_name.clone(),
         role: req.role.clone(),
         photo_url: req.photo_url.clone(),
-        core_skills: req.core_skills.as_ref().map(|op| op.replace.clone()),
-        educations: req.educations.as_ref().map(|op| op.replace.clone()),
-        experiences: req.experiences.as_ref().map(|op| op.replace.clone()),
+        core_skills: req
+            .core_skills
+            .as_ref()
+            .map(|op| op.replace.iter().cloned().map(Into::into).collect()),
+        educations: req
+            .educations
+            .as_ref()
+            .map(|op| op.replace.iter().cloned().map(Into::into).collect()),
+        experiences: req
+            .experiences
+            .as_ref()
+            .map(|op| op.replace.iter().cloned().map(Into::into).collect()),
         highlighted_projects: req
             .highlighted_projects
             .as_ref()
-            .map(|op| op.replace.clone()),
-        contact_info: req.contact_info.as_ref().map(|op| op.replace.clone()),
+            .map(|op| op.replace.iter().cloned().map(Into::into).collect()),
+        contact_info: req
+            .contact_info
+            .as_ref()
+            .map(|op| op.replace.iter().cloned().map(Into::into).collect()),
     };
 
     match data
@@ -104,7 +115,7 @@ pub async fn patch_cv_handler(
         .execute(user.user_id, cv_id, patch_data)
         .await
     {
-        Ok(cv) => ApiResponse::success(cv),
+        Ok(cv) => ApiResponse::success(CvResponse::from(cv)),
         Err(PatchCVError::CVNotFound) => ApiResponse::not_found("CV_NOT_FOUND", "CV not found"),
         Err(PatchCVError::RepositoryError(e)) => {
             error!("Repository error patching CV: {}", e);
@@ -117,7 +128,9 @@ pub async fn patch_cv_handler(
 mod tests {
     use super::*;
     use crate::auth::application::ports::outgoing::token_provider::TokenProvider;
-    use crate::cv::domain::entities::{CVInfo, ContactType};
+    // The handler no longer references domain entities; only these tests do,
+    // to build the CVInfo the mocked use case returns.
+    use crate::cv::domain::entities::{CVInfo, ContactDetail, ContactType, Education};
     use crate::tests::support::app_state_builder::TestAppStateBuilder;
     use crate::{
         cv::application::use_cases::patch_cv::IPatchCVUseCase,
