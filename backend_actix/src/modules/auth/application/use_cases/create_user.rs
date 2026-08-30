@@ -7,6 +7,9 @@ use crate::modules::auth::application::ports::outgoing::{
 use async_trait::async_trait;
 use email_address::EmailAddress;
 
+use crate::auth::application::ports::incoming::password_policy::{
+    PasswordPolicy, PasswordPolicyError,
+};
 use crate::auth::application::ports::outgoing::password_hasher::{HashError, PasswordHasher};
 use std::sync::Arc;
 
@@ -80,6 +83,7 @@ where
     user_query: Q,
     user_repository: R,
     password_hasher: Arc<dyn PasswordHasher>,
+    password_policy: Arc<dyn PasswordPolicy>,
 }
 
 impl<Q, R> CreateUserUseCase<Q, R>
@@ -91,11 +95,13 @@ where
         user_query: Q,
         user_repository: R,
         password_hasher: Arc<dyn PasswordHasher>,
+        password_policy: Arc<dyn PasswordPolicy>,
     ) -> Self {
         Self {
             user_query,
             user_repository,
             password_hasher,
+            password_policy,
         }
     }
 
@@ -141,14 +147,27 @@ where
         Ok(trimmed.to_lowercase())
     }
 
+    /// Delegates to the injected `PasswordPolicy`.
+    ///
+    /// This rule used to be inlined here, which left `BasicPasswordPolicy`
+    /// implemented but unreachable and the two definitions free to drift — the
+    /// inline copy had already lost the upper bound. Length is measured in
+    /// bytes, matching the previous behaviour; that is the right unit for the
+    /// maximum, since it bounds the work handed to Argon2.
     fn validate_password(&self, password: &str) -> Result<(), CreateUserError> {
-        if password.len() < 12 {
-            return Err(CreateUserError::InvalidPassword(
-                "Password must be at least 12 characters".to_string(),
-            ));
-        }
-
-        Ok(())
+        self.password_policy
+            .validate(password)
+            .map_err(|e| match e {
+                PasswordPolicyError::TooShort => CreateUserError::InvalidPassword(
+                    "Password must be at least 12 characters".to_string(),
+                ),
+                PasswordPolicyError::TooLong => CreateUserError::InvalidPassword(
+                    "Password must not exceed 128 characters".to_string(),
+                ),
+                PasswordPolicyError::TooWeak => {
+                    CreateUserError::InvalidPassword("Password is too weak".to_string())
+                }
+            })
     }
 
     fn validate_full_name(&self, full_name: &str) -> Result<String, CreateUserError> {
@@ -266,6 +285,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::auth::application::services::password::BasicPasswordPolicy;
     use super::*;
     use crate::auth::application::ports::outgoing::{
         password_hasher::{HashError, PasswordHasher},
@@ -482,6 +502,7 @@ mod tests {
             MockUserQuery::with_soft_deleted_user(deleted_user),
             MockUserRepository::fail_create_then_restore(restored_user.clone()), // Changed
             Arc::new(MockPasswordHasher::success()),
+            Arc::new(BasicPasswordPolicy),
         );
 
         let result = use_case.execute(valid_input()).await.unwrap();
@@ -509,6 +530,7 @@ mod tests {
             MockUserQuery::with_active_user(active_user),
             MockUserRepository::success_create(created_user.clone()),
             Arc::new(MockPasswordHasher::success()),
+            Arc::new(BasicPasswordPolicy),
         );
 
         let result = use_case.execute(valid_input()).await.unwrap();
@@ -525,6 +547,7 @@ mod tests {
             MockUserQuery::empty(),
             MockUserRepository::create_error(UserRepositoryError::UserAlreadyExists),
             Arc::new(MockPasswordHasher::success()),
+            Arc::new(BasicPasswordPolicy),
         );
 
         let err = use_case.execute(valid_input()).await.unwrap_err();
@@ -542,9 +565,83 @@ mod tests {
                 full_name: "x".into(),
             }),
             Arc::new(MockPasswordHasher::fail()),
+            Arc::new(BasicPasswordPolicy),
         );
 
         let err = use_case.execute(valid_input()).await.unwrap_err();
         assert!(matches!(err, CreateUserError::HashingFailed(_)));
+    }
+
+    // ======================================================================
+    // TESTS — Password policy
+    //
+    // The rule now lives in `BasicPasswordPolicy` rather than inline here, and
+    // these construct the use case with the real policy so they exercise the
+    // same code production runs.
+    // ======================================================================
+
+    fn use_case_with_valid_collaborators() -> CreateUserUseCase<MockUserQuery, MockUserRepository> {
+        CreateUserUseCase::new(
+            MockUserQuery::empty(),
+            MockUserRepository::success_create(UserResult {
+                id: Uuid::new_v4(),
+                email: "test@example.com".into(),
+                username: "testuser".into(),
+                full_name: "Test User".into(),
+            }),
+            Arc::new(MockPasswordHasher::success()),
+            Arc::new(BasicPasswordPolicy),
+        )
+    }
+
+    #[tokio::test]
+    async fn rejects_password_below_the_minimum() {
+        let use_case = use_case_with_valid_collaborators();
+
+        let mut input = valid_input();
+        input.password = "short".to_string();
+
+        let err = use_case.execute(input).await.unwrap_err();
+        assert!(
+            matches!(&err, CreateUserError::InvalidPassword(m) if m.contains("at least 12")),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn accepts_a_password_exactly_at_the_minimum() {
+        let use_case = use_case_with_valid_collaborators();
+
+        let mut input = valid_input();
+        input.password = "a".repeat(12);
+
+        assert!(use_case.execute(input).await.is_ok());
+    }
+
+    /// The upper bound is the rule the old inline check had lost. It matters
+    /// because Argon2's work scales with the input it is handed, so an
+    /// unbounded password is a cheap way to make the server do expensive work.
+    #[tokio::test]
+    async fn rejects_password_above_the_maximum() {
+        let use_case = use_case_with_valid_collaborators();
+
+        let mut input = valid_input();
+        input.password = "a".repeat(129);
+
+        let err = use_case.execute(input).await.unwrap_err();
+        assert!(
+            matches!(&err, CreateUserError::InvalidPassword(m) if m.contains("128")),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn accepts_a_password_exactly_at_the_maximum() {
+        let use_case = use_case_with_valid_collaborators();
+
+        let mut input = valid_input();
+        input.password = "a".repeat(128);
+
+        assert!(use_case.execute(input).await.is_ok());
     }
 }

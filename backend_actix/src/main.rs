@@ -102,7 +102,8 @@ async fn start() -> std::io::Result<()> {
             adapter::outgoing::security::argon2_hasher::Argon2Hasher,
             application::{
                 orchestrator::user_registration::UserRegistrationOrchestrator,
-                ports::outgoing::token_provider::TokenProvider, services::FetchUserProfileService,
+                ports::outgoing::token_provider::TokenProvider,
+                services::password::BasicPasswordPolicy, services::FetchUserProfileService,
                 use_cases::refresh_token::RefreshTokenUseCase,
             },
         },
@@ -263,6 +264,7 @@ async fn start() -> std::io::Result<()> {
         user_query.clone(),
         user_repo.clone(),
         Arc::new(argon2_password_hasher.clone()),
+        Arc::new(BasicPasswordPolicy),
     );
     let create_user_uc_arc: Arc<dyn ICreateUserUseCase + Send + Sync> =
         Arc::new(create_user_use_case);
