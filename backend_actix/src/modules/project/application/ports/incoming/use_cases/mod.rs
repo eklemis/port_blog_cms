@@ -8,6 +8,7 @@ mod get_single_project;
 mod hard_delete_project;
 mod patch_project;
 mod remove_project_topic;
+mod soft_delete_project;
 
 pub use add_project_topic::{AddProjectTopicError, AddProjectTopicUseCase};
 pub use clear_project_topics::{ClearProjectTopicsError, ClearProjectTopicsUseCase};
@@ -19,3 +20,4 @@ pub use get_single_project::{GetSingleProjectError, GetSingleProjectUseCase};
 pub use hard_delete_project::{HardDeleteProjectError, HardDeleteProjectUseCase};
 pub use patch_project::{PatchProjectError, PatchProjectUseCase};
 pub use remove_project_topic::{RemoveProjectTopicError, RemoveProjectTopicUseCase};
+pub use soft_delete_project::{SoftDeleteProjectError, SoftDeleteProjectUseCase};

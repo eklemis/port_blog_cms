@@ -289,15 +289,35 @@ mod tests {
             //     .expect("install rustls aws-lc-rs provider");
         });
     }
-    async fn setup_repo() -> RedisTokenRepository {
+    /// Builds a repository against the Redis instance named by `REDIS_URL`.
+    ///
+    /// Returns `None` when the tests should be skipped. Do NOT reintroduce
+    /// `std::process::exit(0)` here: it terminates the whole test binary with a
+    /// success code, silently swallowing every test that had not run yet and
+    /// reporting a green suite.
+    ///
+    /// Note that `REDIS_URL` being unset is not a reliable skip signal on its
+    /// own: other tests in this binary call `dotenvy` (see
+    /// `tests/support/mod.rs` and `jwt/jwt_config.rs`), which populates the
+    /// shared process environment partway through a run. Set
+    /// `SKIP_REDIS_TESTS=1` to skip these deterministically when no Redis is
+    /// reachable.
+    async fn setup_repo() -> Option<RedisTokenRepository> {
         init_tls();
+
+        if std::env::var("SKIP_REDIS_TESTS").is_ok_and(|v| v == "1") {
+            eprintln!("SKIP_REDIS_TESTS=1; skipping Redis integration test.");
+            return None;
+        }
+
         let redis_url = match std::env::var("REDIS_URL") {
             Ok(v) => v,
             Err(_) => {
-                eprintln!("REDIS_URL not set; skipping Redis integration tests");
-                // Skip the current test (not fail)
-                // Requires Rust 1.70+ for std::process::exit in async context? This works fine.
-                std::process::exit(0);
+                eprintln!(
+                    "REDIS_URL not set; skipping Redis integration test. \
+                     Set REDIS_URL to a reachable instance to run these."
+                );
+                return None;
             }
         };
 
@@ -305,12 +325,14 @@ mod tests {
             .create_pool(Some(deadpool_redis::Runtime::Tokio1))
             .expect("Failed to create Redis pool");
 
-        RedisTokenRepository::new(std::sync::Arc::new(redis_pool))
+        Some(RedisTokenRepository::new(std::sync::Arc::new(redis_pool)))
     }
 
     #[tokio::test]
     async fn blacklist_token_marks_token_as_blacklisted() {
-        let repo = setup_repo().await;
+        let Some(repo) = setup_repo().await else {
+            return;
+        };
 
         let token = "token_blacklist_1";
         let user_id = Uuid::new_v4();
@@ -329,7 +351,9 @@ mod tests {
 
     #[tokio::test]
     async fn blacklisted_token_expires_automatically() {
-        let repo = setup_repo().await;
+        let Some(repo) = setup_repo().await else {
+            return;
+        };
 
         let token = "token_expiry_1";
         let user_id = Uuid::new_v4();
@@ -351,7 +375,9 @@ mod tests {
 
     #[tokio::test]
     async fn remove_blacklisted_token_removes_token() {
-        let repo = setup_repo().await;
+        let Some(repo) = setup_repo().await else {
+            return;
+        };
 
         let token = "token_remove_1";
         let user_id = Uuid::new_v4();
@@ -372,7 +398,9 @@ mod tests {
 
     #[tokio::test]
     async fn remove_nonexistent_token_is_noop() {
-        let repo = setup_repo().await;
+        let Some(repo) = setup_repo().await else {
+            return;
+        };
 
         let result = repo.remove_blacklisted_token("does_not_exist").await;
         assert!(result.is_ok());
@@ -380,7 +408,9 @@ mod tests {
 
     #[tokio::test]
     async fn revoke_all_user_tokens_removes_all_tokens() {
-        let repo = setup_repo().await;
+        let Some(repo) = setup_repo().await else {
+            return;
+        };
         let user_id = Uuid::new_v4();
 
         let tokens = vec!["t1", "t2", "t3"];
@@ -400,7 +430,9 @@ mod tests {
 
     #[tokio::test]
     async fn revoke_user_with_no_tokens_is_noop() {
-        let repo = setup_repo().await;
+        let Some(repo) = setup_repo().await else {
+            return;
+        };
         let user_id = Uuid::new_v4();
 
         let result = repo.revoke_all_user_tokens(user_id).await;
@@ -409,7 +441,9 @@ mod tests {
 
     #[tokio::test]
     async fn cleanup_expired_tokens_returns_zero() {
-        let repo = setup_repo().await;
+        let Some(repo) = setup_repo().await else {
+            return;
+        };
 
         let count = repo.cleanup_expired_tokens().await.unwrap();
         assert_eq!(count, 0);

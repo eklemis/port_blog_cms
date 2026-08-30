@@ -7,7 +7,7 @@ use crate::{
     project::application::ports::incoming::use_cases::{
         AddProjectTopicUseCase, ClearProjectTopicsUseCase, GetProjectTopicsUseCase,
         GetPublicSingleProjectUseCase, GetSingleProjectUseCase, HardDeleteProjectUseCase,
-        PatchProjectUseCase, RemoveProjectTopicUseCase,
+        PatchProjectUseCase, RemoveProjectTopicUseCase, SoftDeleteProjectUseCase,
     },
 };
 
@@ -23,4 +23,5 @@ pub struct ProjectUseCases {
     pub remove_topic: Arc<dyn RemoveProjectTopicUseCase + Send + Sync>,
     pub clear_topics: Arc<dyn ClearProjectTopicsUseCase + Send + Sync>,
     pub hard_delete: Arc<dyn HardDeleteProjectUseCase + Send + Sync>,
+    pub soft_delete: Arc<dyn SoftDeleteProjectUseCase + Send + Sync>,
 }

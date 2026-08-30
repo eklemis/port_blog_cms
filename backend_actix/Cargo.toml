@@ -29,6 +29,7 @@ no_db_triggers = []
 
 [dependencies]
 actix-web = "4"
+actix-cors = "0.7"
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0"
 uuid = { version = "1.12.1", features = ["v4"] }

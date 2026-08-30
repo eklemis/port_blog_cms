@@ -102,6 +102,7 @@ impl Default for TestAppStateBuilder {
                 remove_topic: Arc::new(StubRemoveProjectTopicUseCase),
                 clear_topics: Arc::new(StubClearProjectTopicsUseCase),
                 hard_delete: Arc::new(StubHardDeleteProjectUseCase),
+                soft_delete: Arc::new(StubSoftDeleteProjectUseCase),
             }),
             multimedia: Some(MultimediaUseCases {
                 create_signed_post_url: Arc::new(StubCreateUploadMediaUrlUseCase),
@@ -374,6 +375,21 @@ impl TestAppStateBuilder {
             .expect("Project use cases must be initialized");
 
         project.hard_delete = std::sync::Arc::new(uc);
+        self
+    }
+    pub fn with_soft_delete_project<U>(mut self, uc: U) -> Self
+    where
+        U: crate::modules::project::application::ports::incoming::use_cases::SoftDeleteProjectUseCase
+            + Send
+            + Sync
+            + 'static,
+    {
+        let project = self
+            .project
+            .as_mut()
+            .expect("Project use cases must be initialized");
+
+        project.soft_delete = std::sync::Arc::new(uc);
         self
     }
     pub fn with_create_upload_media_url(

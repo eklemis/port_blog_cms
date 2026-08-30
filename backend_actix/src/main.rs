@@ -51,9 +51,9 @@ use crate::modules::project::application::project_use_cases::ProjectUseCases;
 use crate::modules::topic::application::ports::incoming::use_cases::CreateTopicUseCase;
 use crate::modules::topic::application::ports::incoming::use_cases::GetTopicsUseCase;
 use crate::modules::topic::application::ports::incoming::use_cases::SoftDeleteTopicUseCase;
-use crate::shared::api::custom_json_config;
+use crate::shared::api::{build_cors, custom_json_config};
 
-use actix_web::{web, App, HttpServer};
+use actix_web::{middleware::Logger, web, App, HttpServer};
 use deadpool_redis::{Config, Runtime};
 
 use sea_orm::{ConnectOptions, Database};
@@ -64,7 +64,6 @@ use std::time::Duration;
 
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use utoipa::OpenApi;
 
 #[cfg(test)]
 mod tests;
@@ -129,7 +128,7 @@ async fn start() -> std::io::Result<()> {
                 AddProjectTopicService, ClearProjectTopicsService, CreateProjectService,
                 GetProjectTopicsService, GetProjectsService, GetPublicSingleProjectService,
                 GetSingleProjectService, HardDeleteProjectService, PatchProjectService,
-                RemoveProjectTopicService,
+                RemoveProjectTopicService, SoftDeleteProjectService,
             },
         },
         topic::{
@@ -310,10 +309,12 @@ async fn start() -> std::io::Result<()> {
     let clear_topics_uc = ClearProjectTopicsService::new(project_topic_repo.clone());
     let get_project_topics_uc = GetProjectTopicsService::new(project_query.clone());
     let hard_delete_project_uc = HardDeleteProjectService::new(project_archiver.clone());
+    let soft_delete_project_uc = SoftDeleteProjectService::new(project_archiver.clone());
 
     let project_use_cases = ProjectUseCases {
         create: Arc::new(create_project_uc),
         hard_delete: Arc::new(hard_delete_project_uc),
+        soft_delete: Arc::new(soft_delete_project_uc),
         patch: Arc::new(patch_project_uc),
         get_list: Arc::new(get_project_uc),
         get_single: Arc::new(get_single_project_uc),
@@ -377,6 +378,10 @@ async fn start() -> std::io::Result<()> {
 
         #[allow(unused_mut)]
         let mut app = App::new()
+            // Logger is wrapped last so it sits outermost and also records
+            // CORS preflight requests that never reach a handler.
+            .wrap(Logger::default())
+            .wrap(build_cors())
             .app_data(web::Data::new(state.clone()))
             .app_data(web::Data::new(Arc::clone(&token_provider_arc)))
             .app_data(web::Data::new(Arc::clone(&db_for_server)))
