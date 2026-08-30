@@ -34,10 +34,7 @@ where
         username: &str,
         verification_token: &str,
     ) -> (String, String) {
-        let verification_link = format!(
-            "{}/api/auth/email-verification/{}",
-            self.app_url, verification_token
-        );
+        let verification_link = format!("{}/{}", self.app_url, verification_token);
 
         let subject = "Verify Your Email".to_string();
         let html_body = format!(
