@@ -2,28 +2,39 @@ use actix_web::{get, web, Responder};
 use serde::Deserialize;
 use tracing::error;
 
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::adapter::incoming::web::extractors::auth::VerifiedUser;
+use crate::cv::application::ports::outgoing::CVPageResult;
 use crate::cv::application::ports::outgoing::{CVListFilter, CVPageRequest, CVSort};
 use crate::cv::application::use_cases::fetch_user_cvs::FetchCVError;
+use crate::cv::domain::CVInfo;
 use crate::shared::api::ApiResponse;
 use crate::AppState;
-
+use utoipa::IntoParams;
 //
 // ──────────────────────────────────────────────────────────
 // Query DTO
 // ──────────────────────────────────────────────────────────
 //
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
 pub struct GetCVsQuery {
+    /// Search term to filter CVs
+    #[param(example = "engineer")]
     pub search: Option<String>,
 
+    /// Sort order for results
     #[serde(default)]
     pub sort: CVSort,
 
+    /// Page number (starts at 1, defaults to 1)
+    #[param(example = 1, minimum = 1)]
     #[serde(default)]
     pub page: u32,
 
+    /// Items per page (defaults to 10)
+    #[param(example = 10, minimum = 1, maximum = 100)]
     #[serde(default)]
     pub per_page: u32,
 }
@@ -41,12 +52,59 @@ impl From<GetCVsQuery> for (CVListFilter, CVPageRequest, CVSort) {
     }
 }
 
-//
-// ──────────────────────────────────────────────────────────
-// Handler
-// ──────────────────────────────────────────────────────────
-//
-
+/// List user's CVs
+///
+/// Retrieves a paginated list of CVs owned by the authenticated user.
+/// Supports search filtering and sorting by creation/update date.
+#[utoipa::path(
+    get,
+    path = "/api/cvs",
+    tag = "cvs",
+    params(GetCVsQuery),
+    responses(
+        (
+            status = 200,
+            description = "CVs retrieved successfully",
+            body = inline(SuccessResponse<CVPageResult<CVInfo>>),  // ✅ Just use inline with the full generic type
+            example = json!({
+                "success": true,
+                "data": {
+                    "items": [
+                        {
+                            "id": "123e4567-e89b-12d3-a456-426614174000",
+                            "userId": "987e6543-e21b-12d3-a456-426614174000",
+                            "role": "Senior Software Engineer",
+                            "displayName": "John Doe",
+                            "bio": "Passionate software engineer...",
+                            "photoUrl": "https://example.com/photos/profile.jpg",
+                            "coreSkills": [],
+                            "educations": [],
+                            "experiences": [],
+                            "highlightedProjects": [],
+                            "contactInfo": []
+                        }
+                    ],
+                    "page": 1,
+                    "perPage": 10,
+                    "total": 5
+                }
+            })
+        ),
+        (
+            status = 401,
+            description = "Not authenticated or not verified",
+            body = ErrorResponse
+        ),
+        (
+            status = 500,
+            description = "Internal server error",
+            body = ErrorResponse
+        ),
+    ),
+    security(
+        ("BearerAuth" = [])
+    )
+)]
 #[get("/api/cvs")]
 pub async fn get_cvs_handler(
     user: VerifiedUser,

@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::cv::domain::entities::CVInfo;
+use utoipa::ToSchema;
 
 //
 // ──────────────────────────────────────────────────────────
@@ -15,11 +16,16 @@ pub struct CVListFilter {
     pub search: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "lowercase")]
 pub enum CVSort {
+    /// Sort by creation date (newest first)
     Newest,
+    /// Sort by creation date (oldest first)
     Oldest,
+    /// Sort by last update (newest first)
     UpdatedNewest,
+    /// Sort by last update (oldest first)
     UpdatedOldest,
 }
 
@@ -44,11 +50,21 @@ impl Default for CVPageRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CVPageResult<T> {
+    /// List of items in the current page
     pub items: Vec<T>,
+
+    /// Current page number
+    #[schema(example = 1)]
     pub page: u32,
+
+    /// Number of items per page
+    #[schema(example = 10)]
     pub per_page: u32,
+
+    /// Total number of items across all pages
+    #[schema(example = 42)]
     pub total: u64,
 }
 

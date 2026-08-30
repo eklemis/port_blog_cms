@@ -1,4 +1,9 @@
 use crate::api::schemas::{ErrorDetail, ErrorResponse, SuccessResponse};
+use crate::cv::adapter::incoming::web::routes::{
+    CreateCVRequest, EducationRequest, ExperienceRequest, HighlightedProjectRequest,
+};
+use crate::cv::domain::entities::{ContactDetail, ContactType, CoreSkill};
+use crate::cv::domain::{CVInfo, Education, Experience, HighlightedProject};
 use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
 use utoipa::OpenApi;
 
@@ -8,6 +13,10 @@ use crate::auth::adapter::incoming::web::routes::{
     LogoutResponseBody, RefreshTokenRequestDto, RefreshTokenResponseBody, RegisterUserResponse,
     RegisteredUser, UpdateUserRequest, UpdateUserResponse, UserProfileResponse,
     VerifyEmailResponse,
+};
+use crate::cv::application::ports::outgoing::{
+    CVPageResult, // Just import the generic type
+    CVSort,
 };
 
 #[derive(OpenApi)]
@@ -35,8 +44,8 @@ use crate::auth::adapter::incoming::web::routes::{
         crate::auth::adapter::incoming::web::routes::soft_delete_user_handler,
 
         // CV endpoints
-        // create_cv_handler,
-        // get_cvs_handler,
+        crate::cv::adapter::incoming::web::routes::create_cv_handler,
+        crate::cv::adapter::incoming::web::routes::get_cvs_handler,
         // get_cv_by_id_handler,
         // get_public_cv_by_id_handler,
         // update_cv_handler,
@@ -87,7 +96,25 @@ use crate::auth::adapter::incoming::web::routes::{
             RefreshTokenResponseBody,
             UpdateUserRequest,
             UpdateUserResponse,
-            VerifyEmailResponse
+            VerifyEmailResponse,
+
+            // CV Response
+            CVInfo,
+
+            // CV Request DTOs
+            CreateCVRequest,
+            EducationRequest,
+            ExperienceRequest,
+            HighlightedProjectRequest,
+            CVPageResult<CVInfo>,  // ✅ Use the full generic type
+            CVSort,
+            // CV Domain Entities
+            CoreSkill,
+            ContactDetail,
+            ContactType,
+            Education,
+            Experience,
+            HighlightedProject,
         )
     ),
     modifiers(&SecurityAddon),

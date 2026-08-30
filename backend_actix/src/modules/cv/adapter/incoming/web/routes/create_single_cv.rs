@@ -1,55 +1,168 @@
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::adapter::incoming::web::extractors::auth::VerifiedUser;
 use crate::cv::application::ports::outgoing::CreateCVData;
 use crate::cv::application::use_cases::create_cv::CreateCVError;
 use crate::cv::domain::entities::{
     ContactDetail, CoreSkill, Education, Experience, HighlightedProject,
 };
+use crate::cv::domain::CVInfo;
 use crate::shared::api::ApiResponse;
 use crate::AppState;
 use actix_web::{post, web, Responder};
 use serde::{Deserialize, Serialize};
 use tracing::error;
+use utoipa::ToSchema;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, ToSchema)]
 pub struct CreateCVRequest {
+    /// Professional role or job title
+    #[schema(example = "Senior Software Engineer")]
     pub role: String,
+
+    /// Professional biography
+    #[schema(example = "Passionate software engineer with 10+ years of experience...")]
     pub bio: String,
+
+    /// Display name for the CV
+    #[schema(example = "John Doe")]
     pub display_name: String,
+
+    /// URL to profile photo
+    #[schema(example = "https://example.com/photos/profile.jpg")]
     pub photo_url: String,
+
+    /// List of core skills
     pub core_skills: Vec<CoreSkill>,
+
+    /// Educational background
     pub educations: Vec<EducationRequest>,
+
+    /// Work experience
     pub experiences: Vec<ExperienceRequest>,
+
+    /// Highlighted projects
     pub highlighted_projects: Vec<HighlightedProjectRequest>,
+
+    /// Contact information
     pub contact_info: Vec<ContactDetail>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Deserialize, Serialize, ToSchema)]
 pub struct EducationRequest {
+    /// Degree obtained
+    #[schema(example = "Bachelor of Science in Computer Science")]
     pub degree: String,
+
+    /// Educational institution
+    #[schema(example = "MIT")]
     pub institution: String,
+
+    /// Year of graduation
+    #[schema(example = 2015)]
     pub graduation_year: i32,
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Deserialize, Serialize, ToSchema)]
 pub struct ExperienceRequest {
+    /// Company name
+    #[schema(example = "Tech Corp")]
     pub company: String,
+
+    /// Job position/title
+    #[schema(example = "Senior Backend Engineer")]
     pub position: String,
+
+    /// Work location
+    #[schema(example = "San Francisco, CA")]
     pub location: String,
+
+    /// Start date (ISO format or readable string)
+    #[schema(example = "2020-01")]
     pub start_date: String,
+
+    /// End date (None if current position)
+    #[schema(example = "2023-12")]
     pub end_date: Option<String>,
+
+    /// Job description
+    #[schema(example = "Led backend development team...")]
     pub description: String,
+
+    /// Key tasks and responsibilities
+    #[schema(example = json!(["Designed microservices architecture", "Mentored junior developers"]))]
     pub tasks: Vec<String>,
+
+    /// Notable achievements
+    #[schema(example = json!(["Reduced latency by 40%", "Increased test coverage to 90%"]))]
     pub achievements: Vec<String>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Deserialize, Serialize, ToSchema)]
 pub struct HighlightedProjectRequest {
+    /// Project ID
+    #[schema(example = "proj-123")]
     pub id: String,
+
+    /// Project title
+    #[schema(example = "E-commerce Platform")]
     pub title: String,
+
+    /// URL-friendly slug
+    #[schema(example = "ecommerce-platform")]
     pub slug: String,
+
+    /// Short project description
+    #[schema(example = "A scalable e-commerce platform built with microservices")]
     pub short_description: String,
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/cvs",
+    tag = "cvs",
+    request_body = CreateCVRequest,
+    responses(
+        (
+            status = 201,
+            description = "CV created successfully",
+            body = inline(SuccessResponse<CVInfo>),
+            example = json!({
+                "success": true,
+                "data": {
+                    "id": "123e4567-e89b-12d3-a456-426614174000",
+                    "userId": "987e6543-e21b-12d3-a456-426614174000",
+                    "role": "Senior Software Engineer",
+                    "displayName": "John Doe",
+                    "bio": "Passionate software engineer...",
+                    "photoUrl": "https://example.com/photos/profile.jpg",
+                    "coreSkills": [
+                        {
+                            "title": "Backend Development",
+                            "description": "Expert in Rust, Python, and Node.js"
+                        }
+                    ],
+                    "educations": [],
+                    "experiences": [],
+                    "highlightedProjects": [],
+                    "contactInfo": []
+                }
+            })
+        ),
+        (
+            status = 401,
+            description = "Not authenticated or not verified",
+            body = ErrorResponse
+        ),
+        (
+            status = 500,
+            description = "Internal server error",
+            body = ErrorResponse
+        ),
+    ),
+    security(
+        ("BearerAuth" = [])
+    )
+)]
 #[post("/api/cvs")]
 pub async fn create_cv_handler(
     user: VerifiedUser,
