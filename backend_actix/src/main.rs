@@ -1,5 +1,6 @@
 pub mod modules;
 pub use modules::auth;
+pub use modules::blog;
 pub use modules::cv;
 pub use modules::email;
 pub use modules::multimedia;
