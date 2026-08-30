@@ -9,8 +9,18 @@ set -euo pipefail
 # 2) Prompt for secrets and create in Secret Manager
 # 3) Prompt for non-secret env vars and resource limits
 # 4) Grant Secret Manager access to Cloud Run service account
-# 5) Deploy Cloud Run service with image + all secrets + env vars
-# 6) Print service URL + log tail command
+# 5) Apply pending database migrations
+# 6) Deploy Cloud Run service with image + all secrets + env vars
+# 7) Print service URL + log tail command
+#
+# Migrations run BEFORE the deploy on purpose. The container does not migrate
+# on startup, so shipping code ahead of its schema means the new routes fail at
+# request time with "relation ... does not exist" while the deploy itself looks
+# successful. Applying first is safe: migrations are additive, and the running
+# old build ignores tables it does not know about.
+#
+# SKIP_MIGRATIONS=1   skip the migration step entirely
+# AUTO_MIGRATE=1      apply without the interactive confirmation
 #
 # Run this every time you need to update configuration
 # ============================================================
@@ -164,7 +174,48 @@ echo "==> Granted secretAccessor role"
 echo
 
 # ------------------------------------------------------------
-# Step 4: Deploy Cloud Run service with secrets + env vars
+# Step 4: Apply database migrations
+# ------------------------------------------------------------
+if [[ "${SKIP_MIGRATIONS:-}" == "1" ]]; then
+  echo "==> SKIP_MIGRATIONS=1 -> skipping migrations"
+  echo
+else
+  echo "==> Applying database migrations..."
+
+  command -v cargo >/dev/null 2>&1 || die "cargo not found; needed to run migrations. Set SKIP_MIGRATIONS=1 to bypass."
+
+  # Read the URL back from Secret Manager rather than reusing the prompt.
+  # That guarantees we migrate the same database Cloud Run will connect to,
+  # even on a run where the secret was left unchanged.
+  MIGRATION_DB_URL="$(gcloud secrets versions access latest \
+    --secret=DATABASE_URL --project "${PROJECT_ID}" 2>/dev/null)" \
+    || die "Could not read DATABASE_URL from Secret Manager"
+
+  [[ -n "${MIGRATION_DB_URL}" ]] || die "DATABASE_URL secret is empty"
+
+  # Show what is outstanding before touching anything. The URL is never echoed.
+  echo "==> Current migration status:"
+  DATABASE_URL="${MIGRATION_DB_URL}" cargo run -q -p migration -- status \
+    || die "Could not reach the database to check migration status"
+  echo
+
+  if [[ "${AUTO_MIGRATE:-}" != "1" ]]; then
+    read -p "Apply pending migrations to this database? [y/N]: " confirm_migrate
+    if [[ ! "${confirm_migrate}" =~ ^[Yy]$ ]]; then
+      die "Migrations declined. Re-run with SKIP_MIGRATIONS=1 to deploy without them."
+    fi
+  fi
+
+  DATABASE_URL="${MIGRATION_DB_URL}" cargo run -q -p migration -- up \
+    || die "Migrations failed; not deploying. The running service is untouched."
+
+  unset MIGRATION_DB_URL
+  echo "==> Migrations applied"
+  echo
+fi
+
+# ------------------------------------------------------------
+# Step 5: Deploy Cloud Run service with secrets + env vars
 # ------------------------------------------------------------
 echo "==> Deploying Cloud Run service (public) with all config..."
 gcloud run deploy "${SERVICE_NAME}" \

@@ -34,7 +34,33 @@ chmod +x deploy.sh
 - Creates/updates secrets in Secret Manager
 - Prompts for configuration (CPU, memory, env vars)
 - Grants permissions to service account
+- **Applies pending database migrations**
 - Deploys the pre-built image to Cloud Run
+
+### Migrations
+
+Migrations run *before* the Cloud Run update, and a failure aborts the deploy.
+
+The container does not migrate on startup, so shipping code ahead of its schema
+leaves the new routes failing at request time with `relation ... does not exist`
+while the deploy itself reports success. Applying first avoids that, and is safe
+in the other direction: migrations are additive, so the still-running old build
+simply ignores tables it does not know about.
+
+The database URL is read back from Secret Manager rather than from the prompt,
+so the migration always targets the same database Cloud Run will connect to —
+including on runs where the secret was left unchanged. It is never echoed.
+
+`deploy.sh` shows `migration status` and asks for confirmation before applying.
+
+| Variable | Effect |
+| --- | --- |
+| `SKIP_MIGRATIONS=1` | Skip the step entirely |
+| `AUTO_MIGRATE=1` | Apply without the confirmation prompt (for CI) |
+
+Running migrations needs `cargo` on the deploying machine. If it is missing the
+script stops rather than silently skipping, since a quiet skip is exactly the
+failure this step exists to prevent.
 
 **Environment variables:**
 - All the same as build.sh, plus:
@@ -105,6 +131,7 @@ export RUST_ENV="production"
 export CPU="2"
 export MEMORY="1Gi"
 export MULTIMEDIA_UPLOAD_BUCKET="your-bucket-name"
+export AUTO_MIGRATE="1"          # skip the migration confirmation too
 # ... etc
 
 ./deploy.sh  # No prompts!
