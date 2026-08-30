@@ -73,6 +73,8 @@ use crate::topic::application::ports::outgoing::TopicResult;
         crate::cv::adapter::incoming::web::routes::update_cv_handler,
         crate::cv::adapter::incoming::web::routes::patch_cv_handler,
         crate::cv::adapter::incoming::web::routes::hard_delete_cv_handler,
+        crate::cv::adapter::incoming::web::routes::soft_delete_cv_handler,
+        crate::cv::adapter::incoming::web::routes::restore_cv_handler,
 
         // Project endpoints
         crate::project::adapter::incoming::web::routes::create_project_handler,

@@ -43,6 +43,8 @@ use crate::modules::auth::application::use_cases::refresh_token::IRefreshTokenUs
 use crate::modules::auth::application::use_cases::update_profile::UpdateUserProfileUseCase;
 use crate::modules::cv::application::use_cases::get_public_single_cv::GetPublicSingleCvUseCase;
 use crate::modules::cv::application::use_cases::hard_delete_cv::HardDeleteCvUseCase;
+use crate::modules::cv::application::use_cases::restore_cv::RestoreDeletedCvUseCase;
+use crate::modules::cv::application::use_cases::soft_delete_cv::SoftDeleteCvUseCase;
 use crate::modules::email::application::ports::outgoing::user_email_notifier::UserEmailNotifier;
 
 use crate::modules::multimedia::application::domain::policies::upload_policy::UploadPolicy;
@@ -85,6 +87,8 @@ pub struct AppState {
     pub fetch_user_profile_use_case: Arc<dyn FetchUserProfileUseCase + Send + Sync>,
     pub update_user_profile_use_case: Arc<dyn UpdateUserProfileUseCase + Send + Sync>,
     pub hard_delete_cv_use_case: Arc<dyn HardDeleteCvUseCase + Send + Sync>,
+    pub soft_delete_cv_use_case: Arc<dyn SoftDeleteCvUseCase + Send + Sync>,
+    pub restore_cv_use_case: Arc<dyn RestoreDeletedCvUseCase + Send + Sync>,
     pub create_topic_use_case: Arc<dyn CreateTopicUseCase + Send + Sync>,
     pub get_topics_use_case: Arc<dyn GetTopicsUseCase + Send + Sync>,
     pub soft_delete_topic_use_case: Arc<dyn SoftDeleteTopicUseCase + Send + Sync>,
@@ -109,7 +113,10 @@ async fn start() -> std::io::Result<()> {
         },
         cv::{
             adapter::outgoing::{CVArchiverPostgres, CVQueryPostgres},
-            application::services::{GetPublicSingleCvService, HardDeleteCvService},
+            application::services::{
+                GetPublicSingleCvService, HardDeleteCvService, RestoreCvService,
+                SoftDeleteCvService,
+            },
         },
         multimedia::{
             adapter::outgoing::{
@@ -237,7 +244,9 @@ async fn start() -> std::io::Result<()> {
     let create_cv_use_case = CreateCVUseCase::new(cv_repo.clone());
     let update_cv_use_case = UpdateCVUseCase::new(cv_repo.clone());
     let patch_cv_use_case = PatchCVUseCase::new(cv_repo.clone());
-    let hard_delete_cv_use_case = HardDeleteCvService::new(cv_archiver, cv_repo.clone());
+    let hard_delete_cv_use_case = HardDeleteCvService::new(cv_archiver.clone(), cv_repo.clone());
+    let soft_delete_cv_use_case = SoftDeleteCvService::new(cv_archiver.clone(), cv_repo.clone());
+    let restore_cv_use_case = RestoreCvService::new(cv_archiver, cv_repo.clone());
 
     // Auth related services and adapters
     let jwt_service = JwtTokenService::new(JwtConfig::from_env());
@@ -359,6 +368,8 @@ async fn start() -> std::io::Result<()> {
         fetch_user_profile_use_case: Arc::new(fetch_user_profile_service),
         update_user_profile_use_case: Arc::new(update_user_profile_service),
         hard_delete_cv_use_case: Arc::new(hard_delete_cv_use_case),
+        soft_delete_cv_use_case: Arc::new(soft_delete_cv_use_case),
+        restore_cv_use_case: Arc::new(restore_cv_use_case),
         create_topic_use_case: Arc::new(create_topic_uc),
         get_topics_use_case: Arc::new(get_topics_uc),
         soft_delete_topic_use_case: Arc::new(soft_delete_topic_uc),
@@ -422,6 +433,8 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::cv::adapter::incoming::web::routes::update_cv_handler);
     cfg.service(crate::cv::adapter::incoming::web::routes::patch_cv_handler);
     cfg.service(crate::cv::adapter::incoming::web::routes::hard_delete_cv_handler);
+    cfg.service(crate::cv::adapter::incoming::web::routes::soft_delete_cv_handler);
+    cfg.service(crate::cv::adapter::incoming::web::routes::restore_cv_handler);
     // Auth
     cfg.service(crate::auth::adapter::incoming::web::routes::register_user_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::verify_user_email_handler);

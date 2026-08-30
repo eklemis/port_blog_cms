@@ -4,6 +4,8 @@ mod get_public_single_cv;
 mod get_single_cv;
 mod hard_delete_single_cv;
 mod patch_single_cv;
+mod restore_single_cv;
+mod soft_delete_single_cv;
 mod update_single_cv;
 
 // Glob re-exports matter here: `#[utoipa::path]` generates a hidden
@@ -19,4 +21,6 @@ pub use get_public_single_cv::*;
 pub use get_single_cv::*;
 pub use hard_delete_single_cv::*;
 pub use patch_single_cv::*;
+pub use restore_single_cv::*;
+pub use soft_delete_single_cv::*;
 pub use update_single_cv::*;

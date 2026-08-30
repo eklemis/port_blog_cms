@@ -274,12 +274,12 @@ impl SoftDeleteCvUseCase for StubSoftDeleteCv {
 }
 
 #[derive(Default, Clone)]
-pub struct StubResotoreDeletedCv;
+pub struct StubRestoreDeletedCv;
 
 #[async_trait]
-impl RestoreDeletedCvUseCase for StubResotoreDeletedCv {
-    async fn execute(&self, _user_id: UserId, _cv_id: Uuid) -> Result<(), RestoreCVError> {
-        unimplemented!()
+impl RestoreDeletedCvUseCase for StubRestoreDeletedCv {
+    async fn execute(&self, _user_id: UserId, _cv_id: Uuid) -> Result<CVInfo, RestoreCVError> {
+        unimplemented!("StubRestoreDeletedCv not configured for this test")
     }
 }
 

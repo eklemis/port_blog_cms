@@ -15,11 +15,11 @@ use crate::{
 
 /// Permanently delete a CV
 ///
-/// Hard delete: the CV is removed outright, not archived. There is currently no
-/// soft-delete or restore route for CVs.
+/// Removes the CV outright, unlike the soft delete on
+/// `DELETE /api/cvs/{cv_id}`. Not reversible.
 #[utoipa::path(
     delete,
-    path = "/api/cvs/{cv_id}",
+    path = "/api/cvs/{cv_id}/hard",
     tag = "cvs",
     params(
         ("cv_id" = Uuid, Path, description = "Identifier of the CV to delete")
@@ -52,7 +52,7 @@ use crate::{
     ),
     security(("BearerAuth" = []))
 )]
-#[delete("/api/cvs/{cv_id}")]
+#[delete("/api/cvs/{cv_id}/hard")]
 pub async fn hard_delete_cv_handler(
     user: VerifiedUser,
     path: web::Path<Uuid>,
@@ -187,7 +187,7 @@ mod tests {
         .await;
 
         let req = test::TestRequest::delete()
-            .uri(&format!("/api/cvs/{}", cv_id))
+            .uri(&format!("/api/cvs/{}/hard", cv_id))
             .insert_header(("Authorization", "Bearer test_token"))
             .to_request();
 
@@ -220,7 +220,7 @@ mod tests {
         .await;
 
         let req = test::TestRequest::delete()
-            .uri(&format!("/api/cvs/{}", cv_id))
+            .uri(&format!("/api/cvs/{}/hard", cv_id))
             .insert_header(("Authorization", "Bearer test_token"))
             .to_request();
 
@@ -259,7 +259,7 @@ mod tests {
         .await;
 
         let req = test::TestRequest::delete()
-            .uri(&format!("/api/cvs/{}", cv_id))
+            .uri(&format!("/api/cvs/{}/hard", cv_id))
             .insert_header(("Authorization", "Bearer test_token"))
             .to_request();
 
@@ -303,7 +303,7 @@ mod tests {
         .await;
 
         let req = test::TestRequest::delete()
-            .uri(&format!("/api/cvs/{}", cv_id))
+            .uri(&format!("/api/cvs/{}/hard", cv_id))
             .insert_header(("Authorization", "Bearer test_token"))
             .to_request();
 

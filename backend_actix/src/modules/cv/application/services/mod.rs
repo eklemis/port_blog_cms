@@ -1,4 +1,8 @@
 mod get_public_single_cv_service;
 mod hard_delete_cv;
+mod restore_cv;
+mod soft_delete_cv;
 pub use get_public_single_cv_service::GetPublicSingleCvService;
 pub use hard_delete_cv::HardDeleteCvService;
+pub use restore_cv::RestoreCvService;
+pub use soft_delete_cv::SoftDeleteCvService;

@@ -13,6 +13,8 @@ use crate::cv::application::use_cases::fetch_cv_by_id::IFetchCVByIdUseCase;
 use crate::cv::application::use_cases::fetch_user_cvs::IFetchCVUseCase;
 use crate::cv::application::use_cases::get_public_single_cv::GetPublicSingleCvUseCase;
 use crate::cv::application::use_cases::hard_delete_cv::HardDeleteCvUseCase;
+use crate::cv::application::use_cases::restore_cv::RestoreDeletedCvUseCase;
+use crate::cv::application::use_cases::soft_delete_cv::SoftDeleteCvUseCase;
 use crate::cv::application::use_cases::patch_cv::IPatchCVUseCase;
 use crate::cv::application::use_cases::update_cv::IUpdateCVUseCase;
 use crate::modules::project::application::ports::incoming::use_cases::CreateProjectUseCase;
@@ -49,6 +51,8 @@ pub struct TestAppStateBuilder {
     fetch_user_profile: Option<Arc<dyn FetchUserProfileUseCase + Send + Sync>>,
     update_user_profile: Option<Arc<dyn UpdateUserProfileUseCase + Send + Sync>>,
     hard_delete_cv: Option<Arc<dyn HardDeleteCvUseCase + Send + Sync>>,
+    soft_delete_cv: Option<Arc<dyn SoftDeleteCvUseCase + Send + Sync>>,
+    restore_cv: Option<Arc<dyn RestoreDeletedCvUseCase + Send + Sync>>,
     create_topic: Option<Arc<dyn CreateTopicUseCase + Send + Sync>>,
     get_topics: Option<Arc<dyn GetTopicsUseCase + Send + Sync>>,
     soft_delete_topic: Option<Arc<dyn SoftDeleteTopicUseCase + Send + Sync>>,
@@ -86,6 +90,8 @@ impl Default for TestAppStateBuilder {
             fetch_user_profile: Some(Arc::new(StubFetchUserProfileUseCase)),
             update_user_profile: Some(Arc::new(StubUpdateUserProfileUseCase)),
             hard_delete_cv: Some(Arc::new(StubHardDeleteCvUseCase)),
+            soft_delete_cv: Some(Arc::new(StubSoftDeleteCv)),
+            restore_cv: Some(Arc::new(StubRestoreDeletedCv)),
             create_topic: Some(Arc::new(StubCreateTopicUseCase)),
             get_topics: Some(Arc::new(StubGetTopicsUseCase::success(vec![]))),
             soft_delete_topic: Some(Arc::new(StubSoftDeleteTopicUseCase)),
@@ -200,6 +206,22 @@ impl TestAppStateBuilder {
         self.update_user_profile = Some(Arc::new(uc));
         self
     }
+    pub fn with_soft_delete_cv(
+        mut self,
+        uc: impl SoftDeleteCvUseCase + Send + Sync + 'static,
+    ) -> Self {
+        self.soft_delete_cv = Some(Arc::new(uc));
+        self
+    }
+
+    pub fn with_restore_cv(
+        mut self,
+        uc: impl RestoreDeletedCvUseCase + Send + Sync + 'static,
+    ) -> Self {
+        self.restore_cv = Some(Arc::new(uc));
+        self
+    }
+
     pub fn with_hard_delete_cv(
         mut self,
         uc: impl HardDeleteCvUseCase + Send + Sync + 'static,
@@ -444,6 +466,8 @@ impl TestAppStateBuilder {
             fetch_user_profile_use_case: self.fetch_user_profile.unwrap(),
             update_user_profile_use_case: self.update_user_profile.unwrap(),
             hard_delete_cv_use_case: self.hard_delete_cv.unwrap(),
+            soft_delete_cv_use_case: self.soft_delete_cv.unwrap(),
+            restore_cv_use_case: self.restore_cv.unwrap(),
             create_topic_use_case: self.create_topic.unwrap(),
             get_topics_use_case: self.get_topics.unwrap(),
             soft_delete_topic_use_case: self.soft_delete_topic.unwrap(),
