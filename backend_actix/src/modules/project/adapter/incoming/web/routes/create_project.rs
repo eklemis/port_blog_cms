@@ -6,8 +6,11 @@ use crate::auth::adapter::incoming::web::extractors::auth::VerifiedUser;
 use crate::auth::application::domain::entities::UserId;
 use crate::modules::project::application::ports::incoming::use_cases::CreateProjectError;
 use crate::modules::project::application::ports::outgoing::project_repository::CreateProjectData;
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
+use crate::modules::project::application::ports::outgoing::project_repository::ProjectResult;
 use crate::shared::api::ApiResponse;
 use crate::AppState;
+use utoipa::ToSchema;
 
 //
 // ──────────────────────────────────────────────────────────
@@ -15,7 +18,7 @@ use crate::AppState;
 // ──────────────────────────────────────────────────────────
 //
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct CreateProjectRequest {
     pub title: String,
     pub slug: String,
@@ -32,6 +35,38 @@ pub struct CreateProjectRequest {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Create a project
+///
+/// The slug must be unique per user; a collision returns 409 rather than
+/// silently suffixing. Topics are attached separately via
+/// `POST /api/projects/{project_id}/topics`.
+#[utoipa::path(
+    post,
+    path = "/api/projects",
+    tag = "projects",
+    request_body = CreateProjectRequest,
+    responses(
+        (
+            status = 201,
+            description = "Project created successfully",
+            body = inline(SuccessResponse<ProjectResult>)
+        ),
+        (status = 400, description = "Malformed request body", body = ErrorResponse),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Email not verified", body = ErrorResponse),
+        (
+            status = 409,
+            description = "A project with this slug already exists for this user",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "SLUG_ALREADY_EXISTS", "message": "Project slug already exists" }
+            })
+        ),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
 #[post("/api/projects")]
 pub async fn create_project_handler(
     user: VerifiedUser,

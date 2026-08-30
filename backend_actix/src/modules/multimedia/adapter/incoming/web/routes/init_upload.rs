@@ -10,8 +10,10 @@ use crate::multimedia::application::domain::entities::{AttachmentTarget, MediaRo
 use crate::multimedia::application::ports::incoming::use_cases::{
     CreateAttachmentCommand, CreateMediaCommand, CreateUrlError, UploadUrlCommandError,
 };
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::shared::api::ApiResponse;
 use crate::AppState;
+use utoipa::ToSchema;
 
 //
 // ──────────────────────────────────────────────────────────
@@ -19,7 +21,7 @@ use crate::AppState;
 // ──────────────────────────────────────────────────────────
 //
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct InitUploadRequest {
     // File metadata
@@ -54,7 +56,7 @@ pub struct InitUploadRequest {
 // ──────────────────────────────────────────────────────────
 //
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct InitUploadResponse {
     pub upload_url: String,
@@ -67,6 +69,60 @@ pub struct InitUploadResponse {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Begin a media upload
+///
+/// Returns a pre-signed URL the client PUTs the file to directly; the bytes
+/// never pass through this API. The media row is created in `pending` state and
+/// only becomes readable once processing completes.
+///
+/// Note this DTO is camelCase (`fileName`, `mimeType`), unlike most of the API.
+/// Limits come from the server-side upload policy: 5 MB, 6000 px per side, and
+/// `image/jpeg`, `image/png`, or `image/webp` only.
+#[utoipa::path(
+    post,
+    path = "/api/media/upload-url",
+    tag = "media",
+    request_body = InitUploadRequest,
+    responses(
+        (
+            status = 201,
+            description = "Upload URL issued",
+            body = inline(SuccessResponse<InitUploadResponse>),
+            example = json!({
+                "success": true,
+                "data": {
+                    "uploadUrl": "https://storage.googleapis.com/...",
+                    "mediaId": "123e4567-e89b-12d3-a456-426614174000"
+                }
+            })
+        ),
+        (
+            status = 400,
+            description = "Request violates the upload policy. Codes: MISSING_FIELD,                            INVALID_FILE_NAME, FILE_TOO_LARGE, INVALID_DIMENSIONS,                            INVALID_MIME_TYPE, INVALID_EXTENSION, MIME_EXTENSION_MISMATCH",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": {
+                    "code": "FILE_TOO_LARGE",
+                    "message": "File too large (max 5242880 bytes, got 8388608 bytes)"
+                }
+            })
+        ),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Email not verified", body = ErrorResponse),
+        (
+            status = 502,
+            description = "Object storage refused to issue a signed URL",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "STORAGE_ERROR", "message": "Failed to generate upload URL" }
+            })
+        ),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
 #[post("/api/media/upload-url")]
 pub async fn init_upload_handler(
     user: VerifiedUser,

@@ -7,6 +7,7 @@ use crate::{
         adapter::incoming::web::extractors::auth::VerifiedUser,
         application::domain::entities::UserId,
     },
+    api::schemas::ErrorResponse,
     shared::api::ApiResponse,
     topic::application::ports::incoming::use_cases::SoftDeleteTopicError,
     AppState,
@@ -18,6 +19,43 @@ use crate::{
 // ──────────────────────────────────────────────────────────
 //
 
+/// Soft-delete a topic
+///
+/// Marks the topic deleted rather than removing the row, so it stops appearing
+/// in listings while existing references remain resolvable. Deleting a topic
+/// owned by another user is rejected as forbidden, not hidden as not-found.
+#[utoipa::path(
+    delete,
+    path = "/api/topics/{topic_id}",
+    tag = "topics",
+    params(
+        ("topic_id" = Uuid, Path, description = "Identifier of the topic to delete")
+    ),
+    responses(
+        (status = 204, description = "Topic deleted successfully"),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (
+            status = 403,
+            description = "Email not verified, or the topic belongs to another user",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "FORBIDDEN", "message": "You are not the owner of this topic" }
+            })
+        ),
+        (
+            status = 404,
+            description = "Topic not found",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "TOPIC_NOT_FOUND", "message": "Topic not found" }
+            })
+        ),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
 #[delete("/api/topics/{topic_id}")]
 pub async fn soft_delete_topic_handler(
     user: VerifiedUser,

@@ -3,11 +3,47 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::{
+    api::schemas::{ErrorResponse, SuccessResponse},
     auth::adapter::incoming::web::extractors::auth::VerifiedUser,
-    cv::application::use_cases::fetch_cv_by_id::FetchCVByIdError, shared::api::ApiResponse,
+    cv::application::use_cases::fetch_cv_by_id::FetchCVByIdError,
+    cv::domain::CVInfo,
+    shared::api::ApiResponse,
     AppState,
 };
 
+/// Get a single CV by id
+///
+/// Returns one CV owned by the authenticated user. CVs belonging to another
+/// user are reported as not found rather than forbidden, so the endpoint does
+/// not leak the existence of other users' CVs.
+#[utoipa::path(
+    get,
+    path = "/api/cvs/{cv_id}",
+    tag = "cvs",
+    params(
+        ("cv_id" = Uuid, Path, description = "Identifier of the CV to fetch")
+    ),
+    responses(
+        (
+            status = 200,
+            description = "CV retrieved successfully",
+            body = inline(SuccessResponse<CVInfo>)
+        ),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Email not verified", body = ErrorResponse),
+        (
+            status = 404,
+            description = "CV not found",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "CV_NOT_FOUND", "message": "CV not found" }
+            })
+        ),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
 #[get("/api/cvs/{cv_id}")]
 pub async fn get_cv_by_id_handler(
     user: VerifiedUser,

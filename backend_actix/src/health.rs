@@ -4,23 +4,40 @@ use deadpool_redis::Pool;
 use sea_orm::{ConnectionTrait, DatabaseConnection, Statement};
 use serde::Serialize;
 use std::sync::Arc;
+use utoipa::ToSchema;
 
-#[derive(Serialize)]
-struct HealthResponse {
+#[derive(Serialize, ToSchema)]
+pub struct HealthResponse {
+    #[schema(example = "ok")]
     status: &'static str,
 }
 
-#[derive(Serialize)]
-struct ReadinessResponse {
+#[derive(Serialize, ToSchema)]
+pub struct ReadinessResponse {
+    /// "ok" only when every dependency is reachable
+    #[schema(example = "ok")]
     status: &'static str,
+
+    #[schema(example = "ok")]
     database: &'static str,
+
+    #[schema(example = "ok")]
     redis: &'static str,
 }
 
-/// LIVENESS PROBE
-/// - No I/O
-/// - No DB
-/// - No Redis
+/// Liveness probe
+///
+/// Answers as long as the process is running. Performs no I/O, so it stays
+/// cheap enough for a frequent container health check and never fails because
+/// a dependency is down.
+#[utoipa::path(
+    get,
+    path = "/health",
+    tag = "health",
+    responses(
+        (status = 200, description = "Process is alive", body = HealthResponse)
+    )
+)]
 #[get("/health")]
 pub async fn health() -> impl Responder {
     HttpResponse::Ok().json(HealthResponse { status: "ok" })
@@ -32,6 +49,20 @@ pub async fn health() -> impl Responder {
 /// The Redis handle must match what `main.rs` registers: a `deadpool_redis::Pool`.
 /// Asking for any other type here makes the extractor fail and the probe 500 before
 /// a single dependency is checked.
+#[utoipa::path(
+    get,
+    path = "/ready",
+    tag = "health",
+    responses(
+        (status = 200, description = "All dependencies reachable", body = ReadinessResponse),
+        (
+            status = 503,
+            description = "At least one dependency is unreachable; the body names which",
+            body = ReadinessResponse,
+            example = json!({ "status": "unhealthy", "database": "ok", "redis": "unhealthy" })
+        )
+    )
+)]
 #[get("/ready")]
 pub async fn readiness(
     db: web::Data<Arc<DatabaseConnection>>,

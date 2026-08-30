@@ -11,15 +11,17 @@ mod patch_project;
 mod remove_project_topic;
 mod soft_delete_project;
 
-pub use add_project_topic::add_project_topic_handler;
-pub use clear_project_topics::clear_project_topics_handler;
-pub use create_project::create_project_handler;
-pub use get_project_topics::get_project_topics_handler;
-pub use get_projects::get_projects_handler;
-pub use get_public_projects::get_public_projects_handler;
-pub use get_public_single_project::get_public_single_project_handler;
-pub use get_single_project::get_project_by_id_handler;
-pub use hard_delete_project::hard_delete_project_handler;
-pub use patch_project::patch_project_handler;
-pub use remove_project_topic::remove_project_topic_handler;
-pub use soft_delete_project::soft_delete_project_handler;
+// Glob re-exports carry the hidden `__path_<handler>` structs that
+// `#[utoipa::path]` generates alongside each handler; `ApiDoc` needs them.
+pub use add_project_topic::*;
+pub use clear_project_topics::*;
+pub use create_project::*;
+pub use get_project_topics::*;
+pub use get_projects::*;
+pub use get_public_projects::*;
+pub use get_public_single_project::*;
+pub use get_single_project::*;
+pub use hard_delete_project::*;
+pub use patch_project::*;
+pub use remove_project_topic::*;
+pub use soft_delete_project::*;

@@ -3,12 +3,41 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::{
+    api::schemas::ErrorResponse,
     auth::adapter::incoming::web::extractors::auth::VerifiedUser,
     auth::application::domain::entities::UserId,
     modules::project::application::ports::incoming::use_cases::HardDeleteProjectError,
     shared::api::ApiResponse, AppState,
 };
 
+/// Permanently delete a project
+///
+/// Removes the project outright, unlike the soft delete on
+/// `DELETE /api/projects/{project_id}`. Not reversible.
+#[utoipa::path(
+    delete,
+    path = "/api/projects/{project_id}/hard",
+    tag = "projects",
+    params(
+        ("project_id" = Uuid, Path, description = "Identifier of the project to delete")
+    ),
+    responses(
+        (status = 204, description = "Project deleted successfully"),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Email not verified", body = ErrorResponse),
+        (
+            status = 404,
+            description = "Project not found, or owned by another user",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "PROJECT_NOT_FOUND", "message": "Project not found" }
+            })
+        ),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
 #[delete("/api/projects/{project_id}/hard")]
 pub async fn hard_delete_project_handler(
     user: VerifiedUser,

@@ -13,16 +13,18 @@ use crate::auth::application::domain::entities::UserId;
 // ──────────────────────────────────────────────────────────
 //
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ProjectTopicItem {
     pub id: Uuid,
     pub title: String,
     pub description: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct ProjectView {
     pub id: Uuid,
+    /// Owning user. Serialises as a bare UUID string.
+    #[schema(value_type = String, example = "123e4567-e89b-12d3-a456-426614174000")]
     pub owner: UserId,
     pub title: String,
     pub slug: String,
@@ -36,7 +38,7 @@ pub struct ProjectView {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ProjectCardView {
     pub id: Uuid,
     pub title: String,
@@ -54,11 +56,15 @@ pub struct ProjectListFilter {
     pub topic_id: Option<Uuid>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, utoipa::ToSchema)]
 pub enum ProjectSort {
+    /// Newest by creation date first
     Newest,
+    /// Oldest by creation date first
     Oldest,
+    /// Most recently updated first (default)
     UpdatedNewest,
+    /// Least recently updated first
     UpdatedOldest,
 }
 
@@ -83,11 +89,21 @@ impl Default for PageRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct PageResult<T> {
+    /// Items on the current page
     pub items: Vec<T>,
+
+    /// Current page number, 1-based
+    #[schema(example = 1)]
     pub page: u32,
+
+    /// Items per page
+    #[schema(example = 10)]
     pub per_page: u32,
+
+    /// Total items across all pages
+    #[schema(example = 42)]
     pub total: u64,
 }
 

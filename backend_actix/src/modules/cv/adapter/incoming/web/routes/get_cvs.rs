@@ -72,20 +72,20 @@ impl From<GetCVsQuery> for (CVListFilter, CVPageRequest, CVSort) {
                     "items": [
                         {
                             "id": "123e4567-e89b-12d3-a456-426614174000",
-                            "userId": "987e6543-e21b-12d3-a456-426614174000",
+                            "user_id": "987e6543-e21b-12d3-a456-426614174000",
                             "role": "Senior Software Engineer",
-                            "displayName": "John Doe",
+                            "display_name": "John Doe",
                             "bio": "Passionate software engineer...",
-                            "photoUrl": "https://example.com/photos/profile.jpg",
-                            "coreSkills": [],
+                            "photo_url": "https://example.com/photos/profile.jpg",
+                            "core_skills": [],
                             "educations": [],
                             "experiences": [],
-                            "highlightedProjects": [],
-                            "contactInfo": []
+                            "highlighted_projects": [],
+                            "contact_info": []
                         }
                     ],
                     "page": 1,
-                    "perPage": 10,
+                    "per_page": 10,
                     "total": 5
                 }
             })

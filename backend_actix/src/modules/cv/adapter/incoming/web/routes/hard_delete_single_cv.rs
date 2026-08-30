@@ -3,6 +3,7 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::{
+    api::schemas::ErrorResponse,
     auth::{
         adapter::incoming::web::extractors::auth::VerifiedUser,
         application::domain::entities::UserId,
@@ -12,6 +13,45 @@ use crate::{
     AppState,
 };
 
+/// Permanently delete a CV
+///
+/// Hard delete: the CV is removed outright, not archived. There is currently no
+/// soft-delete or restore route for CVs.
+#[utoipa::path(
+    delete,
+    path = "/api/cvs/{cv_id}",
+    tag = "cvs",
+    params(
+        ("cv_id" = Uuid, Path, description = "Identifier of the CV to delete")
+    ),
+    responses(
+        (status = 204, description = "CV deleted successfully"),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (
+            status = 403,
+            description = "Email not verified, or the CV belongs to another user",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": {
+                    "code": "CV_UNAUTHORIZED",
+                    "message": "You are not authorized to delete this CV"
+                }
+            })
+        ),
+        (
+            status = 404,
+            description = "CV not found",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "CV_NOT_FOUND", "message": "CV not found" }
+            })
+        ),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
 #[delete("/api/cvs/{cv_id}")]
 pub async fn hard_delete_cv_handler(
     user: VerifiedUser,

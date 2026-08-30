@@ -100,9 +100,11 @@ pub struct PatchProjectData {
     pub live_demo_url: PatchField<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct ProjectResult {
     pub id: Uuid,
+    /// Owning user. Serialises as a bare UUID string.
+    #[schema(value_type = String, example = "123e4567-e89b-12d3-a456-426614174000")]
     pub owner: UserId,
     pub title: String,
     pub slug: String,

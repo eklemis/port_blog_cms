@@ -3,12 +3,46 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::{
+    api::schemas::{ErrorResponse, SuccessResponse},
     auth::adapter::incoming::web::extractors::auth::VerifiedUser,
     auth::application::domain::entities::UserId,
     modules::project::application::ports::incoming::use_cases::GetSingleProjectError,
+    modules::project::application::ports::outgoing::project_query::ProjectView,
     shared::api::ApiResponse, AppState,
 };
 
+/// Get one of the authenticated user's projects
+///
+/// Includes the project's attached topics. Projects owned by another user are
+/// reported as not found rather than forbidden.
+#[utoipa::path(
+    get,
+    path = "/api/projects/{project_id}",
+    tag = "projects",
+    params(
+        ("project_id" = Uuid, Path, description = "Identifier of the project")
+    ),
+    responses(
+        (
+            status = 200,
+            description = "Project retrieved successfully",
+            body = inline(SuccessResponse<ProjectView>)
+        ),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Email not verified", body = ErrorResponse),
+        (
+            status = 404,
+            description = "Project not found, or owned by another user",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "PROJECT_NOT_FOUND", "message": "Project not found" }
+            })
+        ),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
 #[get("/api/projects/{project_id}")]
 pub async fn get_project_by_id_handler(
     user: VerifiedUser,

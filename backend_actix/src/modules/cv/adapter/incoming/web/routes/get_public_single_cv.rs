@@ -3,11 +3,44 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::{
+    api::schemas::{ErrorResponse, SuccessResponse},
     auth::adapter::incoming::web::extractors::auth::resolve_owner_id_or_response,
     cv::application::use_cases::get_public_single_cv::GetPublicSingleCvError,
+    cv::domain::CVInfo,
     shared::api::ApiResponse, AppState,
 };
 
+/// Get a single CV publicly by username and id
+///
+/// Public endpoint: no authentication required. The username is resolved to an
+/// owner first, so an unknown username yields `USER_NOT_FOUND` while a valid
+/// username with an unknown CV yields `CV_NOT_FOUND`.
+#[utoipa::path(
+    get,
+    path = "/api/public/cvs/{username}/{cv_id}",
+    tag = "cvs",
+    params(
+        ("username" = String, Path, description = "Username of the CV owner"),
+        ("cv_id" = Uuid, Path, description = "Identifier of the CV to fetch")
+    ),
+    responses(
+        (
+            status = 200,
+            description = "CV retrieved successfully",
+            body = inline(SuccessResponse<CVInfo>)
+        ),
+        (
+            status = 404,
+            description = "Owner or CV not found",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "CV_NOT_FOUND", "message": "CV not found" }
+            })
+        ),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    )
+)]
 #[get("/api/public/cvs/{username}/{cv_id}")]
 pub async fn get_public_cv_by_id_handler(
     path: web::Path<(String, Uuid)>,

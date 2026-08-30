@@ -71,13 +71,13 @@ pub struct LoginUserInfo {
             example = json!({
                 "success": true,
                 "data": {
-                    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-                    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
                     "user": {
                         "id": "123e4567-e89b-12d3-a456-426614174000",
                         "username": "johndoe",
                         "email": "john@example.com",
-                        "isVerified": true
+                        "is_verified": true
                     }
                 }
             })

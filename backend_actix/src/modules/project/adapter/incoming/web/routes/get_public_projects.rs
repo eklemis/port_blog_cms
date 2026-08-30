@@ -5,6 +5,10 @@ use crate::auth::adapter::incoming::web::extractors::auth::resolve_owner_id_or_r
 use crate::auth::application::domain::entities::UserId;
 use crate::modules::project::adapter::incoming::web::routes::get_projects::GetProjectsQuery;
 use crate::modules::project::application::ports::incoming::use_cases::GetProjectsError;
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
+use crate::modules::project::application::ports::outgoing::project_query::{
+    PageResult, ProjectCardView,
+};
 use crate::shared::api::ApiResponse;
 use crate::AppState;
 
@@ -14,6 +18,36 @@ use crate::AppState;
 // ──────────────────────────────────────────────────────────
 //
 
+/// List a user's projects publicly
+///
+/// Public endpoint: no authentication required. Accepts the same pagination
+/// and filter query parameters as the authenticated listing.
+#[utoipa::path(
+    get,
+    path = "/api/public/projects/{username}",
+    tag = "projects",
+    params(
+        ("username" = String, Path, description = "Username whose projects to list"),
+        GetProjectsQuery
+    ),
+    responses(
+        (
+            status = 200,
+            description = "Projects retrieved successfully",
+            body = inline(SuccessResponse<PageResult<ProjectCardView>>)
+        ),
+        (
+            status = 404,
+            description = "No such username",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "USER_NOT_FOUND", "message": "User not found" }
+            })
+        ),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    )
+)]
 #[get("/api/public/projects/{username}")]
 pub async fn get_public_projects_handler(
     path: web::Path<String>,

@@ -4,21 +4,26 @@ use crate::cv::application::use_cases::update_cv::UpdateCVError;
 use crate::cv::domain::entities::{
     ContactDetail, ContactType, CoreSkill, Education, Experience, HighlightedProject,
 };
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
+use crate::cv::domain::CVInfo;
 use crate::shared::api::ApiResponse;
 use crate::AppState;
 use actix_web::{put, web, Responder};
 use serde::{Deserialize, Serialize};
 use tracing::error;
+use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
+#[schema(as = UpdateEducationRequest)]
 pub struct EducationRequest {
     pub degree: String,
     pub institution: String,
     pub graduation_year: i32,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
+#[schema(as = UpdateExperienceRequest)]
 pub struct ExperienceRequest {
     pub company: String,
     pub position: String,
@@ -30,7 +35,8 @@ pub struct ExperienceRequest {
     pub achievements: Vec<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
+#[schema(as = UpdateHighlightedProjectRequest)]
 pub struct HighlightedProjectRequest {
     pub id: String,
     pub title: String,
@@ -40,14 +46,14 @@ pub struct HighlightedProjectRequest {
 
 type ContactTypeRequest = ContactType;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct ContactDetailRequest {
     pub title: String,
     pub contact_type: ContactTypeRequest,
     pub content: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct UpdateCVRequest {
     pub bio: String,
     pub role: String,
@@ -60,6 +66,41 @@ pub struct UpdateCVRequest {
     pub contact_info: Vec<ContactDetailRequest>,
 }
 
+/// Replace a CV
+///
+/// Full replacement: every field in the body overwrites the stored CV, and
+/// collections are replaced wholesale rather than merged. Use PATCH to change
+/// a subset of fields.
+#[utoipa::path(
+    put,
+    path = "/api/cvs/{cv_id}",
+    tag = "cvs",
+    params(
+        ("cv_id" = Uuid, Path, description = "Identifier of the CV to replace")
+    ),
+    request_body = UpdateCVRequest,
+    responses(
+        (
+            status = 200,
+            description = "CV replaced successfully",
+            body = inline(SuccessResponse<CVInfo>)
+        ),
+        (status = 400, description = "Malformed request body", body = ErrorResponse),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Email not verified", body = ErrorResponse),
+        (
+            status = 404,
+            description = "CV not found",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "CV_NOT_FOUND", "message": "CV not found" }
+            })
+        ),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
 #[put("/api/cvs/{cv_id}")]
 pub async fn update_cv_handler(
     user: VerifiedUser,

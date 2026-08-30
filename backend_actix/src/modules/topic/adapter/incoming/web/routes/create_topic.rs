@@ -1,15 +1,18 @@
 use actix_web::{post, web, Responder};
 use serde::Deserialize;
+use utoipa::ToSchema;
 
 use crate::{
     auth::{
         adapter::incoming::web::extractors::auth::VerifiedUser,
         application::domain::entities::UserId,
     },
+    api::schemas::{ErrorResponse, SuccessResponse},
     shared::api::ApiResponse,
     topic::application::ports::incoming::use_cases::{
         CreateTopicCommand, CreateTopicCommandError, CreateTopicError,
     },
+    topic::application::ports::outgoing::TopicResult,
     AppState,
 };
 
@@ -19,9 +22,14 @@ use crate::{
 // ──────────────────────────────────────────────────────────
 //
 
-#[derive(Debug, Deserialize)]
-struct CreateTopicRequest {
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct CreateTopicRequest {
+    /// Topic title. Trimmed, must be non-empty and at most 100 characters.
+    #[schema(example = "Distributed Systems", min_length = 1, max_length = 100)]
     pub title: String,
+
+    /// Optional description.
+    #[schema(example = "Notes and projects on consensus and replication")]
     pub description: Option<String>,
 }
 
@@ -31,6 +39,45 @@ struct CreateTopicRequest {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Create a topic
+///
+/// Titles are trimmed before validation and must be 1-100 characters. Topics
+/// are scoped to the authenticated user, so two users may hold the same title.
+#[utoipa::path(
+    post,
+    path = "/api/topics",
+    tag = "topics",
+    request_body = CreateTopicRequest,
+    responses(
+        (
+            status = 201,
+            description = "Topic created successfully",
+            body = inline(SuccessResponse<TopicResult>)
+        ),
+        (
+            status = 400,
+            description = "Title empty or longer than 100 characters",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "EMPTY_TITLE", "message": "Title cannot be empty" }
+            })
+        ),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Email not verified", body = ErrorResponse),
+        (
+            status = 409,
+            description = "Topic already exists for this user",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "TOPIC_ALREADY_EXISTS", "message": "Topic already exists" }
+            })
+        ),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
 #[post("/api/topics")]
 pub async fn create_topic_handler(
     user: VerifiedUser,

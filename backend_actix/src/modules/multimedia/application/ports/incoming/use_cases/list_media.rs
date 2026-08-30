@@ -26,7 +26,7 @@ pub struct ListMediaCommand {
     pub attachment_target: AttachmentTarget,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, utoipa::ToSchema)]
 pub struct MediaItem {
     pub media_id: Uuid,
     pub original_filename: String,

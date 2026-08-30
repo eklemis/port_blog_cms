@@ -3,11 +3,13 @@ use serde::Deserialize;
 use tracing::error;
 
 use crate::{
+    api::schemas::{ErrorResponse, SuccessResponse},
     auth::{
         adapter::incoming::web::extractors::auth::resolve_owner_id_or_response,
         application::domain::entities::UserId,
     },
     modules::project::application::ports::incoming::use_cases::GetPublicSingleProjectError,
+    modules::project::application::ports::outgoing::project_query::ProjectView,
     shared::api::ApiResponse,
     AppState,
 };
@@ -18,6 +20,36 @@ pub struct PublicProjectPath {
     pub project_slug: String,
 }
 
+/// Get one project publicly by username and slug
+///
+/// Public endpoint: no authentication required. Addressed by slug rather than
+/// id, so it suits shareable portfolio links.
+#[utoipa::path(
+    get,
+    path = "/api/public/projects/{username}/{project_slug}",
+    tag = "projects",
+    params(
+        ("username" = String, Path, description = "Username of the project owner"),
+        ("project_slug" = String, Path, description = "URL slug of the project")
+    ),
+    responses(
+        (
+            status = 200,
+            description = "Project retrieved successfully",
+            body = inline(SuccessResponse<ProjectView>)
+        ),
+        (
+            status = 404,
+            description = "No such username, or no project with that slug",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "PROJECT_NOT_FOUND", "message": "Project not found" }
+            })
+        ),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    )
+)]
 #[get("/api/public/projects/{username}/{project_slug}")]
 pub async fn get_public_single_project_handler(
     path: web::Path<PublicProjectPath>,

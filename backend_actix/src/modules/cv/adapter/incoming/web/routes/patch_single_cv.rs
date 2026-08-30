@@ -4,20 +4,29 @@ use crate::cv::application::use_cases::patch_cv::PatchCVError;
 use crate::cv::domain::entities::{
     ContactDetail, CoreSkill, Education, Experience, HighlightedProject,
 };
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
+use crate::cv::domain::CVInfo;
 use crate::shared::api::ApiResponse;
 use crate::AppState;
 use actix_web::patch;
 use actix_web::{web, Responder};
 use serde::{Deserialize, Serialize};
 use tracing::error;
+use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+/// Wholesale replacement of a collection field.
+///
+/// Omitting the field leaves the stored collection untouched; supplying it
+/// replaces every element. There is no append or per-element patch.
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
+#[serde(bound = "T: Serialize + serde::de::DeserializeOwned")]
 pub struct ReplaceOp<T> {
     pub replace: Vec<T>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+/// Partial CV update. Every field is optional; omitted fields are left as-is.
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct PatchCVRequest {
     pub bio: Option<String>,
     pub role: Option<String>,
@@ -31,6 +40,41 @@ pub struct PatchCVRequest {
     pub contact_info: Option<ReplaceOp<ContactDetail>>,
 }
 
+/// Partially update a CV
+///
+/// Only the fields present in the body are changed. Collection fields use the
+/// `{ "replace": [...] }` wrapper and are swapped out entirely; omitting a
+/// collection leaves it untouched.
+#[utoipa::path(
+    patch,
+    path = "/api/cvs/{cv_id}",
+    tag = "cvs",
+    params(
+        ("cv_id" = Uuid, Path, description = "Identifier of the CV to update")
+    ),
+    request_body = PatchCVRequest,
+    responses(
+        (
+            status = 200,
+            description = "CV updated successfully",
+            body = inline(SuccessResponse<CVInfo>)
+        ),
+        (status = 400, description = "Malformed request body", body = ErrorResponse),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Email not verified", body = ErrorResponse),
+        (
+            status = 404,
+            description = "CV not found",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "CV_NOT_FOUND", "message": "CV not found" }
+            })
+        ),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
 #[patch("/api/cvs/{cv_id}")]
 pub async fn patch_cv_handler(
     user: VerifiedUser,

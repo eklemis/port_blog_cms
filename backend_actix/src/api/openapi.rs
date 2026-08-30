@@ -1,6 +1,8 @@
 use crate::api::schemas::{ErrorDetail, ErrorResponse, SuccessResponse};
 use crate::cv::adapter::incoming::web::routes::{
-    CreateCVRequest, EducationRequest, ExperienceRequest, HighlightedProjectRequest,
+    ContactDetailRequest, CreateCVRequest, EducationRequest, ExperienceRequest,
+    HighlightedProjectRequest, PatchCVRequest, ReplaceOp, UpdateCVRequest,
+    UpdateEducationRequest, UpdateExperienceRequest, UpdateHighlightedProjectRequest,
 };
 use crate::cv::domain::entities::{ContactDetail, ContactType, CoreSkill};
 use crate::cv::domain::{CVInfo, Education, Experience, HighlightedProject};
@@ -18,6 +20,22 @@ use crate::cv::application::ports::outgoing::{
     CVPageResult, // Just import the generic type
     CVSort,
 };
+use crate::multimedia::adapter::incoming::web::routes::{
+    GetVariantUrlResponse, InitUploadRequest, InitUploadResponse, ListMediaResponse,
+};
+use crate::multimedia::application::domain::entities::{
+    AttachmentTarget, MediaRole, MediaSize, MediaState,
+};
+use crate::multimedia::application::ports::incoming::use_cases::MediaItem;
+use crate::project::adapter::incoming::web::routes::{
+    AddProjectTopicRequest, CreateProjectRequest, PatchProjectRequest, RemoveProjectTopicRequest,
+};
+use crate::project::application::ports::outgoing::project_query::{
+    PageResult, ProjectCardView, ProjectSort, ProjectTopicItem, ProjectView,
+};
+use crate::project::application::ports::outgoing::project_repository::ProjectResult;
+use crate::topic::adapter::incoming::web::routes::{CreateTopicRequest, TopicResponse};
+use crate::topic::application::ports::outgoing::TopicResult;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -31,6 +49,10 @@ use crate::cv::application::ports::outgoing::{
         )
     ),
     paths(
+        // Health probes
+        crate::health::health,
+        crate::health::readiness,
+
         // Auth endpoints
         crate::auth::adapter::incoming::web::routes::register_user_handler,
         crate::auth::adapter::incoming::web::routes::login_user_handler,
@@ -46,34 +68,35 @@ use crate::cv::application::ports::outgoing::{
         // CV endpoints
         crate::cv::adapter::incoming::web::routes::create_cv_handler,
         crate::cv::adapter::incoming::web::routes::get_cvs_handler,
-        // get_cv_by_id_handler,
-        // get_public_cv_by_id_handler,
-        // update_cv_handler,
-        // patch_cv_handler,
-        // hard_delete_cv_handler,
+        crate::cv::adapter::incoming::web::routes::get_cv_by_id_handler,
+        crate::cv::adapter::incoming::web::routes::get_public_cv_by_id_handler,
+        crate::cv::adapter::incoming::web::routes::update_cv_handler,
+        crate::cv::adapter::incoming::web::routes::patch_cv_handler,
+        crate::cv::adapter::incoming::web::routes::hard_delete_cv_handler,
 
         // Project endpoints
-        // create_project_handler,
-        // get_projects_handler,
-        // get_public_projects_handler,
-        // get_project_by_id_handler,
-        // get_public_single_project_handler,
-        // patch_project_handler,
-        // hard_delete_project_handler,
-        // add_project_topic_handler,
-        // remove_project_topic_handler,
-        // get_project_topics_handler,
-        // clear_project_topics_handler,
+        crate::project::adapter::incoming::web::routes::create_project_handler,
+        crate::project::adapter::incoming::web::routes::get_projects_handler,
+        crate::project::adapter::incoming::web::routes::get_public_projects_handler,
+        crate::project::adapter::incoming::web::routes::get_project_by_id_handler,
+        crate::project::adapter::incoming::web::routes::get_public_single_project_handler,
+        crate::project::adapter::incoming::web::routes::patch_project_handler,
+        crate::project::adapter::incoming::web::routes::soft_delete_project_handler,
+        crate::project::adapter::incoming::web::routes::hard_delete_project_handler,
+        crate::project::adapter::incoming::web::routes::add_project_topic_handler,
+        crate::project::adapter::incoming::web::routes::remove_project_topic_handler,
+        crate::project::adapter::incoming::web::routes::get_project_topics_handler,
+        crate::project::adapter::incoming::web::routes::clear_project_topics_handler,
 
         // Topic endpoints
-        // create_topic_handler,
-        // get_topics_handler,
-        // soft_delete_topic_handler,
+        crate::topic::adapter::incoming::web::routes::create_topic_handler,
+        crate::topic::adapter::incoming::web::routes::get_topics_handler,
+        crate::topic::adapter::incoming::web::routes::soft_delete_topic_handler,
 
         // Media endpoints
-        // init_upload_handler,
-        // get_variant_read_url_handler,
-        // list_media_handler,
+        crate::multimedia::adapter::incoming::web::routes::init_upload_handler,
+        crate::multimedia::adapter::incoming::web::routes::get_variant_read_url_handler,
+        crate::multimedia::adapter::incoming::web::routes::list_media_handler,
     ),
     components(
         schemas(
@@ -81,6 +104,10 @@ use crate::cv::application::ports::outgoing::{
             SuccessResponse<RegisterUserResponse>,
             ErrorResponse,
             ErrorDetail,
+
+            // Health probes
+            crate::health::HealthResponse,
+            crate::health::ReadinessResponse,
 
             // Auth DTOs
             CreateUserRequest,
@@ -106,8 +133,49 @@ use crate::cv::application::ports::outgoing::{
             EducationRequest,
             ExperienceRequest,
             HighlightedProjectRequest,
-            CVPageResult<CVInfo>,  // ✅ Use the full generic type
+            CVPageResult<CVInfo>,
             CVSort,
+
+            // CV update / patch DTOs
+            UpdateCVRequest,
+            UpdateEducationRequest,
+            UpdateExperienceRequest,
+            UpdateHighlightedProjectRequest,
+            ContactDetailRequest,
+            PatchCVRequest,
+            ReplaceOp<CoreSkill>,
+            ReplaceOp<Education>,
+            ReplaceOp<Experience>,
+            ReplaceOp<HighlightedProject>,
+            ReplaceOp<ContactDetail>,
+            // Topic DTOs
+            CreateTopicRequest,
+            TopicResponse,
+            TopicResult,
+
+            // Project DTOs
+            CreateProjectRequest,
+            PatchProjectRequest,
+            AddProjectTopicRequest,
+            RemoveProjectTopicRequest,
+            ProjectResult,
+            ProjectView,
+            ProjectCardView,
+            ProjectTopicItem,
+            ProjectSort,
+            PageResult<ProjectCardView>,
+
+            // Media DTOs
+            InitUploadRequest,
+            InitUploadResponse,
+            GetVariantUrlResponse,
+            ListMediaResponse,
+            MediaItem,
+            AttachmentTarget,
+            MediaRole,
+            MediaSize,
+            MediaState,
+
             // CV Domain Entities
             CoreSkill,
             ContactDetail,
@@ -119,6 +187,7 @@ use crate::cv::application::ports::outgoing::{
     ),
     modifiers(&SecurityAddon),
     tags(
+        (name = "health", description = "Liveness and readiness probes"),
         (name = "auth", description = "Authentication endpoints"),
         (name = "users", description = "User management endpoints"),
         (name = "cvs", description = "CV/Resume management endpoints"),
@@ -147,3 +216,149 @@ impl utoipa::Modify for SecurityAddon {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+    use std::collections::BTreeSet;
+
+    fn doc() -> Value {
+        serde_json::to_value(ApiDoc::openapi()).expect("ApiDoc must serialize")
+    }
+
+    /// Collects every `#/components/schemas/X` reference anywhere in the document.
+    fn collect_refs(node: &Value, out: &mut BTreeSet<String>) {
+        match node {
+            Value::Object(map) => {
+                for (key, value) in map {
+                    if key == "$ref" {
+                        if let Some(name) = value
+                            .as_str()
+                            .and_then(|r| r.strip_prefix("#/components/schemas/"))
+                        {
+                            out.insert(name.to_string());
+                        }
+                    }
+                    collect_refs(value, out);
+                }
+            }
+            Value::Array(items) => {
+                for item in items {
+                    collect_refs(item, out);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn defined_schemas(doc: &Value) -> BTreeSet<String> {
+        doc["components"]["schemas"]
+            .as_object()
+            .map(|m| m.keys().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    /// The failure this guards against: documenting a handler whose request or
+    /// response body type was never added to `components(schemas(...))`. utoipa
+    /// still emits a `$ref` to it, so Swagger UI renders a broken, empty model
+    /// and nothing fails at compile time.
+    #[test]
+    fn every_schema_reference_resolves_to_a_defined_component() {
+        let doc = doc();
+
+        let mut referenced = BTreeSet::new();
+        collect_refs(&doc, &mut referenced);
+
+        let defined = defined_schemas(&doc);
+        let dangling: Vec<_> = referenced.difference(&defined).collect();
+
+        assert!(
+            dangling.is_empty(),
+            "OpenAPI document references schemas that are not registered in \
+             components(schemas(...)): {dangling:?}"
+        );
+    }
+
+    #[test]
+    fn documents_every_registered_path_with_at_least_one_response() {
+        let doc = doc();
+        let paths = doc["paths"].as_object().expect("paths object");
+
+        assert!(!paths.is_empty(), "no paths documented");
+
+        for (path, item) in paths {
+            let operations = item.as_object().expect("path item object");
+            for (method, operation) in operations {
+                let responses = operation["responses"]
+                    .as_object()
+                    .unwrap_or_else(|| panic!("{method} {path} has no responses block"));
+                assert!(
+                    !responses.is_empty(),
+                    "{method} {path} documents no responses"
+                );
+            }
+        }
+    }
+
+    /// Walks the source tree for Actix route macros and checks each one appears
+    /// in the document. This is what caught `/health` and `/ready` sitting
+    /// undocumented; a hand-maintained list would have drifted instead.
+    ///
+    /// Recognises both the bare attribute form and the fully qualified
+    /// `actix_web::`-prefixed form, since the codebase uses both. The patterns
+    /// are assembled at runtime rather than written literally, so that this
+    /// comment cannot match its own scanner.
+    #[test]
+    fn every_registered_route_is_documented() {
+        use std::fs;
+
+        fn visit(dir: &std::path::Path, found: &mut BTreeSet<String>) {
+            for entry in fs::read_dir(dir).expect("readable source dir") {
+                let path = entry.expect("readable entry").path();
+                if path.is_dir() {
+                    visit(&path, found);
+                } else if path.extension().is_some_and(|e| e == "rs") {
+                    let text = fs::read_to_string(&path).expect("readable source file");
+                    for (idx, _) in text.match_indices("#[") {
+                        let rest = &text[idx + 2..];
+                        let rest = rest.strip_prefix("actix_web::").unwrap_or(rest);
+                        for method in ["get", "post", "put", "patch", "delete"] {
+                            let prefix = format!("{method}(\"");
+                            if let Some(tail) = rest.strip_prefix(prefix.as_str()) {
+                                if let Some(end) = tail.find('"') {
+                                    found.insert(format!("{} {}", method, &tail[..end]));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let mut registered = BTreeSet::new();
+        visit(&src, &mut registered);
+
+        assert!(
+            registered.len() > 20,
+            "route scan found only {} routes; the scanner is probably broken",
+            registered.len()
+        );
+
+        let doc = doc();
+        let mut documented = BTreeSet::new();
+        for (path, item) in doc["paths"].as_object().expect("paths object") {
+            for method in item.as_object().expect("path item").keys() {
+                documented.insert(format!("{method} {path}"));
+            }
+        }
+
+        let missing: Vec<_> = registered.difference(&documented).collect();
+        assert!(
+            missing.is_empty(),
+            "these routes are served but absent from the OpenAPI document: {missing:?}"
+        );
+    }
+}
+

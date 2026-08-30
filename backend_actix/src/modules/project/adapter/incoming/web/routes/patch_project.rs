@@ -9,8 +9,11 @@ use crate::modules::project::application::ports::incoming::use_cases::PatchProje
 use crate::modules::project::application::ports::outgoing::project_repository::{
     PatchField, PatchProjectData,
 };
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
+use crate::modules::project::application::ports::outgoing::project_repository::ProjectResult;
 use crate::shared::api::ApiResponse;
 use crate::AppState;
+use utoipa::ToSchema;
 
 //
 // ──────────────────────────────────────────────────────────
@@ -18,24 +21,38 @@ use crate::AppState;
 // ──────────────────────────────────────────────────────────
 //
 
-#[derive(Debug, Deserialize, Serialize)]
+/// Partial project update.
+///
+/// Each field distinguishes three cases, which is why the types are
+/// `PatchField` rather than `Option`: omitting the key leaves the value
+/// untouched, sending `null` clears it, and sending a value sets it. The
+/// schema describes them as nullable optionals, which is the closest
+/// OpenAPI equivalent.
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct PatchProjectRequest {
+    /// Omit to leave unchanged; `null` to clear; a string to set.
     #[serde(default)]
+    #[schema(value_type = Option<String>, example = "Portfolio CMS")]
     pub title: PatchField<String>,
 
     #[serde(default)]
+    #[schema(value_type = Option<String>)]
     pub description: PatchField<String>,
 
     #[serde(default)]
+    #[schema(value_type = Option<Vec<String>>, example = json!(["rust", "actix-web"]))]
     pub tech_stack: PatchField<Vec<String>>,
 
     #[serde(default)]
+    #[schema(value_type = Option<Vec<String>>)]
     pub screenshots: PatchField<Vec<String>>,
 
     #[serde(default)]
+    #[schema(value_type = Option<String>, example = "https://github.com/user/repo")]
     pub repo_url: PatchField<String>,
 
     #[serde(default)]
+    #[schema(value_type = Option<String>, example = "https://demo.example.com")]
     pub live_demo_url: PatchField<String>,
 }
 
@@ -58,6 +75,41 @@ impl From<PatchProjectRequest> for PatchProjectData {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Partially update a project
+///
+/// Only the keys present in the body are touched. Sending `null` for a
+/// nullable field clears it; omitting the key leaves it as-is. The slug is not
+/// patchable.
+#[utoipa::path(
+    patch,
+    path = "/api/projects/{project_id}",
+    tag = "projects",
+    params(
+        ("project_id" = Uuid, Path, description = "Identifier of the project to update")
+    ),
+    request_body = PatchProjectRequest,
+    responses(
+        (
+            status = 200,
+            description = "Project updated successfully",
+            body = inline(SuccessResponse<ProjectResult>)
+        ),
+        (status = 400, description = "Malformed request body", body = ErrorResponse),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Email not verified", body = ErrorResponse),
+        (
+            status = 404,
+            description = "Project not found, or owned by another user",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "PROJECT_NOT_FOUND", "message": "Project not found" }
+            })
+        ),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
 #[patch("/api/projects/{project_id}")]
 pub async fn patch_project_handler(
     user: VerifiedUser,

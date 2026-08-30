@@ -1,20 +1,54 @@
 use actix_web::{delete, web, Responder};
 use serde::Deserialize;
+use utoipa::ToSchema;
 use tracing::error;
 use uuid::Uuid;
 
 use crate::{
+    api::schemas::ErrorResponse,
     auth::adapter::incoming::web::extractors::auth::VerifiedUser,
     auth::application::domain::entities::UserId,
     modules::project::application::ports::incoming::use_cases::RemoveProjectTopicError,
     shared::api::ApiResponse, AppState,
 };
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct RemoveProjectTopicRequest {
+    /// Topic to detach from the project.
+    #[schema(example = "9f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d")]
     pub topic_id: Uuid,
 }
 
+/// Detach a topic from a project
+///
+/// Idempotent: detaching a topic that is not attached still returns 204, so
+/// repeat calls are safe. Only a missing project is reported as 404.
+#[utoipa::path(
+    delete,
+    path = "/api/projects/{project_id}/topics",
+    tag = "projects",
+    params(
+        ("project_id" = Uuid, Path, description = "Identifier of the project")
+    ),
+    request_body = RemoveProjectTopicRequest,
+    responses(
+        (status = 204, description = "Topic detached, or was not attached to begin with"),
+        (status = 400, description = "Malformed request body", body = ErrorResponse),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Email not verified", body = ErrorResponse),
+        (
+            status = 404,
+            description = "Project not found, or owned by another user",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "PROJECT_NOT_FOUND", "message": "Project not found" }
+            })
+        ),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
 #[delete("/api/projects/{project_id}/topics")]
 pub async fn remove_project_topic_handler(
     user: VerifiedUser,

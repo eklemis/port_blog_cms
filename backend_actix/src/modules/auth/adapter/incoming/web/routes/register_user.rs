@@ -145,7 +145,7 @@ fn map_create_user_error(err: CreateUserError, req: &CreateUserRequest) -> HttpR
                         "id": "123e4567-e89b-12d3-a456-426614174000",
                         "username": "johndoe",
                         "email": "john@example.com",
-                        "fullName": "John Doe"
+                        "full_name": "John Doe"
                     }
                 }
             })

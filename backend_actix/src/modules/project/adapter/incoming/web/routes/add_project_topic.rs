@@ -1,20 +1,55 @@
 use actix_web::{post, web, Responder};
 use serde::Deserialize;
+use utoipa::ToSchema;
 use tracing::error;
 use uuid::Uuid;
 
 use crate::{
+    api::schemas::ErrorResponse,
     auth::adapter::incoming::web::extractors::auth::VerifiedUser,
     auth::application::domain::entities::UserId,
     modules::project::application::ports::incoming::use_cases::AddProjectTopicError,
     shared::api::ApiResponse, AppState,
 };
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct AddProjectTopicRequest {
+    /// Topic to attach. Must already exist and belong to the caller.
+    #[schema(example = "9f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d")]
     pub topic_id: Uuid,
 }
 
+/// Attach a topic to a project
+///
+/// Both the project and the topic must belong to the caller. Responds 200 with
+/// a bare acknowledgement rather than the updated project.
+#[utoipa::path(
+    post,
+    path = "/api/projects/{project_id}/topics",
+    tag = "projects",
+    params(
+        ("project_id" = Uuid, Path, description = "Identifier of the project")
+    ),
+    request_body = AddProjectTopicRequest,
+    responses(
+        (
+            status = 200,
+            description = "Topic attached successfully",
+            body = Object,
+            example = json!({ "success": true, "data": { "message": "OK" } })
+        ),
+        (status = 400, description = "Malformed request body", body = ErrorResponse),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Email not verified", body = ErrorResponse),
+        (
+            status = 404,
+            description = "Project or topic not found. Codes: PROJECT_NOT_FOUND, TOPIC_NOT_FOUND",
+            body = ErrorResponse
+        ),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
 #[post("/api/projects/{project_id}/topics")]
 pub async fn add_project_topic_handler(
     user: VerifiedUser,

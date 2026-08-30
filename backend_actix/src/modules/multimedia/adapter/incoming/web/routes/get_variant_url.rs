@@ -6,8 +6,10 @@ use uuid::Uuid;
 use crate::auth::adapter::incoming::web::extractors::auth::VerifiedUser;
 use crate::multimedia::application::domain::entities::MediaSize;
 use crate::multimedia::application::ports::incoming::use_cases::{GetReadUrlError, GetUrlCommand};
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::shared::api::ApiResponse;
 use crate::AppState;
+use utoipa::ToSchema;
 
 //
 // ──────────────────────────────────────────────────────────
@@ -27,7 +29,7 @@ pub struct GetVariantPath {
 // ──────────────────────────────────────────────────────────
 //
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub struct GetVariantUrlResponse {
     pub media_id: Uuid,
@@ -42,6 +44,55 @@ pub struct GetVariantUrlResponse {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Get a signed read URL for one media variant
+///
+/// `media_size` is matched literally against `thumbnail`, `small`, `medium`,
+/// and `large`; anything else is reported as `VARIANT_NOT_FOUND` rather than a
+/// validation error. Media that exists but is not yet `ready` returns 409 so
+/// clients can distinguish "not finished" from "not there".
+#[utoipa::path(
+    get,
+    path = "/api/media/{media_id}/{media_size}",
+    tag = "media",
+    params(
+        ("media_id" = Uuid, Path, description = "Identifier of the media"),
+        (
+            "media_size" = String,
+            Path,
+            description = "Variant to read: thumbnail, small, medium, or large"
+        )
+    ),
+    responses(
+        (
+            status = 200,
+            description = "Signed read URL issued",
+            body = inline(SuccessResponse<GetVariantUrlResponse>)
+        ),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Email not verified", body = ErrorResponse),
+        (
+            status = 404,
+            description = "Media or variant not found, or the size is unrecognised.                            Codes: MEDIA_NOT_FOUND, VARIANT_NOT_FOUND",
+            body = ErrorResponse
+        ),
+        (
+            status = 409,
+            description = "Media is not ready to read. Codes: MEDIA_PENDING,                            MEDIA_PROCESSING, MEDIA_FAILED",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "MEDIA_PROCESSING", "message": "Media is still being processed" }
+            })
+        ),
+        (
+            status = 502,
+            description = "Object storage refused to issue a signed URL",
+            body = ErrorResponse
+        ),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
 #[get("/api/media/{media_id}/{media_size}")]
 pub async fn get_variant_read_url_handler(
     user: VerifiedUser,

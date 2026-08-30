@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::auth::application::domain::entities::UserId;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, utoipa::ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum MediaState {
     Pending,
@@ -21,7 +21,7 @@ pub struct MediaStateInfo {
     pub status: MediaState,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, utoipa::ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum MediaSize {
     Thumbnail,
@@ -48,7 +48,7 @@ pub struct MediaVariant {
     pub path: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub enum MediaRole {
     Avatar,
     #[default]
@@ -72,7 +72,7 @@ impl fmt::Display for MediaRole {
     }
 }
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq, utoipa::ToSchema)]
 pub enum AttachmentTarget {
     User,
     #[default]

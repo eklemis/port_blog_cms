@@ -8,8 +8,13 @@ use crate::modules::project::application::ports::incoming::use_cases::GetProject
 use crate::modules::project::application::ports::outgoing::project_query::{
     PageRequest, ProjectListFilter, ProjectSort,
 };
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
+use crate::modules::project::application::ports::outgoing::project_query::{
+    PageResult, ProjectCardView,
+};
 use crate::shared::api::ApiResponse;
 use crate::AppState;
+use utoipa::IntoParams;
 
 //
 // ──────────────────────────────────────────────────────────
@@ -17,9 +22,14 @@ use crate::AppState;
 // ──────────────────────────────────────────────────────────
 //
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
 pub struct GetProjectsQuery {
+    /// Free-text search over project title and description
+    #[param(example = "rust")]
     pub search: Option<String>,
+
+    /// Restrict results to projects carrying this topic
     pub topic_id: Option<uuid::Uuid>,
 
     #[serde(default)]
@@ -54,6 +64,26 @@ impl From<GetProjectsQuery> for (ProjectListFilter, PageRequest, ProjectSort) {
 // ──────────────────────────────────────────────────────────
 //
 
+/// List the authenticated user's projects
+///
+/// Paginated. `page` defaults to 1 and `per_page` to 10 when omitted or zero.
+#[utoipa::path(
+    get,
+    path = "/api/projects",
+    tag = "projects",
+    params(GetProjectsQuery),
+    responses(
+        (
+            status = 200,
+            description = "Projects retrieved successfully",
+            body = inline(SuccessResponse<PageResult<ProjectCardView>>)
+        ),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Email not verified", body = ErrorResponse),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
 #[get("/api/projects")]
 pub async fn get_projects_handler(
     user: VerifiedUser,

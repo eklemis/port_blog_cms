@@ -48,10 +48,10 @@ pub struct UserProfileResponse {
             example = json!({
                 "success": true,
                 "data": {
-                    "userId": "123e4567-e89b-12d3-a456-426614174000",
+                    "user_id": "123e4567-e89b-12d3-a456-426614174000",
                     "email": "john@example.com",
                     "username": "johndoe",
-                    "fullName": "John Doe"
+                    "full_name": "John Doe"
                 }
             })
         ),

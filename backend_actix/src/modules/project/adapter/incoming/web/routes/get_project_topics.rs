@@ -3,12 +3,44 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::{
+    api::schemas::ErrorResponse,
     auth::adapter::incoming::web::extractors::auth::VerifiedUser,
     auth::application::domain::entities::UserId,
     modules::project::application::ports::incoming::use_cases::GetProjectTopicsError,
+    api::schemas::SuccessResponse,
+    modules::project::application::ports::outgoing::project_query::ProjectTopicItem,
     shared::api::ApiResponse, AppState,
 };
 
+/// List the topics attached to a project
+#[utoipa::path(
+    get,
+    path = "/api/projects/{project_id}/topics",
+    tag = "projects",
+    params(
+        ("project_id" = Uuid, Path, description = "Identifier of the project")
+    ),
+    responses(
+        (
+            status = 200,
+            description = "Topics retrieved successfully",
+            body = inline(SuccessResponse<Vec<ProjectTopicItem>>)
+        ),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Email not verified", body = ErrorResponse),
+        (
+            status = 404,
+            description = "Project not found, or owned by another user",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "PROJECT_NOT_FOUND", "message": "Project not found" }
+            })
+        ),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
 #[get("/api/projects/{project_id}/topics")]
 pub async fn get_project_topics_handler(
     user: VerifiedUser,

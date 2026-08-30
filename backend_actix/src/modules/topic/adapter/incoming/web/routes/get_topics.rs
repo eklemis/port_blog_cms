@@ -1,5 +1,6 @@
 use actix_web::{get, web, Responder};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 use crate::{
@@ -7,18 +8,46 @@ use crate::{
         adapter::incoming::web::extractors::auth::VerifiedUser,
         application::domain::entities::UserId,
     },
+    api::schemas::{ErrorResponse, SuccessResponse},
     shared::api::ApiResponse,
     topic::application::ports::incoming::use_cases::GetTopicsError,
     AppState,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct TopicResponse {
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct TopicResponse {
+    /// Topic identifier
+    #[schema(example = "9f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d")]
     id: Uuid,
+
+    /// Topic title
+    #[schema(example = "Distributed Systems")]
     title: String,
+
+    /// Topic description
+    #[schema(example = "Notes and projects on consensus and replication")]
     description: String,
 }
 
+/// List the authenticated user's topics
+///
+/// Returns every topic owned by the caller. Soft-deleted topics are excluded.
+#[utoipa::path(
+    get,
+    path = "/api/topics",
+    tag = "topics",
+    responses(
+        (
+            status = 200,
+            description = "Topics retrieved successfully",
+            body = inline(SuccessResponse<Vec<TopicResponse>>)
+        ),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Email not verified", body = ErrorResponse),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
 #[get("/api/topics")]
 pub async fn get_topics_handler(user: VerifiedUser, data: web::Data<AppState>) -> impl Responder {
     let owner = user.user_id.clone();

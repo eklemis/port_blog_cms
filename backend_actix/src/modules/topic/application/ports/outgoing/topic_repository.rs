@@ -14,11 +14,23 @@ pub struct CreateTopicData {
 
 // Unified output DTO for all user operations that return user data
 // This represents the essential user information after any state change
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct TopicResult {
+    /// Topic identifier
+    #[schema(example = "9f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d")]
     pub id: Uuid,
+
+    /// Identifier of the owning user. Serialises as a bare UUID string, so it
+    /// is described as `String` rather than pulling `UserId` into the schema.
+    #[schema(value_type = String, example = "123e4567-e89b-12d3-a456-426614174000")]
     pub owner: UserId,
+
+    /// Topic title
+    #[schema(example = "Distributed Systems")]
     pub title: String,
+
+    /// Topic description
+    #[schema(example = "Notes and projects on consensus and replication")]
     pub description: String,
 }
 

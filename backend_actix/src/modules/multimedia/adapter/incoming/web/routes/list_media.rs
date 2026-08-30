@@ -10,16 +10,18 @@ use crate::{
         domain::entities::AttachmentTarget,
         ports::incoming::use_cases::{ListMediaCommand, MediaItem},
     },
+    api::schemas::{ErrorResponse, SuccessResponse},
     shared::api::ApiResponse,
     AppState,
 };
+use utoipa::ToSchema;
 
 #[derive(Debug, Deserialize)]
 pub struct ListMediaPath {
     attachment_target: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub struct ListMediaResponse {
     rows: Vec<MediaItem>,
@@ -38,6 +40,44 @@ fn parse_attachment_target(s: &str) -> Result<AttachmentTarget, HttpResponse> {
     }
 }
 
+/// List the caller's media for one attachment target
+///
+/// `attachment_target` is matched literally against the lowercase forms
+/// `user`, `resume`, `project`, and `blog_post`. Note that the same enum
+/// serialises in PascalCase inside response bodies (`Resume`, `BlogPost`),
+/// so the path form and the body form differ.
+#[utoipa::path(
+    get,
+    path = "/api/media/{attachment_target}",
+    tag = "media",
+    params(
+        (
+            "attachment_target" = String,
+            Path,
+            description = "Attachment target: user, resume, project, or blog_post"
+        )
+    ),
+    responses(
+        (
+            status = 200,
+            description = "Media listed successfully",
+            body = inline(SuccessResponse<ListMediaResponse>)
+        ),
+        (
+            status = 400,
+            description = "Unrecognised attachment target",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "TARGET_NOT_FOUND", "message": "Target Attachment Is Not Exist" }
+            })
+        ),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Email not verified", body = ErrorResponse),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
 #[get("/api/media/{attachment_target}")]
 pub async fn list_media_handler(
     user: VerifiedUser,

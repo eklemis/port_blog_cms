@@ -3,12 +3,40 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::{
+    api::schemas::ErrorResponse,
     auth::adapter::incoming::web::extractors::auth::VerifiedUser,
     auth::application::domain::entities::UserId,
     modules::project::application::ports::incoming::use_cases::ClearProjectTopicsError,
     shared::api::ApiResponse, AppState,
 };
 
+/// Detach every topic from a project
+///
+/// Idempotent: a project with no topics still returns 204.
+#[utoipa::path(
+    delete,
+    path = "/api/projects/{project_id}/topics/all",
+    tag = "projects",
+    params(
+        ("project_id" = Uuid, Path, description = "Identifier of the project")
+    ),
+    responses(
+        (status = 204, description = "All topics detached"),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Email not verified", body = ErrorResponse),
+        (
+            status = 404,
+            description = "Project not found, or owned by another user",
+            body = ErrorResponse,
+            example = json!({
+                "success": false,
+                "error": { "code": "PROJECT_NOT_FOUND", "message": "Project not found" }
+            })
+        ),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
 #[delete("/api/projects/{project_id}/topics/all")]
 pub async fn clear_project_topics_handler(
     user: VerifiedUser,
