@@ -18,6 +18,14 @@ use crate::cv::application::use_cases::soft_delete_cv::SoftDeleteCvUseCase;
 use crate::cv::application::use_cases::patch_cv::IPatchCVUseCase;
 use crate::cv::application::use_cases::update_cv::IUpdateCVUseCase;
 use crate::modules::project::application::ports::incoming::use_cases::CreateProjectUseCase;
+use crate::blog::application::blog_use_cases::BlogUseCases;
+use crate::blog::application::ports::incoming::use_cases::{
+    ArchiveBlogPostUseCase, AttachBlogPostTopicUseCase, ClearBlogPostTopicsUseCase,
+    CreateBlogPostUseCase, DetachBlogPostTopicUseCase, GetBlogPostTopicsUseCase,
+    GetBlogPostsUseCase, GetPublicBlogPostUseCase, GetPublicBlogPostsUseCase,
+    GetSingleBlogPostUseCase, HardDeleteBlogPostUseCase, PatchBlogPostUseCase,
+    RestoreBlogPostUseCase,
+};
 use crate::modules::project::application::project_use_cases::ProjectUseCases;
 use crate::multimedia::application::domain::policies::upload_policy::UploadPolicy;
 use crate::multimedia::application::media_use_cases::MultimediaUseCases;
@@ -57,6 +65,7 @@ pub struct TestAppStateBuilder {
     create_topic: Option<Arc<dyn CreateTopicUseCase + Send + Sync>>,
     get_topics: Option<Arc<dyn GetTopicsUseCase + Send + Sync>>,
     soft_delete_topic: Option<Arc<dyn SoftDeleteTopicUseCase + Send + Sync>>,
+    blog: Option<BlogUseCases>,
     project: Option<ProjectUseCases>,
     multimedia: Option<MultimediaUseCases>,
     user_identity_resolver: Option<UserIdentityResolver>,
@@ -96,6 +105,21 @@ impl Default for TestAppStateBuilder {
             create_topic: Some(Arc::new(StubCreateTopicUseCase)),
             get_topics: Some(Arc::new(StubGetTopicsUseCase::success(vec![]))),
             soft_delete_topic: Some(Arc::new(StubSoftDeleteTopicUseCase)),
+            blog: Some(BlogUseCases {
+                create: Arc::new(StubCreateBlogPost),
+                list: Arc::new(StubGetBlogPosts),
+                list_public: Arc::new(StubGetPublicBlogPosts),
+                get_single: Arc::new(StubGetSingleBlogPost),
+                get_public: Arc::new(StubGetPublicBlogPost),
+                patch: Arc::new(StubPatchBlogPost),
+                archive: Arc::new(StubArchiveBlogPost),
+                restore: Arc::new(StubRestoreBlogPost),
+                hard_delete: Arc::new(StubHardDeleteBlogPost),
+                attach_topic: Arc::new(StubAttachBlogPostTopic),
+                detach_topic: Arc::new(StubDetachBlogPostTopic),
+                clear_topics: Arc::new(StubClearBlogPostTopics),
+                get_topics: Arc::new(StubGetBlogPostTopics),
+            }),
             project: Some(ProjectUseCases {
                 create: Arc::new(StubCreateProjectUseCase::repo_error(
                     "not used in this test",
@@ -124,6 +148,84 @@ impl Default for TestAppStateBuilder {
 }
 
 impl TestAppStateBuilder {
+    pub fn with_blog_create(mut self, uc: impl CreateBlogPostUseCase + Send + Sync + 'static) -> Self {
+        let blog = self.blog.as_mut().expect("Blog use cases must be initialized");
+        blog.create = std::sync::Arc::new(uc);
+        self
+    }
+
+    pub fn with_blog_list(mut self, uc: impl GetBlogPostsUseCase + Send + Sync + 'static) -> Self {
+        let blog = self.blog.as_mut().expect("Blog use cases must be initialized");
+        blog.list = std::sync::Arc::new(uc);
+        self
+    }
+
+    pub fn with_blog_list_public(mut self, uc: impl GetPublicBlogPostsUseCase + Send + Sync + 'static) -> Self {
+        let blog = self.blog.as_mut().expect("Blog use cases must be initialized");
+        blog.list_public = std::sync::Arc::new(uc);
+        self
+    }
+
+    pub fn with_blog_get_single(mut self, uc: impl GetSingleBlogPostUseCase + Send + Sync + 'static) -> Self {
+        let blog = self.blog.as_mut().expect("Blog use cases must be initialized");
+        blog.get_single = std::sync::Arc::new(uc);
+        self
+    }
+
+    pub fn with_blog_get_public(mut self, uc: impl GetPublicBlogPostUseCase + Send + Sync + 'static) -> Self {
+        let blog = self.blog.as_mut().expect("Blog use cases must be initialized");
+        blog.get_public = std::sync::Arc::new(uc);
+        self
+    }
+
+    pub fn with_blog_patch(mut self, uc: impl PatchBlogPostUseCase + Send + Sync + 'static) -> Self {
+        let blog = self.blog.as_mut().expect("Blog use cases must be initialized");
+        blog.patch = std::sync::Arc::new(uc);
+        self
+    }
+
+    pub fn with_blog_archive(mut self, uc: impl ArchiveBlogPostUseCase + Send + Sync + 'static) -> Self {
+        let blog = self.blog.as_mut().expect("Blog use cases must be initialized");
+        blog.archive = std::sync::Arc::new(uc);
+        self
+    }
+
+    pub fn with_blog_restore(mut self, uc: impl RestoreBlogPostUseCase + Send + Sync + 'static) -> Self {
+        let blog = self.blog.as_mut().expect("Blog use cases must be initialized");
+        blog.restore = std::sync::Arc::new(uc);
+        self
+    }
+
+    pub fn with_blog_hard_delete(mut self, uc: impl HardDeleteBlogPostUseCase + Send + Sync + 'static) -> Self {
+        let blog = self.blog.as_mut().expect("Blog use cases must be initialized");
+        blog.hard_delete = std::sync::Arc::new(uc);
+        self
+    }
+
+    pub fn with_blog_attach_topic(mut self, uc: impl AttachBlogPostTopicUseCase + Send + Sync + 'static) -> Self {
+        let blog = self.blog.as_mut().expect("Blog use cases must be initialized");
+        blog.attach_topic = std::sync::Arc::new(uc);
+        self
+    }
+
+    pub fn with_blog_detach_topic(mut self, uc: impl DetachBlogPostTopicUseCase + Send + Sync + 'static) -> Self {
+        let blog = self.blog.as_mut().expect("Blog use cases must be initialized");
+        blog.detach_topic = std::sync::Arc::new(uc);
+        self
+    }
+
+    pub fn with_blog_clear_topics(mut self, uc: impl ClearBlogPostTopicsUseCase + Send + Sync + 'static) -> Self {
+        let blog = self.blog.as_mut().expect("Blog use cases must be initialized");
+        blog.clear_topics = std::sync::Arc::new(uc);
+        self
+    }
+
+    pub fn with_blog_get_topics(mut self, uc: impl GetBlogPostTopicsUseCase + Send + Sync + 'static) -> Self {
+        let blog = self.blog.as_mut().expect("Blog use cases must be initialized");
+        blog.get_topics = std::sync::Arc::new(uc);
+        self
+    }
+
     pub fn with_create_cv(mut self, uc: impl ICreateCVUseCase + Send + Sync + 'static) -> Self {
         self.create_cv = Some(Arc::new(uc));
         self
@@ -492,6 +594,7 @@ impl TestAppStateBuilder {
             create_topic_use_case: self.create_topic.unwrap(),
             get_topics_use_case: self.get_topics.unwrap(),
             soft_delete_topic_use_case: self.soft_delete_topic.unwrap(),
+            blog: self.blog.unwrap(),
             project: self.project.unwrap(),
             multimedia: self.multimedia.unwrap(),
             user_identity_resolver: self.user_identity_resolver.unwrap(),

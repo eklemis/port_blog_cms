@@ -33,6 +33,19 @@ use crate::cv::domain::entities::CVInfo;
 use crate::email::application::ports::outgoing::user_email_notifier::{
     UserEmailNotificationError, UserEmailNotifier,
 };
+use crate::blog::application::ports::incoming::use_cases::{
+    ArchiveBlogPostError, ArchiveBlogPostUseCase, AttachBlogPostTopicUseCase, BlogPostTopicError,
+    ClearBlogPostTopicsUseCase, CreateBlogPostCommand, CreateBlogPostError, CreateBlogPostUseCase,
+    DetachBlogPostTopicUseCase, GetBlogPostError, GetBlogPostTopicsUseCase, GetBlogPostsError,
+    GetBlogPostsUseCase, GetPublicBlogPostUseCase, GetPublicBlogPostsUseCase,
+    GetSingleBlogPostUseCase, HardDeleteBlogPostUseCase, PatchBlogPostError, PatchBlogPostUseCase,
+    RestoreBlogPostUseCase,
+};
+use crate::blog::application::ports::outgoing::{
+    BlogPageRequest, BlogPageResult, BlogPostCard, BlogPostListFilter, BlogPostSort, BlogPostView,
+    PatchBlogPostData,
+};
+use crate::blog::domain::entities::{BlogPost, BlogPostTopic};
 use crate::multimedia::application::ports::incoming::use_cases::{
     CreateAttachmentCommand, CreateMediaCommand, CreateMediaResult, CreateUploadMediaUrlUseCase,
     CreateUrlError, DeleteMediaError, DeleteMediaUseCase, GetMediaError, GetMediaUseCase,
@@ -707,5 +720,145 @@ pub struct StubListMediaUseCase;
 impl ListMediaUseCase for StubListMediaUseCase {
     async fn execute(&self, _command: ListMediaCommand) -> Result<Vec<MediaItem>, ListMediaError> {
         unimplemented!()
+    }
+}
+
+// ============================================================================
+// Blog stubs
+//
+// Every method panics: a test that reaches one has not configured the use case
+// it actually exercises, and a silent default would hide that.
+// ============================================================================
+
+macro_rules! blog_stub {
+    ($name:ident) => {
+        #[derive(Clone, Default)]
+        pub struct $name;
+    };
+}
+
+blog_stub!(StubCreateBlogPost);
+blog_stub!(StubGetBlogPosts);
+blog_stub!(StubGetPublicBlogPosts);
+blog_stub!(StubGetSingleBlogPost);
+blog_stub!(StubGetPublicBlogPost);
+blog_stub!(StubPatchBlogPost);
+blog_stub!(StubArchiveBlogPost);
+blog_stub!(StubRestoreBlogPost);
+blog_stub!(StubHardDeleteBlogPost);
+blog_stub!(StubAttachBlogPostTopic);
+blog_stub!(StubDetachBlogPostTopic);
+blog_stub!(StubClearBlogPostTopics);
+blog_stub!(StubGetBlogPostTopics);
+
+#[async_trait]
+impl CreateBlogPostUseCase for StubCreateBlogPost {
+    async fn execute(&self, _c: CreateBlogPostCommand) -> Result<BlogPost, CreateBlogPostError> {
+        unimplemented!("StubCreateBlogPost not configured for this test")
+    }
+}
+
+#[async_trait]
+impl GetBlogPostsUseCase for StubGetBlogPosts {
+    async fn execute(
+        &self,
+        _o: UserId,
+        _f: BlogPostListFilter,
+        _s: BlogPostSort,
+        _p: BlogPageRequest,
+    ) -> Result<BlogPageResult<BlogPostCard>, GetBlogPostsError> {
+        unimplemented!("StubGetBlogPosts not configured for this test")
+    }
+}
+
+#[async_trait]
+impl GetPublicBlogPostsUseCase for StubGetPublicBlogPosts {
+    async fn execute(
+        &self,
+        _o: UserId,
+        _f: BlogPostListFilter,
+        _s: BlogPostSort,
+        _p: BlogPageRequest,
+    ) -> Result<BlogPageResult<BlogPostCard>, GetBlogPostsError> {
+        unimplemented!("StubGetPublicBlogPosts not configured for this test")
+    }
+}
+
+#[async_trait]
+impl GetSingleBlogPostUseCase for StubGetSingleBlogPost {
+    async fn execute(&self, _o: UserId, _p: Uuid) -> Result<BlogPostView, GetBlogPostError> {
+        unimplemented!("StubGetSingleBlogPost not configured for this test")
+    }
+}
+
+#[async_trait]
+impl GetPublicBlogPostUseCase for StubGetPublicBlogPost {
+    async fn execute(&self, _o: UserId, _s: &str) -> Result<BlogPostView, GetBlogPostError> {
+        unimplemented!("StubGetPublicBlogPost not configured for this test")
+    }
+}
+
+#[async_trait]
+impl PatchBlogPostUseCase for StubPatchBlogPost {
+    async fn execute(
+        &self,
+        _o: UserId,
+        _p: Uuid,
+        _d: PatchBlogPostData,
+    ) -> Result<BlogPost, PatchBlogPostError> {
+        unimplemented!("StubPatchBlogPost not configured for this test")
+    }
+}
+
+#[async_trait]
+impl ArchiveBlogPostUseCase for StubArchiveBlogPost {
+    async fn execute(&self, _o: UserId, _p: Uuid) -> Result<(), ArchiveBlogPostError> {
+        unimplemented!("StubArchiveBlogPost not configured for this test")
+    }
+}
+
+#[async_trait]
+impl RestoreBlogPostUseCase for StubRestoreBlogPost {
+    async fn execute(&self, _o: UserId, _p: Uuid) -> Result<(), ArchiveBlogPostError> {
+        unimplemented!("StubRestoreBlogPost not configured for this test")
+    }
+}
+
+#[async_trait]
+impl HardDeleteBlogPostUseCase for StubHardDeleteBlogPost {
+    async fn execute(&self, _o: UserId, _p: Uuid) -> Result<(), ArchiveBlogPostError> {
+        unimplemented!("StubHardDeleteBlogPost not configured for this test")
+    }
+}
+
+#[async_trait]
+impl AttachBlogPostTopicUseCase for StubAttachBlogPostTopic {
+    async fn execute(&self, _o: UserId, _p: Uuid, _t: Uuid) -> Result<(), BlogPostTopicError> {
+        unimplemented!("StubAttachBlogPostTopic not configured for this test")
+    }
+}
+
+#[async_trait]
+impl DetachBlogPostTopicUseCase for StubDetachBlogPostTopic {
+    async fn execute(&self, _o: UserId, _p: Uuid, _t: Uuid) -> Result<(), BlogPostTopicError> {
+        unimplemented!("StubDetachBlogPostTopic not configured for this test")
+    }
+}
+
+#[async_trait]
+impl ClearBlogPostTopicsUseCase for StubClearBlogPostTopics {
+    async fn execute(&self, _o: UserId, _p: Uuid) -> Result<(), BlogPostTopicError> {
+        unimplemented!("StubClearBlogPostTopics not configured for this test")
+    }
+}
+
+#[async_trait]
+impl GetBlogPostTopicsUseCase for StubGetBlogPostTopics {
+    async fn execute(
+        &self,
+        _o: UserId,
+        _p: Uuid,
+    ) -> Result<Vec<BlogPostTopic>, GetBlogPostError> {
+        unimplemented!("StubGetBlogPostTopics not configured for this test")
     }
 }

@@ -50,6 +50,7 @@ use crate::modules::email::application::ports::outgoing::user_email_notifier::Us
 
 use crate::modules::multimedia::application::domain::policies::upload_policy::UploadPolicy;
 use crate::modules::multimedia::application::media_use_cases::MultimediaUseCases;
+use crate::modules::blog::application::blog_use_cases::BlogUseCases;
 use crate::modules::project::application::project_use_cases::ProjectUseCases;
 use crate::modules::topic::application::ports::incoming::use_cases::CreateTopicUseCase;
 use crate::modules::topic::application::ports::incoming::use_cases::GetTopicsUseCase;
@@ -93,6 +94,7 @@ pub struct AppState {
     pub create_topic_use_case: Arc<dyn CreateTopicUseCase + Send + Sync>,
     pub get_topics_use_case: Arc<dyn GetTopicsUseCase + Send + Sync>,
     pub soft_delete_topic_use_case: Arc<dyn SoftDeleteTopicUseCase + Send + Sync>,
+    pub blog: BlogUseCases,
     pub project: ProjectUseCases,
     pub multimedia: MultimediaUseCases,
     pub user_identity_resolver: UserIdentityResolver,
@@ -110,6 +112,19 @@ async fn start() -> std::io::Result<()> {
                 ports::outgoing::token_provider::TokenProvider,
                 services::password::BasicPasswordPolicy, services::FetchUserProfileService,
                 use_cases::refresh_token::RefreshTokenUseCase,
+            },
+        },
+        blog::{
+            adapter::outgoing::{
+                BlogPostArchiverPostgres, BlogPostQueryPostgres, BlogPostRepositoryPostgres,
+                BlogPostTopicRepositoryPostgres,
+            },
+            application::service::{
+                ArchiveBlogPostService, AttachBlogPostTopicService, ClearBlogPostTopicsService,
+                CreateBlogPostService, DetachBlogPostTopicService, GetBlogPostTopicsService,
+                GetBlogPostsService, GetPublicBlogPostService, GetPublicBlogPostsService,
+                GetSingleBlogPostService, HardDeleteBlogPostService, PatchBlogPostService,
+                RestoreBlogPostService,
             },
         },
         cv::{
@@ -306,6 +321,28 @@ async fn start() -> std::io::Result<()> {
     let get_topics_uc = GetTopicsService::new(topic_query.clone());
     let soft_delete_topic_uc = SoftDeleteTopicService::new(topic_query.clone(), topic_repo.clone());
 
+    // Blog use cases, repos and query
+    let blog_repo = BlogPostRepositoryPostgres::new(Arc::clone(&db_arc));
+    let blog_query = BlogPostQueryPostgres::new(Arc::clone(&db_arc));
+    let blog_archiver = BlogPostArchiverPostgres::new(Arc::clone(&db_arc));
+    let blog_topic_repo = BlogPostTopicRepositoryPostgres::new(Arc::clone(&db_arc));
+
+    let blog_use_cases = BlogUseCases {
+        create: Arc::new(CreateBlogPostService::new(blog_repo.clone())),
+        list: Arc::new(GetBlogPostsService::new(blog_query.clone())),
+        list_public: Arc::new(GetPublicBlogPostsService::new(blog_query.clone())),
+        get_single: Arc::new(GetSingleBlogPostService::new(blog_query.clone())),
+        get_public: Arc::new(GetPublicBlogPostService::new(blog_query.clone())),
+        patch: Arc::new(PatchBlogPostService::new(blog_repo)),
+        archive: Arc::new(ArchiveBlogPostService::new(blog_archiver.clone())),
+        restore: Arc::new(RestoreBlogPostService::new(blog_archiver.clone())),
+        hard_delete: Arc::new(HardDeleteBlogPostService::new(blog_archiver)),
+        attach_topic: Arc::new(AttachBlogPostTopicService::new(blog_topic_repo.clone())),
+        detach_topic: Arc::new(DetachBlogPostTopicService::new(blog_topic_repo.clone())),
+        clear_topics: Arc::new(ClearBlogPostTopicsService::new(blog_topic_repo)),
+        get_topics: Arc::new(GetBlogPostTopicsService::new(blog_query)),
+    };
+
     // Project use cases, repos and query
     let project_repo = ProjectRepositoryPostgres::new(Arc::clone(&db_arc));
     let project_topic_repo = ProjectTopicRepositoryPostgres::new(Arc::clone(&db_arc));
@@ -379,6 +416,7 @@ async fn start() -> std::io::Result<()> {
         create_topic_use_case: Arc::new(create_topic_uc),
         get_topics_use_case: Arc::new(get_topics_uc),
         soft_delete_topic_use_case: Arc::new(soft_delete_topic_uc),
+        blog: blog_use_cases,
         project: project_use_cases,
         multimedia: media_use_cases,
         user_identity_resolver: identity_resolver,
@@ -467,6 +505,20 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::project::adapter::incoming::web::routes::get_project_topics_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::remove_project_topic_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::clear_project_topics_handler);
+    // Blog
+    cfg.service(crate::blog::adapter::incoming::web::routes::create_blog_post_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::get_blog_posts_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::get_public_blog_posts_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::get_public_blog_post_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::get_single_blog_post_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::patch_blog_post_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::archive_blog_post_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::restore_blog_post_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::hard_delete_blog_post_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::attach_blog_post_topic_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::detach_blog_post_topic_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::clear_blog_post_topics_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::get_blog_post_topics_handler);
     // Multimedia
     cfg.service(crate::multimedia::adapter::incoming::web::routes::init_upload_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::get_variant_read_url_handler);

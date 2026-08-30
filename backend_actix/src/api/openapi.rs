@@ -1,4 +1,9 @@
 use crate::api::schemas::{ErrorDetail, ErrorResponse, SuccessResponse};
+use crate::blog::adapter::incoming::web::dto::{
+    BlogPostCardResponse, BlogPostDetailResponse, BlogPostResponse, BlogPostTopicRequest,
+    BlogPostTopicResponse, CreateBlogPostRequest, PatchBlogPostRequest,
+};
+use crate::blog::application::ports::outgoing::{BlogPageResult, BlogPostSort};
 use crate::cv::adapter::incoming::web::dto::{
     ContactDetailDto, ContactTypeDto, CoreSkillDto, CvResponse, EducationDto, ExperienceDto,
     HighlightedProjectDto,
@@ -75,6 +80,21 @@ use crate::topic::application::ports::outgoing::TopicResult;
         crate::cv::adapter::incoming::web::routes::hard_delete_cv_handler,
         crate::cv::adapter::incoming::web::routes::soft_delete_cv_handler,
         crate::cv::adapter::incoming::web::routes::restore_cv_handler,
+
+        // Blog endpoints
+        crate::blog::adapter::incoming::web::routes::create_blog_post_handler,
+        crate::blog::adapter::incoming::web::routes::get_blog_posts_handler,
+        crate::blog::adapter::incoming::web::routes::get_single_blog_post_handler,
+        crate::blog::adapter::incoming::web::routes::patch_blog_post_handler,
+        crate::blog::adapter::incoming::web::routes::archive_blog_post_handler,
+        crate::blog::adapter::incoming::web::routes::restore_blog_post_handler,
+        crate::blog::adapter::incoming::web::routes::hard_delete_blog_post_handler,
+        crate::blog::adapter::incoming::web::routes::get_public_blog_posts_handler,
+        crate::blog::adapter::incoming::web::routes::get_public_blog_post_handler,
+        crate::blog::adapter::incoming::web::routes::attach_blog_post_topic_handler,
+        crate::blog::adapter::incoming::web::routes::detach_blog_post_topic_handler,
+        crate::blog::adapter::incoming::web::routes::clear_blog_post_topics_handler,
+        crate::blog::adapter::incoming::web::routes::get_blog_post_topics_handler,
 
         // Project endpoints
         crate::project::adapter::incoming::web::routes::create_project_handler,
@@ -155,6 +175,17 @@ use crate::topic::application::ports::outgoing::TopicResult;
             TopicResponse,
             TopicResult,
 
+            // Blog DTOs
+            BlogPostResponse,
+            BlogPostDetailResponse,
+            BlogPostCardResponse,
+            BlogPostTopicResponse,
+            CreateBlogPostRequest,
+            PatchBlogPostRequest,
+            BlogPostTopicRequest,
+            BlogPostSort,
+            BlogPageResult<BlogPostCardResponse>,
+
             // Project DTOs
             CreateProjectRequest,
             PatchProjectRequest,
@@ -187,6 +218,7 @@ use crate::topic::application::ports::outgoing::TopicResult;
         (name = "auth", description = "Authentication endpoints"),
         (name = "users", description = "User management endpoints"),
         (name = "cvs", description = "CV/Resume management endpoints"),
+        (name = "blog", description = "Blog post authoring and publication"),
         (name = "projects", description = "Project management endpoints"),
         (name = "topics", description = "Topic management endpoints"),
         (name = "media", description = "Media/file management endpoints"),

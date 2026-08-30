@@ -23,7 +23,7 @@ pub struct BlogPostListFilter {
     pub published: Option<bool>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, utoipa::ToSchema)]
 pub enum BlogPostSort {
     Newest,
     Oldest,
@@ -52,11 +52,17 @@ impl Default for BlogPageRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct BlogPageResult<T> {
     pub items: Vec<T>,
+
+    #[schema(example = 1)]
     pub page: u32,
+
+    #[schema(example = 10)]
     pub per_page: u32,
+
+    #[schema(example = 42)]
     pub total: u64,
 }
 
