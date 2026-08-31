@@ -1,0 +1,33 @@
+{
+  // rust-analyzer was analysing this crate with cfg(test) off, which makes every
+  // `#[cfg(test)] mod tests` block inactive. Roughly half this codebase lives in
+  // in-file test modules, so their imports and symbols end up unresolved and are
+  // reported as errors — while `cargo check --workspace --all-targets` is clean.
+  //
+  // Confirmed by running Zed's own rust-analyzer against the project: it emits
+  // 0 errors and 58 warnings, every one of them
+  // `inactive_code: code is inactive due to #[cfg] directives: test is disabled`.
+  //
+  // allTargets makes rust-analyzer include the test target, matching what cargo
+  // actually builds.
+  "lsp": {
+    "rust-analyzer": {
+      "initialization_options": {
+        "cargo": {
+          "allTargets": true
+        },
+        // Left as `check`, not `clippy`: clippy reports 224 style lints on this
+        // codebase, which would bury the warnings that matter.
+        "check": {
+          "command": "check",
+          "allTargets": true
+        },
+        // 167 files use #[async_trait], plus sea-orm and utoipa derives. Without
+        // expansion none of their generated items resolve.
+        "procMacro": {
+          "enable": true
+        }
+      }
+    }
+  }
+}
