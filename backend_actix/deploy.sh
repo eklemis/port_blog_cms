@@ -117,7 +117,29 @@ prompt_nonsecret() {
 # Step 1: Create/update secrets
 # ------------------------------------------------------------
 echo "==> Creating/updating secrets (input hidden)..."
-prompt_secret DATABASE_URL "DATABASE_URL (Neon Postgres)" | create_or_update_secret_from_stdin DATABASE_URL
+
+# prompt_secret silently reuses an ambient environment variable rather than
+# asking. That is convenient for non-interactive runs, but it means a stale
+# DATABASE_URL in the shell — direnv keeps one loaded from .env — is pushed to
+# production's secret without anyone being asked. The rest of the script then
+# migrates and deploys against whatever that was, reporting success throughout.
+#
+# So: show which database is about to become production and require a yes.
+DB_URL_FOR_DEPLOY="$(prompt_secret DATABASE_URL "DATABASE_URL (Neon Postgres)")"
+[[ -n "${DB_URL_FOR_DEPLOY}" ]] || die "DATABASE_URL is empty"
+
+# Host and database only; credentials are never printed.
+DB_TARGET="$(printf '%s' "${DB_URL_FOR_DEPLOY}" \
+  | sed -E 's|^[^:]+://[^@]*@([^/?]+)/([^?]*).*|\1/\2|')"
+
+echo "==> DATABASE_URL points at: ${DB_TARGET}"
+if [[ "${AUTO_MIGRATE:-}" != "1" ]]; then
+  read -p "Is that the correct database for ${SERVICE_NAME}? [y/N]: " confirm_db
+  [[ "${confirm_db}" =~ ^[Yy]$ ]] || die "Aborted. Unset DATABASE_URL or correct .env, then re-run."
+fi
+
+printf '%s' "${DB_URL_FOR_DEPLOY}" | create_or_update_secret_from_stdin DATABASE_URL
+unset DB_URL_FOR_DEPLOY
 prompt_secret REDIS_URL "REDIS_URL (Upstash Redis, usually rediss://...)" | create_or_update_secret_from_stdin REDIS_URL
 prompt_secret JWT_SECRET "JWT_SECRET" | create_or_update_secret_from_stdin JWT_SECRET
 prompt_secret SMTP_PASSWORD "SMTP_PASSWORD" | create_or_update_secret_from_stdin SMTP_PASSWORD
