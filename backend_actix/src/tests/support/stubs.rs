@@ -366,16 +366,6 @@ pub struct StubCreateProjectUseCase {
 }
 
 impl StubCreateProjectUseCase {
-    pub fn success(data: ProjectResult) -> Self {
-        Self { result: Ok(data) }
-    }
-
-    pub fn slug_exists() -> Self {
-        Self {
-            result: Err(CreateProjectError::SlugAlreadyExists),
-        }
-    }
-
     pub fn repo_error(msg: &str) -> Self {
         Self {
             result: Err(CreateProjectError::RepositoryError(msg.to_string())),
@@ -387,16 +377,6 @@ impl StubCreateProjectUseCase {
 impl CreateProjectUseCase for StubCreateProjectUseCase {
     async fn execute(&self, _data: CreateProjectData) -> Result<ProjectResult, CreateProjectError> {
         self.result.clone()
-    }
-}
-
-#[derive(Default, Clone)]
-struct DefaultStubCreateProjectUseCase;
-
-#[async_trait]
-impl CreateProjectUseCase for DefaultStubCreateProjectUseCase {
-    async fn execute(&self, _data: CreateProjectData) -> Result<ProjectResult, CreateProjectError> {
-        unimplemented!("Not used in this test")
     }
 }
 
@@ -433,9 +413,6 @@ impl StubGetSingleProjectUseCase {
         }
     }
 
-    pub fn success(view: ProjectView) -> Self {
-        Self { result: Ok(view) }
-    }
 }
 
 #[async_trait]
@@ -445,41 +422,6 @@ impl GetSingleProjectUseCase for StubGetSingleProjectUseCase {
         _owner: UserId,
         _project_id: Uuid,
     ) -> Result<ProjectView, GetSingleProjectError> {
-        self.result.clone()
-    }
-}
-
-#[derive(Clone)]
-pub struct StubPatchProjectUseCase {
-    result: Result<ProjectResult, PatchProjectError>,
-}
-
-impl StubPatchProjectUseCase {
-    pub fn success(data: ProjectResult) -> Self {
-        Self { result: Ok(data) }
-    }
-
-    pub fn not_found() -> Self {
-        Self {
-            result: Err(PatchProjectError::NotFound),
-        }
-    }
-
-    pub fn repo_error(msg: &str) -> Self {
-        Self {
-            result: Err(PatchProjectError::RepositoryError(msg.to_string())),
-        }
-    }
-}
-
-#[async_trait]
-impl PatchProjectUseCase for StubPatchProjectUseCase {
-    async fn execute(
-        &self,
-        _owner: UserId,
-        _project_id: Uuid,
-        _data: PatchProjectData,
-    ) -> Result<ProjectResult, PatchProjectError> {
         self.result.clone()
     }
 }
@@ -532,17 +474,6 @@ impl StubGetPublicSingleProjectUseCase {
         }
     }
 
-    pub fn success(view: ProjectView) -> Self {
-        Self { result: Ok(view) }
-    }
-
-    pub fn repo_error(msg: &str) -> Self {
-        Self {
-            result: Err(GetPublicSingleProjectError::RepositoryError(
-                msg.to_string(),
-            )),
-        }
-    }
 }
 
 #[async_trait]
@@ -573,21 +504,12 @@ impl GetPublicSingleCvUseCase for StubGetPublicSingleCvUseCase {
 }
 
 impl StubGetPublicSingleCvUseCase {
-    pub fn success(cv: CVInfo) -> Arc<Self> {
-        Arc::new(Self { result: Ok(cv) })
-    }
-
     pub fn not_found() -> Arc<Self> {
         Arc::new(Self {
             result: Err(GetPublicSingleCvError::NotFound),
         })
     }
 
-    pub fn repo_error(msg: &str) -> Arc<Self> {
-        Arc::new(Self {
-            result: Err(GetPublicSingleCvError::RepositoryError(msg.to_string())),
-        })
-    }
 }
 
 #[derive(Clone, Default)]

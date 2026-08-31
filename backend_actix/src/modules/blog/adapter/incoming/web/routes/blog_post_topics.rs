@@ -365,4 +365,119 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
     }
+
+    use crate::blog::application::ports::incoming::use_cases::{
+        ClearBlogPostTopicsUseCase, DetachBlogPostTopicUseCase,
+    };
+
+    struct MockDetach {
+        result: Result<(), BlogPostTopicError>,
+    }
+
+    #[async_trait]
+    impl DetachBlogPostTopicUseCase for MockDetach {
+        async fn execute(&self, _o: UserId, _p: Uuid, _t: Uuid) -> Result<(), BlogPostTopicError> {
+            self.result.clone()
+        }
+    }
+
+    struct MockClear {
+        result: Result<(), BlogPostTopicError>,
+    }
+
+    #[async_trait]
+    impl ClearBlogPostTopicsUseCase for MockClear {
+        async fn execute(&self, _o: UserId, _p: Uuid) -> Result<(), BlogPostTopicError> {
+            self.result.clone()
+        }
+    }
+
+    async fn detach(result: Result<(), BlogPostTopicError>) -> actix_web::dev::ServiceResponse {
+        let (token, provider) = token_and_provider();
+
+        let app = test::init_service(
+            App::new()
+                .app_data(
+                    TestAppStateBuilder::default()
+                        .with_blog_detach_topic(MockDetach { result })
+                        .build(),
+                )
+                .app_data(web::Data::new(provider))
+                .service(detach_blog_post_topic_handler),
+        )
+        .await;
+
+        let req = test::TestRequest::delete()
+            .uri(&format!("/api/blog/{}/topics", Uuid::new_v4()))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .set_json(json!({ "topic_id": Uuid::new_v4() }))
+            .to_request();
+
+        test::call_service(&app, req).await
+    }
+
+    async fn clear(result: Result<(), BlogPostTopicError>) -> actix_web::dev::ServiceResponse {
+        let (token, provider) = token_and_provider();
+
+        let app = test::init_service(
+            App::new()
+                .app_data(
+                    TestAppStateBuilder::default()
+                        .with_blog_clear_topics(MockClear { result })
+                        .build(),
+                )
+                .app_data(web::Data::new(provider))
+                .service(clear_blog_post_topics_handler),
+        )
+        .await;
+
+        let req = test::TestRequest::delete()
+            .uri(&format!("/api/blog/{}/topics/all", Uuid::new_v4()))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+
+        test::call_service(&app, req).await
+    }
+
+    /// Detaching is idempotent at the repository, so the handler returns 204
+    /// whether or not the topic was attached.
+    #[actix_web::test]
+    async fn detaching_returns_no_content() {
+        assert_eq!(detach(Ok(())).await.status(), StatusCode::NO_CONTENT);
+    }
+
+    #[actix_web::test]
+    async fn detaching_from_a_missing_post_is_not_found() {
+        let resp = detach(Err(BlogPostTopicError::PostNotFound)).await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+        let body: Value = test::read_body_json(resp).await;
+        assert_eq!(body["error"]["code"], "POST_NOT_FOUND");
+    }
+
+    #[actix_web::test]
+    async fn detach_surfaces_repository_failures() {
+        let resp = detach(Err(BlogPostTopicError::RepositoryError("db down".into()))).await;
+        assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[actix_web::test]
+    async fn clearing_returns_no_content() {
+        assert_eq!(clear(Ok(())).await.status(), StatusCode::NO_CONTENT);
+    }
+
+    #[actix_web::test]
+    async fn clearing_a_missing_post_is_not_found() {
+        let resp = clear(Err(BlogPostTopicError::PostNotFound)).await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+        let body: Value = test::read_body_json(resp).await;
+        assert_eq!(body["error"]["code"], "POST_NOT_FOUND");
+    }
+
+    #[actix_web::test]
+    async fn clear_surfaces_repository_failures() {
+        let resp = clear(Err(BlogPostTopicError::RepositoryError("db down".into()))).await;
+        assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
 }
