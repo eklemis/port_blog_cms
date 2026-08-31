@@ -59,6 +59,35 @@ through a run.
 | --- | --- | --- | --- |
 | `CORS_ALLOWED_ORIGINS` | no | `http://localhost:5177`, `http://127.0.0.1:5177` | Comma-separated browser origins allowed to call the API. **Set this in production** — the fallback is development-only. |
 | `SKIP_REDIS_TESTS` | no | unset | Set to `1` to skip the Redis integration tests. |
+
+### Rate limiting
+
+The unauthenticated auth endpoints are limited per caller, backed by Redis:
+
+| Endpoint | Limit |
+| --- | --- |
+| `POST /api/auth/login` | 10 / 5 min |
+| `POST /api/auth/register` | 5 / hour |
+| `POST /api/auth/password-reset` | 5 / hour |
+| `POST /api/auth/password-reset/{token}` | 10 / hour |
+| `POST /api/auth/refresh` | 30 / 5 min |
+
+Authenticated routes are not limited: reaching them already requires a
+valid token. The limits are low because each of these costs us an Argon2
+hash, and registration also sends mail — they are a denial-of-service
+lever as much as a credential-guessing one.
+
+Callers are keyed on the left-most `X-Forwarded-For` entry, falling back to
+the peer address. Behind Cloud Run the peer address is the load balancer for
+every request, so keying on it would collapse all clients onto one counter
+and let one busy caller lock out everybody. **This is only sound behind a
+proxy that overwrites the header.** Cloud Run does; a proxy that merely
+appends would let a caller rotate the value for a fresh bucket per request.
+
+If Redis is unreachable the limiter fails open and logs. Refusing every
+login during a cache outage would turn it into a total authentication
+outage; the limiter is a mitigation, not the security boundary.
+
 | `PASSWORD_RESET_HANDLER_URL` | no | `0.0.0.0:5177/password-reset` | Frontend route the emailed reset link points at. The token is appended as a path segment. |
 | `JWT_PASSWORD_RESET_EXPIRY` | no | `3600` | Reset-token lifetime in seconds. Shorter than verification on purpose — the link is a live credential for the account. |
 

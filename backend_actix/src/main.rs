@@ -59,6 +59,7 @@ use crate::modules::topic::application::ports::incoming::use_cases::CreateTopicU
 use crate::modules::topic::application::ports::incoming::use_cases::GetTopicsUseCase;
 use crate::modules::topic::application::ports::incoming::use_cases::SoftDeleteTopicUseCase;
 use crate::shared::api::{build_cors, custom_json_config};
+use crate::shared::rate_limit::{RateLimit, RateLimitStore, RedisRateLimitStore};
 
 use actix_web::{middleware::Logger, web, App, HttpServer};
 use deadpool_redis::{Config, Runtime};
@@ -451,6 +452,9 @@ async fn start() -> std::io::Result<()> {
         multimedia_upload_policy: image_upload_policy,
     };
 
+    let rate_limit_store: Arc<dyn RateLimitStore> =
+        Arc::new(RedisRateLimitStore::new(Arc::clone(&redis_arc)));
+
     let token_provider_arc: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service);
     // Clone db_arc for use in HttpServer closure
     let db_for_server = Arc::clone(&db_arc);
@@ -467,6 +471,9 @@ async fn start() -> std::io::Result<()> {
             // CORS preflight requests that never reach a handler.
             .wrap(Logger::default())
             .wrap(build_cors())
+            // Inside CORS, so a rejected preflight never consumes quota, and a
+            // 429 still carries the headers a browser needs to read it.
+            .wrap(RateLimit::new(Arc::clone(&rate_limit_store)))
             .app_data(web::Data::new(state.clone()))
             .app_data(web::Data::new(Arc::clone(&token_provider_arc)))
             .app_data(web::Data::new(Arc::clone(&db_for_server)))
