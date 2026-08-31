@@ -306,4 +306,62 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), LogoutError::DatabaseError(_)));
     }
+
+    // ------------------------------------------------------------------
+    // Request deserialisation and error display
+    // ------------------------------------------------------------------
+
+    /// LogoutRequest has a hand-written Deserialize so construction goes
+    /// through `new`, keeping any future validation on the wire path rather
+    /// than only on the constructor.
+    #[test]
+    fn a_logout_body_may_omit_the_refresh_token() {
+        let r: LogoutRequest = serde_json::from_str("{}").unwrap();
+        assert_eq!(r.refresh_token(), None);
+    }
+
+    #[test]
+    fn a_logout_body_may_carry_a_refresh_token() {
+        let r: LogoutRequest = serde_json::from_str(r#"{"refresh_token":"tok"}"#).unwrap();
+        assert_eq!(r.refresh_token(), Some("tok"));
+    }
+
+    #[test]
+    fn an_explicit_null_refresh_token_is_accepted_as_absent() {
+        let r: LogoutRequest = serde_json::from_str(r#"{"refresh_token":null}"#).unwrap();
+        assert_eq!(r.refresh_token(), None);
+    }
+
+    /// These strings reach clients in error bodies and logs.
+    ///
+    /// `LogoutRequestError` is deliberately absent: it is an enum with no
+    /// variants ("For future validation"), so it cannot be constructed and its
+    /// Display impl is unreachable. Those lines stay uncovered by construction,
+    /// not for want of a test.
+    #[test]
+    fn logout_errors_render_their_cause() {
+        assert_eq!(
+            LogoutError::TokenRevocationFailed("redis down".into()).to_string(),
+            "Token revocation failed: redis down"
+        );
+        assert_eq!(
+            LogoutError::DatabaseError("db down".into()).to_string(),
+            "Database error: db down"
+        );
+    }
+
+    /// A database failure keeps its own variant; anything else collapses into
+    /// TokenRevocationFailed, so the caller still learns the logout did not
+    /// take effect rather than seeing a generic success.
+    #[test]
+    fn token_repository_errors_map_by_kind() {
+        assert!(matches!(
+            LogoutError::from(TokenRepositoryError::DatabaseError("db".into())),
+            LogoutError::DatabaseError(m) if m == "db"
+        ));
+        assert!(matches!(
+            LogoutError::from(TokenRepositoryError::TokenNotFound),
+            LogoutError::TokenRevocationFailed(_)
+        ));
+    }
 }

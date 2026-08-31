@@ -763,4 +763,112 @@ mod tests {
         let key = make_object_key(id, "../escape.png").unwrap();
         assert_eq!(key, format!("{id}/../escape.png"));
     }
+
+    // ------------------------------------------------------------------
+    // Accessors and remaining branches
+    // ------------------------------------------------------------------
+
+    /// The command's fields are private, so these accessors are the only way a
+    /// service reads it — `to_new_media` and the object-key builder both go
+    /// through them.
+    #[test]
+    fn media_command_accessors_expose_every_field() {
+        let owner = UserId::from(Uuid::new_v4());
+        let cmd = CreateMediaCommand::builder()
+            .owner(owner)
+            .file_name("photo.webp".to_string())
+            .mime_type("image/webp".to_string())
+            .file_size_bytes(2048)
+            .width_px(Some(640))
+            .height_px(Some(480))
+            .duration_seconds(Some(7))
+            .build(&policy())
+            .unwrap();
+
+        assert_eq!(cmd.owner(), &owner);
+        assert_eq!(cmd.original_name(), "photo.webp");
+        assert_eq!(cmd.mime_type(), "image/webp");
+        assert_eq!(cmd.file_size_bytes(), 2048);
+        assert_eq!(cmd.width_px(), Some(640));
+        assert_eq!(cmd.height_px(), Some(480));
+        assert_eq!(cmd.duration_seconds(), Some(7));
+    }
+
+    /// webp is the format the processing pipeline emits, so its mime/extension
+    /// pairing is the one most likely to be exercised in production.
+    #[test]
+    fn webp_is_accepted_and_mismatches_against_it_are_caught() {
+        assert!(valid_builder()
+            .file_name("photo.webp".to_string())
+            .mime_type("image/webp".to_string())
+            .build(&policy())
+            .is_ok());
+
+        // png bytes claimed as webp
+        assert!(matches!(
+            valid_builder()
+                .file_name("photo.png".to_string())
+                .mime_type("image/webp".to_string())
+                .build(&policy())
+                .unwrap_err(),
+            UploadUrlCommandError::MimeExtensionMismatch { .. }
+        ));
+    }
+
+    /// A mime outside the allowlist is rejected before the pairing check, so
+    /// the `_ => false` arm is only reachable if the allowlist and the pairing
+    /// table ever disagree. Covering it keeps that arm honest.
+    #[test]
+    fn an_unpaired_mime_type_is_rejected() {
+        let mut policy = policy();
+        // Widen the allowlist without teaching the pairing table about it.
+        policy.allowed_mime_types = &["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+        let err = valid_builder()
+            .file_name("photo.png".to_string())
+            .mime_type("image/gif".to_string())
+            .build(&policy)
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            UploadUrlCommandError::MimeExtensionMismatch { .. }
+        ));
+    }
+
+    // ------------------------------------------------------------------
+    // Attachment command
+    // ------------------------------------------------------------------
+
+    fn valid_attachment() -> CreateAttachmentCommand {
+        CreateAttachmentCommand::builder()
+            .owner(UserId::from(Uuid::new_v4()))
+            .attachment_target(AttachmentTarget::BlogPost)
+            .attachment_target_id(Uuid::new_v4())
+            .role(MediaRole::Cover)
+            .position(2)
+            .alt_text("alt".to_string())
+            .caption("cap".to_string())
+            .build()
+            .unwrap()
+    }
+
+    #[test]
+    fn attachment_command_accessors_expose_every_field() {
+        let cmd = valid_attachment();
+        assert_eq!(cmd.attachment_target(), &AttachmentTarget::BlogPost);
+        assert_eq!(cmd.role(), &MediaRole::Cover);
+        assert_eq!(cmd.position(), 2);
+        assert_eq!(cmd.alt_text(), Some("alt"));
+        assert_eq!(cmd.caption(), Some("cap"));
+        assert!(!cmd.attachment_target_id().is_nil());
+    }
+
+    #[test]
+    fn attachment_command_reports_its_missing_fields() {
+        assert!(matches!(
+            CreateAttachmentCommand::builder().build().unwrap_err(),
+            UploadUrlCommandError::MissingField(_)
+        ));
+    }
 }
