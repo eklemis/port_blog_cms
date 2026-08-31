@@ -88,6 +88,7 @@ impl UserRepository for UserRepositoryPostgres {
     async fn delete_user(&self, user_id: Uuid) -> Result<(), UserRepositoryError> {
         #[derive(FromQueryResult)]
         struct DeleteResult {
+            #[allow(dead_code)] // presence of the row is the signal, not its value
             id: Uuid,
         }
 
@@ -109,6 +110,7 @@ impl UserRepository for UserRepositoryPostgres {
     async fn soft_delete_user(&self, user_id: Uuid) -> Result<(), UserRepositoryError> {
         #[derive(FromQueryResult)]
         struct UpdateResult {
+            #[allow(dead_code)] // presence of the row is the signal, not its value
             id: Uuid,
         }
 

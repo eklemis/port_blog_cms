@@ -22,8 +22,12 @@ impl CVArchiverPostgres {
 #[async_trait]
 impl CVArchiver for CVArchiverPostgres {
     async fn soft_delete(&self, cv_id: Uuid) -> Result<(), CVArchiverError> {
+        // `id` is never read: the query uses RETURNING id and the presence of a
+        // row is the signal. The field still has to exist for FromQueryResult
+        // to deserialise into.
         #[derive(FromQueryResult)]
         struct IdResult {
+            #[allow(dead_code)]
             id: Uuid,
         }
 
@@ -51,8 +55,12 @@ impl CVArchiver for CVArchiverPostgres {
     }
 
     async fn hard_delete(&self, cv_id: Uuid) -> Result<(), CVArchiverError> {
+        // `id` is never read: the query uses RETURNING id and the presence of a
+        // row is the signal. The field still has to exist for FromQueryResult
+        // to deserialise into.
         #[derive(FromQueryResult)]
         struct IdResult {
+            #[allow(dead_code)]
             id: Uuid,
         }
 
@@ -101,6 +109,7 @@ impl CVArchiverPostgres {
     async fn cv_exists(&self, cv_id: Uuid) -> Result<bool, CVArchiverError> {
         #[derive(FromQueryResult)]
         struct ExistsResult {
+            #[allow(dead_code)] // presence of the row is the signal, not its value
             id: Uuid,
         }
 

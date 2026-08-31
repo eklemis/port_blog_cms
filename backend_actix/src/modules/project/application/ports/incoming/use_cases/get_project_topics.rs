@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use serde::Serialize;
 use uuid::Uuid;
 
 use crate::auth::application::domain::entities::UserId;
@@ -11,13 +10,6 @@ use crate::project::application::ports::outgoing::project_query::ProjectTopicIte
 // Output DTO
 // ──────────────────────────────────────────────────────────
 //
-
-#[derive(Debug, Clone, Serialize)]
-pub struct ProjectTopicView {
-    pub id: Uuid,
-    pub title: String,
-    pub description: String,
-}
 
 //
 // ──────────────────────────────────────────────────────────
