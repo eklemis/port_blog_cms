@@ -118,8 +118,18 @@ fn validate_mime_ext_match(mime: &str, ext: &str) -> Result<(), UploadUrlCommand
     Ok(())
 }
 
-/// Helper for service: safe object key generation.
-/// Strategy: `<media_id>.<ext>` (no user-controlled path segments)
+/// Builds the storage object key for a media item.
+///
+/// Produces `<media_id>/<original_name>`.
+///
+/// Validates the extension only. The name is interpolated as given, so this
+/// does NOT by itself prevent a path segment: `"../escape.png"` yields
+/// `<media_id>/../escape.png`. It is safe in practice because its only caller
+/// passes a name already through `sanitize_basename`, which rejects anything
+/// path-like — a second caller would have to do the same.
+///
+/// The previous comment claimed `<media_id>.<ext>` and "no user-controlled path
+/// segments". Neither matched the implementation.
 pub fn make_object_key(
     media_id: Uuid,
     original_name: &str,
