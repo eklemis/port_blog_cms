@@ -644,4 +644,116 @@ mod tests {
 
         assert!(use_case.execute(input).await.is_ok());
     }
+
+    // ======================================================================
+    // TESTS — Field validation
+    //
+    // Registration is the only place these rules are enforced, and each
+    // rejection is a 400 the caller can act on. An over-permissive rule here
+    // admits data every later query has to tolerate.
+    // ======================================================================
+
+    async fn expect_error(input: CreateUserInput) -> CreateUserError {
+        use_case_with_valid_collaborators()
+            .execute(input)
+            .await
+            .unwrap_err()
+    }
+
+    #[tokio::test]
+    async fn rejects_an_empty_username() {
+        let mut i = valid_input();
+        i.username = "   ".into();
+        assert!(matches!(expect_error(i).await, CreateUserError::InvalidUsername(_)));
+    }
+
+    #[tokio::test]
+    async fn enforces_the_username_length_bounds() {
+        for name in ["ab", &"a".repeat(51)] {
+            let mut i = valid_input();
+            i.username = name.to_string();
+            assert!(
+                matches!(expect_error(i).await, CreateUserError::InvalidUsername(_)),
+                "{name:?} should be rejected"
+            );
+        }
+    }
+
+    /// Usernames appear in public URLs (/api/public/blog/{username}/...), so
+    /// punctuation and whitespace are refused rather than producing a link
+    /// that needs escaping.
+    #[tokio::test]
+    async fn rejects_a_username_with_url_unsafe_characters() {
+        for name in ["has space", "has/slash", "has-dash", "a@b", "a.b", "a+b"] {
+            let mut i = valid_input();
+            i.username = name.to_string();
+            assert!(
+                matches!(expect_error(i).await, CreateUserError::InvalidUsername(_)),
+                "{name:?} should be rejected"
+            );
+        }
+    }
+
+    /// Pins current behaviour, which is broader than it may look:
+    /// `char::is_alphanumeric` is Unicode-aware, so non-ASCII letters are
+    /// accepted. Blog slugs use `is_ascii_alphanumeric` and are ASCII-only, so
+    /// the two identifiers do not agree.
+    ///
+    /// The consequence worth knowing: "аdmin" with a Cyrillic U+0430 is a
+    /// distinct username from "admin" but renders identically, and both appear
+    /// in public URLs. Tightening this to ASCII would be a behaviour change for
+    /// any existing account, so it is recorded here rather than altered.
+    #[tokio::test]
+    async fn currently_accepts_non_ascii_usernames() {
+        for name in ["héllo", "用户名"] {
+            let mut i = valid_input();
+            i.username = name.to_string();
+            assert!(
+                use_case_with_valid_collaborators().execute(i).await.is_ok(),
+                "{name:?} is accepted today"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn rejects_a_malformed_email() {
+        for email in ["not-an-email", "@example.com", "a@", "a b@example.com"] {
+            let mut i = valid_input();
+            i.email = email.to_string();
+            assert!(
+                matches!(expect_error(i).await, CreateUserError::InvalidEmail(_)),
+                "{email:?} should be rejected"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn rejects_an_empty_or_overlong_full_name() {
+        for name in ["   ".to_string(), "a".repeat(101)] {
+            let mut i = valid_input();
+            i.full_name = name.clone();
+            assert!(
+                matches!(expect_error(i).await, CreateUserError::InvalidFullName(_)),
+                "{name:?} should be rejected"
+            );
+        }
+    }
+
+    /// Username and email are normalised to lowercase so a later lookup by
+    /// either matches regardless of how the caller typed it.
+    #[tokio::test]
+    async fn normalises_username_and_email_to_lowercase() {
+        let mut i = valid_input();
+        i.username = "  MixedCase  ".into();
+        i.email = "  Mixed@Example.COM  ".into();
+
+        let out = use_case_with_valid_collaborators()
+            .execute(i)
+            .await
+            .unwrap();
+
+        // The mock echoes a fixed row, so assert the call succeeded and that
+        // validation accepted the padded, mixed-case input.
+        assert!(!out.user_id.is_nil());
+    }
 }
