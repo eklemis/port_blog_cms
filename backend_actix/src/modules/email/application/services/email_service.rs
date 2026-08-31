@@ -130,3 +130,231 @@ where
             .map_err(|e| UserEmailNotificationError::EmailSendingFailed(e.to_string()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::auth::application::ports::outgoing::token_provider::{TokenClaims, TokenError};
+    use async_trait::async_trait;
+    use std::sync::Mutex;
+    use uuid::Uuid;
+
+    struct StubTokens {
+        verification: Result<String, TokenError>,
+    }
+
+    impl TokenProvider for StubTokens {
+        fn generate_access_token(&self, _u: Uuid, _v: bool) -> Result<String, TokenError> {
+            unimplemented!()
+        }
+        fn generate_refresh_token(&self, _u: Uuid, _v: bool) -> Result<String, TokenError> {
+            unimplemented!()
+        }
+        fn verify_token(&self, _t: &str) -> Result<TokenClaims, TokenError> {
+            unimplemented!()
+        }
+        fn refresh_access_token(&self, _t: &str) -> Result<String, TokenError> {
+            unimplemented!()
+        }
+        fn generate_verification_token(&self, _u: Uuid) -> Result<String, TokenError> {
+            match &self.verification {
+                Ok(t) => Ok(t.clone()),
+                Err(_) => Err(TokenError::MalformedToken),
+            }
+        }
+        fn verify_verification_token(&self, _t: &str) -> Result<Uuid, TokenError> {
+            unimplemented!()
+        }
+        fn generate_password_reset_token(&self, _u: Uuid) -> Result<String, TokenError> {
+            unimplemented!()
+        }
+        fn verify_password_reset_token(&self, _t: &str) -> Result<Uuid, TokenError> {
+            unimplemented!()
+        }
+    }
+
+    #[derive(Default)]
+    struct SpySender {
+        sent: Mutex<Vec<(String, String, String)>>,
+        fail: bool,
+    }
+
+    #[async_trait]
+    impl EmailSender for SpySender {
+        async fn send_email(&self, to: &str, subject: &str, body: &str) -> Result<(), String> {
+            self.sent.lock().unwrap().push((
+                to.to_string(),
+                subject.to_string(),
+                body.to_string(),
+            ));
+            if self.fail {
+                return Err("smtp refused".to_string());
+            }
+            Ok(())
+        }
+    }
+
+    fn service(
+        tokens: StubTokens,
+        sender: SpySender,
+    ) -> UserEmailService<StubTokens, SpySender> {
+        UserEmailService::new(
+            tokens,
+            sender,
+            "https://app.example.com/verify".to_string(),
+            "https://app.example.com/reset".to_string(),
+        )
+    }
+
+    fn a_user() -> CreateUserOutput {
+        CreateUserOutput {
+            user_id: Uuid::new_v4(),
+            email: "john@example.com".to_string(),
+            username: "john".to_string(),
+            full_name: "John Doe".to_string(),
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Verification email
+    // ------------------------------------------------------------------
+
+    /// The link must be app_url + token and nothing else. 7658849 changed this
+    /// from an API path to a frontend handler path, so the shape is load-bearing
+    /// and worth pinning.
+    #[tokio::test]
+    async fn verification_email_links_to_the_configured_handler() {
+        let svc = service(
+            StubTokens {
+                verification: Ok("tok-123".into()),
+            },
+            SpySender::default(),
+        );
+
+        svc.send_verification_email(a_user()).await.unwrap();
+
+        let sent = svc.email_sender.sent.lock().unwrap();
+        let (to, subject, body) = &sent[0];
+        assert_eq!(to, "john@example.com");
+        assert_eq!(subject, "Verify Your Email");
+        assert!(
+            body.contains("https://app.example.com/verify/tok-123"),
+            "body did not carry the expected link: {body}"
+        );
+        assert!(body.contains("john"), "greeting should name the user");
+    }
+
+    #[tokio::test]
+    async fn verification_email_reports_a_token_failure() {
+        let svc = service(
+            StubTokens {
+                verification: Err(TokenError::MalformedToken),
+            },
+            SpySender::default(),
+        );
+
+        let err = svc.send_verification_email(a_user()).await.unwrap_err();
+        assert!(matches!(
+            err,
+            UserEmailNotificationError::TokenGenerationFailed(_)
+        ));
+
+        // Nothing is sent when the token could not be minted.
+        assert!(svc.email_sender.sent.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn verification_email_reports_a_delivery_failure() {
+        let svc = service(
+            StubTokens {
+                verification: Ok("tok-123".into()),
+            },
+            SpySender {
+                fail: true,
+                ..Default::default()
+            },
+        );
+
+        let err = svc.send_verification_email(a_user()).await.unwrap_err();
+        assert!(matches!(
+            err,
+            UserEmailNotificationError::EmailSendingFailed(m) if m.contains("smtp refused")
+        ));
+    }
+
+    // ------------------------------------------------------------------
+    // Password reset email
+    // ------------------------------------------------------------------
+
+    /// reset_url is a separate field from app_url so the two links can move
+    /// independently; this asserts the reset mail uses the reset one.
+    #[tokio::test]
+    async fn reset_email_uses_the_reset_url_not_the_verification_url() {
+        let svc = service(
+            StubTokens {
+                verification: Ok("unused".into()),
+            },
+            SpySender::default(),
+        );
+
+        svc.send_password_reset_email("jane@example.com", "jane", "reset-tok")
+            .await
+            .unwrap();
+
+        let sent = svc.email_sender.sent.lock().unwrap();
+        let (to, subject, body) = &sent[0];
+        assert_eq!(to, "jane@example.com");
+        assert_eq!(subject, "Reset Your Password");
+        assert!(
+            body.contains("https://app.example.com/reset/reset-tok"),
+            "body did not carry the reset link: {body}"
+        );
+        assert!(
+            !body.contains("/verify/"),
+            "reset mail must not point at the verification handler: {body}"
+        );
+    }
+
+    /// The copy tells a recipient who did not request it that ignoring the mail
+    /// is safe. That matters because the endpoint mails anyone whose address is
+    /// entered, so uninvolved people receive it.
+    #[tokio::test]
+    async fn reset_email_tells_an_unintended_recipient_to_ignore_it() {
+        let svc = service(
+            StubTokens {
+                verification: Ok("unused".into()),
+            },
+            SpySender::default(),
+        );
+
+        svc.send_password_reset_email("jane@example.com", "jane", "reset-tok")
+            .await
+            .unwrap();
+
+        let sent = svc.email_sender.sent.lock().unwrap();
+        assert!(sent[0].2.contains("ignore this email"));
+    }
+
+    #[tokio::test]
+    async fn reset_email_reports_a_delivery_failure() {
+        let svc = service(
+            StubTokens {
+                verification: Ok("unused".into()),
+            },
+            SpySender {
+                fail: true,
+                ..Default::default()
+            },
+        );
+
+        let err = svc
+            .send_password_reset_email("jane@example.com", "jane", "t")
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            UserEmailNotificationError::EmailSendingFailed(m) if m.contains("smtp refused")
+        ));
+    }
+}
