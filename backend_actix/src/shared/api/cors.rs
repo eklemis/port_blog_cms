@@ -6,7 +6,7 @@ use actix_web::http::header;
 /// Deliberately a short localhost list rather than "allow anything": a wildcard
 /// origin cannot be combined with credentialed requests, and silently allowing
 /// every origin in production is worse than a loud CORS failure in development.
-pub const DEFAULT_DEV_ORIGINS: &[&str] = &["http://localhost:5177", "http://127.0.0.1:5177"];
+pub const DEFAULT_DEV_ORIGINS: &[&str] = &["http://localhost:5173", "http://127.0.0.1:5173"];
 
 /// Parses the comma-separated `CORS_ALLOWED_ORIGINS` value.
 ///

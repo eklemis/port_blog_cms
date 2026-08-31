@@ -57,7 +57,7 @@ through a run.
 
 | Variable | Required | Default | Purpose |
 | --- | --- | --- | --- |
-| `CORS_ALLOWED_ORIGINS` | no | `http://localhost:5177`, `http://127.0.0.1:5177` | Comma-separated browser origins allowed to call the API. **Set this in production** — the fallback is development-only. |
+| `CORS_ALLOWED_ORIGINS` | no | `http://localhost:5173`, `http://127.0.0.1:5173` | Comma-separated browser origins allowed to call the API. **Set this in production** — the fallback is development-only. |
 | `SKIP_REDIS_TESTS` | no | unset | Set to `1` to skip the Redis integration tests. |
 
 ### Rate limiting
@@ -88,7 +88,7 @@ If Redis is unreachable the limiter fails open and logs. Refusing every
 login during a cache outage would turn it into a total authentication
 outage; the limiter is a mitigation, not the security boundary.
 
-| `PASSWORD_RESET_HANDLER_URL` | no | `0.0.0.0:5177/password-reset` | Frontend route the emailed reset link points at. The token is appended as a path segment. |
+| `PASSWORD_RESET_HANDLER_URL` | no | `0.0.0.0:5173/password-reset` | Frontend route the emailed reset link points at. The token is appended as a path segment. |
 | `JWT_PASSWORD_RESET_EXPIRY` | no | `3600` | Reset-token lifetime in seconds. Shorter than verification on purpose — the link is a live credential for the account. |
 
 ## Run server with `test-helpers` flag and release version

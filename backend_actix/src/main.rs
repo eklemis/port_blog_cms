@@ -276,9 +276,9 @@ async fn start() -> std::io::Result<()> {
     let jwt_service = JwtTokenService::new(JwtConfig::from_env());
 
     let verification_handler_url = env::var("VERIFICATION_HANDLER_URL")
-        .unwrap_or_else(|_| "0.0.0.0:5177/email/verification".to_string());
+        .unwrap_or_else(|_| "0.0.0.0:5173/email/verification".to_string());
     let password_reset_handler_url = env::var("PASSWORD_RESET_HANDLER_URL")
-        .unwrap_or_else(|_| "0.0.0.0:5177/password-reset".to_string());
+        .unwrap_or_else(|_| "0.0.0.0:5173/password-reset".to_string());
 
     let user_email_service = UserEmailService::new(
         jwt_service.clone(),
