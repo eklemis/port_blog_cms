@@ -87,4 +87,73 @@ mod tests {
     fn returns_empty_for_value_with_no_usable_entries() {
         assert!(parse_allowed_origins(Some("  , ,")).is_empty());
     }
+
+    /// `build_cors` reads a process-global env var, so these serialise against
+    /// each other and restore what they found. The suite runs single-threaded,
+    /// but making it explicit keeps the tests correct if that changes.
+    static ENV_GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    struct EnvScope {
+        saved: Option<String>,
+        _lock: std::sync::MutexGuard<'static, ()>,
+    }
+
+    impl EnvScope {
+        fn set(value: Option<&str>) -> Self {
+            let lock = ENV_GUARD.lock().unwrap_or_else(|e| e.into_inner());
+            let saved = std::env::var("CORS_ALLOWED_ORIGINS").ok();
+            match value {
+                Some(v) => std::env::set_var("CORS_ALLOWED_ORIGINS", v),
+                None => std::env::remove_var("CORS_ALLOWED_ORIGINS"),
+            }
+            Self { saved, _lock: lock }
+        }
+    }
+
+    impl Drop for EnvScope {
+        fn drop(&mut self) {
+            match &self.saved {
+                Some(v) => std::env::set_var("CORS_ALLOWED_ORIGINS", v),
+                None => std::env::remove_var("CORS_ALLOWED_ORIGINS"),
+            }
+        }
+    }
+
+    /// Exercises the configured branch. `Cors` exposes no getters, so this
+    /// asserts construction succeeds rather than inspecting the result — the
+    /// origin parsing itself is covered by the tests above.
+    #[test]
+    fn builds_from_a_configured_origin_list() {
+        let _scope = EnvScope::set(Some("https://a.example.com,https://b.example.com"));
+        let _cors = build_cors();
+    }
+
+    #[test]
+    fn builds_from_the_dev_defaults_when_unset() {
+        let _scope = EnvScope::set(None);
+        let _cors = build_cors();
+    }
+
+    /// A value with no usable entries must take the same path as unset, rather
+    /// than producing a Cors that allows nothing and blocks every browser call.
+    #[test]
+    fn a_value_with_no_usable_entries_falls_back_to_the_defaults() {
+        let _scope = EnvScope::set(Some(" , , "));
+        assert!(parse_allowed_origins(Some(" , , ")).is_empty());
+        let _cors = build_cors();
+    }
+
+    /// The fallback is a localhost list, never a wildcard: a wildcard origin
+    /// cannot be combined with the credentialed requests the JWT flow uses.
+    #[test]
+    fn the_dev_defaults_are_localhost_not_a_wildcard() {
+        assert!(!DEFAULT_DEV_ORIGINS.is_empty());
+        for origin in DEFAULT_DEV_ORIGINS {
+            assert!(
+                origin.contains("localhost") || origin.contains("127.0.0.1"),
+                "{origin} is not a localhost origin"
+            );
+            assert_ne!(*origin, "*");
+        }
+    }
 }

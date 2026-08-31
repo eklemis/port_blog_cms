@@ -470,4 +470,256 @@ mod tests {
         assert!(sql.contains("hello"), "slug should be normalised: {sql}");
         assert!(!sql.contains("HeLLo"), "raw slug should not be queried: {sql}");
     }
+
+    fn topic_row(title: &str) -> BTreeMap<String, Value> {
+        let mut m = BTreeMap::new();
+        m.insert("id".into(), Value::Uuid(Some(Box::new(Uuid::new_v4()))));
+        m.insert("title".into(), Value::String(Some(Box::new(title.into()))));
+        m.insert(
+            "description".into(),
+            Value::String(Some(Box::new("desc".into()))),
+        );
+        m
+    }
+
+    /// `description` is nullable in the topics table, so the row type reads it
+    /// as an Option. A NULL must surface as an empty string, not a
+    /// deserialisation failure.
+    fn topic_row_without_description() -> BTreeMap<String, Value> {
+        let mut m = BTreeMap::new();
+        m.insert("id".into(), Value::Uuid(Some(Box::new(Uuid::new_v4()))));
+        m.insert("title".into(), Value::String(Some(Box::new("Rust".into()))));
+        m.insert("description".into(), Value::String(None));
+        m
+    }
+
+    #[tokio::test]
+    async fn get_by_id_returns_the_post_with_its_topics() {
+        let user_id = Uuid::new_v4();
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![model(user_id, None)]])
+            .append_query_results(vec![vec![topic_row("Rust"), topic_row("Actix")]])
+            .into_connection();
+
+        let view = query(db)
+            .get_by_id(UserId::from(user_id), Uuid::new_v4())
+            .await
+            .unwrap();
+
+        assert_eq!(view.post.slug, "hello");
+        assert_eq!(view.topics.len(), 2);
+        assert_eq!(view.topics[0].title, "Rust");
+    }
+
+    #[tokio::test]
+    async fn a_topic_with_no_description_reads_as_empty_rather_than_failing() {
+        let user_id = Uuid::new_v4();
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![model(user_id, None)]])
+            .append_query_results(vec![vec![topic_row_without_description()]])
+            .into_connection();
+
+        let view = query(db)
+            .get_by_id(UserId::from(user_id), Uuid::new_v4())
+            .await
+            .unwrap();
+
+        assert_eq!(view.topics[0].description, "");
+    }
+
+    #[tokio::test]
+    async fn get_published_by_slug_returns_a_published_post() {
+        let user_id = Uuid::new_v4();
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![model(user_id, Some(Utc::now()))]])
+            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
+            .into_connection();
+
+        let view = query(db)
+            .get_published_by_slug(UserId::from(user_id), "hello")
+            .await
+            .unwrap();
+
+        assert!(view.post.published_at.is_some());
+        assert!(view.topics.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_topics_returns_the_attached_topics() {
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![topic_row("Rust")]])
+            .into_connection();
+
+        let topics = query(db).get_topics(Uuid::new_v4()).await.unwrap();
+        assert_eq!(topics.len(), 1);
+        assert_eq!(topics[0].title, "Rust");
+    }
+
+    /// A blank or whitespace-only search must not become a `LIKE '%%'` filter,
+    /// which would be a no-op clause on every listing query.
+    #[tokio::test]
+    async fn a_blank_search_term_is_ignored() {
+        let user_id = Uuid::new_v4();
+        let conn = Arc::new(
+            MockDatabase::new(DatabaseBackend::Postgres)
+                .append_query_results(vec![vec![count_row(0)]])
+                .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
+                .into_connection(),
+        );
+
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
+        q.list_by_owner(
+            UserId::from(user_id),
+            BlogPostListFilter {
+                search: Some("   ".into()),
+                ..Default::default()
+            },
+            BlogPostSort::Newest,
+            BlogPageRequest::default(),
+        )
+        .await
+        .unwrap();
+        drop(q);
+
+        let sql = format!("{:?}", Arc::try_unwrap(conn).expect("sole owner").into_transaction_log())
+            .replace("\\\"", "\"");
+        assert!(!sql.contains("LIKE"), "blank search should add no clause: {sql}");
+    }
+
+    #[tokio::test]
+    async fn a_search_term_filters_on_title_and_excerpt() {
+        let user_id = Uuid::new_v4();
+        let conn = Arc::new(
+            MockDatabase::new(DatabaseBackend::Postgres)
+                .append_query_results(vec![vec![count_row(0)]])
+                .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
+                .into_connection(),
+        );
+
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
+        q.list_by_owner(
+            UserId::from(user_id),
+            BlogPostListFilter {
+                search: Some("  rust  ".into()),
+                ..Default::default()
+            },
+            BlogPostSort::Newest,
+            BlogPageRequest::default(),
+        )
+        .await
+        .unwrap();
+        drop(q);
+
+        let sql = format!("{:?}", Arc::try_unwrap(conn).expect("sole owner").into_transaction_log())
+            .replace("\\\"", "\"");
+        assert!(sql.contains("LIKE"));
+        // Trimmed before being wrapped in wildcards.
+        assert!(sql.contains("%rust%"), "{sql}");
+        assert!(sql.contains("title") && sql.contains("excerpt"));
+    }
+
+    #[tokio::test]
+    async fn a_topic_filter_joins_the_link_table() {
+        let user_id = Uuid::new_v4();
+        let conn = Arc::new(
+            MockDatabase::new(DatabaseBackend::Postgres)
+                .append_query_results(vec![vec![count_row(0)]])
+                .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
+                .into_connection(),
+        );
+
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
+        q.list_by_owner(
+            UserId::from(user_id),
+            BlogPostListFilter {
+                topic_id: Some(Uuid::new_v4()),
+                ..Default::default()
+            },
+            BlogPostSort::Newest,
+            BlogPageRequest::default(),
+        )
+        .await
+        .unwrap();
+        drop(q);
+
+        let sql = format!("{:?}", Arc::try_unwrap(conn).expect("sole owner").into_transaction_log())
+            .replace("\\\"", "\"");
+        assert!(sql.contains("blog_post_topics"), "{sql}");
+    }
+
+    /// Each sort maps to a distinct ORDER BY. Getting one wrong silently
+    /// reorders a public index, which no other test would notice.
+    #[tokio::test]
+    async fn every_sort_variant_maps_to_its_column() {
+        for (sort, col, dir) in [
+            (BlogPostSort::Newest, "created_at", "DESC"),
+            (BlogPostSort::Oldest, "created_at", "ASC"),
+            (BlogPostSort::RecentlyPublished, "published_at", "DESC"),
+            (BlogPostSort::RecentlyUpdated, "updated_at", "DESC"),
+        ] {
+            let conn = Arc::new(
+                MockDatabase::new(DatabaseBackend::Postgres)
+                    .append_query_results(vec![vec![count_row(0)]])
+                    .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
+                    .into_connection(),
+            );
+
+            let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
+            q.list_by_owner(
+                UserId::from(Uuid::new_v4()),
+                BlogPostListFilter::default(),
+                sort,
+                BlogPageRequest::default(),
+            )
+            .await
+            .unwrap();
+            drop(q);
+
+            let sql = format!("{:?}", Arc::try_unwrap(conn).expect("sole owner").into_transaction_log())
+                .replace("\\\"", "\"");
+            assert!(
+                sql.contains(&format!("{col}\" {dir}")),
+                "expected ORDER BY {col} {dir}, got: {sql}"
+            );
+        }
+    }
+
+    /// per_page is clamped, so a caller cannot ask for an unbounded page and
+    /// pull the whole table in one request.
+    #[tokio::test]
+    async fn per_page_is_clamped_and_page_is_at_least_one() {
+        let conn = Arc::new(
+            MockDatabase::new(DatabaseBackend::Postgres)
+                .append_query_results(vec![vec![count_row(0)]])
+                .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
+                .into_connection(),
+        );
+
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
+        let result = q
+            .list_by_owner(
+                UserId::from(Uuid::new_v4()),
+                BlogPostListFilter::default(),
+                BlogPostSort::Newest,
+                BlogPageRequest {
+                    page: 0,
+                    per_page: 10_000,
+                },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(result.page, 1, "page 0 should become page 1");
+        assert_eq!(result.per_page, 100, "per_page should clamp to 100");
+    }
+
+    #[tokio::test]
+    async fn database_errors_are_surfaced() {
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_errors([sea_orm::DbErr::Custom("db down".into())])
+            .into_connection();
+
+        let err = query(db).get_topics(Uuid::new_v4()).await.unwrap_err();
+        assert!(matches!(err, BlogPostQueryError::DatabaseError(m) if m.contains("db down")));
+    }
 }
