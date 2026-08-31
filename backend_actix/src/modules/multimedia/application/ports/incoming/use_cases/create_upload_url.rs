@@ -441,3 +441,316 @@ pub trait CreateUploadMediaUrlUseCase: Send + Sync {
         attachment_command: CreateAttachmentCommand,
     ) -> Result<CreateMediaResult, CreateUrlError>;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn policy() -> UploadPolicy {
+        UploadPolicy::new("test-bucket".to_string())
+    }
+
+    fn valid_builder() -> CreateMediaCommandBuilder {
+        CreateMediaCommand::builder()
+            .owner(UserId::from(Uuid::new_v4()))
+            .file_name("photo.png".to_string())
+            .mime_type("image/png".to_string())
+            .file_size_bytes(1024)
+    }
+
+    // ------------------------------------------------------------------
+    // Filename hardening
+    // ------------------------------------------------------------------
+
+    /// The filename becomes part of the storage object key, so anything
+    /// path-like has to be refused here. `sanitize_basename` compares the
+    /// basename against the whole input, which is what rejects these.
+    #[test]
+    fn rejects_path_like_file_names() {
+        for bad in [
+            "../evil.png",
+            "../../etc/passwd.png",
+            "/absolute/photo.png",
+            "dir/photo.png",
+            "./photo.png",
+        ] {
+            let err = valid_builder()
+                .file_name(bad.to_string())
+                .build(&policy())
+                .unwrap_err();
+            assert!(
+                matches!(err, UploadUrlCommandError::InvalidFileName),
+                "{bad} should be rejected as a path, got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_a_file_name_with_control_characters() {
+        let err = valid_builder()
+            .file_name("pho\nto.png".to_string())
+            .build(&policy())
+            .unwrap_err();
+        assert!(matches!(err, UploadUrlCommandError::InvalidFileName));
+    }
+
+    #[test]
+    fn rejects_a_file_name_longer_than_the_policy_allows() {
+        let long = format!("{}.png", "a".repeat(policy().max_file_name_len));
+        let err = valid_builder()
+            .file_name(long)
+            .build(&policy())
+            .unwrap_err();
+        assert!(matches!(err, UploadUrlCommandError::InvalidFileName));
+    }
+
+    // ------------------------------------------------------------------
+    // Extension and mime rules
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn rejects_a_file_name_with_no_extension() {
+        let err = valid_builder()
+            .file_name("photo".to_string())
+            .build(&policy())
+            .unwrap_err();
+        assert!(matches!(err, UploadUrlCommandError::InvalidExtension(e) if e.is_empty()));
+    }
+
+    #[test]
+    fn rejects_an_extension_outside_the_allowlist() {
+        for bad in ["photo.exe", "photo.svg", "photo.gif", "photo.php"] {
+            let err = valid_builder()
+                .file_name(bad.to_string())
+                .build(&policy())
+                .unwrap_err();
+            assert!(
+                matches!(err, UploadUrlCommandError::InvalidExtension(_)),
+                "{bad} should be rejected"
+            );
+        }
+    }
+
+    /// Extensions are compared lowercased, so a capitalised one is accepted
+    /// rather than being read as an unknown type.
+    #[test]
+    fn accepts_an_uppercase_extension() {
+        let cmd = valid_builder()
+            .file_name("PHOTO.PNG".to_string())
+            .build(&policy())
+            .unwrap();
+        assert_eq!(cmd.original_name(), "PHOTO.PNG");
+    }
+
+    #[test]
+    fn rejects_a_mime_type_outside_the_allowlist() {
+        let err = valid_builder()
+            .mime_type("application/pdf".to_string())
+            .build(&policy())
+            .unwrap_err();
+        assert!(matches!(err, UploadUrlCommandError::InvalidMimeType(m) if m == "application/pdf"));
+    }
+
+    /// A .png named file claiming to be a jpeg is refused. This is the cheap
+    /// half of the check; the comment in the source is explicit that real
+    /// content verification belongs after upload, before leaving Pending.
+    #[test]
+    fn rejects_a_mime_type_that_disagrees_with_the_extension() {
+        let err = valid_builder()
+            .file_name("photo.png".to_string())
+            .mime_type("image/jpeg".to_string())
+            .build(&policy())
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            UploadUrlCommandError::MimeExtensionMismatch { mime_type, ext }
+                if mime_type == "image/jpeg" && ext == "png"
+        ));
+    }
+
+    #[test]
+    fn accepts_both_jpeg_spellings() {
+        for name in ["photo.jpg", "photo.jpeg"] {
+            assert!(valid_builder()
+                .file_name(name.to_string())
+                .mime_type("image/jpeg".to_string())
+                .build(&policy())
+                .is_ok());
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Size and dimensions
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn rejects_a_file_over_the_size_limit() {
+        let p = policy();
+        let err = valid_builder()
+            .file_size_bytes(p.max_file_size_bytes + 1)
+            .build(&p)
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            UploadUrlCommandError::FileTooLarge { max_bytes, actual_bytes }
+                if max_bytes == p.max_file_size_bytes && actual_bytes == p.max_file_size_bytes + 1
+        ));
+    }
+
+    #[test]
+    fn accepts_a_file_exactly_at_the_size_limit() {
+        let p = policy();
+        assert!(valid_builder()
+            .file_size_bytes(p.max_file_size_bytes)
+            .build(&p)
+            .is_ok());
+    }
+
+    #[test]
+    fn rejects_zero_dimensions() {
+        let err = valid_builder()
+            .width_px(Some(0))
+            .height_px(Some(10))
+            .build(&policy())
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            UploadUrlCommandError::InvalidDimensions { .. }
+        ));
+    }
+
+    #[test]
+    fn rejects_dimensions_over_the_limit() {
+        let p = policy();
+        let err = valid_builder()
+            .width_px(Some(p.max_width_height_px + 1))
+            .height_px(Some(10))
+            .build(&p)
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            UploadUrlCommandError::InvalidDimensions { .. }
+        ));
+    }
+
+    /// Width and height must arrive together. One without the other would let a
+    /// caller sidestep the bounds check on the missing axis.
+    #[test]
+    fn rejects_one_dimension_without_the_other() {
+        for (w, h) in [(Some(100), None), (None, Some(100))] {
+            let err = valid_builder()
+                .width_px(w)
+                .height_px(h)
+                .build(&policy())
+                .unwrap_err();
+            assert!(
+                matches!(err, UploadUrlCommandError::MissingField("width_px/height_px")),
+                "({w:?}, {h:?}) should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn accepts_both_dimensions_absent() {
+        assert!(valid_builder().build(&policy()).is_ok());
+    }
+
+    // ------------------------------------------------------------------
+    // Required fields
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn reports_each_missing_required_field() {
+        let cases: Vec<(&str, CreateMediaCommandBuilder)> = vec![
+            (
+                "owner",
+                CreateMediaCommand::builder()
+                    .file_name("p.png".into())
+                    .mime_type("image/png".into())
+                    .file_size_bytes(1),
+            ),
+            (
+                "file_name",
+                CreateMediaCommand::builder()
+                    .owner(UserId::from(Uuid::new_v4()))
+                    .mime_type("image/png".into())
+                    .file_size_bytes(1),
+            ),
+            (
+                "mime_type",
+                CreateMediaCommand::builder()
+                    .owner(UserId::from(Uuid::new_v4()))
+                    .file_name("p.png".into())
+                    .file_size_bytes(1),
+            ),
+            (
+                "file_size_bytes",
+                CreateMediaCommand::builder()
+                    .owner(UserId::from(Uuid::new_v4()))
+                    .file_name("p.png".into())
+                    .mime_type("image/png".into()),
+            ),
+        ];
+
+        for (field, builder) in cases {
+            let err = builder.build(&policy()).unwrap_err();
+            assert!(
+                matches!(err, UploadUrlCommandError::MissingField(f) if f == field),
+                "expected MissingField({field}), got {err:?}"
+            );
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Built command and object key
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn a_built_command_starts_pending_and_carries_the_policy_bucket() {
+        let cmd = valid_builder().duration_seconds(Some(12)).build(&policy()).unwrap();
+
+        assert_eq!(cmd.original_name(), "photo.png");
+        assert_eq!(cmd.mime_type(), "image/png");
+        assert_eq!(cmd.file_size_bytes(), 1024);
+        assert_eq!(cmd.duration_seconds(), Some(12));
+        assert_eq!(cmd.width_px(), None);
+        assert_eq!(cmd.height_px(), None);
+
+        let new_media = cmd.to_new_media();
+        // Pending, not Ready: the processing pipeline owns that transition.
+        assert_eq!(new_media.state, MediaState::Pending);
+        assert_eq!(new_media.bucket_name, "test-bucket");
+    }
+
+    #[test]
+    fn make_object_key_namespaces_by_media_id() {
+        let id = Uuid::new_v4();
+        assert_eq!(
+            make_object_key(id, "photo.png").unwrap(),
+            format!("{id}/photo.png")
+        );
+    }
+
+    #[test]
+    fn make_object_key_rejects_a_disallowed_extension() {
+        assert!(matches!(
+            make_object_key(Uuid::new_v4(), "payload.exe"),
+            Err(UploadUrlCommandError::InvalidExtension(_))
+        ));
+    }
+
+    /// `make_object_key` validates only the extension, not the basename, so it
+    /// will happily embed a traversal sequence. It is safe in practice because
+    /// its only caller passes a name already through `sanitize_basename` — but
+    /// the function's own doc claims "no user-controlled path segments", which
+    /// overstates what it enforces. Pinned so the dependency is visible if it
+    /// ever gains another caller.
+    #[test]
+    fn make_object_key_does_not_itself_reject_a_traversal_name() {
+        let id = Uuid::new_v4();
+        let key = make_object_key(id, "../escape.png").unwrap();
+        assert_eq!(key, format!("{id}/../escape.png"));
+    }
+}
