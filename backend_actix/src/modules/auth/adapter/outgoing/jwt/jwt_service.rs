@@ -18,7 +18,6 @@ pub struct JwtTokenService {
     decoding_key: DecodingKey,
 }
 
-#[cfg(not(tarpaulin_include))]
 impl fmt::Debug for JwtTokenService {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("JwtService")

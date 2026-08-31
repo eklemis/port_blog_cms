@@ -107,7 +107,6 @@ pub struct AppState {
 }
 
 #[actix_web::main]
-#[cfg(not(tarpaulin_include))]
 async fn start() -> std::io::Result<()> {
     use crate::{
         auth::{
@@ -493,7 +492,6 @@ async fn start() -> std::io::Result<()> {
     .await
 }
 
-#[cfg(not(tarpaulin_include))]
 fn init_routes(cfg: &mut web::ServiceConfig) {
     // Health
     cfg.service(crate::health::health);
@@ -558,7 +556,6 @@ fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::multimedia::adapter::incoming::web::routes::get_media_handler);
 }
 
-#[cfg(not(tarpaulin_include))]
 fn main() {
     rustls::crypto::ring::default_provider()
         .install_default()

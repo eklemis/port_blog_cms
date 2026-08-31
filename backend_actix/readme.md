@@ -4,14 +4,43 @@ export RUST_TEST_THREADS=1
 cargo test -- --nocapture
 ```
 
-### Run the test and see coverage with tarpauline (Preferable)
+### Coverage
+
+Use `cargo llvm-cov`. Tarpaulin was removed; see below for why.
+
 ```bash
-cargo tarpaulin --ignore-tests --out Html --line
+export RUST_TEST_THREADS=1
+cargo llvm-cov --summary-only --ignore-filename-regex 'src/main\.rs'
+
+# browsable report
+cargo llvm-cov --html --ignore-filename-regex 'src/main\.rs'
 ```
-or using llvm-cov 
-```bash
-cargo llvm-cov --html
-```
+
+`main.rs` is excluded: it is composition only — `start()`, `init_routes()` and
+`main()` wire concrete adapters into `AppState`. Covering it means booting the
+process against a real database and Redis, which the suite deliberately does
+not do.
+
+Run without `SKIP_REDIS_TESTS=1` for a true figure. Skipping the Redis
+integration tests leaves `token_repository_redis.rs` reading as ~0% when it is
+in fact covered.
+
+#### Why not tarpaulin
+
+Tarpaulin cannot attribute the body of an `async fn` inside `#[async_trait]`,
+and 167 files here use that macro. It reported `reset_password.rs` at 5/32
+lines with lines 105-106 uncovered — while a passing test asserts the value
+those lines write. Its headline of 69.58% against llvm-cov's 91.57% is mostly
+that artifact.
+
+It also builds into `target/debug` with different flags, replacing the
+proc-macro dylibs that rust-analyzer caches paths to. That produces
+
+    proc-macro panicked: failed to load macro: Cannot create expander for
+    .../libasync_trait-<hash>.dylib: No such file or directory
+
+in the editor after every run. `cargo llvm-cov` builds into
+`target/llvm-cov-target` instead and leaves the normal build alone.
 
 ### Run the test without a reachable Redis
 The `token_repository_redis` tests are integration tests that need a live Redis.

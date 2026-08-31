@@ -13,3 +13,8 @@
 # `graphify extract . --code-only --no-cluster && graphify cluster-only . --no-label`.
 # cache/, graph.json and graph.html alone are ~16MB of churn-heavy generated data.
 graphify-out/
+
+# coverage output
+/backend_actix/tarpaulin-report.*
+/backend_actix/lcov.info
+/backend_actix/target/llvm-cov-target/
