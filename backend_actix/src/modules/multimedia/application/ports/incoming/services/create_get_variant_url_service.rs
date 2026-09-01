@@ -34,6 +34,7 @@ where
     S: StorageQuery,
     M: MediaQuery,
 {
+    /// Builds the service from a storage signer and a media reader.
     pub fn new(storage_query: S, media_query: M) -> Self {
         Self {
             storage_query,

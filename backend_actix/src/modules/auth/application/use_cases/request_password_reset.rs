@@ -6,15 +6,23 @@ use crate::auth::application::ports::outgoing::user_query::UserQuery;
 use crate::email::application::ports::outgoing::password_reset_notifier::PasswordResetNotifier;
 use crate::email::application::ports::outgoing::Recipient;
 
+/// Why a reset request failed.
+///
+/// Note what is *not* here: an unknown address is `Ok(())`, not an error.
+/// Reporting it would turn this endpoint into an account-existence oracle.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum RequestPasswordResetError {
+    /// The address is not well formed. Rejected before any lookup, so this
+    /// reveals nothing about who is registered.
     #[error("Invalid email: {0}")]
     InvalidEmail(String),
 
+    /// The user store could not be reached.
     #[error("Query error: {0}")]
     QueryError(String),
 }
 
+/// Starts a password reset: mints a token and mails the link.
 #[async_trait]
 pub trait IRequestPasswordResetUseCase: Send + Sync {
     /// Starts a password reset.
@@ -25,6 +33,7 @@ pub trait IRequestPasswordResetUseCase: Send + Sync {
     async fn execute(&self, email: &str) -> Result<(), RequestPasswordResetError>;
 }
 
+/// The default implementation, generic over the user reader.
 pub struct RequestPasswordResetUseCase<Q>
 where
     Q: UserQuery + Send + Sync,
@@ -38,6 +47,7 @@ impl<Q> RequestPasswordResetUseCase<Q>
 where
     Q: UserQuery + Send + Sync,
 {
+    /// Builds the use case from its ports.
     pub fn new(
         user_query: Q,
         token_provider: Arc<dyn TokenProvider + Send + Sync>,

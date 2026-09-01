@@ -18,6 +18,7 @@ pub struct RedisRateLimitStore {
 }
 
 impl RedisRateLimitStore {
+    /// Builds the store from a Redis connection pool.
     pub fn new(pool: Arc<Pool>) -> Self {
         Self { pool }
     }

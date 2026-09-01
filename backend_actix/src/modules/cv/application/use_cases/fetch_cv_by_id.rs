@@ -2,12 +2,16 @@ use crate::cv::application::ports::outgoing::{CVRepository, CVRepositoryError};
 use crate::cv::domain::entities::CVInfo;
 use uuid::Uuid;
 
+/// Why fetching one CV failed.
 #[derive(Debug, Clone)]
 pub enum FetchCVByIdError {
+    /// No CV matched the id.
     CVNotFound,
+    /// The store could not be reached, or the write failed.
     RepositoryError(String),
 }
 
+/// The default implementation, generic over the repository port.
 #[derive(Debug, Clone)]
 pub struct FetchCVByIdUseCase<R>
 where
@@ -19,6 +23,7 @@ impl<R> FetchCVByIdUseCase<R>
 where
     R: CVRepository,
 {
+    /// Builds the use case from its repository port.
     pub fn new(repository: R) -> Self {
         Self {
             cv_repository: repository,
@@ -26,8 +31,10 @@ where
     }
 }
 
+/// Fetches one of the caller's own CVs by id.
 #[async_trait::async_trait]
 pub trait IFetchCVByIdUseCase: Send + Sync {
+    /// Returns the CV, scoped to `user_id`.
     async fn execute(&self, user_id: Uuid, cv_id: Uuid) -> Result<CVInfo, FetchCVByIdError>;
 }
 

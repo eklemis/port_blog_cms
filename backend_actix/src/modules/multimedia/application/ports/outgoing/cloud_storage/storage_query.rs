@@ -14,8 +14,11 @@ use crate::multimedia::application::domain::entities::{AttachmentTarget, MediaSt
 /// Contains the processing status and metadata for a media file.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ManifestInfo {
+    /// The media item the manifest describes.
     pub media_id: String,
+    /// When the processor last wrote the manifest, as it recorded it.
     pub updated_at: String,
+    /// Where the item is in processing.
     pub status: MediaState,
 }
 
@@ -61,14 +64,17 @@ impl MediaInfo {
         })
     }
 
+    /// The bucket the object lives in.
     pub fn bucket_name(&self) -> &str {
         &self.bucket_name
     }
 
+    /// The object's key within the bucket.
     pub fn object_name(&self) -> &str {
         &self.object_name
     }
 
+    /// What the media is attached to.
     pub fn attachment_target(&self) -> &AttachmentTarget {
         &self.attachment_target
     }
@@ -81,12 +87,17 @@ impl MediaInfo {
 /// Errors that can occur when querying cloud storage.
 #[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
 pub enum StorageQueryError {
+    /// No object exists for that media id.
     #[error("Media ID not found")]
     MediaIdNotFound,
 
+    /// The object exists but carries no manifest — processing has not written
+    /// one yet.
     #[error("Manifest file not found")]
     ManifestNotFound,
 
+    /// The store could not be reached, or answered in a way this port does not
+    /// classify. Every non-404 read failure lands here; see `map_read_error`.
     #[error("Network problem occurred")]
     NetworkInterrupted,
 }
@@ -94,6 +105,7 @@ pub enum StorageQueryError {
 /// Errors that can occur when constructing MediaInfo.
 #[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
 pub enum MediaInfoError {
+    /// A required field was blank. The payload names which one.
     #[error("Field '{0}' cannot be empty")]
     EmptyField(&'static str),
 }
@@ -101,15 +113,20 @@ pub enum MediaInfoError {
 /// Errors that can occur when signing URLs.
 #[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
 pub enum SignUrlError {
+    /// Signing failed for a reason not covered by the other variants.
     #[error("Infrastructure error occurred")]
     Infrastructure,
 
+    /// The credentials are valid but not permitted to sign for this object.
     #[error("Access denied")]
     AccessDenied,
 
+    /// The bucket does not exist.
     #[error("Bucket not found")]
     BucketNotFound,
 
+    /// The signer is misconfigured — most often `GOOGLE_APPLICATION_CREDENTIALS`
+    /// pointing at an `authorized_user` key, which cannot sign URLs.
     #[error("Invalid configuration")]
     Configuration,
 }

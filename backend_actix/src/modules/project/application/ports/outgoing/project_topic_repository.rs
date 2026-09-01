@@ -25,6 +25,7 @@ pub enum ProjectTopicRepositoryError {
     #[error("Topic not found")]
     TopicNotFound,
 
+    /// The store could not be reached.
     #[error("Database error: {0}")]
     DatabaseError(String),
 }

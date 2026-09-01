@@ -1,5 +1,7 @@
 //! What topic needs from the outside: a topic store, split into write and read ports.
 
+#![deny(missing_docs)]
+
 mod topic_query;
 mod topic_repository;
 

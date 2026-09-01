@@ -23,14 +23,24 @@ use crate::multimedia::application::ports::outgoing::db::{MediaAttachment, Media
 /// `status` to tell "none yet" from "none ever".
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct MediaDetail {
+    /// The media item.
     pub media_id: Uuid,
+    /// The name the file was uploaded under.
     pub original_filename: String,
+    /// Where the item is in processing. A row exists before its bytes do, so
+    /// this is what says whether the file is usable.
     pub status: MediaState,
+    /// What kind of thing it is attached to.
     pub attachment_target: AttachmentTarget,
+    /// The id of that thing.
     pub attachment_target_id: Uuid,
+    /// What the media is for on its target.
     pub role: MediaRole,
+    /// Display order within the role, starting at 0.
     pub position: u8,
+    /// Alternative text. Empty rather than absent when unset.
     pub alt_text: String,
+    /// Caption. Empty rather than absent when unset.
     pub caption: String,
 
     /// Sizes that can currently be fetched. Empty until processing completes.
@@ -63,6 +73,7 @@ pub enum GetMediaError {
     #[error("Media not found")]
     MediaNotFound,
 
+    /// The store could not be reached.
     #[error("Query error: {0}")]
     QueryError(String),
 }

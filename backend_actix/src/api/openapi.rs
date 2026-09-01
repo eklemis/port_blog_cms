@@ -231,6 +231,11 @@ use crate::topic::application::ports::outgoing::TopicResult;
         (name = "media", description = "Media/file management endpoints"),
     )
 )]
+/// The generated OpenAPI document.
+///
+/// Every route must be registered in the `paths(...)` list above, and every
+/// type it names in `components(schemas(...))`. The tests below fail if a
+/// reference does not resolve.
 pub struct ApiDoc;
 
 struct SecurityAddon;

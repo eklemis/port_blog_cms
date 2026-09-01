@@ -24,6 +24,7 @@ pub struct RateLimit {
 }
 
 impl RateLimit {
+    /// Builds the middleware around a counter store.
     pub fn new(store: Arc<dyn RateLimitStore>) -> Self {
         Self { store }
     }

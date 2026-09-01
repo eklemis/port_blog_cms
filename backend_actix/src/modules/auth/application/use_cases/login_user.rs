@@ -16,10 +16,15 @@ pub struct LoginRequest {
     password: String, // Private - guaranteed valid
 }
 
+/// Why a login request could not be built. Caught before any credential is
+/// checked.
 #[derive(Debug, Clone)]
 pub enum LoginRequestError {
+    /// No email address was supplied.
     EmptyEmail,
+    /// The email address is not well formed.
     InvalidEmailFormat,
+    /// No password was supplied.
     EmptyPassword,
 }
 
@@ -101,12 +106,22 @@ impl<'de> Deserialize<'de> for LoginRequest {
 }
 
 // ====================== Login Error =============================
+/// Why a login attempt failed.
 #[derive(Debug, Clone)]
 pub enum LoginError {
+    /// No account matched, or the password was wrong. **One variant for both**,
+    /// so the response cannot be used to discover which addresses are
+    /// registered.
     InvalidCredentials,
+    /// The account exists but is soft-deleted.
     UserDeleted,
+    /// The stored hash could not be evaluated — corrupt, or written by an
+    /// algorithm this build does not understand. Distinct from a wrong password,
+    /// which is [`InvalidCredentials`](Self::InvalidCredentials).
     PasswordVerificationFailed(String),
+    /// The credentials were good but a token could not be minted.
     TokenGenerationFailed(String),
+    /// The user store could not be reached.
     QueryError(String),
 }
 
@@ -129,29 +144,43 @@ impl std::fmt::Display for LoginError {
 impl std::error::Error for LoginError {}
 
 // ============================ Login Response =================================
+/// The user fields returned alongside a successful login.
 #[derive(Debug, Clone, Serialize)]
 pub struct UserInfo {
+    /// The user's primary key.
     pub id: uuid::Uuid,
+    /// Public handle.
     pub username: String,
+    /// Login address.
     pub email: String,
+    /// Whether the email address has been confirmed. Clients use it to prompt
+    /// for verification without a second request.
     pub is_verified: bool,
 }
 
+/// A successful login: the token pair plus who they are.
 #[derive(Debug, Clone, Serialize)]
 pub struct LoginUserResponse {
+    /// Short-lived credential for normal requests.
     pub access_token: String,
+    /// Long-lived credential, exchangeable for a new access token. This is the
+    /// one logout blacklists.
     pub refresh_token: String,
+    /// Who logged in.
     pub user: UserInfo,
 }
 
 // ============================ Login User Use Case =============================
 // Interface for Login use case
+/// Exchanges credentials for a token pair.
 #[async_trait]
 pub trait ILoginUserUseCase: Send + Sync {
+    /// Verifies the credentials and mints the tokens.
     async fn execute(&self, request: LoginRequest) -> Result<LoginUserResponse, LoginError>;
 }
 
 // Implementation of Login use case
+/// The default implementation, generic over the user reader.
 #[derive(Clone)]
 pub struct LoginUserUseCase<Q>
 where
@@ -166,6 +195,7 @@ impl<Q> LoginUserUseCase<Q>
 where
     Q: UserQuery + Send + Sync,
 {
+    /// Builds the use case from its ports.
     pub fn new(
         query: Q,
         password_hasher: Arc<dyn PasswordHasher>,

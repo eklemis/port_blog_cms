@@ -16,18 +16,29 @@ use std::sync::Arc;
 // ============================================================================
 // Input / Output DTOs
 // ============================================================================
+/// A registration request, as it arrives from the route.
 #[derive(Clone, Debug)]
 pub struct CreateUserInput {
+    /// Requested public handle.
     pub username: String,
+    /// Requested login address.
     pub email: String,
+    /// Plaintext password. Hashed inside the use case and never stored or
+    /// logged as-is.
     pub password: String,
+    /// Requested display name.
     pub full_name: String,
 }
+/// The stored user, as returned after successful registration.
 #[derive(Clone, Debug)]
 pub struct CreateUserOutput {
+    /// Primary key assigned to the new user.
     pub user_id: uuid::Uuid,
+    /// Requested login address.
     pub email: String,
+    /// Requested public handle.
     pub username: String,
+    /// Requested display name.
     pub full_name: String,
 }
 
@@ -35,29 +46,39 @@ pub struct CreateUserOutput {
 // Error Types
 // ============================================================================
 
+/// Why registration failed.
 #[derive(Debug, thiserror::Error, Clone)]
 pub enum CreateUserError {
+    /// The username failed validation. The payload says which rule.
     #[error("Invalid username: {0}")]
     InvalidUsername(String),
 
+    /// The email address is not well formed.
     #[error("Invalid email: {0}")]
     InvalidEmail(String),
 
+    /// The password does not meet the strength policy.
     #[error("Invalid password: {0}")]
     InvalidPassword(String),
 
+    /// The display name is empty or too long.
     #[error("Invalid full name: {0}")]
     InvalidFullName(String),
 
+    /// The email or username is taken. Deliberately does not say which — that
+    /// would confirm whether an address is registered.
     #[error("User already exists")]
     UserAlreadyExists,
 
+    /// The password could not be hashed. A server fault, not the caller's.
     #[error("Password hashing failed: {0}")]
     HashingFailed(String),
 
+    /// The write failed.
     #[error("Repository error: {0}")]
     RepositoryError(#[from] UserRepositoryError),
 
+    /// The uniqueness pre-check could not be read.
     #[error("Query error: {0}")]
     QueryError(#[from] UserQueryError),
 }
@@ -66,8 +87,13 @@ pub enum CreateUserError {
 // Use Case Interface
 // ============================================================================
 
+/// Registers a user.
+///
+/// The `I` prefix is the older convention; newer modules name the trait
+/// plainly and suffix the implementation with `Service`.
 #[async_trait]
 pub trait ICreateUserUseCase: Send + Sync {
+    /// Validates, hashes the password, and inserts the user.
     async fn execute(&self, input: CreateUserInput) -> Result<CreateUserOutput, CreateUserError>;
 }
 
@@ -75,6 +101,7 @@ pub trait ICreateUserUseCase: Send + Sync {
 // Use Case Implementation - FOCUSED ON ONE THING
 // ============================================================================
 
+/// The default implementation, generic over the user reader and writer.
 pub struct CreateUserUseCase<Q, R>
 where
     Q: UserQuery + Send + Sync,
@@ -91,6 +118,7 @@ where
     Q: UserQuery + Send + Sync,
     R: UserRepository + Send + Sync,
 {
+    /// Builds the use case from its ports.
     pub fn new(
         user_query: Q,
         user_repository: R,

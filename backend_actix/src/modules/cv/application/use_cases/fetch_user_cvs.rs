@@ -10,8 +10,11 @@ use crate::cv::domain::entities::CVInfo;
 // Errors
 // ============================================================================
 
+/// Why a CV listing failed. A user with no CVs gets an empty page, not an
+/// error.
 #[derive(Debug, Clone)]
 pub enum FetchCVError {
+    /// The store could not be reached.
     QueryFailed(String),
 }
 
@@ -28,6 +31,7 @@ impl From<CVQueryError> for FetchCVError {
 // Service Implementation
 // ============================================================================
 
+/// The default implementation, generic over the query port.
 pub struct FetchCVService<Q>
 where
     Q: CVQuery,
@@ -39,13 +43,16 @@ impl<Q> FetchCVService<Q>
 where
     Q: CVQuery,
 {
+    /// Builds the service from its query port.
     pub fn new(query: Q) -> Self {
         Self { query }
     }
 }
 
+/// Lists the caller's CVs, filtered, sorted and paginated.
 #[async_trait]
 pub trait IFetchCVUseCase: Send + Sync {
+    /// Returns one page of the caller's CVs.
     async fn execute(
         &self,
         user_id: Uuid,
@@ -60,6 +67,7 @@ impl<Q> IFetchCVUseCase for FetchCVService<Q>
 where
     Q: CVQuery + Send + Sync,
 {
+    /// Returns one page of the caller's CVs.
     async fn execute(
         &self,
         user_id: Uuid,

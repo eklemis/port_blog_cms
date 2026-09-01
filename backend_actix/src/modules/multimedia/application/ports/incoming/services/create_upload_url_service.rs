@@ -28,6 +28,7 @@ where
     Q: StorageQuery,
     R: MediaRepository,
 {
+    /// Builds the service from a storage signer and a media repository.
     pub fn new(storage_query: Q, repository: R) -> Self {
         Self {
             storage_query,

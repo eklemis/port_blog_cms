@@ -12,6 +12,8 @@ pub enum BlogPostArchiverError {
     #[error("Blog post not found")]
     NotFound,
 
+    /// The store could not be reached, or failed for a reason this port does
+    /// not model.
     #[error("Database error: {0}")]
     DatabaseError(String),
 }

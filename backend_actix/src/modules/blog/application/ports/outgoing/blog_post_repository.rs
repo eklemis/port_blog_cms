@@ -35,10 +35,15 @@ pub enum BlogPostRepositoryError {
 /// Everything needed to insert a post.
 #[derive(Debug, Clone)]
 pub struct CreateBlogPostData {
+    /// The user the post belongs to.
     pub owner: UserId,
+    /// Display title.
     pub title: String,
+    /// URL segment. Unique per author.
     pub slug: String,
+    /// Short summary for listings.
     pub excerpt: Option<String>,
+    /// The post body.
     pub content: String,
     /// `None` creates a draft. Callers publish by passing a timestamp, which
     /// may be in the future to schedule.
@@ -51,10 +56,13 @@ pub struct CreateBlogPostData {
 #[serde(untagged)]
 #[derive(Default)]
 pub enum BlogPatchField<T> {
+    /// The client did not mention the field. Keep the stored value.
     #[serde(skip)]
     #[default]
     Unset,
+    /// The client sent `null`. Clear the column — nullable columns only.
     Null,
+    /// The client sent a replacement.
     Value(T),
 }
 
@@ -79,9 +87,13 @@ impl<T> BlogPatchField<T> {
 /// [`Unset`](BlogPatchField::Unset), so omitted fields are left alone.
 #[derive(Debug, Clone, Default)]
 pub struct PatchBlogPostData {
+    /// New title, if the client sent one.
     pub title: BlogPatchField<String>,
+    /// New slug. Moving onto a slug the author already uses is a conflict.
     pub slug: BlogPatchField<String>,
+    /// New excerpt. `Null` clears it.
     pub excerpt: BlogPatchField<String>,
+    /// New body.
     pub content: BlogPatchField<String>,
     /// Setting `Null` unpublishes a post back to draft; setting a value
     /// publishes or reschedules it.

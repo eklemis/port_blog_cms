@@ -34,8 +34,11 @@ pub use modules::email;
 pub use modules::multimedia;
 pub use modules::project;
 pub use modules::topic;
+/// The OpenAPI document and the wrapper types it describes.
 pub mod api;
 pub mod health;
+/// Cross-cutting concerns that belong to no module: the response envelope,
+/// the error-code vocabulary, CORS and rate limiting.
 pub mod shared;
 
 // Test helpers module - only compiled with feature flag

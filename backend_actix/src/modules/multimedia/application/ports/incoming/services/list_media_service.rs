@@ -19,6 +19,7 @@ impl<Q> ListMediaService<Q>
 where
     Q: MediaQuery,
 {
+    /// Builds the service from a media reader.
     pub fn new(query: Q) -> Self {
         Self { query }
     }

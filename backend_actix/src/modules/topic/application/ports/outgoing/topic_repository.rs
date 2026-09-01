@@ -12,8 +12,11 @@ use crate::auth::application::domain::entities::UserId;
 /// Everything needed to insert a topic.
 #[derive(Debug, Clone)]
 pub struct CreateTopicData {
+    /// The user the topic will belong to.
     pub owner: UserId,
+    /// Display title. Unique per owner.
     pub title: String,
+    /// Long-form description. Empty rather than absent when unset.
     pub description: String,
 }
 

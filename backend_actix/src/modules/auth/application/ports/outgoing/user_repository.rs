@@ -14,9 +14,13 @@ use uuid::Uuid;
 /// password, and hashing is [`PasswordHasher`](super::password_hasher::PasswordHasher)'s job.
 #[derive(Debug, Clone)]
 pub struct CreateUserData {
+    /// Login identifier and the address mail is sent to.
     pub email: String,
+    /// Public handle.
     pub username: String,
+    /// Already-hashed password. This port never sees a plaintext one.
     pub password_hash: String,
+    /// Display name.
     pub full_name: String,
 }
 
@@ -27,9 +31,13 @@ pub struct CreateUserData {
 /// a caller confirming a write does not need them.
 #[derive(Debug, Clone)]
 pub struct UserResult {
+    /// Primary key of the stored user.
     pub id: Uuid,
+    /// The stored email address.
     pub email: String,
+    /// The stored username.
     pub username: String,
+    /// The stored display name.
     pub full_name: String,
 }
 

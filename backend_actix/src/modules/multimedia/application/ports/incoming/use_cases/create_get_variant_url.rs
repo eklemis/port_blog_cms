@@ -16,31 +16,43 @@ use crate::{
 /// as retryable, and [`MediaFailed`](Self::MediaFailed) as terminal.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum GetReadUrlError {
+    /// No media matched the id, or it belongs to another user.
     #[error("Media not found")]
     MediaNotFound,
 
+    /// The file arrived and variants are being generated. Retryable — ask again
+    /// shortly.
     #[error("Media is still being processed")]
     MediaProcessing,
 
+    /// The row exists but the file has not been uploaded yet. Retryable.
     #[error("Media is pending upload")]
     MediaPending,
 
+    /// Variant generation failed. Terminal: retrying will not help.
     #[error("Media processing failed")]
     MediaFailed,
 
+    /// The item is ready but not in the size asked for. The payload names the
+    /// size.
     #[error("Variant '{0}' not found for this media")]
     VariantNotFound(MediaSize),
 
+    /// The object store could not be reached or refused to sign.
     #[error("Storage error: {0}")]
     StorageError(String),
+    /// The database could not be reached.
     #[error("Query error: {0}")]
     QueryError(String),
 }
 
 /// Which variant of which media item is wanted.
 pub struct GetUrlCommand {
+    /// The user asking. Reads are scoped to their own media.
     pub owner: UserId,
+    /// Which media item.
     pub media_id: Uuid,
+    /// Which generated size.
     pub size: MediaSize,
 }
 
@@ -50,9 +62,14 @@ pub struct GetUrlCommand {
 /// object, so clients should fetch promptly rather than cache it.
 #[derive(Clone)]
 pub struct GetUrlResult {
+    /// Which media item.
     pub media_id: Uuid,
+    /// Which generated size.
     pub size: MediaSize,
+    /// The signed URL. Treat it as a bearer credential for the object.
     pub url: String,
+    /// When the URL stops working. Short by design — fetch promptly rather than
+    /// caching it.
     pub expires_at: chrono::DateTime<chrono::Utc>,
 }
 

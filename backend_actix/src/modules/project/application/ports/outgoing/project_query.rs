@@ -22,47 +22,71 @@ use crate::auth::application::domain::entities::UserId;
 /// A topic as it appears attached to a project: just enough to render a tag.
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ProjectTopicItem {
+    /// Primary key.
     pub id: Uuid,
+    /// Display title, as the owner wrote it.
     pub title: String,
+    /// Long-form body.
     pub description: String,
 }
 
 /// A single project in full, including its body and topic links.
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct ProjectView {
+    /// Primary key.
     pub id: Uuid,
     /// Owning user. Serialises as a bare UUID string.
     #[schema(value_type = String, example = "123e4567-e89b-12d3-a456-426614174000")]
     pub owner: UserId,
+    /// Display title, as the owner wrote it.
     pub title: String,
+    /// URL segment. Unique per owner, so two users may hold the same one.
     pub slug: String,
+    /// Long-form body.
     pub description: String,
+    /// Free-form technology labels, in the order the owner set them.
     pub tech_stack: Vec<String>,
+    /// Image URLs, in display order.
     pub screenshots: Vec<String>,
+    /// Source repository, if the owner published one.
     pub repo_url: Option<String>,
+    /// Running instance, if there is one.
     pub live_demo_url: Option<String>,
+    /// Topics attached to this project.
     pub topics: Vec<ProjectTopicItem>,
+    /// When the project was created.
     pub created_at: DateTime<Utc>,
+    /// When it was last edited.
     pub updated_at: DateTime<Utc>,
 }
 
 /// A project as it appears in a listing — the summary fields only.
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ProjectCardView {
+    /// Primary key.
     pub id: Uuid,
+    /// Display title, as the owner wrote it.
     pub title: String,
+    /// URL segment. Unique per owner, so two users may hold the same one.
     pub slug: String,
+    /// Free-form technology labels, in the order the owner set them.
     pub tech_stack: Vec<String>,
+    /// Source repository, if the owner published one.
     pub repo_url: Option<String>,
+    /// Running instance, if there is one.
     pub live_demo_url: Option<String>,
+    /// When the project was created.
     pub created_at: DateTime<Utc>,
+    /// When it was last edited.
     pub updated_at: DateTime<Utc>,
 }
 
 /// Narrows a project listing. Every field defaults to "no filter".
 #[derive(Debug, Clone, Default)]
 pub struct ProjectListFilter {
+    /// Free-text filter. `None` matches everything.
     pub search: Option<String>,
+    /// Restricts to projects carrying this topic. `None` matches everything.
     pub topic_id: Option<Uuid>,
 }
 
@@ -83,7 +107,9 @@ pub enum ProjectSort {
 /// Which page to return. Pages are 1-based.
 #[derive(Debug, Clone)]
 pub struct PageRequest {
+    /// 1-based page number.
     pub page: u32,
+    /// Rows per page.
     pub per_page: u32,
 }
 
@@ -126,12 +152,17 @@ pub struct PageResult<T> {
 /// Why a project read failed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ProjectQueryError {
+    /// No project matched. Only meaningful for single fetches; a listing that
+    /// matches nothing is an empty page.
     #[error("Project not found")]
     NotFound,
 
+    /// The store could not be reached.
     #[error("Database error: {0}")]
     DatabaseError(String),
 
+    /// A stored column could not be decoded into its Rust type — most likely a
+    /// JSON column written by an older schema.
     #[error("Serialization error: {0}")]
     SerializationError(String),
 }

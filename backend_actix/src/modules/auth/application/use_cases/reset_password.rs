@@ -9,29 +9,39 @@ use crate::auth::application::ports::outgoing::token_provider::TokenProvider;
 use crate::auth::application::ports::outgoing::token_repository::TokenRepository;
 use crate::auth::application::ports::outgoing::user_repository::UserRepository;
 
+/// Why a reset could not be completed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ResetPasswordError {
+    /// The reset token is malformed, expired, or of the wrong kind.
     #[error("Invalid or expired reset token")]
     InvalidToken,
 
+    /// The new password does not meet the strength policy.
     #[error("Invalid password: {0}")]
     InvalidPassword(String),
 
+    /// The token was valid but names a user who no longer exists.
     #[error("User not found")]
     UserNotFound,
 
+    /// The new password could not be hashed.
     #[error("Password hashing failed: {0}")]
     HashingFailed(String),
 
+    /// The write failed.
     #[error("Repository error: {0}")]
     RepositoryError(String),
 }
 
+/// Completes a password reset by redeeming a token.
 #[async_trait]
 pub trait IResetPasswordUseCase: Send + Sync {
+    /// Redeems the token and replaces the password.
     async fn execute(&self, token: &str, new_password: &str) -> Result<(), ResetPasswordError>;
 }
 
+/// The default implementation, generic over the user writer and the token
+/// provider.
 pub struct ResetPasswordUseCase<R, T>
 where
     R: UserRepository + Send + Sync,
@@ -49,6 +59,7 @@ where
     R: UserRepository + Send + Sync,
     T: TokenRepository + Send + Sync,
 {
+    /// Builds the use case from its ports.
     pub fn new(
         user_repository: R,
         token_repository: T,

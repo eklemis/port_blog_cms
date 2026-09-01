@@ -1,5 +1,7 @@
 //! What cv needs from the outside: a CV store split into write, read and lifecycle ports.
 
+#![deny(missing_docs)]
+
 mod cv_repository;
 pub use cv_repository::{CVRepository, CVRepositoryError, CreateCVData, PatchCVData, UpdateCVData};
 // Optionally re-export if you want direct referencing:

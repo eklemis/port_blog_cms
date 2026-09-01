@@ -14,9 +14,11 @@ use crate::blog::domain::entities::{BlogPost, BlogPostTopic};
 /// Why a blog-post read failed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum BlogPostQueryError {
+    /// No post matched. Only meaningful for single fetches.
     #[error("Blog post not found")]
     NotFound,
 
+    /// The store could not be reached.
     #[error("Database error: {0}")]
     DatabaseError(String),
 }
@@ -24,7 +26,9 @@ pub enum BlogPostQueryError {
 /// Narrows a listing. Every field defaults to "no filter".
 #[derive(Debug, Clone, Default)]
 pub struct BlogPostListFilter {
+    /// Free-text filter. `None` matches everything.
     pub search: Option<String>,
+    /// Restricts to posts carrying this topic. `None` matches everything.
     pub topic_id: Option<Uuid>,
     /// Owner-facing listings can ask for drafts only, published only, or both.
     /// Public listings ignore this and always force published.
@@ -50,7 +54,9 @@ pub enum BlogPostSort {
 /// Which page to return. Pages are 1-based; defaults to 10 per page.
 #[derive(Debug, Clone)]
 pub struct BlogPageRequest {
+    /// 1-based page number.
     pub page: u32,
+    /// Rows per page.
     pub per_page: u32,
 }
 
@@ -68,14 +74,18 @@ impl Default for BlogPageRequest {
 /// `total` counts every row matching the filter, not just this page.
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct BlogPageResult<T> {
+    /// The rows on this page.
     pub items: Vec<T>,
 
+    /// 1-based page number.
     #[schema(example = 1)]
     pub page: u32,
 
+    /// Rows per page.
     #[schema(example = 10)]
     pub per_page: u32,
 
+    /// Rows matching the filter across *all* pages, not just this one.
     #[schema(example = 42)]
     pub total: u64,
 }
@@ -84,19 +94,29 @@ pub struct BlogPageResult<T> {
 /// is never needed to render an index.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlogPostCard {
+    /// Primary key.
     pub id: Uuid,
+    /// Display title.
     pub title: String,
+    /// URL segment. Unique per author.
     pub slug: String,
+    /// Short summary for listings. `None` when the author wrote none.
     pub excerpt: Option<String>,
+    /// Publication state, carried as a timestamp rather than a status column:
+    /// `None` is a draft, a past value is published, a future one is scheduled.
     pub published_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// When the post was created.
     pub created_at: chrono::DateTime<chrono::Utc>,
+    /// When it was last edited.
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
 /// A post plus its topics, for detail views.
 #[derive(Debug, Clone, Serialize)]
 pub struct BlogPostView {
+    /// The post itself.
     pub post: BlogPost,
+    /// Topics attached to it.
     pub topics: Vec<BlogPostTopic>,
 }
 
@@ -107,6 +127,7 @@ pub struct BlogPostView {
 /// does not do it for them.
 #[async_trait]
 pub trait BlogPostQuery: Send + Sync {
+    /// Lists an author's posts, drafts included, honouring `filter.published`.
     async fn list_by_owner(
         &self,
         owner: UserId,
@@ -115,6 +136,7 @@ pub trait BlogPostQuery: Send + Sync {
         page: BlogPageRequest,
     ) -> Result<BlogPageResult<BlogPostCard>, BlogPostQueryError>;
 
+    /// Fetches one post by id regardless of publication state.
     async fn get_by_id(
         &self,
         owner: UserId,
@@ -129,6 +151,9 @@ pub trait BlogPostQuery: Send + Sync {
         slug: &str,
     ) -> Result<BlogPostView, BlogPostQueryError>;
 
+    /// Lists only published posts. Public listings must use this rather than
+    /// [`list_by_owner`](Self::list_by_owner) with a filter, so a caller cannot
+    /// forget to exclude drafts.
     async fn list_published(
         &self,
         owner: UserId,
@@ -137,5 +162,6 @@ pub trait BlogPostQuery: Send + Sync {
         page: BlogPageRequest,
     ) -> Result<BlogPageResult<BlogPostCard>, BlogPostQueryError>;
 
+    /// Lists the topics attached to a post.
     async fn get_topics(&self, post_id: Uuid) -> Result<Vec<BlogPostTopic>, BlogPostQueryError>;
 }

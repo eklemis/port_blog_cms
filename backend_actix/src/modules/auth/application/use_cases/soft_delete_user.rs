@@ -7,21 +7,27 @@ use crate::auth::application::ports::outgoing::{
 };
 
 // ====================== Soft Delete Request ======================
+/// A request to delete one's own account.
 #[derive(Debug, Clone)]
 pub struct SoftDeleteUserRequest {
     user_id: Uuid,
 }
 
 impl SoftDeleteUserRequest {
+    /// Builds the request. The id comes from the verified token, not the body,
+    /// so a caller cannot delete somebody else.
     pub fn new(user_id: Uuid) -> Self {
         Self { user_id }
     }
 }
 
 // ====================== Soft Delete Errors =================
+/// Why the deletion failed.
 #[derive(Debug, Clone)]
 pub enum SoftDeleteUserError {
+    /// The caller may not delete this account.
     Unauthorized,
+    /// The write failed.
     DatabaseError(String),
 }
 
@@ -39,11 +45,16 @@ impl std::fmt::Display for SoftDeleteUserError {
 impl std::error::Error for SoftDeleteUserError {}
 
 // ==================== Soft Delete Use Case ======================
+/// Soft-deletes the caller's own account and revokes their tokens.
 #[async_trait]
 pub trait ISoftDeleteUserUseCase: Send + Sync {
+    /// Flags the account deleted and revokes every outstanding token, so an
+    /// existing session cannot keep using it.
     async fn execute(&self, request: SoftDeleteUserRequest) -> Result<(), SoftDeleteUserError>;
 }
 
+/// The default implementation, generic over the user writer and the token
+/// store.
 pub struct SoftDeleteUserUseCase<U, T>
 where
     U: UserRepository + Send + Sync,
@@ -58,6 +69,7 @@ where
     U: UserRepository + Send + Sync,
     T: TokenRepository + Send + Sync,
 {
+    /// Builds the use case from its ports.
     pub fn new(user_repository: U, token_repository: T) -> Self {
         Self {
             user_repository,

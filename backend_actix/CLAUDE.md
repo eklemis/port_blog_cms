@@ -53,6 +53,11 @@ RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
   [ADR 0003](docs/adr/0003-migrate-before-deploy.md). Dropping a column the
   running build still selects breaks production between the migration and the
   service update.
+- **Public items in `ports/`, `shared/`, `api/` and `auth`/`cv`'s `use_cases/`
+  must carry a doc comment.** Those layers are under
+  `#![deny(missing_docs)]`, so an undocumented struct field or enum variant
+  fails the build, not just the review. `cargo check` names every one it
+  wants.
 - **New code follows the newer module convention** (`topic`, `project`,
   `blog`, `multimedia`), not the older one in `auth` and `cv`. The difference,
   and why, is in `docs/ARCHITECTURE.md`.

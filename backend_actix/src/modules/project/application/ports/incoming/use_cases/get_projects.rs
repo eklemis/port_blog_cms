@@ -18,6 +18,7 @@ use crate::modules::project::application::ports::outgoing::project_query::{
 /// A listing that matches nothing is an empty page, not an error.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum GetProjectsError {
+    /// The read could not be executed. A 500 for the caller.
     #[error("Query failed: {0}")]
     QueryFailed(String),
 }

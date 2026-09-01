@@ -4,14 +4,19 @@ use crate::cv::application::ports::outgoing::{
 use crate::cv::domain::entities::CVInfo;
 use uuid::Uuid;
 
+/// Why a partial update failed.
 #[derive(Debug, Clone)]
 pub enum PatchCVError {
+    /// No CV matched the id.
     CVNotFound,
+    /// The store could not be reached, or the write failed.
     RepositoryError(String),
 }
 
+/// Applies a partial update to a CV.
 #[async_trait::async_trait]
 pub trait IPatchCVUseCase: Send + Sync {
+    /// Applies the patch and returns the CV as stored.
     async fn execute(
         &self,
         user_id: Uuid,
@@ -20,12 +25,14 @@ pub trait IPatchCVUseCase: Send + Sync {
     ) -> Result<CVInfo, PatchCVError>;
 }
 
+/// The default implementation, generic over the repository port.
 #[derive(Debug, Clone)]
 pub struct PatchCVUseCase<R: CVRepository> {
     repository: R,
 }
 
 impl<R: CVRepository> PatchCVUseCase<R> {
+    /// Builds the use case from its repository port.
     pub fn new(repository: R) -> Self {
         Self { repository }
     }
@@ -36,6 +43,7 @@ impl<R> IPatchCVUseCase for PatchCVUseCase<R>
 where
     R: CVRepository + Send + Sync,
 {
+    /// Applies the patch and returns the CV as stored.
     async fn execute(
         &self,
         user_id: Uuid,
