@@ -283,6 +283,5 @@ mod tests {
         let repo = TopicRepositoryPostgres::new(Arc::new(db));
 
         let _ = repo.clone();
-        assert!(true);
     }
 }

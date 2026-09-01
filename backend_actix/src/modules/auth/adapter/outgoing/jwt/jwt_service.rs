@@ -242,7 +242,7 @@ mod tests {
         let claims = claims.unwrap();
         assert_eq!(claims.sub, user_id, "User ID should match");
         assert_eq!(claims.token_type, "access");
-        assert_eq!(claims.is_verified, true);
+        assert!(claims.is_verified);
     }
 
     #[test]
@@ -258,7 +258,7 @@ mod tests {
         // Verify token
         let claims = service.verify_token(&token).unwrap();
         assert_eq!(claims.sub, user_id);
-        assert_eq!(claims.is_verified, false);
+        assert!(!claims.is_verified);
         assert_eq!(claims.token_type, "access");
     }
 
@@ -379,7 +379,7 @@ mod tests {
         let claims = claims.unwrap();
         assert_eq!(claims.sub, user_id, "User ID should match in refresh token");
         assert_eq!(claims.token_type, "refresh");
-        assert_eq!(claims.is_verified, true);
+        assert!(claims.is_verified);
     }
 
     #[test]
@@ -390,7 +390,7 @@ mod tests {
         let token = service.generate_refresh_token(user_id, false).unwrap();
         let claims = service.verify_token(&token).unwrap();
 
-        assert_eq!(claims.is_verified, false);
+        assert!(!claims.is_verified);
         assert_eq!(claims.token_type, "refresh");
     }
 
@@ -407,7 +407,7 @@ mod tests {
         let claims = service.verify_token(&token).unwrap();
         assert_eq!(claims.sub, user_id);
         assert_eq!(claims.token_type, "verification");
-        assert_eq!(claims.is_verified, false);
+        assert!(!claims.is_verified);
 
         // Verify using verify_verification_token
         let result = service.verify_verification_token(&token);
@@ -468,7 +468,7 @@ mod tests {
         let claims = service.verify_token(&new_access_token).unwrap();
         assert_eq!(claims.sub, user_id);
         assert_eq!(claims.token_type, "access");
-        assert_eq!(claims.is_verified, true);
+        assert!(claims.is_verified);
     }
 
     #[test]
@@ -589,7 +589,7 @@ mod tests {
             .refresh_access_token(&refresh_token_verified)
             .unwrap();
         let claims = service.verify_token(&access_token).unwrap();
-        assert_eq!(claims.is_verified, true);
+        assert!(claims.is_verified);
 
         // Test with unverified user
         let refresh_token_unverified = service.generate_refresh_token(user_id, false).unwrap();
@@ -597,7 +597,7 @@ mod tests {
             .refresh_access_token(&refresh_token_unverified)
             .unwrap();
         let claims = service.verify_token(&access_token).unwrap();
-        assert_eq!(claims.is_verified, false);
+        assert!(!claims.is_verified);
     }
 
     #[test]

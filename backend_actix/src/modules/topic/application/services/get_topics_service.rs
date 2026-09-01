@@ -105,8 +105,8 @@ mod tests {
         let owner = UserId::from(Uuid::new_v4());
 
         let topics = vec![
-            create_topic(Uuid::new_v4(), owner.clone(), "Rust"),
-            create_topic(Uuid::new_v4(), owner.clone(), "Backend"),
+            create_topic(Uuid::new_v4(), owner, "Rust"),
+            create_topic(Uuid::new_v4(), owner, "Backend"),
         ];
 
         let query = MockTopicQuery::success(topics.clone());
@@ -167,8 +167,5 @@ mod tests {
 
         // Act
         let _cloned = service.clone();
-
-        // Assert
-        assert!(true); // compile-time guarantee
     }
 }

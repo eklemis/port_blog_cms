@@ -388,7 +388,7 @@ impl CreateAttachmentCommand {
 
     pub fn to_new_attachment(&self) -> NewMediaAttachment {
         NewMediaAttachment {
-            owner: self.owner.clone(),
+            owner: self.owner,
             attachment_target: self.attachment_target.clone(),
             attachment_target_id: self.attachment_target_id,
             role: self.role.clone(),

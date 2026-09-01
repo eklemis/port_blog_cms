@@ -159,7 +159,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.valid_token"
             }))
             .to_request();
@@ -184,7 +184,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
-            .set_json(&serde_json::json!({}))
+            .set_json(serde_json::json!({}))
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -207,7 +207,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "refresh_token": null
             }))
             .to_request();
@@ -232,7 +232,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.valid_token"
             }))
             .to_request();
@@ -257,7 +257,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.valid_token"
             }))
             .to_request();
@@ -282,7 +282,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "refresh_token": ""
             }))
             .to_request();
@@ -307,7 +307,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "refresh_token": "   "
             }))
             .to_request();
@@ -332,7 +332,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "refresh_token": "  eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.valid_token  "
             }))
             .to_request();
@@ -362,7 +362,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "refresh_token": long_token
             }))
             .to_request();
@@ -390,7 +390,7 @@ mod tests {
         // First logout
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "refresh_token": token
             }))
             .to_request();
@@ -404,7 +404,7 @@ mod tests {
         // Second logout with same token (should still succeed - idempotent)
         let req = test::TestRequest::post()
             .uri("/api/auth/logout")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "refresh_token": token
             }))
             .to_request();
@@ -435,7 +435,7 @@ mod tests {
         for token in malformed_tokens {
             let req = test::TestRequest::post()
                 .uri("/api/auth/logout")
-                .set_json(&serde_json::json!({
+                .set_json(serde_json::json!({
                     "refresh_token": token
                 }))
                 .to_request();

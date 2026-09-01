@@ -308,7 +308,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/refresh")
-            .set_json(&create_test_refresh_token_request_json())
+            .set_json(create_test_refresh_token_request_json())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -339,7 +339,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/refresh")
-            .set_json(&create_test_refresh_token_request_json())
+            .set_json(create_test_refresh_token_request_json())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -370,7 +370,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/refresh")
-            .set_json(&create_test_refresh_token_request_json())
+            .set_json(create_test_refresh_token_request_json())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -398,7 +398,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/refresh")
-            .set_json(&create_test_refresh_token_request_json())
+            .set_json(create_test_refresh_token_request_json())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -426,7 +426,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/refresh")
-            .set_json(&create_test_refresh_token_request_json())
+            .set_json(create_test_refresh_token_request_json())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -457,7 +457,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/refresh")
-            .set_json(&create_test_refresh_token_request_json())
+            .set_json(create_test_refresh_token_request_json())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -485,7 +485,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/refresh")
-            .set_json(&create_test_refresh_token_request_json())
+            .set_json(create_test_refresh_token_request_json())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -514,7 +514,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/refresh")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "refresh_token": ""
             }))
             .to_request();
@@ -544,7 +544,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/refresh")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "refresh_token": "   "
             }))
             .to_request();
@@ -573,7 +573,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/refresh")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "refresh_token": "  eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.valid_token  "
             }))
             .to_request();
@@ -606,7 +606,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/refresh")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "refresh_token": long_token
             }))
             .to_request();
@@ -642,7 +642,7 @@ mod tests {
         for token in malformed_tokens {
             let req = test::TestRequest::post()
                 .uri("/api/auth/refresh")
-                .set_json(&serde_json::json!({
+                .set_json(serde_json::json!({
                     "refresh_token": token
                 }))
                 .to_request();

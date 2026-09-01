@@ -69,7 +69,7 @@ fn map_create_user_error(err: CreateUserError, req: &CreateUserRequest) -> HttpR
                 error = %err,
                 "Invalid registration input"
             );
-            ApiResponse::bad_request(ErrorCode::InvalidUsername, &msg)
+            ApiResponse::bad_request(ErrorCode::InvalidUsername, msg)
         }
 
         CreateUserError::InvalidEmail(msg) => {
@@ -79,7 +79,7 @@ fn map_create_user_error(err: CreateUserError, req: &CreateUserRequest) -> HttpR
                 error = %err,
                 "Invalid registration input"
             );
-            ApiResponse::bad_request(ErrorCode::InvalidEmail, &msg)
+            ApiResponse::bad_request(ErrorCode::InvalidEmail, msg)
         }
 
         CreateUserError::InvalidPassword(msg) => {
@@ -89,7 +89,7 @@ fn map_create_user_error(err: CreateUserError, req: &CreateUserRequest) -> HttpR
                 error = %err,
                 "Invalid registration input"
             );
-            ApiResponse::bad_request(ErrorCode::InvalidPassword, &msg)
+            ApiResponse::bad_request(ErrorCode::InvalidPassword, msg)
         }
 
         CreateUserError::InvalidFullName(msg) => {
@@ -99,7 +99,7 @@ fn map_create_user_error(err: CreateUserError, req: &CreateUserRequest) -> HttpR
                 error = %err,
                 "Invalid registration input"
             );
-            ApiResponse::bad_request(ErrorCode::InvalidFullName, &msg)
+            ApiResponse::bad_request(ErrorCode::InvalidFullName, msg)
         }
 
         CreateUserError::UserAlreadyExists => {
@@ -446,8 +446,8 @@ mod tests {
     }
 
     fn create_orchestrator(
-        create_user: impl ICreateUserUseCase + Send + Sync + 'static,
-        email_notifier: impl UserEmailNotifier + Send + Sync + 'static,
+        create_user: impl ICreateUserUseCase + 'static,
+        email_notifier: impl UserEmailNotifier + 'static,
     ) -> Arc<UserRegistrationOrchestrator> {
         Arc::new(UserRegistrationOrchestrator::new(
             Arc::new(create_user),
@@ -476,7 +476,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/register")
-            .set_json(&create_test_request())
+            .set_json(create_test_request())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -513,7 +513,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/register")
-            .set_json(&create_test_request())
+            .set_json(create_test_request())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -547,7 +547,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/register")
-            .set_json(&create_test_request())
+            .set_json(create_test_request())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -578,7 +578,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/register")
-            .set_json(&create_test_request())
+            .set_json(create_test_request())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -612,7 +612,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/register")
-            .set_json(&create_test_request())
+            .set_json(create_test_request())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -643,7 +643,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/register")
-            .set_json(&create_test_request())
+            .set_json(create_test_request())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -674,7 +674,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/register")
-            .set_json(&create_test_request())
+            .set_json(create_test_request())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -705,7 +705,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/register")
-            .set_json(&create_test_request())
+            .set_json(create_test_request())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -735,7 +735,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/register")
-            .set_json(&create_test_request())
+            .set_json(create_test_request())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -765,7 +765,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/register")
-            .set_json(&create_test_request())
+            .set_json(create_test_request())
             .to_request();
 
         let resp = test::call_service(&app, req).await;

@@ -6,6 +6,12 @@ use crate::auth::application::ports::outgoing::password_hasher::{HashError, Pass
 #[derive(Clone)]
 pub struct BcryptHasher;
 
+impl Default for BcryptHasher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BcryptHasher {
     pub fn new() -> Self {
         Self

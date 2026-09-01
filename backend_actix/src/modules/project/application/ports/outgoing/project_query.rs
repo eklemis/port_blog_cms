@@ -67,22 +67,17 @@ pub struct ProjectListFilter {
 }
 
 /// Listing order.
-#[derive(Debug, Clone, Deserialize, utoipa::ToSchema)]
+#[derive(Debug, Clone, Deserialize, utoipa::ToSchema, Default)]
 pub enum ProjectSort {
     /// Newest by creation date first
     Newest,
     /// Oldest by creation date first
     Oldest,
     /// Most recently updated first (default)
+    #[default]
     UpdatedNewest,
     /// Least recently updated first
     UpdatedOldest,
-}
-
-impl Default for ProjectSort {
-    fn default() -> Self {
-        ProjectSort::UpdatedNewest
-    }
 }
 
 /// Which page to return. Pages are 1-based.

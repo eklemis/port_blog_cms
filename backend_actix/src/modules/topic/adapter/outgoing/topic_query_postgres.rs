@@ -162,6 +162,5 @@ mod tests {
         let query = TopicQueryPostgres::new(Arc::new(db));
 
         let _clone = query.clone();
-        assert!(true);
     }
 }

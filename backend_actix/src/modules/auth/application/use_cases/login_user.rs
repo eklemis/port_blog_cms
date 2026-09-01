@@ -457,7 +457,7 @@ mod tests {
         assert!(!response.refresh_token.is_empty());
         assert_eq!(response.user.email, "test@example.com");
         assert_eq!(response.user.username, "testuser");
-        assert_eq!(response.user.is_verified, true);
+        assert!(response.user.is_verified);
     }
 
     #[tokio::test]

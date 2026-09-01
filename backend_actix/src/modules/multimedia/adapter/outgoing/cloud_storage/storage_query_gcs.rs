@@ -39,6 +39,14 @@ fn map_sign_error(msg: &str) -> SignUrlError {
     }
 }
 
+// The network branch and the fallback both return NetworkInterrupted, so the
+// `if` discriminates nothing today. Kept rather than collapsed because the
+// branch names the conditions we would want to report separately, and
+// `StorageQueryError` has no "unclassified" variant to give the fallback a
+// distinct meaning. The behaviour is pinned by
+// `every_non_404_read_error_maps_to_network_interrupted` below, so collapsing
+// it later is a safe change rather than a silent one.
+#[allow(clippy::if_same_then_else)]
 fn map_read_error(msg: &str) -> StorageQueryError {
     let m = msg.to_lowercase();
 
@@ -156,6 +164,12 @@ impl GcsStorageQuery {
             client: Arc::new(once),
             signed_url_ttl,
         }
+    }
+}
+
+impl Default for GcsStorageQuery {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

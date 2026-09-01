@@ -67,16 +67,11 @@ jobs:
       - name: Formatting
         run: cargo fmt --all --check
 
-      # Not a gate yet, for the same reason fmt was not: clippy currently
-      # reports roughly 150 findings, dominated by needless borrows (63),
-      # `.clone()` on the `Copy` type `UserId` (14) and redundant supertrait
-      # bounds on the use-case traits. None are correctness bugs. Promote this
-      # to a blocking step, and add `-- -D warnings`, once they are cleared —
-      # that is a mechanical change worth its own PR rather than being folded
-      # into an unrelated one.
-      - name: Clippy (informational)
-        run: cargo clippy --workspace --all-targets --locked
-        continue-on-error: true
+      # Now a real gate. The workspace is clippy-clean under -D warnings; the
+      # handful of lints that are deliberately allowed carry an #[allow] with
+      # the reason at the site, so a new finding here is genuinely new.
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       # rustdoc is a build artifact now that the crate has a lib target, so a
       # broken intra-doc link should fail like any other build error.

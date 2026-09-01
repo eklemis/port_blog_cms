@@ -16,21 +16,17 @@ pub struct CVListFilter {
 /// Listing order. Defaults to [`UpdatedNewest`](Self::UpdatedNewest).
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum CVSort {
     /// Sort by creation date (newest first)
     Newest,
     /// Sort by creation date (oldest first)
     Oldest,
     /// Sort by last update (newest first)
+    #[default]
     UpdatedNewest,
     /// Sort by last update (oldest first)
     UpdatedOldest,
-}
-
-impl Default for CVSort {
-    fn default() -> Self {
-        CVSort::UpdatedNewest
-    }
 }
 
 /// Which page to return. Pages are 1-based; defaults to 20 per page.

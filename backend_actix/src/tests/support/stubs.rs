@@ -311,7 +311,7 @@ impl CreateTopicUseCase for StubCreateTopicUseCase {
     async fn execute(&self, command: CreateTopicCommand) -> Result<TopicResult, CreateTopicError> {
         Ok(TopicResult {
             id: uuid::Uuid::new_v4(),
-            owner: command.owner().clone(),
+            owner: *command.owner(),
             title: command.title().to_string(),
             description: command.description().cloned().unwrap_or_default(),
         })
