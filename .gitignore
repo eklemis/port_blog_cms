@@ -18,3 +18,4 @@ graphify-out/
 /backend_actix/tarpaulin-report.*
 /backend_actix/lcov.info
 /backend_actix/target/llvm-cov-target/
+.DS_Store
