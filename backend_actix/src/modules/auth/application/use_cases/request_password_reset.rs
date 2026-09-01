@@ -4,6 +4,7 @@ use std::sync::Arc;
 use crate::auth::application::ports::outgoing::token_provider::TokenProvider;
 use crate::auth::application::ports::outgoing::user_query::UserQuery;
 use crate::email::application::ports::outgoing::password_reset_notifier::PasswordResetNotifier;
+use crate::email::application::ports::outgoing::Recipient;
 
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum RequestPasswordResetError {
@@ -92,7 +93,7 @@ where
 
         if let Err(e) = self
             .notifier
-            .send_password_reset_email(&user.email, &user.username, &token)
+            .send_password_reset_email(&Recipient::new(&user.email, &user.username), &token)
             .await
         {
             // The user gets no email and we still answer Ok. That is the cost
@@ -174,11 +175,10 @@ mod tests {
     impl PasswordResetNotifier for SpyNotifier {
         async fn send_password_reset_email(
             &self,
-            email: &str,
-            _u: &str,
+            recipient: &Recipient,
             _t: &str,
         ) -> Result<(), UserEmailNotificationError> {
-            self.sent_to.lock().unwrap().push(email.to_string());
+            self.sent_to.lock().unwrap().push(recipient.email.clone());
             if self.fail {
                 return Err(UserEmailNotificationError::EmailSendingFailed(
                     "smtp".into(),

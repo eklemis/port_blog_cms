@@ -1,10 +1,12 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::auth::application::ports::outgoing::token_provider::TokenProvider;
 use crate::auth::application::use_cases::create_user::{
     CreateUserError, CreateUserInput, CreateUserOutput, ICreateUserUseCase,
 };
 use crate::email::application::ports::outgoing::user_email_notifier::UserEmailNotifier;
+use crate::email::application::ports::outgoing::Recipient;
 
 // ============================================================================
 // Registration Output with Message
@@ -54,16 +56,22 @@ pub enum UserRegistrationError {
 #[derive(Clone)]
 pub struct UserRegistrationOrchestrator {
     create_user_use_case: Arc<dyn ICreateUserUseCase + Send + Sync>,
+    /// Mints the verification token. Held here rather than inside the notifier
+    /// because minting is `auth`'s job — see
+    /// `docs/adr/0005-break-the-auth-email-cycle.md`.
+    token_provider: Arc<dyn TokenProvider + Send + Sync>,
     email_service: Arc<dyn UserEmailNotifier + Send + Sync>,
 }
 
 impl UserRegistrationOrchestrator {
     pub fn new(
         create_user_use_case: Arc<dyn ICreateUserUseCase + Send + Sync>,
+        token_provider: Arc<dyn TokenProvider + Send + Sync>,
         email_service: Arc<dyn UserEmailNotifier + Send + Sync>,
     ) -> Self {
         Self {
             create_user_use_case,
+            token_provider,
             email_service,
         }
     }
@@ -78,15 +86,26 @@ impl UserRegistrationOrchestrator {
         // Step 1: Create user account
         let created_user = self.create_user_use_case.execute(input).await?;
 
-        // Step 2: Spawn email sending as a background task (fire-and-forget)
+        // Step 2: mint the verification token here, before spawning. Minting is
+        // synchronous and cheap, and doing it on this task means a failure is
+        // visible to the caller rather than disappearing into a detached one.
+        let token = self
+            .token_provider
+            .generate_verification_token(created_user.user_id)
+            .map_err(|e| UserRegistrationError::TokenGenerationFailed(e.to_string()))?;
+
+        // Step 3: Spawn email sending as a background task (fire-and-forget)
         let email_service = self.email_service.clone();
-        let user_for_email = created_user.clone();
+        let recipient = Recipient::new(&created_user.email, &created_user.username);
+        // Captured for the log lines below: the spawned task must not borrow
+        // `created_user`, which is returned to the caller.
+        let user_id = created_user.user_id;
 
         tokio::spawn(async move {
             let max_retries = 3;
             for attempt in 1..=max_retries {
                 match email_service
-                    .send_verification_email(user_for_email.clone())
+                    .send_verification_email(&recipient, &token)
                     .await
                 {
                     Ok(_) => return,
@@ -95,7 +114,7 @@ impl UserRegistrationOrchestrator {
                             "Email attempt {}/{} failed for user {}: {}. Retrying...",
                             attempt,
                             max_retries,
-                            user_for_email.user_id,
+                            user_id,
                             e
                         );
                         tokio::time::sleep(Duration::from_secs(2_u64.pow(attempt))).await;
@@ -104,7 +123,7 @@ impl UserRegistrationOrchestrator {
                         tracing::error!(
                             "All {} email attempts failed for user {}: {}",
                             max_retries,
-                            user_for_email.user_id,
+                            user_id,
                             e
                         );
                     }
@@ -119,6 +138,7 @@ impl UserRegistrationOrchestrator {
 
 #[cfg(test)]
 mod tests {
+    use crate::auth::application::ports::outgoing::token_provider::{TokenClaims, TokenError};
     use crate::email::application::ports::outgoing::user_email_notifier::UserEmailNotificationError;
 
     use super::*;
@@ -177,11 +197,61 @@ mod tests {
         }
     }
 
+    /// Mints a fixed verification token, or fails on demand.
+    ///
+    /// The orchestrator mints the token now — see
+    /// `docs/adr/0005-break-the-auth-email-cycle.md` — so these tests need one.
+    #[derive(Clone)]
+    struct StubTokenProvider {
+        verification: Option<&'static str>,
+    }
+
+    impl StubTokenProvider {
+        fn ok() -> Self {
+            Self {
+                verification: Some("verify-tok"),
+            }
+        }
+        fn failing() -> Self {
+            Self { verification: None }
+        }
+    }
+
+    impl TokenProvider for StubTokenProvider {
+        fn generate_access_token(&self, _u: Uuid, _v: bool) -> Result<String, TokenError> {
+            unimplemented!()
+        }
+        fn generate_refresh_token(&self, _u: Uuid, _v: bool) -> Result<String, TokenError> {
+            unimplemented!()
+        }
+        fn verify_token(&self, _t: &str) -> Result<TokenClaims, TokenError> {
+            unimplemented!()
+        }
+        fn refresh_access_token(&self, _t: &str) -> Result<String, TokenError> {
+            unimplemented!()
+        }
+        fn generate_verification_token(&self, _u: Uuid) -> Result<String, TokenError> {
+            self.verification
+                .map(|t| t.to_string())
+                .ok_or(TokenError::MalformedToken)
+        }
+        fn verify_verification_token(&self, _t: &str) -> Result<Uuid, TokenError> {
+            unimplemented!()
+        }
+        fn generate_password_reset_token(&self, _u: Uuid) -> Result<String, TokenError> {
+            unimplemented!()
+        }
+        fn verify_password_reset_token(&self, _t: &str) -> Result<Uuid, TokenError> {
+            unimplemented!()
+        }
+    }
+
     #[async_trait]
     impl UserEmailNotifier for MockUserEmailNotifier {
         async fn send_verification_email(
             &self,
-            _user: CreateUserOutput,
+            _recipient: &Recipient,
+            _verification_token: &str,
         ) -> Result<(), UserEmailNotificationError> {
             self.called.store(true, Ordering::SeqCst);
             self.notify.notify_one();
@@ -232,6 +302,7 @@ mod tests {
 
         let service = UserRegistrationOrchestrator::new(
             Arc::new(create_uc),
+            Arc::new(StubTokenProvider::ok()),
             Arc::new(email_notifier.clone()),
         );
 
@@ -258,6 +329,35 @@ mod tests {
     // ⚠️ SUCCESS: user created, email FAILED
     // =====================================================
 
+    /// The verification token is minted here, not in the notifier, so a minting
+    /// failure has to surface from `register_user` rather than vanishing into
+    /// the detached email task. This test moved out of `email_service` with the
+    /// dependency — see `docs/adr/0005-break-the-auth-email-cycle.md`.
+    #[tokio::test]
+    async fn a_token_minting_failure_fails_registration_and_sends_nothing() {
+        let create_uc = MockCreateUserUseCase {
+            result: Ok(created_user()),
+        };
+        let email_notifier = MockUserEmailNotifier::new(false);
+
+        let service = UserRegistrationOrchestrator::new(
+            Arc::new(create_uc),
+            Arc::new(StubTokenProvider::failing()),
+            Arc::new(email_notifier.clone()),
+        );
+
+        let err = service.register_user(valid_input()).await.unwrap_err();
+
+        assert!(matches!(
+            err,
+            UserRegistrationError::TokenGenerationFailed(_)
+        ));
+        assert!(
+            !email_notifier.was_called(),
+            "no mail should be attempted when the token could not be minted"
+        );
+    }
+
     #[tokio::test]
     async fn register_user_succeeds_even_when_email_fails() {
         let create_uc = MockCreateUserUseCase {
@@ -268,6 +368,7 @@ mod tests {
 
         let service = UserRegistrationOrchestrator::new(
             Arc::new(create_uc),
+            Arc::new(StubTokenProvider::ok()),
             Arc::new(email_notifier.clone()),
         );
 
@@ -304,6 +405,7 @@ mod tests {
 
         let service = UserRegistrationOrchestrator::new(
             Arc::new(create_uc),
+            Arc::new(StubTokenProvider::ok()),
             Arc::new(email_notifier.clone()),
         );
 

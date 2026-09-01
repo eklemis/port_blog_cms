@@ -1,8 +1,8 @@
 //! Ports for the email module.
 
-/// Separate from `UserEmailNotifier` because that trait's method takes a
-/// `CreateUserOutput` — a registration-shaped payload. A reset can be requested
-/// long after signup, so it needs only an address, a name to greet, and a token.
+/// Separate from [`UserEmailNotifier`](super::user_email_notifier::UserEmailNotifier)
+/// so a caller can depend on one without gaining the other. Both now speak the
+/// same shape — a [`Recipient`](super::Recipient) and an already-minted token.
 #[async_trait::async_trait]
 pub trait PasswordResetNotifier: Send + Sync {
     /// Mints a reset token and mails the link.
@@ -17,8 +17,7 @@ pub trait PasswordResetNotifier: Send + Sync {
     /// what stops this endpoint being an account-existence oracle.
     async fn send_password_reset_email(
         &self,
-        email: &str,
-        username: &str,
+        recipient: &super::Recipient,
         reset_token: &str,
     ) -> Result<(), super::user_email_notifier::UserEmailNotificationError>;
 }

@@ -1,17 +1,13 @@
 //! Notifies a newly registered user that they must confirm their address.
 //!
-//! # This port is why `auth` and `email` form a cycle
+//! `auth` depends on this trait, which is the right direction: it needs to send
+//! mail and depends on an abstraction rather than on SMTP. Nothing here depends
+//! back on `auth` — the port speaks [`Recipient`], which `email` owns, and takes
+//! the token already minted rather than minting it.
 //!
-//! `auth` depends on this trait, which is the right direction — it needs to
-//! send mail and depends on an abstraction rather than on SMTP. But the trait
-//! is typed on [`CreateUserOutput`], which `auth` owns, so `email` cannot be
-//! read, moved or tested without `auth` in turn.
-//!
-//! The fix is to give this port its own small input type carrying only the
-//! fields the template needs, and have `auth` construct it. See the "Two known
-//! structural issues" section of `docs/ARCHITECTURE.md`.
+//! It did not always. See `docs/adr/0005-break-the-auth-email-cycle.md`.
 
-use crate::auth::application::use_cases::create_user::CreateUserOutput;
+use crate::email::application::ports::outgoing::Recipient;
 
 /// Why a notification could not be delivered.
 ///
@@ -19,6 +15,9 @@ use crate::auth::application::use_cases::create_user::CreateUserOutput;
 #[derive(Debug, thiserror::Error)]
 pub enum UserEmailNotificationError {
     /// The link's token could not be minted, so no message was attempted.
+    ///
+    /// Produced by the caller before it reaches a notifier, not by the
+    /// notifier itself — this module no longer mints tokens.
     #[error("Token generation failed: {0}")]
     TokenGenerationFailed(String),
 
@@ -33,12 +32,15 @@ pub enum UserEmailNotificationError {
 /// Sends the post-registration verification mail.
 #[async_trait::async_trait]
 pub trait UserEmailNotifier: Send + Sync {
-    /// Mints a verification token and mails the confirmation link.
+    /// Mails the confirmation link.
     ///
-    /// The link points at `VERIFICATION_HANDLER_URL` with the token appended
-    /// as a path segment.
+    /// The link points at `VERIFICATION_HANDLER_URL` with
+    /// `verification_token` appended as a path segment. The token is minted by
+    /// the caller — `auth` owns token minting, and taking it as an argument is
+    /// what keeps this module independent of `auth`.
     async fn send_verification_email(
         &self,
-        user: CreateUserOutput,
+        recipient: &Recipient,
+        verification_token: &str,
     ) -> Result<(), UserEmailNotificationError>;
 }

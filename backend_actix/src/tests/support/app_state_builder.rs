@@ -81,6 +81,7 @@ pub fn default_test_user_registration_orchestrator() -> Arc<UserRegistrationOrch
 
     Arc::new(UserRegistrationOrchestrator::new(
         create_user,
+        Arc::new(StubTokenProvider),
         email_notifier,
     ))
 }
