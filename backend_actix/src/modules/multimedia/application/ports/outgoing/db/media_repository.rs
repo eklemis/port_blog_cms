@@ -1,3 +1,10 @@
+//! Write-side port for media rows and their attachments.
+//!
+//! An upload is recorded before the bytes arrive: the row is created in a
+//! pending state, the client is handed a signed URL, and an out-of-band
+//! function flips the state once variants exist. So a media row existing does
+//! not mean the file does — see `MediaState`.
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -9,8 +16,10 @@ use crate::{
     },
 };
 
-/// Represents a new media row to be recorded.
-/// Refactor: use unsigned types for dimensions and sizes.
+/// A media row to be inserted.
+///
+/// Dimensions and durations are optional because they are only known for the
+/// media types that have them.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NewMedia {
     pub owner: UserId,
@@ -24,8 +33,10 @@ pub struct NewMedia {
     pub duration_seconds: Option<u64>,
 }
 
-/// Represents a new attachment row to be recorded with a media.
-/// Refactor: media_id is not needed here because it is created in the transaction.
+/// The attachment row recorded alongside a media row.
+///
+/// Carries no `media_id`: both rows are written in one transaction, so the id
+/// is only known inside it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NewMediaAttachment {
     pub owner: UserId,
@@ -56,6 +67,7 @@ pub struct RecordedMedia {
     pub state: MediaState,
 }
 
+/// Why a media write failed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum MediaRepositoryError {
     /// Media doesn't exist OR doesn't belong to owner.
@@ -66,6 +78,10 @@ pub enum MediaRepositoryError {
     DatabaseError(String),
 }
 
+/// Why recording an upload failed.
+///
+/// Separate from [`MediaRepositoryError`] because recording writes two rows in
+/// one transaction and can fail in ways a plain read or delete cannot.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum RecordMediaError {
     #[error("Database error: {0}")]
@@ -80,6 +96,7 @@ pub struct UpdateMediaStateData {
     pub status: MediaState,
 }
 
+/// One generated size of a media item, written once processing finishes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MediaVariantRecord {
     pub owner: UserId,
@@ -97,6 +114,9 @@ pub struct MediaVariantRecord {
     pub height_px: Option<u32>,
 }
 
+/// Writes media rows, their attachments and their variants.
+///
+/// Reads belong to [`MediaQuery`](super::media_query::MediaQuery).
 #[async_trait]
 pub trait MediaRepository: Send + Sync {
     /// Store a row into media and media attachment with transaction

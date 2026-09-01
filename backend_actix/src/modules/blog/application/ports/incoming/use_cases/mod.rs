@@ -1,3 +1,5 @@
+//! The blog use-case contracts, one per operation.
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;

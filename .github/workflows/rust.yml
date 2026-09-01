@@ -61,8 +61,26 @@ jobs:
       - name: Test
         run: cargo test --workspace --locked
 
-      # Not a gate: 179 files are currently unformatted, so requiring this would
-      # be red on day one. Promote to a blocking step after a formatting pass.
-      - name: Formatting (informational)
+      # Now a real gate. The formatting pass that made this possible landed
+      # with the Phase 4 documentation work; the workspace is rustfmt-clean, so
+      # this fails on the first file that drifts rather than warning forever.
+      - name: Formatting
         run: cargo fmt --all --check
+
+      # Not a gate yet, for the same reason fmt was not: clippy currently
+      # reports roughly 150 findings, dominated by needless borrows (63),
+      # `.clone()` on the `Copy` type `UserId` (14) and redundant supertrait
+      # bounds on the use-case traits. None are correctness bugs. Promote this
+      # to a blocking step, and add `-- -D warnings`, once they are cleared —
+      # that is a mechanical change worth its own PR rather than being folded
+      # into an unrelated one.
+      - name: Clippy (informational)
+        run: cargo clippy --workspace --all-targets --locked
         continue-on-error: true
+
+      # rustdoc is a build artifact now that the crate has a lib target, so a
+      # broken intra-doc link should fail like any other build error.
+      - name: Docs
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --workspace --no-deps --locked

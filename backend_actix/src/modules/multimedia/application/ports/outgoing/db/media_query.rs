@@ -1,3 +1,5 @@
+//! Read-side port for media rows, their variants and their attachments.
+
 use async_trait::async_trait;
 use uuid::Uuid;
 
@@ -36,6 +38,7 @@ pub struct MediaAttachment {
     pub variants: Vec<StoredVariant>,
 }
 
+/// Why a media read failed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum MediaQueryError {
     #[error("Media not found")]
@@ -45,16 +48,23 @@ pub enum MediaQueryError {
     DatabaseError(String),
 }
 
+/// Reads media rows.
 #[async_trait]
 pub trait MediaQuery: Send + Sync {
+    /// The processing state of one upload.
+    ///
+    /// Callers poll this to learn whether variants exist yet: a row is created
+    /// before the bytes arrive, so existence does not imply availability.
     async fn get_state(&self, media_id: Uuid) -> Result<MediaStateInfo, MediaQueryError>;
 
+    /// Every media item attached to one target — a CV, a project, a post.
     async fn list_by_target(
         &self,
         owner: UserId,
         target: AttachmentTarget,
     ) -> Result<Vec<MediaAttachment>, MediaQueryError>;
 
+    /// What a media item is attached to, and in what role.
     async fn get_attachment_info(&self, media_id: Uuid)
         -> Result<MediaAttachment, MediaQueryError>;
 }
