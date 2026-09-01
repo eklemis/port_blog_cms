@@ -43,6 +43,12 @@ blocks on.
   Expected, not a conflict to resolve.
 - **The test suite is not parallel-safe.** `RUST_TEST_THREADS=1` always.
 
+## Licence
+
+None, deliberately — all rights reserved. The repository is public so the code
+can be read, not reused. Do not add a LICENSE file or licence headers; see the
+Licence section of `README.md`.
+
 ## Deploying
 
 Each service deploys independently; there is no orchestrated all-at-once deploy.
