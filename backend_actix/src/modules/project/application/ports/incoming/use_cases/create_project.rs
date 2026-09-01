@@ -1,3 +1,5 @@
+//! Creates a project.
+
 use async_trait::async_trait;
 use std::fmt;
 
@@ -11,6 +13,7 @@ use crate::modules::project::application::ports::outgoing::project_repository::{
 // ──────────────────────────────────────────────────────────
 //
 
+/// Why creating a project failed.
 #[derive(Debug, Clone)]
 pub enum CreateProjectError {
     SlugAlreadyExists,
@@ -34,7 +37,11 @@ impl fmt::Display for CreateProjectError {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Creates a project.
+///
+/// Slugs are unique per owner, so two users may both hold `my-app`.
 #[async_trait]
 pub trait CreateProjectUseCase: Send + Sync {
+    /// Creates the project and returns it as stored.
     async fn execute(&self, data: CreateProjectData) -> Result<ProjectResult, CreateProjectError>;
 }

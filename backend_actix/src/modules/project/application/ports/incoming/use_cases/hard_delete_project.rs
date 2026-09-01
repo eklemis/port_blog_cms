@@ -1,3 +1,5 @@
+//! Removes a project and its topic links permanently. Irreversible.
+
 use async_trait::async_trait;
 use uuid::Uuid;
 
@@ -10,6 +12,7 @@ use crate::modules::project::application::ports::outgoing::project_archiver::Pro
 // ──────────────────────────────────────────────────────────
 //
 
+/// Why permanently deleting a project failed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum HardDeleteProjectError {
     #[error("Project not found")]
@@ -36,7 +39,9 @@ impl From<ProjectArchiverError> for HardDeleteProjectError {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Removes a project and its topic links permanently. Irreversible.
 #[async_trait]
 pub trait HardDeleteProjectUseCase: Send + Sync {
+    /// Deletes the project.
     async fn execute(&self, owner: UserId, project_id: Uuid) -> Result<(), HardDeleteProjectError>;
 }

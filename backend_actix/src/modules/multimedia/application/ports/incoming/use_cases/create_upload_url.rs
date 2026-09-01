@@ -1,3 +1,17 @@
+//! Registering an upload and handing the client a signed URL to PUT to.
+//!
+//! Uploads never pass through this service. The client asks for a URL, the
+//! bytes go straight to the bucket, and an out-of-band function flips the
+//! media row's state once the variants exist. That is why the row is written
+//! before the file arrives, and why a row existing does not mean the object
+//! does.
+//!
+//! Because the bytes are never seen here, **every constraint is enforced on
+//! what the client claims** — file name, size, MIME type, dimensions — against
+//! [`UploadPolicy`](crate::multimedia::application::domain::policies::upload_policy::UploadPolicy).
+//! The bucket must enforce its own limits too; this is a usability check, not
+//! a security boundary.
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -17,6 +31,10 @@ use crate::{
     },
 };
 
+/// Why an upload request was rejected before any URL was signed.
+///
+/// Every variant is the caller's fault and maps to a 400. They are separate so
+/// the client can say precisely what to change.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum UploadUrlCommandError {
     #[error("Missing required field: {0}")]
@@ -130,6 +148,10 @@ fn validate_mime_ext_match(mime: &str, ext: &str) -> Result<(), UploadUrlCommand
 ///
 /// The previous comment claimed `<media_id>.<ext>` and "no user-controlled path
 /// segments". Neither matched the implementation.
+/// Builds the object key an upload will be stored under.
+///
+/// Derived rather than client-supplied, so a caller cannot choose where their
+/// bytes land or overwrite somebody else's object.
 pub fn make_object_key(
     media_id: Uuid,
     original_name: &str,
@@ -140,6 +162,12 @@ pub fn make_object_key(
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// A validated upload request.
+///
+/// Fields are private and there is no public constructor: the only way to make
+/// one is [`builder`](Self::builder) followed by
+/// [`build`](CreateMediaCommandBuilder::build), which takes the policy. So
+/// holding one of these is proof the request passed validation.
 pub struct CreateMediaCommand {
     owner: UserId,
     state: MediaState,
@@ -153,6 +181,8 @@ pub struct CreateMediaCommand {
 }
 
 impl CreateMediaCommand {
+    /// Starts building a command. Validation happens at
+    /// [`build`](CreateMediaCommandBuilder::build).
     pub fn builder() -> CreateMediaCommandBuilder {
         CreateMediaCommandBuilder::default()
     }
@@ -179,6 +209,7 @@ impl CreateMediaCommand {
         self.duration_seconds
     }
 
+    /// Projects the validated command onto the row the repository writes.
     pub fn to_new_media(&self) -> NewMedia {
         NewMedia {
             owner: self.owner,
@@ -195,6 +226,10 @@ impl CreateMediaCommand {
 }
 
 #[derive(Default)]
+/// Collects the fields for a [`CreateMediaCommand`].
+///
+/// Nothing is checked until [`build`](Self::build), which is where the policy
+/// is applied.
 pub struct CreateMediaCommandBuilder {
     owner: Option<UserId>,
     file_name: Option<String>,
@@ -242,6 +277,11 @@ impl CreateMediaCommandBuilder {
     }
 
     /// Build a validated command using injected policy (no hardcoded constants).
+    /// Validates every claimed attribute against `policy` and produces the
+    /// command.
+    ///
+    /// Checks presence, file name, size, MIME type, extension, the agreement
+    /// between MIME type and extension, and image dimensions.
     pub fn build(self, policy: &UploadPolicy) -> Result<CreateMediaCommand, UploadUrlCommandError> {
         let owner = self
             .owner
@@ -304,6 +344,10 @@ impl CreateMediaCommandBuilder {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// What the upload will be attached to, once it exists.
+///
+/// Recorded in the same transaction as the media row, so an upload is never
+/// left unattached.
 pub struct CreateAttachmentCommand {
     owner: UserId,
     attachment_target: AttachmentTarget,
@@ -315,6 +359,7 @@ pub struct CreateAttachmentCommand {
 }
 
 impl CreateAttachmentCommand {
+    /// Starts building an attachment command.
     pub fn builder() -> CreateAttachmentCommandBuilder {
         CreateAttachmentCommandBuilder::default()
     }
@@ -355,6 +400,7 @@ impl CreateAttachmentCommand {
 }
 
 #[derive(Default)]
+/// Collects the fields for a [`CreateAttachmentCommand`].
 pub struct CreateAttachmentCommandBuilder {
     owner: Option<UserId>,
     attachment_target: Option<AttachmentTarget>,
@@ -424,6 +470,10 @@ impl CreateAttachmentCommandBuilder {
     }
 }
 
+/// Why a signed upload URL could not be produced.
+///
+/// Distinct from [`UploadUrlCommandError`], which covers rejections that happen
+/// before anything is written; these happen after validation passed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum CreateUrlError {
     #[error("Repository error: {0}")]
@@ -438,13 +488,16 @@ impl From<SignUrlError> for CreateUrlError {
         CreateUrlError::StorageError(error.to_string())
     }
 }
+/// The signed URL, plus the id the client uses to poll for readiness.
 #[derive(Debug, Clone)]
 pub struct CreateMediaResult {
     pub url: String,
     pub media_id: Uuid,
 }
+/// Registers an upload and returns a URL to PUT the bytes to.
 #[async_trait]
 pub trait CreateUploadMediaUrlUseCase: Send + Sync {
+    /// Writes the media and attachment rows, then signs an upload URL.
     async fn execute(
         &self,
         media_command: CreateMediaCommand,

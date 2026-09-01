@@ -1,3 +1,5 @@
+//! Links a topic to a project. Idempotent — re-adding an existing link
+
 use async_trait::async_trait;
 use uuid::Uuid;
 
@@ -10,6 +12,10 @@ use crate::modules::project::application::ports::outgoing::project_topic_reposit
 // ──────────────────────────────────────────────────────────
 //
 
+/// Why linking a topic to a project failed.
+///
+/// Distinguishes a missing project from a missing topic, so the handler can
+/// say which id was wrong.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum AddProjectTopicError {
     #[error("Project not found")]
@@ -40,8 +46,11 @@ impl From<ProjectTopicRepositoryError> for AddProjectTopicError {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Links a topic to a project. Idempotent — re-adding an existing link
+/// succeeds.
 #[async_trait]
 pub trait AddProjectTopicUseCase: Send + Sync {
+    /// Adds the link.
     async fn execute(
         &self,
         owner: UserId,

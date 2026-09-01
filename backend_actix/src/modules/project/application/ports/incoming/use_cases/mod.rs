@@ -1,3 +1,5 @@
+//! Re-exports the module's use-case contracts.
+
 mod add_project_topic;
 mod clear_project_topics;
 mod create_project;

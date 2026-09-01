@@ -1,3 +1,5 @@
+//! Ports for the email module.
+
 /// Separate from `UserEmailNotifier` because that trait's method takes a
 /// `CreateUserOutput` — a registration-shaped payload. A reset can be requested
 /// long after signup, so it needs only an address, a name to greet, and a token.

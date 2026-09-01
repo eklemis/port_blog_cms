@@ -1,3 +1,5 @@
+//! Lists the media attached to a target.
+
 use async_trait::async_trait;
 
 use crate::multimedia::application::ports::{
@@ -5,6 +7,7 @@ use crate::multimedia::application::ports::{
     outgoing::db::MediaQuery,
 };
 
+/// Lists the media attached to a target.
 pub struct ListMediaService<Q>
 where
     Q: MediaQuery,

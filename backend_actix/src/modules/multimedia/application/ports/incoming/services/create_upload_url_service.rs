@@ -1,3 +1,5 @@
+//! Records an upload and signs the URL the client PUTs to.
+
 use async_trait::async_trait;
 
 use crate::multimedia::application::ports::{
@@ -11,6 +13,7 @@ use crate::multimedia::application::ports::{
     },
 };
 
+/// Records an upload and signs the URL the client PUTs to.
 pub struct CreateUploadMediaUrlService<Q, R>
 where
     Q: StorageQuery,

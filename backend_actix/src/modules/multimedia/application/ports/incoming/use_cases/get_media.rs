@@ -1,3 +1,4 @@
+//! Fetching one media item's details.
 use async_trait::async_trait;
 use serde::Serialize;
 use utoipa::ToSchema;
@@ -15,6 +16,11 @@ use crate::multimedia::application::ports::outgoing::db::{MediaAttachment, Media
 /// names and object keys are deliberately not exposed: callers reach the bytes
 /// through `GET /api/media/{media_id}/{media_size}`, which issues a signed URL,
 /// so storage layout stays an internal detail.
+/// One media item in full, including which sizes exist.
+///
+/// `available_sizes` is derived from the variant rows, so an item still being
+/// processed comes back with an empty list rather than an error — check
+/// `status` to tell "none yet" from "none ever".
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct MediaDetail {
     pub media_id: Uuid,
@@ -48,6 +54,7 @@ impl From<MediaAttachment> for MediaDetail {
     }
 }
 
+/// Why fetching a media item failed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum GetMediaError {
     /// Media does not exist, is soft-deleted, or belongs to another user. All
@@ -69,7 +76,9 @@ impl From<MediaQueryError> for GetMediaError {
     }
 }
 
+/// Fetches one media item's details.
 #[async_trait]
 pub trait GetMediaUseCase: Send + Sync {
+    /// Returns the item, scoped to `owner`.
     async fn execute(&self, owner: UserId, media_id: Uuid) -> Result<MediaDetail, GetMediaError>;
 }
