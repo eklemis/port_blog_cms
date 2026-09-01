@@ -1,3 +1,5 @@
+//! Removes every topic link from a project.
+
 use async_trait::async_trait;
 use uuid::Uuid;
 
@@ -10,6 +12,7 @@ use crate::modules::project::application::ports::outgoing::project_topic_reposit
 // ──────────────────────────────────────────────────────────
 //
 
+/// Why clearing a project's topics failed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ClearProjectTopicsError {
     #[error("Project not found")]
@@ -42,8 +45,10 @@ impl From<ProjectTopicRepositoryError> for ClearProjectTopicsError {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Removes every topic link from a project.
 #[async_trait]
 pub trait ClearProjectTopicsUseCase: Send + Sync {
+    /// Clears the links.
     async fn execute(&self, owner: UserId, project_id: Uuid)
         -> Result<(), ClearProjectTopicsError>;
 }

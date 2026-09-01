@@ -441,20 +441,28 @@ recording it is that **new code should not add to it.**
 `cargo doc -p backend_actix --no-deps` produces a browsable reference, and CI
 fails the build on a broken intra-doc link.
 
-Coverage is deliberately uneven, because the value is:
+Every port is documented — all 170 public items across the incoming and
+outgoing port modules:
 
 | Layer | Item-level docs |
 | --- | --- |
-| **Outgoing ports** — the contracts adapters must satisfy | **92/92** |
-| Incoming ports — the use-case traits | 1/78 |
+| Outgoing ports — the contracts adapters must satisfy | **92/92** |
+| Incoming ports — the use-case traits | **78/78** |
 
-Outgoing ports came first because that is where implementers get things wrong:
-whether absence is `Ok(None)` or an error, whether an operation is idempotent,
-whether a method scopes on the owner in SQL, and which condition maps to which
-error variant. Those are documented in full, including the traps — that
-`UserQuery` returns soft-deleted users and the caller must check the flag, and
-that `CVArchiver` does *not* scope on owner while the blog and project
-archivers do.
+Outgoing ports were done first because that is where implementers get things
+wrong: whether absence is `Ok(None)` or an error, whether an operation is
+idempotent, whether a method scopes on the owner in SQL, and which condition
+maps to which error variant. The traps are written down rather than left to be
+discovered — that `UserQuery` returns soft-deleted users and the caller must
+check the flag, and that `CVArchiver` does *not* scope on owner while the blog
+and project archivers do.
+
+Incoming ports carry the same treatment on the other side of the boundary: what
+each operation does, which error variants a handler must expect, and where two
+similarly-shaped use cases differ in a way that matters. `GetBlogPostsUseCase`
+and `GetPublicBlogPostsUseCase` have identical signatures and are not
+interchangeable — the public one forces published-only, so wiring the wrong one
+into a public route would leak drafts. That is now stated on both traits.
 
 A `#![deny(missing_docs)]` gate is not in place yet. It demands a doc comment
 on every public struct **field**, and 181 of those remain in the outgoing ports

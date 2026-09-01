@@ -1,3 +1,5 @@
+//! Removes one topic link. Removing a link that is not there succeeds.
+
 use async_trait::async_trait;
 use uuid::Uuid;
 
@@ -10,6 +12,7 @@ use crate::modules::project::application::ports::outgoing::project_topic_reposit
 // ──────────────────────────────────────────────────────────
 //
 
+/// Why unlinking a topic from a project failed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum RemoveProjectTopicError {
     #[error("Project not found")]
@@ -42,8 +45,10 @@ impl From<ProjectTopicRepositoryError> for RemoveProjectTopicError {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Removes one topic link. Removing a link that is not there succeeds.
 #[async_trait]
 pub trait RemoveProjectTopicUseCase: Send + Sync {
+    /// Removes the link.
     async fn execute(
         &self,
         owner: UserId,

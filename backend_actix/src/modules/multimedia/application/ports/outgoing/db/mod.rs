@@ -1,3 +1,5 @@
+//! Database-backed outgoing ports.
+
 mod media_query;
 mod media_repository;
 

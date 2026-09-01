@@ -1,4 +1,9 @@
 //! The blog use-case contracts, one per operation.
+//!
+//! Each operation gets its own error enum rather than sharing one, so a
+//! handler matches only the outcomes its endpoint can actually produce and the
+//! compiler catches a missing arm. The `From` impls in this file are where an
+//! outgoing-port error is narrowed to that set.
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -12,15 +17,10 @@ use crate::blog::application::ports::outgoing::{
 };
 use crate::blog::domain::entities::{BlogPost, BlogPostTopic};
 
-//
-// ──────────────────────────────────────────────────────────
-// Errors
-//
-// One enum per operation, so a handler matches only the outcomes its endpoint
-// can actually produce, following the project module.
-// ──────────────────────────────────────────────────────────
-//
-
+/// Why creating a post failed.
+///
+/// The three `Invalid*` variants come from domain validation, before the
+/// repository is touched.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum CreateBlogPostError {
     #[error("Invalid title: {0}")]
@@ -51,12 +51,17 @@ impl From<BlogPostRepositoryError> for CreateBlogPostError {
     }
 }
 
+/// Why a post listing failed.
+///
+/// A listing that matches nothing is an empty page, not an error, so the only
+/// failure is the store itself.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum GetBlogPostsError {
     #[error("Query failed: {0}")]
     QueryFailed(String),
 }
 
+/// Why fetching a single post failed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum GetBlogPostError {
     #[error("Blog post not found")]
@@ -75,6 +80,12 @@ impl From<BlogPostQueryError> for GetBlogPostError {
     }
 }
 
+/// Why patching a post failed.
+///
+/// Unlike the archive operations, this distinguishes
+/// [`Unauthorized`](Self::Unauthorized) from [`NotFound`](Self::NotFound): the
+/// patch path fetches the post first to check ownership, so it knows which of
+/// the two happened. The archivers scope on owner in SQL and cannot tell.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum PatchBlogPostError {
     #[error("Blog post not found")]
@@ -93,6 +104,13 @@ pub enum PatchBlogPostError {
     RepositoryError(String),
 }
 
+/// Why archiving, restoring or hard-deleting a post failed.
+///
+/// Shared by all three lifecycle use cases. There is no `Unauthorized`
+/// variant: [`BlogPostArchiver`](crate::blog::application::ports::outgoing::BlogPostArchiver)
+/// scopes on owner in SQL, so another user's post is indistinguishable from a
+/// missing one — which is what stops this confirming that someone else's post
+/// exists.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ArchiveBlogPostError {
     #[error("Blog post not found")]
@@ -111,6 +129,10 @@ impl From<BlogPostArchiverError> for ArchiveBlogPostError {
     }
 }
 
+/// Why a post-topic link operation failed.
+///
+/// Shared by the four topic-link use cases. Distinguishes a missing post from
+/// a missing topic so the handler can say which id was wrong.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum BlogPostTopicError {
     #[error("Blog post not found")]
@@ -135,12 +157,10 @@ impl From<BlogPostTopicRepositoryError> for BlogPostTopicError {
     }
 }
 
-//
-// ──────────────────────────────────────────────────────────
-// Commands
-// ──────────────────────────────────────────────────────────
-//
-
+/// Everything needed to create a post.
+///
+/// `published_at` carries the publication state: `None` is a draft, a past
+/// timestamp is published, a future one is scheduled.
 #[derive(Debug, Clone)]
 pub struct CreateBlogPostCommand {
     pub owner: UserId,
@@ -151,22 +171,23 @@ pub struct CreateBlogPostCommand {
     pub published_at: Option<DateTime<Utc>>,
 }
 
-//
-// ──────────────────────────────────────────────────────────
-// Use cases
-// ──────────────────────────────────────────────────────────
-//
-
+/// Creates a post.
 #[async_trait]
 pub trait CreateBlogPostUseCase: Send + Sync {
+    /// Runs the operation.
     async fn execute(
         &self,
         command: CreateBlogPostCommand,
     ) -> Result<BlogPost, CreateBlogPostError>;
 }
 
+/// Lists an author's own posts.
+///
+/// Honours `filter.published`, so the author can ask for drafts, published
+/// posts, or both.
 #[async_trait]
 pub trait GetBlogPostsUseCase: Send + Sync {
+    /// Runs the operation.
     async fn execute(
         &self,
         owner: UserId,
@@ -176,8 +197,15 @@ pub trait GetBlogPostsUseCase: Send + Sync {
     ) -> Result<BlogPageResult<BlogPostCard>, GetBlogPostsError>;
 }
 
+/// Lists an author's posts for a public reader.
+///
+/// Identical in signature to [`GetBlogPostsUseCase`] and different in one
+/// respect that matters: the implementation **forces published-only** and
+/// ignores `filter.published`. Do not swap the two — wiring the owner-facing
+/// use case into a public route would leak drafts.
 #[async_trait]
 pub trait GetPublicBlogPostsUseCase: Send + Sync {
+    /// Runs the operation.
     async fn execute(
         &self,
         owner: UserId,
@@ -187,19 +215,30 @@ pub trait GetPublicBlogPostsUseCase: Send + Sync {
     ) -> Result<BlogPageResult<BlogPostCard>, GetBlogPostsError>;
 }
 
+/// Fetches one of the author's own posts by id, draft or published.
 #[async_trait]
 pub trait GetSingleBlogPostUseCase: Send + Sync {
+    /// Runs the operation.
     async fn execute(&self, owner: UserId, post_id: Uuid)
         -> Result<BlogPostView, GetBlogPostError>;
 }
 
+/// Fetches one published post by slug, for a public reader.
+///
+/// Addressed by slug rather than id because that is what appears in a public
+/// URL. Unpublished posts are reported as
+/// [`NotFound`](GetBlogPostError::NotFound) rather than forbidden, so a draft's
+/// slug cannot be probed for.
 #[async_trait]
 pub trait GetPublicBlogPostUseCase: Send + Sync {
+    /// Runs the operation.
     async fn execute(&self, owner: UserId, slug: &str) -> Result<BlogPostView, GetBlogPostError>;
 }
 
+/// Applies a partial update, after checking the caller owns the post.
 #[async_trait]
 pub trait PatchBlogPostUseCase: Send + Sync {
+    /// Runs the operation.
     async fn execute(
         &self,
         owner: UserId,
@@ -208,23 +247,33 @@ pub trait PatchBlogPostUseCase: Send + Sync {
     ) -> Result<BlogPost, PatchBlogPostError>;
 }
 
+/// Hides a post without deleting it. Reversible with
+/// [`RestoreBlogPostUseCase`].
 #[async_trait]
 pub trait ArchiveBlogPostUseCase: Send + Sync {
+    /// Runs the operation.
     async fn execute(&self, owner: UserId, post_id: Uuid) -> Result<(), ArchiveBlogPostError>;
 }
 
+/// Un-archives a post. Publication state is untouched — a restored post
+/// returns as the draft or published post it was.
 #[async_trait]
 pub trait RestoreBlogPostUseCase: Send + Sync {
+    /// Runs the operation.
     async fn execute(&self, owner: UserId, post_id: Uuid) -> Result<(), ArchiveBlogPostError>;
 }
 
+/// Removes a post and its topic links permanently. Irreversible.
 #[async_trait]
 pub trait HardDeleteBlogPostUseCase: Send + Sync {
+    /// Runs the operation.
     async fn execute(&self, owner: UserId, post_id: Uuid) -> Result<(), ArchiveBlogPostError>;
 }
 
+/// Links a topic to a post. Idempotent.
 #[async_trait]
 pub trait AttachBlogPostTopicUseCase: Send + Sync {
+    /// Runs the operation.
     async fn execute(
         &self,
         owner: UserId,
@@ -233,8 +282,10 @@ pub trait AttachBlogPostTopicUseCase: Send + Sync {
     ) -> Result<(), BlogPostTopicError>;
 }
 
+/// Removes one topic link. Removing a link that is not there succeeds.
 #[async_trait]
 pub trait DetachBlogPostTopicUseCase: Send + Sync {
+    /// Runs the operation.
     async fn execute(
         &self,
         owner: UserId,
@@ -243,13 +294,17 @@ pub trait DetachBlogPostTopicUseCase: Send + Sync {
     ) -> Result<(), BlogPostTopicError>;
 }
 
+/// Removes every topic link from a post.
 #[async_trait]
 pub trait ClearBlogPostTopicsUseCase: Send + Sync {
+    /// Runs the operation.
     async fn execute(&self, owner: UserId, post_id: Uuid) -> Result<(), BlogPostTopicError>;
 }
 
+/// Lists the topics attached to a post.
 #[async_trait]
 pub trait GetBlogPostTopicsUseCase: Send + Sync {
+    /// Runs the operation.
     async fn execute(
         &self,
         owner: UserId,

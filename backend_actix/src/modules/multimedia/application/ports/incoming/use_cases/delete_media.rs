@@ -1,9 +1,11 @@
+//! Deleting a media item.
 use async_trait::async_trait;
 use uuid::Uuid;
 
 use crate::auth::application::domain::entities::UserId;
 use crate::multimedia::application::ports::outgoing::db::MediaRepositoryError;
 
+/// Why deleting a media item failed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum DeleteMediaError {
     /// Media does not exist, or belongs to another user. The two are reported
@@ -24,6 +26,11 @@ impl From<MediaRepositoryError> for DeleteMediaError {
     }
 }
 
+/// Removes a media item.
+///
+/// Deletes the database rows. The stored objects and their variants are not
+/// removed here — reclaiming them is the storage bucket's lifecycle policy,
+/// not this use case's job.
 #[async_trait]
 pub trait DeleteMediaUseCase: Send + Sync {
     /// Soft-deletes a media item.

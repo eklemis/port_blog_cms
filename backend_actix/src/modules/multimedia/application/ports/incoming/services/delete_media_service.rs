@@ -1,3 +1,5 @@
+//! Deletes media rows.
+
 use async_trait::async_trait;
 use uuid::Uuid;
 
@@ -7,6 +9,7 @@ use crate::multimedia::application::ports::incoming::use_cases::{
 };
 use crate::multimedia::application::ports::outgoing::db::MediaRepository;
 
+/// Deletes media rows.
 pub struct DeleteMediaService<R>
 where
     R: MediaRepository,

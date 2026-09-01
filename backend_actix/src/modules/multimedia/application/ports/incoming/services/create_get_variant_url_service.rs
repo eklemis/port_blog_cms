@@ -1,3 +1,5 @@
+//! Signs read URLs for media variants, checking the item is ready first.
+
 use async_trait::async_trait;
 use chrono::{Duration, Utc};
 
@@ -17,6 +19,7 @@ use crate::multimedia::application::{
 /// TTL for signed read URLs (15 minutes)
 const SIGNED_URL_TTL_MINUTES: i64 = 15;
 
+/// Signs read URLs for media variants, checking the item is ready first.
 pub struct GetVariantReadUrlService<S, M>
 where
     S: StorageQuery,

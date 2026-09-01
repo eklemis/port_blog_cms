@@ -1,3 +1,5 @@
+//! Lists the topics attached to a project.
+
 use async_trait::async_trait;
 use uuid::Uuid;
 
@@ -17,6 +19,7 @@ use crate::project::application::ports::outgoing::project_query::ProjectTopicIte
 // ──────────────────────────────────────────────────────────
 //
 
+/// Why listing a project's topics failed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum GetProjectTopicsError {
     #[error("Project not found")]
@@ -42,8 +45,10 @@ impl From<ProjectQueryError> for GetProjectTopicsError {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Lists the topics attached to a project.
 #[async_trait]
 pub trait GetProjectTopicsUseCase: Send + Sync {
+    /// Returns the attached topics.
     async fn execute(
         &self,
         owner: UserId,

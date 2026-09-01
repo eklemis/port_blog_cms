@@ -1,3 +1,5 @@
+//! Hides a project without deleting it. Reversible.
+
 use async_trait::async_trait;
 use uuid::Uuid;
 
@@ -10,6 +12,7 @@ use crate::modules::project::application::ports::outgoing::project_archiver::Pro
 // ──────────────────────────────────────────────────────────
 //
 
+/// Why archiving a project failed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum SoftDeleteProjectError {
     #[error("Project not found")]
@@ -36,7 +39,9 @@ impl From<ProjectArchiverError> for SoftDeleteProjectError {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Hides a project without deleting it. Reversible.
 #[async_trait]
 pub trait SoftDeleteProjectUseCase: Send + Sync {
+    /// Archives the project.
     async fn execute(&self, owner: UserId, project_id: Uuid) -> Result<(), SoftDeleteProjectError>;
 }

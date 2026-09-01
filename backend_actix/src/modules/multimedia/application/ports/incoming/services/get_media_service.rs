@@ -1,3 +1,5 @@
+//! Reads one media item's details.
+
 use async_trait::async_trait;
 use uuid::Uuid;
 
@@ -7,6 +9,7 @@ use crate::multimedia::application::ports::incoming::use_cases::{
 };
 use crate::multimedia::application::ports::outgoing::db::MediaQuery;
 
+/// Reads one media item's details.
 pub struct GetMediaService<Q>
 where
     Q: MediaQuery,

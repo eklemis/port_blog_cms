@@ -1,11 +1,19 @@
+//! Re-exports the module's use-case contracts.
+
 mod create_get_variant_url;
 mod create_upload_url;
 mod delete_media;
 mod get_media;
 mod list_media;
+// The two `*Builder` types are re-exported because `CreateMediaCommand::builder`
+// and `CreateAttachmentCommand::builder` are public and return them. Without
+// this, a caller outside the module can call `builder()` but cannot name what
+// it hands back, so the value can only be used in a single chained expression.
+// Surfaced by the `-D warnings` rustdoc gate as a link to a private item.
 pub use create_upload_url::{
-    make_object_key, CreateAttachmentCommand, CreateMediaCommand, CreateMediaResult,
-    CreateUploadMediaUrlUseCase, CreateUrlError, UploadUrlCommandError,
+    make_object_key, CreateAttachmentCommand, CreateAttachmentCommandBuilder, CreateMediaCommand,
+    CreateMediaCommandBuilder, CreateMediaResult, CreateUploadMediaUrlUseCase, CreateUrlError,
+    UploadUrlCommandError,
 };
 
 pub use create_get_variant_url::{

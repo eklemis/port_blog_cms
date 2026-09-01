@@ -1,3 +1,5 @@
+//! Ports for the auth module.
+
 use sha2::{Digest, Sha256};
 
 /// Hash a token using SHA-256 for storage

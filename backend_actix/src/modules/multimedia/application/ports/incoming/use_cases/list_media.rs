@@ -1,3 +1,4 @@
+//! Listing the media attached to one target.
 use async_trait::async_trait;
 use serde::Serialize;
 use uuid::Uuid;
@@ -10,6 +11,9 @@ use crate::{
     },
 };
 
+/// Why listing media failed.
+///
+/// A target with no media is an empty `Vec`, not an error.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ListMediaError {
     #[error("Repository error: {0}")]
@@ -21,11 +25,17 @@ impl From<MediaQueryError> for ListMediaError {
     }
 }
 
+/// Which target's media to list.
 pub struct ListMediaCommand {
     pub owner: UserId,
     pub attachment_target: AttachmentTarget,
 }
 
+/// One media item as it appears in a listing.
+///
+/// Carries no `available_sizes`, unlike
+/// [`MediaDetail`](super::get_media::MediaDetail): a listing would otherwise
+/// need a variant query per row.
 #[derive(Clone, Debug, Serialize, utoipa::ToSchema)]
 pub struct MediaItem {
     pub media_id: Uuid,
@@ -39,6 +49,7 @@ pub struct MediaItem {
     pub caption: String,
 }
 impl MediaItem {
+    /// Projects a full attachment row down to the listing shape.
     pub fn from_media_attachment(media: MediaAttachment) -> Self {
         Self {
             media_id: media.media_id,
@@ -54,7 +65,9 @@ impl MediaItem {
     }
 }
 
+/// Lists every media item attached to one target.
 #[async_trait]
 pub trait ListMediaUseCase: Send + Sync {
+    /// Returns the attached items, scoped to the command's owner.
     async fn execute(&self, command: ListMediaCommand) -> Result<Vec<MediaItem>, ListMediaError>;
 }
