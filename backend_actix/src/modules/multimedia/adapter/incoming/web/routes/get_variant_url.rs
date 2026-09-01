@@ -7,7 +7,7 @@ use crate::auth::adapter::incoming::web::extractors::auth::VerifiedUser;
 use crate::multimedia::application::domain::entities::MediaSize;
 use crate::multimedia::application::ports::incoming::use_cases::{GetReadUrlError, GetUrlCommand};
 use crate::api::schemas::{ErrorResponse, SuccessResponse};
-use crate::shared::api::ApiResponse;
+use crate::shared::api::{ErrorCode, ApiResponse};
 use crate::AppState;
 use utoipa::ToSchema;
 
@@ -105,7 +105,7 @@ pub async fn get_variant_read_url_handler(
         "small" => MediaSize::Small,
         "medium" => MediaSize::Medium,
         "large" => MediaSize::Large,
-        _ => return ApiResponse::not_found("VARIANT_NOT_FOUND", "Invalid media size"),
+        _ => return ApiResponse::not_found(ErrorCode::VariantNotFound, "Invalid media size"),
     };
 
     let command = GetUrlCommand {
@@ -129,27 +129,27 @@ pub async fn get_variant_read_url_handler(
 fn map_get_read_url_error(e: GetReadUrlError) -> actix_web::HttpResponse {
     match e {
         GetReadUrlError::MediaNotFound => {
-            ApiResponse::not_found("MEDIA_NOT_FOUND", "Media not found")
+            ApiResponse::not_found(ErrorCode::MediaNotFound, "Media not found")
         }
         GetReadUrlError::VariantNotFound(size) => ApiResponse::not_found(
-            "VARIANT_NOT_FOUND",
+            ErrorCode::VariantNotFound,
             &format!("Variant '{:?}' not found for this media", size),
         ),
 
         // state-related errors: 409 Conflict makes sense
         GetReadUrlError::MediaProcessing => ApiResponse::error(
             actix_web::http::StatusCode::CONFLICT,
-            "MEDIA_PROCESSING",
+            ErrorCode::MediaProcessing,
             "Media is still being processed",
         ),
         GetReadUrlError::MediaPending => ApiResponse::error(
             actix_web::http::StatusCode::CONFLICT,
-            "MEDIA_PENDING",
+            ErrorCode::MediaPending,
             "Media is pending upload",
         ),
         GetReadUrlError::MediaFailed => ApiResponse::error(
             actix_web::http::StatusCode::CONFLICT,
-            "MEDIA_FAILED",
+            ErrorCode::MediaFailed,
             "Media processing failed",
         ),
 
@@ -158,7 +158,7 @@ fn map_get_read_url_error(e: GetReadUrlError) -> actix_web::HttpResponse {
             error!("Storage error creating read URL: {}", msg);
             ApiResponse::error(
                 actix_web::http::StatusCode::BAD_GATEWAY,
-                "STORAGE_ERROR",
+                ErrorCode::StorageError,
                 "Failed to generate read URL",
             )
         }

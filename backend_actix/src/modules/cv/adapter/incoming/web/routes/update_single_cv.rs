@@ -6,7 +6,7 @@ use crate::cv::adapter::incoming::web::dto::{
 };
 use crate::cv::application::ports::outgoing::UpdateCVData;
 use crate::cv::application::use_cases::update_cv::UpdateCVError;
-use crate::shared::api::ApiResponse;
+use crate::shared::api::{ErrorCode, ApiResponse};
 use crate::AppState;
 use actix_web::{put, web, Responder};
 use serde::{Deserialize, Serialize};
@@ -95,7 +95,7 @@ pub async fn update_cv_handler(
         .await
     {
         Ok(updated) => ApiResponse::success(CvResponse::from(updated)),
-        Err(UpdateCVError::CVNotFound) => ApiResponse::not_found("CV_NOT_FOUND", "CV not found"),
+        Err(UpdateCVError::CVNotFound) => ApiResponse::not_found(ErrorCode::CvNotFound, "CV not found"),
         Err(UpdateCVError::RepositoryError(e)) => {
             error!("Repository error updating CV: {}", e);
             ApiResponse::internal_error()

@@ -1,3 +1,4 @@
+use crate::shared::api::ErrorCode;
 use actix_web::{get, web, Responder};
 use serde::Deserialize;
 use tracing::error;
@@ -73,7 +74,7 @@ pub async fn get_public_single_project_handler(
         Ok(project) => ApiResponse::success(project),
 
         Err(GetPublicSingleProjectError::NotFound) => {
-            ApiResponse::not_found("PROJECT_NOT_FOUND", "Project not found")
+            ApiResponse::not_found(ErrorCode::ProjectNotFound, "Project not found")
         }
 
         Err(GetPublicSingleProjectError::RepositoryError(msg)) => {

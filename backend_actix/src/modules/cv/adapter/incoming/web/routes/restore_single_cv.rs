@@ -1,3 +1,4 @@
+use crate::shared::api::ErrorCode;
 use actix_web::{post, web, Responder};
 use tracing::error;
 use uuid::Uuid;
@@ -75,10 +76,10 @@ pub async fn restore_cv_handler(
     {
         Ok(cv) => ApiResponse::success(CvResponse::from(cv)),
 
-        Err(RestoreCVError::CVNotFound) => ApiResponse::not_found("CV_NOT_FOUND", "CV not found"),
+        Err(RestoreCVError::CVNotFound) => ApiResponse::not_found(ErrorCode::CvNotFound, "CV not found"),
 
         Err(RestoreCVError::Unauthorized) => ApiResponse::forbidden(
-            "CV_UNAUTHORIZED",
+            ErrorCode::CvUnauthorized,
             "You are not authorized to restore this CV",
         ),
 

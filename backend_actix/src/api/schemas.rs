@@ -1,4 +1,5 @@
 // src/api/schemas.rs
+use crate::shared::api::ErrorCode;
 use serde::Serialize;
 use utoipa::ToSchema;
 
@@ -25,9 +26,9 @@ pub struct ErrorResponse {
 
 #[derive(Serialize, ToSchema)]
 pub struct ErrorDetail {
-    /// Error code for programmatic handling
-    #[schema(example = "INVALID_FILE_NAME")]
-    pub code: String,
+    /// Machine-readable error code. This is the stable contract — branch on it
+    /// rather than on `message`, which is prose and may change.
+    pub code: ErrorCode,
 
     /// Human-readable error message
     #[schema(example = "Invalid file name")]

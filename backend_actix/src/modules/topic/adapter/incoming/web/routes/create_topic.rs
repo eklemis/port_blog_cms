@@ -1,3 +1,4 @@
+use crate::shared::api::ErrorCode;
 use actix_web::{post, web, Responder};
 use serde::Deserialize;
 use utoipa::ToSchema;
@@ -109,10 +110,10 @@ pub async fn create_topic_handler(
 fn map_command_error(err: CreateTopicCommandError) -> actix_web::HttpResponse {
     match err {
         CreateTopicCommandError::EmptyTitle => {
-            ApiResponse::bad_request("EMPTY_TITLE", "Title cannot be empty")
+            ApiResponse::bad_request(ErrorCode::EmptyTitle, "Title cannot be empty")
         }
         CreateTopicCommandError::TitleTooLong => {
-            ApiResponse::bad_request("TITLE_TOO_LONG", "Title must not exceed 100 characters")
+            ApiResponse::bad_request(ErrorCode::TitleTooLong, "Title must not exceed 100 characters")
         }
     }
 }
@@ -120,7 +121,7 @@ fn map_command_error(err: CreateTopicCommandError) -> actix_web::HttpResponse {
 fn map_create_topic_error(err: CreateTopicError) -> actix_web::HttpResponse {
     match err {
         CreateTopicError::TopicAlreadyExists => {
-            ApiResponse::conflict("TOPIC_ALREADY_EXISTS", "Topic already exists")
+            ApiResponse::conflict(ErrorCode::TopicAlreadyExists, "Topic already exists")
         }
         CreateTopicError::RepositoryError(_) => ApiResponse::internal_error(),
     }

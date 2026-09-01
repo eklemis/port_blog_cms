@@ -1,3 +1,4 @@
+use crate::shared::api::ErrorCode;
 use actix_web::{post, web, Responder};
 use serde::Deserialize;
 use utoipa::ToSchema;
@@ -70,11 +71,11 @@ pub async fn add_project_topic_handler(
         Ok(_) => ApiResponse::success(serde_json::json!({ "message": "OK" })),
 
         Err(AddProjectTopicError::ProjectNotFound) => {
-            ApiResponse::not_found("PROJECT_NOT_FOUND", "Project not found")
+            ApiResponse::not_found(ErrorCode::ProjectNotFound, "Project not found")
         }
 
         Err(AddProjectTopicError::TopicNotFound) => {
-            ApiResponse::not_found("TOPIC_NOT_FOUND", "Topic not found")
+            ApiResponse::not_found(ErrorCode::TopicNotFound, "Topic not found")
         }
 
         Err(AddProjectTopicError::RepositoryError(msg)) => {

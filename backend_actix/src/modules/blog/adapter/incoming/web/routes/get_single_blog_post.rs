@@ -1,3 +1,4 @@
+use crate::shared::api::ErrorCode;
 use actix_web::{get, web, Responder};
 use tracing::error;
 use uuid::Uuid;
@@ -61,7 +62,7 @@ pub async fn get_single_blog_post_handler(
             topics: view.topics.into_iter().map(Into::into).collect(),
         }),
         Err(GetBlogPostError::NotFound) => {
-            ApiResponse::not_found("POST_NOT_FOUND", "Blog post not found")
+            ApiResponse::not_found(ErrorCode::PostNotFound, "Blog post not found")
         }
         Err(GetBlogPostError::QueryFailed(e)) => {
             error!("Failed to fetch blog post: {}", e);

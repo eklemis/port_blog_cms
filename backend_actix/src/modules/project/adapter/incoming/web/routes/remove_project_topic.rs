@@ -1,3 +1,4 @@
+use crate::shared::api::ErrorCode;
 use actix_web::{delete, web, Responder};
 use serde::Deserialize;
 use utoipa::ToSchema;
@@ -69,7 +70,7 @@ pub async fn remove_project_topic_handler(
         Ok(_) => ApiResponse::no_content(),
 
         Err(RemoveProjectTopicError::ProjectNotFound) => {
-            ApiResponse::not_found("PROJECT_NOT_FOUND", "Project not found")
+            ApiResponse::not_found(ErrorCode::ProjectNotFound, "Project not found")
         }
         // Intentionally not exposed for now (DELETE is idempotent at API level)
         Err(RemoveProjectTopicError::TopicNotFound) => ApiResponse::no_content(),

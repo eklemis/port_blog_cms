@@ -1,6 +1,6 @@
 use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::application::use_cases::verify_user_email::VerifyUserEmailError;
-use crate::shared::api::ApiResponse;
+use crate::shared::api::{ErrorCode, ApiResponse};
 use crate::AppState;
 use actix_web::{web, HttpRequest, Responder};
 use serde::Serialize;
@@ -98,13 +98,13 @@ pub async fn verify_user_email_handler(
             message: "Email verified successfully".to_string(),
         }),
         Err(VerifyUserEmailError::TokenExpired) => {
-            ApiResponse::bad_request("TOKEN_EXPIRED", "Token has expired")
+            ApiResponse::bad_request(ErrorCode::TokenExpired, "Token has expired")
         }
         Err(VerifyUserEmailError::TokenInvalid) => {
-            ApiResponse::bad_request("TOKEN_INVALID", "Invalid token")
+            ApiResponse::bad_request(ErrorCode::TokenInvalid, "Invalid token")
         }
         Err(VerifyUserEmailError::UserNotFound) => {
-            ApiResponse::not_found("USER_NOT_FOUND", "User not found")
+            ApiResponse::not_found(ErrorCode::UserNotFound, "User not found")
         }
         Err(VerifyUserEmailError::DatabaseError) => {
             error!("Database error during email verification");

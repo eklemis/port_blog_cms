@@ -1,3 +1,4 @@
+use crate::shared::api::ErrorCode;
 use actix_web::{delete, web, Responder};
 use tracing::error;
 use uuid::Uuid;
@@ -50,7 +51,7 @@ pub async fn clear_project_topics_handler(
         Ok(_) => ApiResponse::no_content(),
 
         Err(ClearProjectTopicsError::ProjectNotFound) => {
-            ApiResponse::not_found("PROJECT_NOT_FOUND", "Project not found")
+            ApiResponse::not_found(ErrorCode::ProjectNotFound, "Project not found")
         }
 
         Err(ClearProjectTopicsError::RepositoryError(msg)) => {
