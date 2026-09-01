@@ -150,7 +150,7 @@ mod tests {
     #[tokio::test]
     async fn execute_success_when_owner_matches() {
         let owner = UserId::from(Uuid::new_v4());
-        let view = sample_project_view(owner.clone());
+        let view = sample_project_view(owner);
 
         let query = MockProjectQuery::success(view.clone());
         let service = GetPublicSingleProjectService::new(query);

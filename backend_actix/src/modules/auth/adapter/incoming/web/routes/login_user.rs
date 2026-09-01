@@ -335,7 +335,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/login")
-            .set_json(&create_test_login_request_json())
+            .set_json(create_test_login_request_json())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -363,7 +363,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/login")
-            .set_json(&create_test_login_request_json())
+            .set_json(create_test_login_request_json())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -387,7 +387,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/login")
-            .set_json(&create_test_login_request_json())
+            .set_json(create_test_login_request_json())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -411,7 +411,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/login")
-            .set_json(&create_test_login_request_json())
+            .set_json(create_test_login_request_json())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -435,7 +435,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/login")
-            .set_json(&create_test_login_request_json())
+            .set_json(create_test_login_request_json())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -459,7 +459,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/login")
-            .set_json(&create_test_login_request_json())
+            .set_json(create_test_login_request_json())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -483,7 +483,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/login")
-            .set_json(&create_test_login_request_json())
+            .set_json(create_test_login_request_json())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -515,7 +515,7 @@ mod tests {
         for email in test_cases {
             let req = test::TestRequest::post()
                 .uri("/api/auth/login")
-                .set_json(&serde_json::json!({
+                .set_json(serde_json::json!({
                     "email": email,
                     "password": "password123"
                 }))
@@ -548,7 +548,7 @@ mod tests {
         for password in special_passwords {
             let req = test::TestRequest::post()
                 .uri("/api/auth/login")
-                .set_json(&serde_json::json!({
+                .set_json(serde_json::json!({
                     "email": "test@example.com",
                     "password": password
                 }))
@@ -573,7 +573,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/login")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "email": "TEST@EXAMPLE.COM",
                 "password": "password123"
             }))
@@ -597,7 +597,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/login")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "email": "  test@example.com  ",
                 "password": "password123"
             }))
@@ -629,7 +629,7 @@ mod tests {
         for email in invalid_emails {
             let req = test::TestRequest::post()
                 .uri("/api/auth/login")
-                .set_json(&serde_json::json!({
+                .set_json(serde_json::json!({
                     "email": email,
                     "password": "password123"
                 }))
@@ -661,7 +661,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/login")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "email": "test@example.com",
                 "password": ""
             }))
@@ -692,7 +692,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/api/auth/login")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "email": "test@example.com",
                 "password": "   "
             }))

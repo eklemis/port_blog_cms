@@ -50,7 +50,7 @@ pub struct TopicResponse {
 )]
 #[get("/api/topics")]
 pub async fn get_topics_handler(user: VerifiedUser, data: web::Data<AppState>) -> impl Responder {
-    let owner = user.user_id.clone();
+    let owner = user.user_id;
 
     match data.get_topics_use_case.execute(UserId::from(owner)).await {
         Ok(topics) => {
@@ -181,10 +181,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let owner = UserId::from(user_id);
 
-        let topics = vec![
-            topic(owner.clone(), "Rust"),
-            topic(owner.clone(), "Backend"),
-        ];
+        let topics = vec![topic(owner, "Rust"), topic(owner, "Backend")];
 
         let state = TestAppStateBuilder::default()
             .with_get_topics(StubGetTopicsUseCase::success(topics))

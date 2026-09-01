@@ -107,6 +107,12 @@ fn extract_token_from_header(req: &HttpRequest) -> Option<String> {
         .map(|s| s.to_string())
 }
 
+// Returning a ready-made HttpResponse as the error is this layer's idiom: the
+// resolver already knows the status and the ErrorCode, so callers just
+// propagate it. HttpResponse is 128 bytes, which clippy flags, but boxing it
+// would churn every call site to save a move that only happens on the error
+// path.
+#[allow(clippy::result_large_err)]
 pub async fn resolve_owner_id_or_response(
     data: &web::Data<AppState>,
     username: &str,

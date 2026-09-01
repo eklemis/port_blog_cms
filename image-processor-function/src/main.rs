@@ -171,6 +171,12 @@ fn validate_and_decode(bytes: &[u8]) -> Result<(DynamicImage, AllowedFormat), Ru
 // CloudEvent structures
 // =============================================================================
 
+/// The CloudEvent envelope Eventarc sends alongside the GCS payload.
+///
+/// `source` and `subject` are parsed but not branched on — they are kept
+/// because the struct is the record of the envelope's shape and both appear in
+/// its `Debug` output when a delivery is investigated.
+#[allow(dead_code)]
 #[derive(Debug)]
 struct CloudEventHeaders {
     id: String,

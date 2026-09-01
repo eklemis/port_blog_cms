@@ -148,7 +148,7 @@ mod tests {
         let owner = UserId::from(Uuid::new_v4());
         let project_id = Uuid::new_v4();
 
-        let view = sample_project_view(owner.clone(), project_id);
+        let view = sample_project_view(owner, project_id);
 
         let query = MockProjectQuery::success(view.clone());
         let service = GetSingleProjectService::new(query);

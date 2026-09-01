@@ -29,7 +29,7 @@ where
 {
     async fn execute(&self, command: CreateTopicCommand) -> Result<TopicResult, CreateTopicError> {
         let data = CreateTopicData {
-            owner: command.owner().clone(),
+            owner: *command.owner(),
             title: command.title().to_string(),
             description: command.description().cloned().unwrap_or_default(),
         };
@@ -139,13 +139,13 @@ mod tests {
         // Arrange
         let owner = UserId::from(Uuid::new_v4());
         let command = CreateTopicCommand::new(
-            owner.clone(),
+            owner,
             "Rust".to_string(),
             Some("Rust-related topic".to_string()),
         )
         .unwrap();
 
-        let expected = sample_topic_result(owner.clone());
+        let expected = sample_topic_result(owner);
 
         let repo = MockTopicRepository::success(expected.clone());
         let service = CreateTopicService::new(repo);
@@ -208,8 +208,5 @@ mod tests {
         let service = CreateTopicService::new(repo);
 
         let _clone = service.clone();
-
-        // If it compiles and runs, Clone works
-        assert!(true);
     }
 }

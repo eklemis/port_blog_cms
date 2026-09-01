@@ -318,7 +318,7 @@ mod patch_tests {
         let existing_cv = CVInfo {
             id: cv_id,
             display_name: "Rob Stark".to_string(),
-            user_id: user_id,
+            user_id,
             role: "Software Engineer".to_string(),
             bio: "Old bio".to_string(),
             photo_url: "https://example.com/old.jpg".to_string(),

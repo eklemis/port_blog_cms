@@ -358,7 +358,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let owner = UserId::from(user_id);
 
-        let topic = sample_topic(owner.clone(), "Rust", "desc");
+        let topic = sample_topic(owner, "Rust", "desc");
 
         let state = TestAppStateBuilder::default()
             .with_create_topic(MockCreateTopicUseCase::success(topic.clone()))

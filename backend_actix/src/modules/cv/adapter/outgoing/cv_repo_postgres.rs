@@ -311,7 +311,7 @@ mod tests {
         let fixed_offset_now = now.fixed_offset();
         let inserted_model = CvModel {
             id: cv_id,
-            user_id: user_id,
+            user_id,
             display_name: cv_data.display_name.clone(),
             bio: cv_data.bio.clone(),
             role: cv_data.role.clone(),
@@ -503,9 +503,6 @@ mod tests {
 
         // Act
         let _ = repo.clone();
-
-        // Assert - if it compiles, the test passes since Arc is working
-        assert!(true);
     }
 
     // ------------------------------------------------------------------

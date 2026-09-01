@@ -142,7 +142,7 @@ mod tests {
         let project_id = sample_project_id();
 
         let repo = MockProjectRepo {
-            result: Ok(sample_project_result(owner.clone(), project_id)),
+            result: Ok(sample_project_result(owner, project_id)),
         };
         let service = PatchProjectService::new(repo);
 

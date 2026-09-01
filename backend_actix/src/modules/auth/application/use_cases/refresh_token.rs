@@ -460,7 +460,7 @@ mod tests {
         assert!(result.is_ok());
         let access_token = result.unwrap().access_token;
         let claims = jwt_service.verify_token(&access_token).unwrap();
-        assert_eq!(claims.is_verified, true);
+        assert!(claims.is_verified);
 
         // Test with unverified user
         let refresh_token_unverified = jwt_service.generate_refresh_token(user_id, false).unwrap();
@@ -471,7 +471,7 @@ mod tests {
         assert!(result.is_ok());
         let access_token = result.unwrap().access_token;
         let claims = jwt_service.verify_token(&access_token).unwrap();
-        assert_eq!(claims.is_verified, false);
+        assert!(!claims.is_verified);
     }
 
     // ------------------------------------------------------------------

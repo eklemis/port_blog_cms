@@ -49,17 +49,13 @@ pub struct CreateBlogPostData {
 /// cannot. Mirrors `PatchField` in the project module.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
+#[derive(Default)]
 pub enum BlogPatchField<T> {
     #[serde(skip)]
+    #[default]
     Unset,
     Null,
     Value(T),
-}
-
-impl<T> Default for BlogPatchField<T> {
-    fn default() -> Self {
-        BlogPatchField::Unset
-    }
 }
 
 impl<T> BlogPatchField<T> {

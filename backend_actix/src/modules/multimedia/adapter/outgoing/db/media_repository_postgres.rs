@@ -32,6 +32,10 @@ impl MediaRepositoryPostgres {
     // SQL builders (kept in your preferred style)
     // =====================================================
 
+    // One argument per column, which is what a statement builder is. Grouping
+    // them into a struct would just re-describe NewMedia, which the caller
+    // already holds.
+    #[allow(clippy::too_many_arguments)]
     fn insert_media_stmt(
         media_id: Uuid,
         owner: Uuid,
@@ -84,6 +88,8 @@ impl MediaRepositoryPostgres {
         )
     }
 
+    // Same as insert_media_stmt: the argument list is the column list.
+    #[allow(clippy::too_many_arguments)]
     fn insert_attachment_stmt(
         media_id: Uuid,
         attachable_type: &str,

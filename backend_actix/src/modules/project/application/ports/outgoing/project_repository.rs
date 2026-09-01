@@ -25,17 +25,13 @@ use crate::auth::application::domain::entities::UserId;
 /// `blog` carries its own copy as `BlogPatchField`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
+#[derive(Default)]
 pub enum PatchField<T> {
     #[serde(skip)]
+    #[default]
     Unset,
     Null,
     Value(T),
-}
-
-impl<T> Default for PatchField<T> {
-    fn default() -> Self {
-        PatchField::Unset
-    }
 }
 
 impl<T> PatchField<T> {

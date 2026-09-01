@@ -39,7 +39,7 @@ where
         // 1️⃣ Load topics for owner
         let topics = self
             .query
-            .get_topics(owner.clone())
+            .get_topics(owner)
             .await
             .map_err(|e| SoftDeleteTopicError::DatabaseError(e.to_string()))?;
 

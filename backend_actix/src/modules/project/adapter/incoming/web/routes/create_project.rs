@@ -230,7 +230,7 @@ mod tests {
         let req = test::TestRequest::post()
             .uri("/api/projects")
             .insert_header(("Authorization", format!("Bearer {}", token(user_id, true))))
-            .set_json(&base_create_request())
+            .set_json(base_create_request())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -272,7 +272,7 @@ mod tests {
         let req = test::TestRequest::post()
             .uri("/api/projects")
             .insert_header(("Authorization", format!("Bearer {}", token(user_id, true))))
-            .set_json(&base_create_request())
+            .set_json(base_create_request())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -307,7 +307,7 @@ mod tests {
         let req = test::TestRequest::post()
             .uri("/api/projects")
             .insert_header(("Authorization", format!("Bearer {}", token(user_id, true))))
-            .set_json(&base_create_request())
+            .set_json(base_create_request())
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -346,7 +346,7 @@ mod tests {
         let req = test::TestRequest::post()
             .uri("/api/projects")
             .insert_header(("Authorization", format!("Bearer {}", token(user_id, false))))
-            .set_json(&base_create_request())
+            .set_json(base_create_request())
             .to_request();
 
         let resp = test::call_service(&app, req).await;

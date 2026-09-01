@@ -59,7 +59,7 @@ pub async fn get_public_cv_by_id_handler(
     // Fetch the CV publicly (still owner-scoped)
     match data
         .get_public_single_cv_use_case
-        .execute(owner_id.into(), cv_id)
+        .execute(owner_id, cv_id)
         .await
     {
         Ok(cv) => ApiResponse::success(CvResponse::from(cv)),

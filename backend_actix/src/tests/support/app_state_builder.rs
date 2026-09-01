@@ -154,10 +154,7 @@ impl Default for TestAppStateBuilder {
 }
 
 impl TestAppStateBuilder {
-    pub fn with_blog_create(
-        mut self,
-        uc: impl CreateBlogPostUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_blog_create(mut self, uc: impl CreateBlogPostUseCase + 'static) -> Self {
         let blog = self
             .blog
             .as_mut()
@@ -166,7 +163,7 @@ impl TestAppStateBuilder {
         self
     }
 
-    pub fn with_blog_list(mut self, uc: impl GetBlogPostsUseCase + Send + Sync + 'static) -> Self {
+    pub fn with_blog_list(mut self, uc: impl GetBlogPostsUseCase + 'static) -> Self {
         let blog = self
             .blog
             .as_mut()
@@ -175,10 +172,7 @@ impl TestAppStateBuilder {
         self
     }
 
-    pub fn with_blog_list_public(
-        mut self,
-        uc: impl GetPublicBlogPostsUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_blog_list_public(mut self, uc: impl GetPublicBlogPostsUseCase + 'static) -> Self {
         let blog = self
             .blog
             .as_mut()
@@ -187,10 +181,7 @@ impl TestAppStateBuilder {
         self
     }
 
-    pub fn with_blog_get_single(
-        mut self,
-        uc: impl GetSingleBlogPostUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_blog_get_single(mut self, uc: impl GetSingleBlogPostUseCase + 'static) -> Self {
         let blog = self
             .blog
             .as_mut()
@@ -199,10 +190,7 @@ impl TestAppStateBuilder {
         self
     }
 
-    pub fn with_blog_get_public(
-        mut self,
-        uc: impl GetPublicBlogPostUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_blog_get_public(mut self, uc: impl GetPublicBlogPostUseCase + 'static) -> Self {
         let blog = self
             .blog
             .as_mut()
@@ -211,10 +199,7 @@ impl TestAppStateBuilder {
         self
     }
 
-    pub fn with_blog_patch(
-        mut self,
-        uc: impl PatchBlogPostUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_blog_patch(mut self, uc: impl PatchBlogPostUseCase + 'static) -> Self {
         let blog = self
             .blog
             .as_mut()
@@ -223,10 +208,7 @@ impl TestAppStateBuilder {
         self
     }
 
-    pub fn with_blog_archive(
-        mut self,
-        uc: impl ArchiveBlogPostUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_blog_archive(mut self, uc: impl ArchiveBlogPostUseCase + 'static) -> Self {
         let blog = self
             .blog
             .as_mut()
@@ -235,10 +217,7 @@ impl TestAppStateBuilder {
         self
     }
 
-    pub fn with_blog_restore(
-        mut self,
-        uc: impl RestoreBlogPostUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_blog_restore(mut self, uc: impl RestoreBlogPostUseCase + 'static) -> Self {
         let blog = self
             .blog
             .as_mut()
@@ -247,10 +226,7 @@ impl TestAppStateBuilder {
         self
     }
 
-    pub fn with_blog_hard_delete(
-        mut self,
-        uc: impl HardDeleteBlogPostUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_blog_hard_delete(mut self, uc: impl HardDeleteBlogPostUseCase + 'static) -> Self {
         let blog = self
             .blog
             .as_mut()
@@ -259,10 +235,7 @@ impl TestAppStateBuilder {
         self
     }
 
-    pub fn with_blog_attach_topic(
-        mut self,
-        uc: impl AttachBlogPostTopicUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_blog_attach_topic(mut self, uc: impl AttachBlogPostTopicUseCase + 'static) -> Self {
         let blog = self
             .blog
             .as_mut()
@@ -271,10 +244,7 @@ impl TestAppStateBuilder {
         self
     }
 
-    pub fn with_blog_detach_topic(
-        mut self,
-        uc: impl DetachBlogPostTopicUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_blog_detach_topic(mut self, uc: impl DetachBlogPostTopicUseCase + 'static) -> Self {
         let blog = self
             .blog
             .as_mut()
@@ -283,10 +253,7 @@ impl TestAppStateBuilder {
         self
     }
 
-    pub fn with_blog_clear_topics(
-        mut self,
-        uc: impl ClearBlogPostTopicsUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_blog_clear_topics(mut self, uc: impl ClearBlogPostTopicsUseCase + 'static) -> Self {
         let blog = self
             .blog
             .as_mut()
@@ -295,10 +262,7 @@ impl TestAppStateBuilder {
         self
     }
 
-    pub fn with_blog_get_topics(
-        mut self,
-        uc: impl GetBlogPostTopicsUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_blog_get_topics(mut self, uc: impl GetBlogPostTopicsUseCase + 'static) -> Self {
         let blog = self
             .blog
             .as_mut()
@@ -309,33 +273,27 @@ impl TestAppStateBuilder {
 
     pub fn with_request_password_reset(
         mut self,
-        uc: impl IRequestPasswordResetUseCase + Send + Sync + 'static,
+        uc: impl IRequestPasswordResetUseCase + 'static,
     ) -> Self {
         self.request_password_reset = Some(Arc::new(uc));
         self
     }
 
-    pub fn with_reset_password(
-        mut self,
-        uc: impl IResetPasswordUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_reset_password(mut self, uc: impl IResetPasswordUseCase + 'static) -> Self {
         self.reset_password = Some(Arc::new(uc));
         self
     }
 
-    pub fn with_create_cv(mut self, uc: impl ICreateCVUseCase + Send + Sync + 'static) -> Self {
+    pub fn with_create_cv(mut self, uc: impl ICreateCVUseCase + 'static) -> Self {
         self.create_cv = Some(Arc::new(uc));
         self
     }
-    pub fn with_fetch_cv(mut self, uc: impl IFetchCVUseCase + Send + Sync + 'static) -> Self {
+    pub fn with_fetch_cv(mut self, uc: impl IFetchCVUseCase + 'static) -> Self {
         self.fetch_cv = Some(Arc::new(uc));
         self
     }
 
-    pub fn with_fetch_cv_by_id(
-        mut self,
-        uc: impl IFetchCVByIdUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_fetch_cv_by_id(mut self, uc: impl IFetchCVByIdUseCase + 'static) -> Self {
         self.fetch_cv_by_id = Some(Arc::new(uc));
         self
     }
@@ -354,128 +312,89 @@ impl TestAppStateBuilder {
         self
     }
 
-    pub fn with_patch_cv(mut self, uc: impl IPatchCVUseCase + Send + Sync + 'static) -> Self {
+    pub fn with_patch_cv(mut self, uc: impl IPatchCVUseCase + 'static) -> Self {
         self.patch_cv = Some(Arc::new(uc));
         self
     }
 
-    pub fn with_login_user(mut self, uc: impl ILoginUserUseCase + Send + Sync + 'static) -> Self {
+    pub fn with_login_user(mut self, uc: impl ILoginUserUseCase + 'static) -> Self {
         self.login_user = Some(Arc::new(uc));
         self
     }
 
-    pub fn with_verify_user_email(
-        mut self,
-        uc: impl IVerifyUserEmailUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_verify_user_email(mut self, uc: impl IVerifyUserEmailUseCase + 'static) -> Self {
         self.verify_user_email = Some(Arc::new(uc));
         self
     }
 
-    pub fn with_refresh_token(
-        mut self,
-        uc: impl IRefreshTokenUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_refresh_token(mut self, uc: impl IRefreshTokenUseCase + 'static) -> Self {
         self.refresh_token = Some(Arc::new(uc));
         self
     }
 
-    pub fn with_logout_user(mut self, uc: impl ILogoutUseCase + Send + Sync + 'static) -> Self {
+    pub fn with_logout_user(mut self, uc: impl ILogoutUseCase + 'static) -> Self {
         self.logout_user = Some(Arc::new(uc));
         self
     }
 
-    pub fn with_soft_delete_user(
-        mut self,
-        uc: impl ISoftDeleteUserUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_soft_delete_user(mut self, uc: impl ISoftDeleteUserUseCase + 'static) -> Self {
         self.soft_delete_user = Some(Arc::new(uc));
         self
     }
 
-    pub fn with_fetch_user_profile(
-        mut self,
-        uc: impl FetchUserProfileUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_fetch_user_profile(mut self, uc: impl FetchUserProfileUseCase + 'static) -> Self {
         self.fetch_user_profile = Some(Arc::new(uc));
         self
     }
 
-    pub fn with_update_user_profile(
-        mut self,
-        uc: impl UpdateUserProfileUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_update_user_profile(mut self, uc: impl UpdateUserProfileUseCase + 'static) -> Self {
         self.update_user_profile = Some(Arc::new(uc));
         self
     }
-    pub fn with_soft_delete_cv(
-        mut self,
-        uc: impl SoftDeleteCvUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_soft_delete_cv(mut self, uc: impl SoftDeleteCvUseCase + 'static) -> Self {
         self.soft_delete_cv = Some(Arc::new(uc));
         self
     }
 
-    pub fn with_restore_cv(
-        mut self,
-        uc: impl RestoreDeletedCvUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_restore_cv(mut self, uc: impl RestoreDeletedCvUseCase + 'static) -> Self {
         self.restore_cv = Some(Arc::new(uc));
         self
     }
 
-    pub fn with_hard_delete_cv(
-        mut self,
-        uc: impl HardDeleteCvUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_hard_delete_cv(mut self, uc: impl HardDeleteCvUseCase + 'static) -> Self {
         self.hard_delete_cv = Some(Arc::new(uc));
         self
     }
 
-    pub fn with_create_topic(
-        mut self,
-        uc: impl CreateTopicUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_create_topic(mut self, uc: impl CreateTopicUseCase + 'static) -> Self {
         self.create_topic = Some(Arc::new(uc));
         self
     }
 
-    pub fn with_get_topics(mut self, uc: impl GetTopicsUseCase + Send + Sync + 'static) -> Self {
+    pub fn with_get_topics(mut self, uc: impl GetTopicsUseCase + 'static) -> Self {
         self.get_topics = Some(Arc::new(uc));
         self
     }
 
-    pub fn with_soft_delete_topic(
-        mut self,
-        uc: impl SoftDeleteTopicUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_soft_delete_topic(mut self, uc: impl SoftDeleteTopicUseCase + 'static) -> Self {
         self.soft_delete_topic = Some(Arc::new(uc));
         self
     }
-    pub fn with_create_project_use_case(
-        mut self,
-        uc: impl CreateProjectUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_create_project_use_case(mut self, uc: impl CreateProjectUseCase + 'static) -> Self {
         if let Some(mut p) = self.project.take() {
             p.create = Arc::new(uc);
             self.project = Some(p);
         }
         self
     }
-    pub fn with_get_projects(
-        mut self,
-        uc: impl GetProjectsUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_get_projects(mut self, uc: impl GetProjectsUseCase + 'static) -> Self {
         if let Some(mut p) = self.project.take() {
             p.get_list = Arc::new(uc);
             self.project = Some(p);
         }
         self
     }
-    pub fn with_get_single_project(
-        mut self,
-        uc: impl GetSingleProjectUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_get_single_project(mut self, uc: impl GetSingleProjectUseCase + 'static) -> Self {
         // ProjectUseCases is guaranteed to exist from Default
         let project = self
             .project
@@ -485,10 +404,7 @@ impl TestAppStateBuilder {
         project.get_single = Arc::new(uc);
         self
     }
-    pub fn with_patch_project(
-        mut self,
-        uc: impl PatchProjectUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_patch_project(mut self, uc: impl PatchProjectUseCase + 'static) -> Self {
         // ProjectUseCases is guaranteed to exist from Default
         let project = self
             .project
@@ -508,7 +424,7 @@ impl TestAppStateBuilder {
 
     pub fn with_get_public_single_project(
         mut self,
-        uc: impl GetPublicSingleProjectUseCase + Send + Sync + 'static,
+        uc: impl GetPublicSingleProjectUseCase + 'static,
     ) -> Self {
         let project = self
             .project
@@ -616,7 +532,7 @@ impl TestAppStateBuilder {
         project.soft_delete = std::sync::Arc::new(uc);
         self
     }
-    pub fn with_get_media(mut self, uc: impl GetMediaUseCase + Send + Sync + 'static) -> Self {
+    pub fn with_get_media(mut self, uc: impl GetMediaUseCase + 'static) -> Self {
         let multimedia = self
             .multimedia
             .as_mut()
@@ -625,10 +541,7 @@ impl TestAppStateBuilder {
         self
     }
 
-    pub fn with_delete_media(
-        mut self,
-        uc: impl DeleteMediaUseCase + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_delete_media(mut self, uc: impl DeleteMediaUseCase + 'static) -> Self {
         let multimedia = self
             .multimedia
             .as_mut()
@@ -639,7 +552,7 @@ impl TestAppStateBuilder {
 
     pub fn with_create_upload_media_url(
         mut self,
-        uc: impl CreateUploadMediaUrlUseCase + Send + Sync + 'static,
+        uc: impl CreateUploadMediaUrlUseCase + 'static,
     ) -> Self {
         let multimedia = self
             .multimedia
@@ -651,7 +564,7 @@ impl TestAppStateBuilder {
     }
     pub fn with_create_signed_get_url(
         mut self,
-        uc: impl GetVariantReadUrlUseCase + Send + Sync + 'static,
+        uc: impl GetVariantReadUrlUseCase + 'static,
     ) -> Self {
         let multimedia = self
             .multimedia
@@ -661,7 +574,7 @@ impl TestAppStateBuilder {
         multimedia.create_signed_get_url = Arc::new(uc);
         self
     }
-    pub fn with_list_media(mut self, uc: impl ListMediaUseCase + Send + Sync + 'static) -> Self {
+    pub fn with_list_media(mut self, uc: impl ListMediaUseCase + 'static) -> Self {
         let multimedia = self
             .multimedia
             .as_mut()

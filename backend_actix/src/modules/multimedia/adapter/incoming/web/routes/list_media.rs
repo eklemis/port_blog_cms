@@ -27,6 +27,9 @@ pub struct ListMediaResponse {
     rows: Vec<MediaItem>,
 }
 
+// See the note in the auth extractor: an HttpResponse error is the idiom here,
+// and boxing it would cost more in churn than the 128-byte move saves.
+#[allow(clippy::result_large_err)]
 fn parse_attachment_target(s: &str) -> Result<AttachmentTarget, HttpResponse> {
     match s {
         "user" => Ok(AttachmentTarget::User),
@@ -97,7 +100,7 @@ pub async fn list_media_handler(
         Ok(items) => ApiResponse::success(ListMediaResponse { rows: items }),
         Err(err) => {
             println!("Error from the server: {}", err);
-            return ApiResponse::internal_error();
+            ApiResponse::internal_error()
         }
     }
 }
