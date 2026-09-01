@@ -8,8 +8,9 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use crate::blog::application::ports::outgoing::{BlogPatchField, BlogPostCard, PublicMedia};
+use crate::blog::application::ports::outgoing::{BlogPatchField, BlogPostCard};
 use crate::blog::domain::entities::{BlogPost, BlogPostTopic};
+use crate::multimedia::application::domain::entities::PublicMedia;
 
 /// Response body returned by this endpoint.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -160,11 +161,19 @@ pub struct BlogPostCardResponse {
     pub created_at: DateTime<Utc>,
     /// When it was last edited.
     pub updated_at: DateTime<Utc>,
+
+    /// The post's cover, on public listings only.
+    ///
+    /// Omitted entirely when there is none, so a client can treat its presence
+    /// as "this row has an image" without a null check.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cover: Option<PublicMedia>,
 }
 
 impl From<BlogPostCard> for BlogPostCardResponse {
     fn from(c: BlogPostCard) -> Self {
         Self {
+            cover: c.cover,
             id: c.id,
             title: c.title,
             slug: c.slug,

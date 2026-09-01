@@ -3,7 +3,7 @@ use crate::blog::adapter::incoming::web::dto::{
     BlogPostCardResponse, BlogPostDetailResponse, BlogPostResponse, BlogPostTopicRequest,
     BlogPostTopicResponse, CreateBlogPostRequest, PatchBlogPostRequest,
 };
-use crate::blog::application::ports::outgoing::{BlogPageResult, BlogPostSort, PublicMedia};
+use crate::blog::application::ports::outgoing::{BlogPageResult, BlogPostSort};
 use crate::cv::adapter::incoming::web::dto::{
     ContactDetailDto, ContactTypeDto, CoreSkillDto, CvResponse, EducationDto, ExperienceDto,
     HighlightedProjectDto,
@@ -11,6 +11,7 @@ use crate::cv::adapter::incoming::web::dto::{
 use crate::cv::adapter::incoming::web::routes::{
     CreateCVRequest, PatchCVRequest, ReplaceOp, UpdateCVRequest,
 };
+use crate::multimedia::application::domain::entities::PublicMedia;
 use crate::shared::api::ErrorCode;
 use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
 use utoipa::OpenApi;

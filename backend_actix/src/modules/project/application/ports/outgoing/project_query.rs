@@ -11,6 +11,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::multimedia::application::domain::entities::PublicMedia;
+
 use crate::auth::application::domain::entities::UserId;
 
 //
@@ -58,6 +60,16 @@ pub struct ProjectView {
     pub created_at: DateTime<Utc>,
     /// When it was last edited.
     pub updated_at: DateTime<Utc>,
+
+    /// Media attached to the project, on the **public** read path only.
+    ///
+    /// Each item carries its `role`, so a client picks screenshots with
+    /// `role == "screenshoot"` and a cover with `role == "cover"`.
+    ///
+    /// Distinct from [`screenshots`](Self::screenshots), which is a plain list
+    /// of author-supplied URLs stored on the project row. The two coexist; this
+    /// one is backed by uploaded media and carries generated sizes.
+    pub media: Vec<PublicMedia>,
 }
 
 /// A project as it appears in a listing — the summary fields only.
@@ -79,6 +91,9 @@ pub struct ProjectCardView {
     pub created_at: DateTime<Utc>,
     /// When it was last edited.
     pub updated_at: DateTime<Utc>,
+
+    /// The project's cover, on public listings only.
+    pub cover: Option<PublicMedia>,
 }
 
 /// Narrows a project listing. Every field defaults to "no filter".

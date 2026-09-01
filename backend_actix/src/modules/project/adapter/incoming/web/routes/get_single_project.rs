@@ -155,6 +155,7 @@ mod tests {
             topics: vec![],
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
+            media: Vec::new(),
         }
     }
 

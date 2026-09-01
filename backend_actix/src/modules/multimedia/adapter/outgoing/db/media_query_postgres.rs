@@ -34,9 +34,12 @@ impl MediaQueryPostgres {
     /// One variant, joined to whatever it is attached to, filtered to things a
     /// reader can already see.
     ///
-    /// Today that means published blog posts. Adding projects or CVs means a
-    /// second `UNION` arm here rather than a new route — the visibility rule
-    /// belongs in one place.
+    /// Today that means published blog posts and non-deleted projects — the
+    /// two arms of the `OR`. Adding CVs means a third arm here rather than a
+    /// new route: a second place to decide "may a reader see this" is a second
+    /// place to get it wrong.
+    ///
+    /// Projects have no draft state, so "not deleted" is their whole rule.
     ///
     /// `media.deleted_at IS NULL` is checked too, so soft-deleting a media item
     /// stops it being served even while the post referencing it stays live.
@@ -52,16 +55,34 @@ impl MediaQueryPostgres {
                 v.width,
                 v.height
             FROM media_variants v
-            JOIN media m            ON m.id = v.media_id
+            JOIN media m             ON m.id = v.media_id
             JOIN media_attachments a ON a.media_id = v.media_id
-            JOIN blog_posts p        ON p.id = a.attachable_id
             WHERE v.media_id = $1
               AND v.variant_type = $2
               AND m.deleted_at IS NULL
-              AND a.attachable_type = 'blog_post'
-              AND p.is_deleted = false
-              AND p.published_at IS NOT NULL
-              AND p.published_at <= now()
+              AND (
+                    -- Attached to a post a reader can already see.
+                    (
+                      a.attachable_type = 'blog_post'
+                      AND EXISTS (
+                        SELECT 1 FROM blog_posts p
+                        WHERE p.id = a.attachable_id
+                          AND p.is_deleted = false
+                          AND p.published_at IS NOT NULL
+                          AND p.published_at <= now()
+                      )
+                    )
+                    -- Or to a project. Projects have no draft state, so "not
+                    -- deleted" is the whole visibility rule for them.
+                 OR (
+                      a.attachable_type = 'project'
+                      AND EXISTS (
+                        SELECT 1 FROM projects pr
+                        WHERE pr.id = a.attachable_id
+                          AND pr.is_deleted = false
+                      )
+                    )
+              )
             LIMIT 1
             "#,
             vec![media_id.into(), size.into()],

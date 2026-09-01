@@ -149,3 +149,39 @@ impl fmt::Display for AttachmentTarget {
         write!(f, "{s}")
     }
 }
+
+/// A media item attached to something, projected for a **public** response.
+///
+/// The URLs are unsigned and durable, unlike the console's signed ones — see
+/// `docs/adr/0006-public-media-urls.md` for why a public page cannot use a
+/// signed URL.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct PublicMedia {
+    /// The media item's identifier.
+    #[schema(example = "8f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d")]
+    pub media_id: uuid::Uuid,
+
+    /// Alternative text. Empty rather than absent when the author set none —
+    /// which is itself worth surfacing in the console.
+    #[schema(example = "Hexagonal layout of the API")]
+    pub alt_text: String,
+
+    /// Caption. Empty rather than absent when unset.
+    pub caption: String,
+
+    /// What the media is for on this post — `cover`, `gallery`, `inline`.
+    #[schema(example = "cover")]
+    pub role: String,
+
+    /// Display order within the role, ascending from 0.
+    pub position: i32,
+
+    /// One entry per generated size, keyed by size name: `thumbnail`, `small`,
+    /// `medium`, `large`.
+    ///
+    /// **May be empty**, and a caller must handle that: a media row exists
+    /// before its variants do, so a post published while its cover is still
+    /// processing carries the attachment with no URLs yet.
+    #[schema(example = json!({"thumbnail": "https://storage.googleapis.com/…"}))]
+    pub variants: std::collections::BTreeMap<String, String>,
+}
