@@ -8,7 +8,7 @@ mod blog_post_topic_repository;
 pub use blog_post_archiver::{BlogPostArchiver, BlogPostArchiverError};
 pub use blog_post_query::{
     BlogPageRequest, BlogPageResult, BlogPostCard, BlogPostListFilter, BlogPostQuery,
-    BlogPostQueryError, BlogPostSort, BlogPostView,
+    BlogPostQueryError, BlogPostSort, BlogPostView, PublicMedia,
 };
 pub use blog_post_repository::{
     BlogPatchField, BlogPostRepository, BlogPostRepositoryError, CreateBlogPostData,

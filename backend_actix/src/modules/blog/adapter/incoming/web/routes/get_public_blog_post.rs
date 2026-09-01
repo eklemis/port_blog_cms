@@ -72,10 +72,11 @@ pub async fn get_public_blog_post_handler(
         .execute(UserId::from(owner_id), &path.slug)
         .await
     {
-        Ok(view) => ApiResponse::success(BlogPostDetailResponse {
-            post: view.post.into(),
-            topics: view.topics.into_iter().map(Into::into).collect(),
-        }),
+        Ok(view) => ApiResponse::success(BlogPostDetailResponse::public(
+            view.post.into(),
+            view.topics.into_iter().map(Into::into).collect(),
+            view.media,
+        )),
         Err(GetBlogPostError::NotFound) => {
             ApiResponse::not_found(ErrorCode::PostNotFound, "Blog post not found")
         }
@@ -165,6 +166,7 @@ mod tests {
                 updated_at: now,
             },
             topics: vec![],
+            media: Vec::new(),
         }
     }
 

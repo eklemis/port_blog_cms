@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use crate::blog::application::ports::outgoing::{BlogPatchField, BlogPostCard};
+use crate::blog::application::ports::outgoing::{BlogPatchField, BlogPostCard, PublicMedia};
 use crate::blog::domain::entities::{BlogPost, BlogPostTopic};
 
 /// Response body returned by this endpoint.
@@ -93,6 +93,51 @@ pub struct BlogPostDetailResponse {
     pub post: BlogPostResponse,
     /// Topics attached to the post.
     pub topics: Vec<BlogPostTopicResponse>,
+
+    /// The post's cover image, on **public** responses only.
+    ///
+    /// `null` when the post has no cover, and also on the owner-facing
+    /// `GET /api/blog/{post_id}`, which reads media through the media endpoints
+    /// so it gets signed URLs rather than public ones.
+    ///
+    /// A cover whose variants are still being generated appears with an empty
+    /// `variants` map rather than as `null` — the image is coming, it is not
+    /// absent.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cover: Option<PublicMedia>,
+}
+
+impl BlogPostDetailResponse {
+    /// Builds the public shape, picking the cover out of the attached media.
+    ///
+    /// The cover is the `cover`-role attachment with the lowest position. A
+    /// post carrying several is a data problem rather than a rendering choice,
+    /// so this takes the first deterministically instead of guessing.
+    pub fn public(
+        post: BlogPostResponse,
+        topics: Vec<BlogPostTopicResponse>,
+        media: Vec<PublicMedia>,
+    ) -> Self {
+        let cover = media
+            .into_iter()
+            .filter(|m| m.role.eq_ignore_ascii_case("cover"))
+            .min_by_key(|m| m.position);
+
+        Self {
+            post,
+            topics,
+            cover,
+        }
+    }
+
+    /// Builds the owner-facing shape, which carries no public media URLs.
+    pub fn owner(post: BlogPostResponse, topics: Vec<BlogPostTopicResponse>) -> Self {
+        Self {
+            post,
+            topics,
+            cover: None,
+        }
+    }
 }
 
 /// A listing row. Carries no `content` — that column is not selected for

@@ -57,10 +57,10 @@ pub async fn get_single_blog_post_handler(
         .execute(UserId::from(user.user_id), path.into_inner())
         .await
     {
-        Ok(view) => ApiResponse::success(BlogPostDetailResponse {
-            post: view.post.into(),
-            topics: view.topics.into_iter().map(Into::into).collect(),
-        }),
+        Ok(view) => ApiResponse::success(BlogPostDetailResponse::owner(
+            view.post.into(),
+            view.topics.into_iter().map(Into::into).collect(),
+        )),
         Err(GetBlogPostError::NotFound) => {
             ApiResponse::not_found(ErrorCode::PostNotFound, "Blog post not found")
         }
@@ -116,6 +116,7 @@ mod tests {
                 title: "Rust".into(),
                 description: "Posts about Rust".into(),
             }],
+            media: Vec::new(),
         }
     }
 

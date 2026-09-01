@@ -12,17 +12,28 @@ use crate::blog::adapter::outgoing::sea_orm_entity::{
     blog_post_topics,
     blog_posts::{Column as PostColumn, Entity as PostEntity},
 };
+use std::collections::BTreeMap;
+
 use crate::blog::application::ports::outgoing::{
     BlogPageRequest, BlogPageResult, BlogPostCard, BlogPostListFilter, BlogPostQuery,
-    BlogPostQueryError, BlogPostSort, BlogPostView,
+    BlogPostQueryError, BlogPostSort, BlogPostView, PublicMedia,
 };
 use crate::blog::domain::entities::BlogPostTopic;
+use crate::multimedia::adapter::outgoing::db::sea_orm_entity::{media_attachments, media_variants};
+use crate::multimedia::application::domain::entities::AttachmentTarget;
+use crate::multimedia::application::ports::outgoing::cloud_storage::{MediaInfo, StorageQuery};
 use crate::topic::adapter::outgoing::sea_orm_entity::topics;
 
 /// The SeaORM implementation of the matching outgoing port.
 #[derive(Clone)]
 pub struct BlogPostQueryPostgres {
     db: Arc<DatabaseConnection>,
+    /// Turns a bucket and object key into a public URL.
+    ///
+    /// Held here rather than in the service so GCS's URL shape stays inside the
+    /// multimedia adapter; blog's application layer only ever sees a finished
+    /// string.
+    storage: Arc<dyn StorageQuery>,
 }
 
 /// Exactly the columns a listing row needs. Selecting the full model and
@@ -50,8 +61,8 @@ struct TopicRow {
 
 impl BlogPostQueryPostgres {
     /// Builds it from the ports it depends on.
-    pub fn new(db: Arc<DatabaseConnection>) -> Self {
-        Self { db }
+    pub fn new(db: Arc<DatabaseConnection>, storage: Arc<dyn StorageQuery>) -> Self {
+        Self { db, storage }
     }
 
     fn db_err(e: sea_orm::DbErr) -> BlogPostQueryError {
@@ -193,6 +204,70 @@ impl BlogPostQueryPostgres {
             })
             .collect())
     }
+
+    /// Every media item attached to a post, projected for a public response.
+    ///
+    /// Two queries rather than a join: attachments, then the variants for the
+    /// media those attachments name. A join would multiply each attachment by
+    /// its variant count and need de-duplicating in Rust anyway.
+    ///
+    /// A post with no media is an empty vec, and an attachment whose variants
+    /// have not been generated yet comes back with an empty `variants` map
+    /// rather than being hidden — the caller decides how to render "not ready".
+    async fn media_for(&self, post_id: Uuid) -> Result<Vec<PublicMedia>, BlogPostQueryError> {
+        let attachments = media_attachments::Entity::find()
+            .filter(
+                media_attachments::Column::AttachableType
+                    .eq(AttachmentTarget::BlogPost.to_string()),
+            )
+            .filter(media_attachments::Column::AttachableId.eq(post_id))
+            .order_by_asc(media_attachments::Column::Role)
+            .order_by_asc(media_attachments::Column::Position)
+            .all(&*self.db)
+            .await
+            .map_err(Self::db_err)?;
+
+        if attachments.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let media_ids: Vec<Uuid> = attachments.iter().map(|a| a.media_id).collect();
+        let variants = media_variants::Entity::find()
+            .filter(media_variants::Column::MediaId.is_in(media_ids))
+            .all(&*self.db)
+            .await
+            .map_err(Self::db_err)?;
+
+        let mut by_media: std::collections::HashMap<Uuid, BTreeMap<String, String>> =
+            std::collections::HashMap::new();
+        for v in variants {
+            let Ok(info) = MediaInfo::try_new(
+                v.bucket_name.clone(),
+                v.object_key.clone(),
+                AttachmentTarget::BlogPost,
+            ) else {
+                // A row with a blank bucket or key cannot produce a usable URL.
+                // Skip it rather than emitting a broken one.
+                continue;
+            };
+            by_media
+                .entry(v.media_id)
+                .or_default()
+                .insert(v.variant_type, self.storage.public_read_url(&info));
+        }
+
+        Ok(attachments
+            .into_iter()
+            .map(|a| PublicMedia {
+                media_id: a.media_id,
+                alt_text: a.alt_text.unwrap_or_default(),
+                caption: a.caption.unwrap_or_default(),
+                role: a.role,
+                position: a.position,
+                variants: by_media.remove(&a.media_id).unwrap_or_default(),
+            })
+            .collect())
+    }
 }
 
 #[async_trait]
@@ -232,9 +307,13 @@ impl BlogPostQuery for BlogPostQueryPostgres {
 
         let topics = self.topics_for(post_id).await?;
 
+        // The console reads media through the media endpoints, which return
+        // signed URLs. Leaving this empty keeps the owner-facing path one query
+        // cheaper and stops unsigned URLs leaking into an authenticated view.
         Ok(BlogPostView {
             post: model.to_domain(),
             topics,
+            media: Vec::new(),
         })
     }
 
@@ -256,10 +335,12 @@ impl BlogPostQuery for BlogPostQueryPostgres {
 
         let post_id = model.id;
         let topics = self.topics_for(post_id).await?;
+        let media = self.media_for(post_id).await?;
 
         Ok(BlogPostView {
             post: model.to_domain(),
             topics,
+            media,
         })
     }
 
@@ -271,6 +352,52 @@ impl BlogPostQuery for BlogPostQueryPostgres {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Builds public URLs without touching GCS.
+    #[derive(Debug, Clone)]
+    struct StubStorage;
+
+    #[async_trait]
+    impl StorageQuery for StubStorage {
+        async fn get_signed_upload_url(
+            &self,
+            _m: MediaInfo,
+        ) -> Result<
+            String,
+            crate::multimedia::application::ports::outgoing::cloud_storage::SignUrlError,
+        > {
+            unimplemented!()
+        }
+        async fn get_signed_read_url(
+            &self,
+            _m: MediaInfo,
+        ) -> Result<
+            String,
+            crate::multimedia::application::ports::outgoing::cloud_storage::SignUrlError,
+        > {
+            unimplemented!()
+        }
+        async fn get_latest_manifest(
+            &self,
+            _id: &str,
+        ) -> Result<
+            crate::multimedia::application::ports::outgoing::cloud_storage::ManifestInfo,
+            crate::multimedia::application::ports::outgoing::cloud_storage::StorageQueryError,
+        > {
+            unimplemented!()
+        }
+        fn public_read_url(&self, media_info: &MediaInfo) -> String {
+            format!(
+                "https://public.example/{}/{}",
+                media_info.bucket_name(),
+                media_info.object_name()
+            )
+        }
+    }
+
+    fn storage() -> Arc<dyn StorageQuery> {
+        Arc::new(StubStorage)
+    }
     use crate::blog::adapter::outgoing::sea_orm_entity::blog_posts::Model as PostModel;
     use sea_orm::{DatabaseBackend, MockDatabase, Value};
     use std::collections::BTreeMap;
@@ -298,7 +425,7 @@ mod tests {
     }
 
     fn query(db: DatabaseConnection) -> BlogPostQueryPostgres {
-        BlogPostQueryPostgres::new(Arc::new(db))
+        BlogPostQueryPostgres::new(Arc::new(db), storage())
     }
 
     #[tokio::test]
@@ -339,7 +466,7 @@ mod tests {
                 .into_connection(),
         );
 
-        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn), storage());
         q.list_by_owner(
             UserId::from(user_id),
             BlogPostListFilter::default(),
@@ -374,7 +501,7 @@ mod tests {
                 .into_connection(),
         );
 
-        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn), storage());
         q.list_by_owner(
             UserId::from(user_id),
             BlogPostListFilter {
@@ -410,7 +537,7 @@ mod tests {
                 .into_connection(),
         );
 
-        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn), storage());
         q.list_published(
             UserId::from(user_id),
             BlogPostListFilter {
@@ -476,7 +603,7 @@ mod tests {
                 .into_connection(),
         );
 
-        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn), storage());
         let _ = q
             .get_published_by_slug(UserId::from(Uuid::new_v4()), "  HeLLo  ")
             .await;
@@ -554,7 +681,8 @@ mod tests {
         let user_id = Uuid::new_v4();
         let db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_results(vec![vec![model(user_id, Some(Utc::now()))]])
-            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
+            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()]) // topics
+            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()]) // attachments
             .into_connection();
 
         let view = query(db)
@@ -564,6 +692,120 @@ mod tests {
 
         assert!(view.post.published_at.is_some());
         assert!(view.topics.is_empty());
+        assert!(view.media.is_empty());
+    }
+
+    /// A post with no attachments must not issue the variants query at all —
+    /// otherwise every image-less public page pays for a round trip that can
+    /// only return nothing.
+    ///
+    /// Exactly three results are queued. `MockDatabase` fails a fourth query
+    /// with "`query_results` buffer is empty", so this passing *is* the
+    /// assertion that the variants query never ran.
+    #[tokio::test]
+    async fn a_post_with_no_attachments_skips_the_variants_query() {
+        let user_id = Uuid::new_v4();
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![model(user_id, Some(Utc::now()))]])
+            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()]) // topics
+            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()]) // attachments
+            .into_connection();
+
+        let view = query(db)
+            .get_published_by_slug(UserId::from(user_id), "hello")
+            .await
+            .unwrap();
+
+        assert!(view.media.is_empty());
+    }
+
+    /// The whole point of the feature: an attachment plus its variants come
+    /// back as one item carrying public, unsigned URLs.
+    #[tokio::test]
+    async fn public_read_projects_attachments_and_their_variants() {
+        let user_id = Uuid::new_v4();
+        let media_id = Uuid::new_v4();
+
+        let attachment = BTreeMap::from([
+            ("id".to_string(), Value::from(Uuid::new_v4())),
+            ("media_id".to_string(), Value::from(media_id)),
+            ("attachable_type".to_string(), Value::from("blog_post")),
+            ("attachable_id".to_string(), Value::from(Uuid::new_v4())),
+            ("role".to_string(), Value::from("cover")),
+            ("position".to_string(), Value::from(0i32)),
+            ("alt_text".to_string(), Value::from("Hexagonal layout")),
+            ("caption".to_string(), Value::from(Option::<String>::None)),
+            (
+                "created_at".to_string(),
+                Value::from(Utc::now().fixed_offset()),
+            ),
+        ]);
+
+        let variant = |size: &str, key: &str| {
+            BTreeMap::from([
+                ("id".to_string(), Value::from(Uuid::new_v4())),
+                ("media_id".to_string(), Value::from(media_id)),
+                ("variant_type".to_string(), Value::from(size)),
+                ("bucket_name".to_string(), Value::from("ready-bucket")),
+                ("object_key".to_string(), Value::from(key)),
+                ("mime_type".to_string(), Value::from("image/webp")),
+                ("file_size_bytes".to_string(), Value::from(1234i64)),
+                ("width".to_string(), Value::from(Option::<i32>::None)),
+                ("height".to_string(), Value::from(Option::<i32>::None)),
+                (
+                    "created_at".to_string(),
+                    Value::from(Utc::now().fixed_offset()),
+                ),
+            ])
+        };
+
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![model(user_id, Some(Utc::now()))]])
+            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()]) // topics
+            .append_query_results(vec![vec![attachment]])
+            .append_query_results(vec![vec![
+                variant("thumbnail", "m/thumb.webp"),
+                variant("large", "m/large.webp"),
+            ]])
+            .into_connection();
+
+        let view = query(db)
+            .get_published_by_slug(UserId::from(user_id), "hello")
+            .await
+            .unwrap();
+
+        assert_eq!(view.media.len(), 1);
+        let cover = &view.media[0];
+        assert_eq!(cover.media_id, media_id);
+        assert_eq!(cover.role, "cover");
+        assert_eq!(cover.alt_text, "Hexagonal layout");
+        // A NULL caption becomes an empty string, not a missing key.
+        assert_eq!(cover.caption, "");
+        assert_eq!(
+            cover.variants.get("thumbnail").map(String::as_str),
+            Some("https://public.example/ready-bucket/m/thumb.webp"),
+            "variants must carry unsigned URLs: {:?}",
+            cover.variants
+        );
+        assert_eq!(cover.variants.len(), 2);
+    }
+
+    /// The owner-facing read deliberately carries no public media: the console
+    /// goes through the media endpoints, which return signed URLs.
+    #[tokio::test]
+    async fn get_by_id_returns_no_public_media() {
+        let user_id = Uuid::new_v4();
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![model(user_id, None)]])
+            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()]) // topics
+            .into_connection();
+
+        let view = query(db)
+            .get_by_id(UserId::from(user_id), Uuid::new_v4())
+            .await
+            .unwrap();
+
+        assert!(view.media.is_empty());
     }
 
     #[tokio::test]
@@ -589,7 +831,7 @@ mod tests {
                 .into_connection(),
         );
 
-        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn), storage());
         q.list_by_owner(
             UserId::from(user_id),
             BlogPostListFilter {
@@ -626,7 +868,7 @@ mod tests {
                 .into_connection(),
         );
 
-        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn), storage());
         q.list_by_owner(
             UserId::from(user_id),
             BlogPostListFilter {
@@ -663,7 +905,7 @@ mod tests {
                 .into_connection(),
         );
 
-        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn), storage());
         q.list_by_owner(
             UserId::from(user_id),
             BlogPostListFilter {
@@ -704,7 +946,7 @@ mod tests {
                     .into_connection(),
             );
 
-            let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
+            let q = BlogPostQueryPostgres::new(Arc::clone(&conn), storage());
             q.list_by_owner(
                 UserId::from(Uuid::new_v4()),
                 BlogPostListFilter::default(),
@@ -740,7 +982,7 @@ mod tests {
                 .into_connection(),
         );
 
-        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn), storage());
         let result = q
             .list_by_owner(
                 UserId::from(Uuid::new_v4()),

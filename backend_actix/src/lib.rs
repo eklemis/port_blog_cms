@@ -429,7 +429,12 @@ pub async fn start() -> std::io::Result<()> {
 
     // Blog use cases, repos and query
     let blog_repo = BlogPostRepositoryPostgres::new(Arc::clone(&db_arc));
-    let blog_query = BlogPostQueryPostgres::new(Arc::clone(&db_arc));
+    // One storage client, shared. The blog public read path uses it for
+    // unsigned URLs; the media endpoints use the same instance for signed ones.
+    let storage_query = GcsStorageQuery::new();
+
+    let blog_query =
+        BlogPostQueryPostgres::new(Arc::clone(&db_arc), Arc::new(storage_query.clone()));
     let blog_archiver = BlogPostArchiverPostgres::new(Arc::clone(&db_arc));
     let blog_topic_repo = BlogPostTopicRepositoryPostgres::new(Arc::clone(&db_arc));
 
@@ -483,7 +488,6 @@ pub async fn start() -> std::io::Result<()> {
     };
 
     // Mulitmedia Use Cases
-    let storage_query = GcsStorageQuery::new();
     let media_repo = MediaRepositoryPostgres::new(Arc::clone(&db_arc));
     let delete_media_uc = DeleteMediaService::new(media_repo.clone());
     let create_upload_media_signed_url =

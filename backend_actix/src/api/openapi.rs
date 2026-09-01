@@ -3,7 +3,7 @@ use crate::blog::adapter::incoming::web::dto::{
     BlogPostCardResponse, BlogPostDetailResponse, BlogPostResponse, BlogPostTopicRequest,
     BlogPostTopicResponse, CreateBlogPostRequest, PatchBlogPostRequest,
 };
-use crate::blog::application::ports::outgoing::{BlogPageResult, BlogPostSort};
+use crate::blog::application::ports::outgoing::{BlogPageResult, BlogPostSort, PublicMedia};
 use crate::cv::adapter::incoming::web::dto::{
     ContactDetailDto, ContactTypeDto, CoreSkillDto, CvResponse, EducationDto, ExperienceDto,
     HighlightedProjectDto,
@@ -187,6 +187,7 @@ use crate::topic::application::ports::outgoing::TopicResult;
             BlogPostDetailResponse,
             BlogPostCardResponse,
             BlogPostTopicResponse,
+            PublicMedia,
             CreateBlogPostRequest,
             PatchBlogPostRequest,
             BlogPostTopicRequest,
