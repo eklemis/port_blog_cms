@@ -1,0 +1,13 @@
+# Docker build context is the repository root (both Rust services are
+# workspace members). Keep everything that is not needed to compile them out.
+.git/
+target/
+node_modules/
+blogport_frontend/
+backend_node/
+media-status-updater/
+graphify-out/
+**/graphify-out/
+**/*.env
+**/postman/
+**/docs/

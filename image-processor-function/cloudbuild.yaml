@@ -1,0 +1,14 @@
+# Builds image-processor-function with the repository root as the build
+# context, which the root Cargo workspace requires. Invoked by ./deploy.sh.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file=image-processor-function/Dockerfile
+      - --tag=${_IMAGE}
+      - .
+images:
+  - ${_IMAGE}
+options:
+  machineType: E2_HIGHCPU_8
+timeout: 3600s

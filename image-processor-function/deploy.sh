@@ -73,13 +73,20 @@ echo "📦 Artifact Registry repo already exists, skipping..."
 # =============================================================================
 echo "🔨 Building container image..."
 
+# The crate is a member of the root Cargo workspace, so the build context has
+# to be the repository root and the Dockerfile is selected by cloudbuild.yaml
+# rather than by --tag. Root .gcloudignore keeps the frontend out of the upload.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 # Option 1: Build locally and push (faster iteration)
-# docker build -t "${IMAGE_URI}" .
+# docker build -f "${REPO_ROOT}/image-processor-function/Dockerfile" -t "${IMAGE_URI}" "${REPO_ROOT}"
 # docker push "${IMAGE_URI}"
 
 # Option 2: Build with Cloud Build (no local Docker needed)
-# Uncomment below and comment out the docker commands above to use Cloud Build
-gcloud builds submit --tag "${IMAGE_URI}" .
+gcloud builds submit \
+    --config "${REPO_ROOT}/image-processor-function/cloudbuild.yaml" \
+    --substitutions "_IMAGE=${IMAGE_URI}" \
+    "${REPO_ROOT}"
 
 # =============================================================================
 # Deploy to Cloud Run

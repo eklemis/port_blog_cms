@@ -30,12 +30,18 @@ gcloud services enable \
   containerregistry.googleapis.com \
   --project "${PROJECT_ID}" >/dev/null
 
+# The crate is a member of the root Cargo workspace, so the build context has
+# to be the repository root and the Dockerfile is selected by cloudbuild.yaml
+# rather than by --tag. Root .gcloudignore keeps the frontend out of the upload.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 echo "==> Building container image with Cloud Build..."
+echo "==> Context : ${REPO_ROOT}"
 gcloud builds submit \
-  --tag "${IMAGE_NAME}" \
+  --config "${REPO_ROOT}/backend_actix/cloudbuild.yaml" \
+  --substitutions "_IMAGE=${IMAGE_NAME}" \
   --project "${PROJECT_ID}" \
-  --machine-type=e2-highcpu-8 \
-  .
+  "${REPO_ROOT}"
 
 echo
 echo "==> ✓ Build complete!"
