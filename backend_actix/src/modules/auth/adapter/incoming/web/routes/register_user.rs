@@ -274,6 +274,9 @@ mod tests {
 
     use super::*;
     use crate::auth::application::orchestrator::user_registration::UserRegistrationOrchestrator;
+    use crate::auth::application::ports::outgoing::token_provider::{
+        TokenClaims, TokenError, TokenProvider,
+    };
     use crate::auth::application::ports::outgoing::{
         user_query::UserQueryError, user_repository::UserRepositoryError,
     };
@@ -283,6 +286,7 @@ mod tests {
     use crate::email::application::ports::outgoing::user_email_notifier::{
         UserEmailNotificationError, UserEmailNotifier,
     };
+    use crate::email::application::ports::outgoing::Recipient;
     use crate::tests::support::app_state_builder::TestAppStateBuilder;
     use actix_web::{test, App};
     use async_trait::async_trait;
@@ -411,7 +415,8 @@ mod tests {
     impl UserEmailNotifier for MockEmailNotifierSuccess {
         async fn send_verification_email(
             &self,
-            _: CreateUserOutput,
+            _recipient: &Recipient,
+            _verification_token: &str,
         ) -> Result<(), UserEmailNotificationError> {
             Ok(())
         }
@@ -424,7 +429,8 @@ mod tests {
     impl UserEmailNotifier for MockEmailNotifierFailure {
         async fn send_verification_email(
             &self,
-            _: CreateUserOutput,
+            _recipient: &Recipient,
+            _verification_token: &str,
         ) -> Result<(), UserEmailNotificationError> {
             Err(UserEmailNotificationError::EmailSendingFailed(
                 "SMTP connection failed".to_string(),
@@ -445,12 +451,59 @@ mod tests {
         }
     }
 
+    /// Mints a fixed verification token, or fails on demand.
+    ///
+    /// The orchestrator mints the token now — see
+    /// `docs/adr/0005-break-the-auth-email-cycle.md` — so these tests need one.
+    #[derive(Clone)]
+    struct StubTokenProvider {
+        verification: Option<&'static str>,
+    }
+
+    impl StubTokenProvider {
+        fn ok() -> Self {
+            Self {
+                verification: Some("verify-tok"),
+            }
+        }
+    }
+
+    impl TokenProvider for StubTokenProvider {
+        fn generate_access_token(&self, _u: Uuid, _v: bool) -> Result<String, TokenError> {
+            unimplemented!()
+        }
+        fn generate_refresh_token(&self, _u: Uuid, _v: bool) -> Result<String, TokenError> {
+            unimplemented!()
+        }
+        fn verify_token(&self, _t: &str) -> Result<TokenClaims, TokenError> {
+            unimplemented!()
+        }
+        fn refresh_access_token(&self, _t: &str) -> Result<String, TokenError> {
+            unimplemented!()
+        }
+        fn generate_verification_token(&self, _u: Uuid) -> Result<String, TokenError> {
+            self.verification
+                .map(|t| t.to_string())
+                .ok_or(TokenError::MalformedToken)
+        }
+        fn verify_verification_token(&self, _t: &str) -> Result<Uuid, TokenError> {
+            unimplemented!()
+        }
+        fn generate_password_reset_token(&self, _u: Uuid) -> Result<String, TokenError> {
+            unimplemented!()
+        }
+        fn verify_password_reset_token(&self, _t: &str) -> Result<Uuid, TokenError> {
+            unimplemented!()
+        }
+    }
+
     fn create_orchestrator(
         create_user: impl ICreateUserUseCase + 'static,
         email_notifier: impl UserEmailNotifier + 'static,
     ) -> Arc<UserRegistrationOrchestrator> {
         Arc::new(UserRegistrationOrchestrator::new(
             Arc::new(create_user),
+            Arc::new(StubTokenProvider::ok()),
             Arc::new(email_notifier),
         ))
     }

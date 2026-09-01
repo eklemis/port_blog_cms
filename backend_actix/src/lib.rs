@@ -308,7 +308,6 @@ pub async fn start() -> std::io::Result<()> {
         .unwrap_or_else(|_| "0.0.0.0:5173/password-reset".to_string());
 
     let user_email_service = UserEmailService::new(
-        jwt_service.clone(),
         smtp_sender,
         String::from(&verification_handler_url),
         password_reset_handler_url,
@@ -338,8 +337,11 @@ pub async fn start() -> std::io::Result<()> {
     let password_reset_notifier_arc: Arc<dyn PasswordResetNotifier + Send + Sync> =
         user_email_service_arc as Arc<dyn PasswordResetNotifier + Send + Sync>;
 
-    let register_user_orchestrator =
-        UserRegistrationOrchestrator::new(create_user_uc_arc, email_notifier_arc);
+    let register_user_orchestrator = UserRegistrationOrchestrator::new(
+        create_user_uc_arc,
+        Arc::new(jwt_service.clone()),
+        email_notifier_arc,
+    );
 
     let verify_user_email_use_case =
         VerifyUserEmailUseCase::new(user_repo.clone(), Arc::new(jwt_service.clone()));

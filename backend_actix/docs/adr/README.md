@@ -3,7 +3,7 @@
 Short records of decisions that were hard to make and would otherwise be
 re-litigated, or quietly undone by someone who did not know why they were made.
 
-These were backfilled. The reasoning already existed — in `readme.md`, in
+0001-0004 were backfilled. The reasoning already existed — in `readme.md`, in
 `build_steps.md`, in a CI comment — but it was scattered where nobody would
 look for it. Each record here is a **move**, not a rewrite: the wording is the
 original author's, and the source now points here.
@@ -18,6 +18,7 @@ non-obvious. Routine choices do not need one.
 | [0002](0002-rate-limit-keying-on-forwarded-for.md) | Rate-limit callers are keyed on `X-Forwarded-For` | Accepted |
 | [0003](0003-migrate-before-deploy.md) | Migrations run before the Cloud Run update, not on startup | Accepted |
 | [0004](0004-llvm-cov-over-tarpaulin.md) | Coverage is measured with `cargo llvm-cov`, not tarpaulin | Accepted |
+| [0005](0005-break-the-auth-email-cycle.md) | `email` does not depend on `auth` | Accepted |
 
 ## Format
 

@@ -10,6 +10,9 @@ use async_trait::async_trait;
 use uuid::Uuid;
 
 use crate::auth::application::domain::entities::UserId;
+use crate::auth::application::ports::outgoing::token_provider::{
+    TokenClaims, TokenError, TokenProvider,
+};
 use crate::auth::application::ports::outgoing::user_query::{UserQueryError, UserQueryResult};
 use crate::auth::application::ports::outgoing::UserQuery;
 use crate::auth::application::use_cases::create_user::{CreateUserInput, CreateUserOutput};
@@ -52,6 +55,7 @@ use crate::cv::domain::entities::CVInfo;
 use crate::email::application::ports::outgoing::user_email_notifier::{
     UserEmailNotificationError, UserEmailNotifier,
 };
+use crate::email::application::ports::outgoing::Recipient;
 use crate::multimedia::application::ports::incoming::use_cases::{
     CreateAttachmentCommand, CreateMediaCommand, CreateMediaResult, CreateUploadMediaUrlUseCase,
     CreateUrlError, DeleteMediaError, DeleteMediaUseCase, GetMediaError, GetMediaUseCase,
@@ -237,8 +241,44 @@ pub struct StubUserEmailNotifier;
 impl UserEmailNotifier for StubUserEmailNotifier {
     async fn send_verification_email(
         &self,
-        _user: CreateUserOutput,
+        _recipient: &Recipient,
+        _verification_token: &str,
     ) -> Result<(), UserEmailNotificationError> {
+        unimplemented!()
+    }
+}
+
+/// Mints a fixed verification token.
+///
+/// The registration orchestrator mints the token itself now, so anything that
+/// builds one needs a token provider. See
+/// `docs/adr/0005-break-the-auth-email-cycle.md`.
+#[derive(Default, Clone)]
+pub struct StubTokenProvider;
+
+impl TokenProvider for StubTokenProvider {
+    fn generate_access_token(&self, _u: uuid::Uuid, _v: bool) -> Result<String, TokenError> {
+        Ok("access".to_string())
+    }
+    fn generate_refresh_token(&self, _u: uuid::Uuid, _v: bool) -> Result<String, TokenError> {
+        Ok("refresh".to_string())
+    }
+    fn verify_token(&self, _t: &str) -> Result<TokenClaims, TokenError> {
+        unimplemented!()
+    }
+    fn refresh_access_token(&self, _t: &str) -> Result<String, TokenError> {
+        unimplemented!()
+    }
+    fn generate_verification_token(&self, _u: uuid::Uuid) -> Result<String, TokenError> {
+        Ok("verify".to_string())
+    }
+    fn verify_verification_token(&self, _t: &str) -> Result<uuid::Uuid, TokenError> {
+        unimplemented!()
+    }
+    fn generate_password_reset_token(&self, _u: uuid::Uuid) -> Result<String, TokenError> {
+        Ok("reset".to_string())
+    }
+    fn verify_password_reset_token(&self, _t: &str) -> Result<uuid::Uuid, TokenError> {
         unimplemented!()
     }
 }

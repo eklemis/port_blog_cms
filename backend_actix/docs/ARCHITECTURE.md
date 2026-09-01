@@ -18,7 +18,7 @@ to "where does my new code go", skip to [Where things go](#where-things-go).
 - [The composition root](#the-composition-root)
 - [Shared and cross-cutting code](#shared-and-cross-cutting-code)
 - [Decisions on record](#decisions-on-record)
-- [Two known structural issues](#two-known-structural-issues)
+- [Known structural issues](#known-structural-issues)
 - [Convention drift, and which convention to follow](#convention-drift-and-which-convention-to-follow)
 - [Documentation coverage](#documentation-coverage)
 - [Where things go](#where-things-go)
@@ -255,12 +255,10 @@ flowchart TD
     topic --> auth
     blog --> topic
     project --> topic
-    auth <--> email
+    auth --> email
 
     classDef kernel fill:#0b6e63,stroke:#0b6e63,color:#fff
-    classDef cycle stroke-dasharray: 5 5
     class auth kernel
-    class email cycle
 ```
 
 Two properties worth naming.
@@ -271,8 +269,9 @@ that is `UserId` and the `VerifiedUser` extractor, which is reasonable: every
 resource in the product is owned by a user, and every authenticated route needs
 the same extractor.
 
-**`auth` and `email` import each other.** Rust permits cycles inside a crate,
-so this compiles, but it is a real cycle. See below.
+**There are no cycles.** `auth` depends on `email`'s notifier ports and
+`email` depends on nothing — it is a leaf. That was not always true; see
+[ADR 0005](adr/0005-break-the-auth-email-cycle.md).
 
 ---
 
@@ -354,36 +353,27 @@ choices do not need it.
 
 ---
 
-## Two known structural issues
+## Known structural issues
 
-Both are described here rather than filed away, because you will notice them
-within an hour of reading the code and deserve to know they are known.
+Described here rather than filed away, because you will notice them within an
+hour of reading the code and deserve to know they are known. One of the two has
+since been fixed; the account is kept so the shape of the codebase before it
+still makes sense.
 
-### 1. `auth` and `email` form a cycle
+### 1. `auth` and `email` formed a cycle — resolved
 
-`auth` depends on `email`'s ports — `UserEmailNotifier`, `PasswordResetNotifier`
-— which is the right direction: auth needs to send mail and depends on an
-abstraction rather than SMTP.
+**Fixed.** `email` imported `auth`'s `CreateUserOutput` (the notifier port was
+typed on it) and `auth`'s `TokenProvider` (the service minted the verification
+token itself), so the more generic module could not be read or tested without
+the more specific one.
 
-The cycle comes from the other side. `email`'s port is *typed in terms of
-auth's DTO*:
+Both edges are gone. The port speaks a `Recipient` that `email` owns, and both
+notifier methods take an already-minted token — which is how the password-reset
+path already worked. `email` now imports nothing from any other module.
 
-```rust
-// email/application/ports/outgoing/user_email_notifier.rs
-use crate::auth::application::use_cases::create_user::CreateUserOutput;
-```
-
-and `email_service.rs` additionally imports auth's `TokenProvider`. So `email`
-cannot be understood, moved or tested without `auth`, even though it is
-conceptually the more generic of the two.
-
-**Recommendation.** Give the notifier port its own small input type owned by
-`email` — a struct of the three or four fields the templates actually need —
-and have `auth` construct it. That breaks the cycle at its single real cause
-and costs one type plus one `From` impl. Leave the `TokenProvider` dependency
-alone for now: token minting genuinely is auth's job, and the honest fix there
-is a separate link-signing port, which is a larger change than the problem
-justifies today.
+See [ADR 0005](adr/0005-break-the-auth-email-cycle.md), including the behaviour
+change it carried: a token-minting failure now fails registration instead of
+disappearing into a detached task.
 
 ### 2. `auth`'s domain is an unmanaged shared kernel
 
