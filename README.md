@@ -107,3 +107,21 @@ docker build -f backend_actix/Dockerfile -t backend-actix .
 ```
 
 Note the trailing `.` — the context is the root, not the service directory.
+
+## Licence
+
+**None. All rights reserved.**
+
+This is a deliberate choice, not an oversight. The repository is public so the
+code can be read — it is a portfolio project — but no licence is granted to
+use, copy, modify or redistribute it.
+
+Practically, that means:
+
+- You are welcome to read the code, and to learn from it.
+- You may not use it, in whole or in part, in your own work.
+- Pull requests cannot be accepted, because there is no contributor licence to
+  accept them under.
+
+If you want to use something here, ask — <eklemis.ndun@gmail.com>. The answer
+is likely yes for anything specific.

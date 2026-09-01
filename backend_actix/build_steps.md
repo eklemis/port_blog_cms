@@ -40,16 +40,11 @@ chmod +x deploy.sh
 ### Migrations
 
 Migrations run *before* the Cloud Run update, and a failure aborts the deploy.
+The container does not migrate on startup.
 
-The container does not migrate on startup, so shipping code ahead of its schema
-leaves the new routes failing at request time with `relation ... does not exist`
-while the deploy itself reports success. Applying first avoids that, and is safe
-in the other direction: migrations are additive, so the still-running old build
-simply ignores tables it does not know about.
-
-The database URL is read back from Secret Manager rather than from the prompt,
-so the migration always targets the same database Cloud Run will connect to —
-including on runs where the secret was left unchanged. It is never echoed.
+The reasoning, and the constraint it puts on migrations — they must stay
+additive — is in [ADR 0003](docs/adr/0003-migrate-before-deploy.md). Read it
+before writing a migration that drops or renames anything.
 
 `deploy.sh` shows `migration status` and asks for confirmation before applying.
 

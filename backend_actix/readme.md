@@ -157,21 +157,18 @@ The unauthenticated auth endpoints are limited per caller, backed by Redis:
 | `POST /api/auth/password-reset/{token}` | 10 / hour |
 | `POST /api/auth/refresh` | 30 / 5 min |
 
-Authenticated routes are not limited: reaching them already requires a
-valid token. The limits are low because each of these costs us an Argon2
-hash, and registration also sends mail — they are a denial-of-service
-lever as much as a credential-guessing one.
+Authenticated routes are not limited: reaching them already requires a valid
+token. The limits are low because each of these costs an Argon2 hash, and
+registration also sends mail.
 
-Callers are keyed on the left-most `X-Forwarded-For` entry, falling back to
-the peer address. Behind Cloud Run the peer address is the load balancer for
-every request, so keying on it would collapse all clients onto one counter
-and let one busy caller lock out everybody. **This is only sound behind a
-proxy that overwrites the header.** Cloud Run does; a proxy that merely
-appends would let a caller rotate the value for a fresh bucket per request.
+Two things about it are load-bearing and written up as decision records:
 
-If Redis is unreachable the limiter fails open and logs. Refusing every
-login during a cache outage would turn it into a total authentication
-outage; the limiter is a mitigation, not the security boundary.
+- **The limiter fails open when Redis is unreachable** —
+  [ADR 0001](docs/adr/0001-rate-limiter-fails-open.md).
+- **Callers are keyed on the left-most `X-Forwarded-For` entry**, which is only
+  sound behind a proxy that overwrites the header —
+  [ADR 0002](docs/adr/0002-rate-limit-keying-on-forwarded-for.md). Read that one
+  before putting this service behind anything other than Cloud Run.
 
 ---
 
@@ -241,20 +238,11 @@ Two things excluded on purpose that should stay that way:
 
 #### Why not tarpaulin
 
-Tarpaulin cannot attribute the body of an `async fn` inside `#[async_trait]`,
-and 167 files here use that macro. It reported `reset_password.rs` at 5/32
-lines with lines 105-106 uncovered — while a passing test asserts the value
-those lines write. Its headline of 69.58% against llvm-cov's 91.57% is mostly
-that artifact.
-
-It also builds into `target/debug` with different flags, replacing the
-proc-macro dylibs that rust-analyzer caches paths to. That produces
-
-    proc-macro panicked: failed to load macro: Cannot create expander for
-    .../libasync_trait-<hash>.dylib: No such file or directory
-
-in the editor after every run. `cargo llvm-cov` builds into
-`target/llvm-cov-target` instead and leaves the normal build alone.
+It could not attribute `async fn` bodies inside `#[async_trait]`, which 167
+files here use, and it clobbered the proc-macro dylibs rust-analyzer caches.
+Both are reproducible; see
+[ADR 0004](docs/adr/0004-llvm-cov-over-tarpaulin.md). Treat any tarpaulin
+percentage in an old commit or issue as unreliable.
 
 ### Integration tests (need real services)
 
