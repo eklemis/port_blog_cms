@@ -580,4 +580,102 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     }
+
+    // ------------------------------------------------------------------
+    // Command validation surfaced through the route
+    //
+    // These go through the real UploadPolicy rather than a mocked use case, so
+    // they cover map_command_error's arms — each is a distinct error code a
+    // client branches on.
+    // ------------------------------------------------------------------
+
+    async fn post_request(req: InitUploadRequest) -> actix_web::dev::ServiceResponse {
+        let jwt = jwt_service();
+        let token_provider: Arc<dyn TokenProvider + Send + Sync> = Arc::new(jwt_service());
+
+        let app = test::init_service(
+            App::new()
+                .app_data(
+                    TestAppStateBuilder::default()
+                        .with_create_upload_media_url(MockCreateUploadUrlUseCase::success(
+                            "https://storage.googleapis.com/signed".to_string(),
+                        ))
+                        .build(),
+                )
+                .app_data(web::Data::new(token_provider))
+                .service(init_upload_handler),
+        )
+        .await;
+
+        let request = test::TestRequest::post()
+            .uri("/api/media/upload-url")
+            .insert_header((
+                "Authorization",
+                format!("Bearer {}", jwt.generate_access_token(Uuid::new_v4(), true).unwrap()),
+            ))
+            .set_json(&req)
+            .to_request();
+
+        test::call_service(&app, request).await
+    }
+
+    async fn expect_code(req: InitUploadRequest, code: &str) {
+        let resp = post_request(req).await;
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let body: Value = test::read_body_json(resp).await;
+        assert_eq!(body["error"]["code"], code, "body was {body}");
+    }
+
+    /// A path in the filename would end up in the storage object key.
+    #[actix_web::test]
+    async fn a_path_like_file_name_is_rejected() {
+        let mut r = base_upload_request();
+        r.file_name = "../escape.jpg".to_string();
+        expect_code(r, "INVALID_FILE_NAME").await;
+    }
+
+    #[actix_web::test]
+    async fn a_disallowed_extension_is_rejected() {
+        let mut r = base_upload_request();
+        r.file_name = "payload.exe".to_string();
+        expect_code(r, "INVALID_EXTENSION").await;
+    }
+
+    #[actix_web::test]
+    async fn a_disallowed_mime_type_is_rejected() {
+        let mut r = base_upload_request();
+        r.mime_type = "application/pdf".to_string();
+        expect_code(r, "INVALID_MIME_TYPE").await;
+    }
+
+    #[actix_web::test]
+    async fn a_mime_type_disagreeing_with_the_extension_is_rejected() {
+        let mut r = base_upload_request();
+        r.file_name = "avatar.png".to_string();
+        r.mime_type = "image/jpeg".to_string();
+        expect_code(r, "MIME_EXTENSION_MISMATCH").await;
+    }
+
+    #[actix_web::test]
+    async fn an_oversized_file_is_rejected() {
+        let mut r = base_upload_request();
+        r.file_size_bytes = 50 * 1024 * 1024; // policy caps at 5MB
+        expect_code(r, "FILE_TOO_LARGE").await;
+    }
+
+    #[actix_web::test]
+    async fn oversized_dimensions_are_rejected() {
+        let mut r = base_upload_request();
+        r.width_px = Some(99_999);
+        expect_code(r, "INVALID_DIMENSIONS").await;
+    }
+
+    /// Width without height reports a missing field rather than silently
+    /// skipping the bounds check on the absent axis.
+    #[actix_web::test]
+    async fn one_dimension_without_the_other_is_a_missing_field() {
+        let mut r = base_upload_request();
+        r.height_px = None;
+        expect_code(r, "MISSING_FIELD").await;
+    }
 }

@@ -104,7 +104,7 @@ mod tests {
         ContactDetail, ContactType, CoreSkill, Education, Experience, HighlightedProject,
     };
     use chrono::Utc;
-    use sea_orm::{DatabaseBackend, MockDatabase, MockExecResult};
+    use sea_orm::{DatabaseBackend, DbErr, MockDatabase, MockExecResult};
 
     // Helper function to create a test CV model
     fn create_test_cv_model(user_id: Uuid) -> CvModel {
@@ -506,5 +506,98 @@ mod tests {
 
         // Assert - if it compiles, the test passes since Arc is working
         assert!(true);
+    }
+
+    // ------------------------------------------------------------------
+    // fetch_cv_by_id and the database-error paths
+    // ------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn test_fetch_cv_by_id_found() {
+        let user_id = Uuid::new_v4();
+        let model = create_test_cv_model(user_id);
+        let expected_id = model.id;
+
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![model]])
+            .into_connection();
+
+        let cv = CVRepoPostgres::new(Arc::new(db))
+            .fetch_cv_by_id(expected_id)
+            .await
+            .unwrap();
+
+        assert_eq!(cv.expect("a row was returned").id, expected_id);
+    }
+
+    /// An absent CV is `Ok(None)`, not an error — the caller decides whether
+    /// missing is a 404 or a legitimate empty result.
+    #[tokio::test]
+    async fn test_fetch_cv_by_id_not_found() {
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![Vec::<CvModel>::new()])
+            .into_connection();
+
+        let cv = CVRepoPostgres::new(Arc::new(db))
+            .fetch_cv_by_id(Uuid::new_v4())
+            .await
+            .unwrap();
+
+        assert!(cv.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_fetch_cv_by_id_database_error() {
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_errors([DbErr::Custom("db down".to_string())])
+            .into_connection();
+
+        let err = CVRepoPostgres::new(Arc::new(db))
+            .fetch_cv_by_id(Uuid::new_v4())
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, CVRepositoryError::DatabaseError(m) if m.contains("db down")));
+    }
+
+    #[tokio::test]
+    async fn test_fetch_cv_by_user_id_database_error() {
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_errors([DbErr::Custom("db down".to_string())])
+            .into_connection();
+
+        let err = CVRepoPostgres::new(Arc::new(db))
+            .fetch_cv_by_user_id(Uuid::new_v4())
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, CVRepositoryError::DatabaseError(_)));
+    }
+
+    #[tokio::test]
+    async fn test_create_cv_database_error() {
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_errors([DbErr::Custom("insert failed".to_string())])
+            .into_connection();
+
+        let err = CVRepoPostgres::new(Arc::new(db))
+            .create_cv(
+                Uuid::new_v4(),
+                CreateCVData {
+                    bio: "b".into(),
+                    role: "r".into(),
+                    display_name: "d".into(),
+                    photo_url: "p".into(),
+                    core_skills: vec![],
+                    educations: vec![],
+                    experiences: vec![],
+                    highlighted_projects: vec![],
+                    contact_info: vec![],
+                },
+            )
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, CVRepositoryError::DatabaseError(_)));
     }
 }
