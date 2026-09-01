@@ -17,6 +17,7 @@ to "where does my new code go", skip to [Where things go](#where-things-go).
 - [How the modules depend on each other](#how-the-modules-depend-on-each-other)
 - [The composition root](#the-composition-root)
 - [Shared and cross-cutting code](#shared-and-cross-cutting-code)
+- [Decisions on record](#decisions-on-record)
 - [Two known structural issues](#two-known-structural-issues)
 - [Convention drift, and which convention to follow](#convention-drift-and-which-convention-to-follow)
 - [Documentation coverage](#documentation-coverage)
@@ -324,7 +325,12 @@ object appears only at the `AppState` boundary where a uniform type is needed.
   [`API_ERRORS.md`](API_ERRORS.md) and the OpenAPI schema follow. See that file
   for why HTTP status is not encoded on the code.
 - **`shared/rate_limit`** — the Actix middleware, the `RateLimitStore` port,
-  its Redis implementation, and the per-endpoint policy table.
+  its Redis implementation, and the per-endpoint policy table. Two of its
+  properties are deliberate and written up:
+  [it fails open](adr/0001-rate-limiter-fails-open.md) when Redis is
+  unreachable, and
+  [callers are keyed on `X-Forwarded-For`](adr/0002-rate-limit-keying-on-forwarded-for.md),
+  which is only sound behind a proxy that overwrites the header.
 
 `src/api/` holds the OpenAPI document: `ApiDoc` lists every path and schema,
 and a test walks the serialised document asserting every `$ref` resolves.
@@ -333,6 +339,18 @@ test fails.
 
 `src/health.rs` holds the two probes: `/health` (process is up) and `/ready`
 (Postgres and Redis are both reachable).
+
+---
+
+## Decisions on record
+
+Choices that had a live alternative, and would otherwise be re-litigated or
+quietly undone, are in [`docs/adr/`](adr/). Four are recorded so far — the rate
+limiter failing open, the `X-Forwarded-For` keying, migrating before the deploy
+rather than on startup, and dropping tarpaulin for `cargo llvm-cov`.
+
+Write one when reversing a decision would break something non-obvious. Routine
+choices do not need it.
 
 ---
 
