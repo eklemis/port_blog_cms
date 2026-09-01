@@ -3,6 +3,7 @@ use actix_web::{get, web, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    api::schemas::{ErrorResponse, SuccessResponse},
     auth::{
         adapter::incoming::web::extractors::auth::VerifiedUser,
         application::domain::entities::UserId,
@@ -11,7 +12,6 @@ use crate::{
         domain::entities::AttachmentTarget,
         ports::incoming::use_cases::{ListMediaCommand, MediaItem},
     },
-    api::schemas::{ErrorResponse, SuccessResponse},
     shared::api::ApiResponse,
     AppState,
 };

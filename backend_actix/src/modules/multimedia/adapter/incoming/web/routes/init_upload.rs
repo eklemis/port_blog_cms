@@ -5,13 +5,13 @@ use serde::{Deserialize, Serialize};
 use tracing::error;
 use uuid::Uuid;
 
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::adapter::incoming::web::extractors::auth::VerifiedUser;
 use crate::multimedia::application::domain::entities::{AttachmentTarget, MediaRole};
 use crate::multimedia::application::ports::incoming::use_cases::{
     CreateAttachmentCommand, CreateMediaCommand, CreateUrlError, UploadUrlCommandError,
 };
-use crate::api::schemas::{ErrorResponse, SuccessResponse};
-use crate::shared::api::{ErrorCode, ApiResponse};
+use crate::shared::api::{ApiResponse, ErrorCode};
 use crate::AppState;
 use utoipa::ToSchema;
 
@@ -189,9 +189,10 @@ pub async fn init_upload_handler(
 
 fn map_command_error(e: UploadUrlCommandError) -> actix_web::HttpResponse {
     match e {
-        UploadUrlCommandError::MissingField(field) => {
-            ApiResponse::bad_request(ErrorCode::MissingField, &format!("Missing field: {}", field))
-        }
+        UploadUrlCommandError::MissingField(field) => ApiResponse::bad_request(
+            ErrorCode::MissingField,
+            &format!("Missing field: {}", field),
+        ),
         UploadUrlCommandError::InvalidFileName => {
             ApiResponse::bad_request(ErrorCode::InvalidFileName, "Invalid file name")
         }
@@ -216,9 +217,10 @@ fn map_command_error(e: UploadUrlCommandError) -> actix_web::HttpResponse {
                 max_px, width_px, height_px
             ),
         ),
-        UploadUrlCommandError::InvalidMimeType(mime) => {
-            ApiResponse::bad_request(ErrorCode::InvalidMimeType, &format!("Invalid mime type: {}", mime))
-        }
+        UploadUrlCommandError::InvalidMimeType(mime) => ApiResponse::bad_request(
+            ErrorCode::InvalidMimeType,
+            &format!("Invalid mime type: {}", mime),
+        ),
         UploadUrlCommandError::InvalidExtension(ext) => ApiResponse::bad_request(
             ErrorCode::InvalidExtension,
             &format!("Invalid file extension: {}", ext),
@@ -611,7 +613,10 @@ mod tests {
             .uri("/api/media/upload-url")
             .insert_header((
                 "Authorization",
-                format!("Bearer {}", jwt.generate_access_token(Uuid::new_v4(), true).unwrap()),
+                format!(
+                    "Bearer {}",
+                    jwt.generate_access_token(Uuid::new_v4(), true).unwrap()
+                ),
             ))
             .set_json(&req)
             .to_request();

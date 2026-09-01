@@ -1,7 +1,7 @@
 use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::application::use_cases::login_user::LoginError;
 use crate::auth::application::use_cases::login_user::LoginRequest;
-use crate::shared::api::{ErrorCode, ApiResponse};
+use crate::shared::api::{ApiResponse, ErrorCode};
 use crate::AppState;
 use actix_web::{post, web, Responder};
 use serde::Deserialize;

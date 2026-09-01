@@ -1,7 +1,7 @@
 mod create_get_variant_url;
+mod create_upload_url;
 mod delete_media;
 mod get_media;
-mod create_upload_url;
 mod list_media;
 pub use create_upload_url::{
     make_object_key, CreateAttachmentCommand, CreateMediaCommand, CreateMediaResult,

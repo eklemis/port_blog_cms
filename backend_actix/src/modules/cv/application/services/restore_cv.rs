@@ -207,10 +207,7 @@ mod tests {
             Ok(Some(cv_owned_by(cv_id, user_id, "x"))),
         );
 
-        let err = svc
-            .execute(UserId::from(user_id), cv_id)
-            .await
-            .unwrap_err();
+        let err = svc.execute(UserId::from(user_id), cv_id).await.unwrap_err();
         assert!(matches!(err, RestoreCVError::RepositoryError(m) if m == "db down"));
     }
 }

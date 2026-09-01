@@ -1,6 +1,6 @@
 use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::application::use_cases::verify_user_email::VerifyUserEmailError;
-use crate::shared::api::{ErrorCode, ApiResponse};
+use crate::shared::api::{ApiResponse, ErrorCode};
 use crate::AppState;
 use actix_web::{web, HttpRequest, Responder};
 use serde::Serialize;

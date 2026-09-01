@@ -1,4 +1,7 @@
-// src/modules/project/application/ports/outgoing/project_topic_repository.rs
+//! Write-side port for the `project_topics` join table.
+//!
+//! Every method scopes on `owner` in SQL, so a caller cannot link or unlink
+//! another user's project even with a valid id.
 
 use async_trait::async_trait;
 use uuid::Uuid;
@@ -11,6 +14,7 @@ use crate::auth::application::domain::entities::UserId;
 // ──────────────────────────────────────────────────────────
 //
 
+/// Why a project-topic link operation failed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ProjectTopicRepositoryError {
     /// Project doesn't exist OR doesn't belong to owner.
@@ -31,11 +35,17 @@ pub enum ProjectTopicRepositoryError {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Links projects to topics.
+///
+/// Commands only — reading a project's topics belongs to
+/// [`ProjectQuery`](super::project_query::ProjectQuery).
 #[async_trait]
 pub trait ProjectTopicRepository: Send + Sync {
-    /// Add one topic link to a project.
-    /// Recommended to be idempotent:
-    /// - unique(project_id, topic_id) + insert on conflict do nothing
+    /// Links one topic to a project.
+    ///
+    /// Implementations must be idempotent: a unique constraint on
+    /// `(project_id, topic_id)` plus insert-on-conflict-do-nothing, so adding
+    /// an existing link succeeds rather than erroring.
     async fn add_project_topic(
         &self,
         owner: UserId,

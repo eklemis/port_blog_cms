@@ -65,7 +65,11 @@ pub async fn get_public_blog_posts_handler(
         .await
     {
         Ok(result) => ApiResponse::success(BlogPageResult {
-            items: result.items.into_iter().map(Into::into).collect::<Vec<BlogPostCardResponse>>(),
+            items: result
+                .items
+                .into_iter()
+                .map(Into::into)
+                .collect::<Vec<BlogPostCardResponse>>(),
             page: result.page,
             per_page: result.per_page,
             total: result.total,
@@ -103,10 +107,7 @@ mod tests {
 
     #[async_trait]
     impl UserQuery for MockUserQuery {
-        async fn find_by_email(
-            &self,
-            _e: &str,
-        ) -> Result<Option<UserQueryResult>, UserQueryError> {
+        async fn find_by_email(&self, _e: &str) -> Result<Option<UserQueryResult>, UserQueryError> {
             unimplemented!()
         }
         async fn find_by_username(
@@ -115,10 +116,7 @@ mod tests {
         ) -> Result<Option<UserQueryResult>, UserQueryError> {
             self.result.clone()
         }
-        async fn find_by_id(
-            &self,
-            _i: Uuid,
-        ) -> Result<Option<UserQueryResult>, UserQueryError> {
+        async fn find_by_id(&self, _i: Uuid) -> Result<Option<UserQueryResult>, UserQueryError> {
             unimplemented!()
         }
     }

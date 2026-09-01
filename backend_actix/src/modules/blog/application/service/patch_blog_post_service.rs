@@ -72,12 +72,8 @@ where
             .await
             .map_err(|e| match e {
                 BlogPostRepositoryError::NotFound => PatchBlogPostError::NotFound,
-                BlogPostRepositoryError::SlugAlreadyExists => {
-                    PatchBlogPostError::SlugAlreadyExists
-                }
-                BlogPostRepositoryError::DatabaseError(m) => {
-                    PatchBlogPostError::RepositoryError(m)
-                }
+                BlogPostRepositoryError::SlugAlreadyExists => PatchBlogPostError::SlugAlreadyExists,
+                BlogPostRepositoryError::DatabaseError(m) => PatchBlogPostError::RepositoryError(m),
             })?
             .ok_or(PatchBlogPostError::NotFound)?;
 
@@ -103,12 +99,8 @@ where
             .await
             .map_err(|e| match e {
                 BlogPostRepositoryError::NotFound => PatchBlogPostError::NotFound,
-                BlogPostRepositoryError::SlugAlreadyExists => {
-                    PatchBlogPostError::SlugAlreadyExists
-                }
-                BlogPostRepositoryError::DatabaseError(m) => {
-                    PatchBlogPostError::RepositoryError(m)
-                }
+                BlogPostRepositoryError::SlugAlreadyExists => PatchBlogPostError::SlugAlreadyExists,
+                BlogPostRepositoryError::DatabaseError(m) => PatchBlogPostError::RepositoryError(m),
             })
     }
 }
@@ -402,7 +394,14 @@ mod tests {
     async fn a_patched_slug_faces_the_same_rules_as_a_created_one() {
         let user_id = Uuid::new_v4();
 
-        for bad in ["", "   ", "has space", "has/slash", "héllo", &"a".repeat(201)] {
+        for bad in [
+            "",
+            "   ",
+            "has space",
+            "has/slash",
+            "héllo",
+            &"a".repeat(201),
+        ] {
             let svc = service(Some(a_post(user_id)));
             let err = svc
                 .execute(

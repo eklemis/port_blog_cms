@@ -2,13 +2,13 @@ use actix_web::{get, web, Responder};
 use serde::Deserialize;
 use tracing::error;
 
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::adapter::incoming::web::extractors::auth::VerifiedUser;
 use crate::auth::application::domain::entities::UserId;
 use crate::modules::project::application::ports::incoming::use_cases::GetProjectsError;
 use crate::modules::project::application::ports::outgoing::project_query::{
     PageRequest, ProjectListFilter, ProjectSort,
 };
-use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::modules::project::application::ports::outgoing::project_query::{
     PageResult, ProjectCardView,
 };

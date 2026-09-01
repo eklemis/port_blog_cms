@@ -4,8 +4,7 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::{
-    api::schemas::ErrorResponse,
-    auth::adapter::incoming::web::extractors::auth::VerifiedUser,
+    api::schemas::ErrorResponse, auth::adapter::incoming::web::extractors::auth::VerifiedUser,
     auth::application::domain::entities::UserId,
     modules::project::application::ports::incoming::use_cases::SoftDeleteProjectError,
     shared::api::ApiResponse, AppState,

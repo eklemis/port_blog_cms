@@ -121,10 +121,7 @@ mod tests {
 
     #[async_trait]
     impl UserQuery for MockQuery {
-        async fn find_by_email(
-            &self,
-            _e: &str,
-        ) -> Result<Option<UserQueryResult>, UserQueryError> {
+        async fn find_by_email(&self, _e: &str) -> Result<Option<UserQueryResult>, UserQueryError> {
             self.result.clone()
         }
         async fn find_by_username(
@@ -183,7 +180,9 @@ mod tests {
         ) -> Result<(), UserEmailNotificationError> {
             self.sent_to.lock().unwrap().push(email.to_string());
             if self.fail {
-                return Err(UserEmailNotificationError::EmailSendingFailed("smtp".into()));
+                return Err(UserEmailNotificationError::EmailSendingFailed(
+                    "smtp".into(),
+                ));
             }
             Ok(())
         }

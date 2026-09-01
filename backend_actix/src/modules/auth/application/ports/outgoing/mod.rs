@@ -1,3 +1,5 @@
+//! What auth needs from the outside: a user store, a token store, a token minter and a password hasher.
+
 pub mod token_repository;
 pub mod user_query;
 pub mod user_repository;

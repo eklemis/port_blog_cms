@@ -191,7 +191,9 @@ mod tests {
         // repo is dropped first so the Arc has a single owner to unwrap.
         let conn = Arc::new(db);
         let repo = BlogPostRepositoryPostgres::new(Arc::clone(&conn));
-        repo.create(create_data(UserId::from(user_id))).await.unwrap();
+        repo.create(create_data(UserId::from(user_id)))
+            .await
+            .unwrap();
         drop(repo);
 
         let log = Arc::try_unwrap(conn)
@@ -237,7 +239,9 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert!(matches!(err, BlogPostRepositoryError::DatabaseError(m) if m.contains("connection reset")));
+        assert!(
+            matches!(err, BlogPostRepositoryError::DatabaseError(m) if m.contains("connection reset"))
+        );
     }
 
     #[tokio::test]
@@ -246,7 +250,11 @@ mod tests {
             .append_query_results(vec![Vec::<PostModel>::new()])
             .into_connection();
 
-        assert!(repo(db).fetch_by_id(Uuid::new_v4()).await.unwrap().is_none());
+        assert!(repo(db)
+            .fetch_by_id(Uuid::new_v4())
+            .await
+            .unwrap()
+            .is_none());
     }
 
     /// Unfiltered by design: services need soft-deleted and unpublished posts
@@ -261,7 +269,11 @@ mod tests {
             .append_query_results(vec![vec![m]])
             .into_connection();
 
-        assert!(repo(db).fetch_by_id(Uuid::new_v4()).await.unwrap().is_some());
+        assert!(repo(db)
+            .fetch_by_id(Uuid::new_v4())
+            .await
+            .unwrap()
+            .is_some());
     }
 
     #[tokio::test]

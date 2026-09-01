@@ -28,17 +28,6 @@ use crate::auth::application::use_cases::soft_delete_user::{
 use crate::auth::application::use_cases::update_profile::{
     UpdateUserError, UpdateUserInput, UpdateUserOutput, UpdateUserProfileUseCase,
 };
-use crate::cv::application::ports::outgoing::{CVListFilter, CVPageRequest, CVPageResult, CVSort};
-use crate::cv::application::use_cases::get_public_single_cv::{
-    GetPublicSingleCvError, GetPublicSingleCvUseCase,
-};
-use crate::cv::application::use_cases::hard_delete_cv::{HardDeleteCVError, HardDeleteCvUseCase};
-use crate::cv::application::use_cases::restore_cv::{RestoreCVError, RestoreDeletedCvUseCase};
-use crate::cv::application::use_cases::soft_delete_cv::{SoftDeleteCVError, SoftDeleteCvUseCase};
-use crate::cv::domain::entities::CVInfo;
-use crate::email::application::ports::outgoing::user_email_notifier::{
-    UserEmailNotificationError, UserEmailNotifier,
-};
 use crate::blog::application::ports::incoming::use_cases::{
     ArchiveBlogPostError, ArchiveBlogPostUseCase, AttachBlogPostTopicUseCase, BlogPostTopicError,
     ClearBlogPostTopicsUseCase, CreateBlogPostCommand, CreateBlogPostError, CreateBlogPostUseCase,
@@ -52,12 +41,22 @@ use crate::blog::application::ports::outgoing::{
     PatchBlogPostData,
 };
 use crate::blog::domain::entities::{BlogPost, BlogPostTopic};
+use crate::cv::application::ports::outgoing::{CVListFilter, CVPageRequest, CVPageResult, CVSort};
+use crate::cv::application::use_cases::get_public_single_cv::{
+    GetPublicSingleCvError, GetPublicSingleCvUseCase,
+};
+use crate::cv::application::use_cases::hard_delete_cv::{HardDeleteCVError, HardDeleteCvUseCase};
+use crate::cv::application::use_cases::restore_cv::{RestoreCVError, RestoreDeletedCvUseCase};
+use crate::cv::application::use_cases::soft_delete_cv::{SoftDeleteCVError, SoftDeleteCvUseCase};
+use crate::cv::domain::entities::CVInfo;
+use crate::email::application::ports::outgoing::user_email_notifier::{
+    UserEmailNotificationError, UserEmailNotifier,
+};
 use crate::multimedia::application::ports::incoming::use_cases::{
     CreateAttachmentCommand, CreateMediaCommand, CreateMediaResult, CreateUploadMediaUrlUseCase,
     CreateUrlError, DeleteMediaError, DeleteMediaUseCase, GetMediaError, GetMediaUseCase,
-    GetReadUrlError, GetUrlCommand, MediaDetail,
-    GetUrlResult, GetVariantReadUrlUseCase,
-    ListMediaCommand, ListMediaError, ListMediaUseCase, MediaItem,
+    GetReadUrlError, GetUrlCommand, GetUrlResult, GetVariantReadUrlUseCase, ListMediaCommand,
+    ListMediaError, ListMediaUseCase, MediaDetail, MediaItem,
 };
 
 use crate::project::application::ports::incoming::use_cases::{
@@ -65,8 +64,8 @@ use crate::project::application::ports::incoming::use_cases::{
     ClearProjectTopicsUseCase, GetProjectTopicsError, GetProjectTopicsUseCase, GetProjectsUseCase,
     GetPublicSingleProjectError, GetPublicSingleProjectUseCase, GetSingleProjectError,
     GetSingleProjectUseCase, HardDeleteProjectError, HardDeleteProjectUseCase, PatchProjectError,
-    SoftDeleteProjectError, SoftDeleteProjectUseCase,
     PatchProjectUseCase, RemoveProjectTopicError, RemoveProjectTopicUseCase,
+    SoftDeleteProjectError, SoftDeleteProjectUseCase,
 };
 use crate::project::application::ports::outgoing::project_query::{ProjectTopicItem, ProjectView};
 use crate::project::application::ports::outgoing::project_repository::PatchProjectData;
@@ -412,7 +411,6 @@ impl StubGetSingleProjectUseCase {
             result: Err(GetSingleProjectError::NotFound),
         }
     }
-
 }
 
 #[async_trait]
@@ -473,7 +471,6 @@ impl StubGetPublicSingleProjectUseCase {
             result: Err(GetPublicSingleProjectError::NotFound),
         }
     }
-
 }
 
 #[async_trait]
@@ -509,7 +506,6 @@ impl StubGetPublicSingleCvUseCase {
             result: Err(GetPublicSingleCvError::NotFound),
         })
     }
-
 }
 
 #[derive(Clone, Default)]
@@ -782,11 +778,7 @@ impl ClearBlogPostTopicsUseCase for StubClearBlogPostTopics {
 
 #[async_trait]
 impl GetBlogPostTopicsUseCase for StubGetBlogPostTopics {
-    async fn execute(
-        &self,
-        _o: UserId,
-        _p: Uuid,
-    ) -> Result<Vec<BlogPostTopic>, GetBlogPostError> {
+    async fn execute(&self, _o: UserId, _p: Uuid) -> Result<Vec<BlogPostTopic>, GetBlogPostError> {
         unimplemented!("StubGetBlogPostTopics not configured for this test")
     }
 }

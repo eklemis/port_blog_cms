@@ -155,13 +155,8 @@ mod tests {
         let db: web::Data<Arc<DatabaseConnection>> = web::Data::new(Arc::new(mock_db_ok()));
         let redis: web::Data<Arc<Pool>> = web::Data::new(Arc::new(unreachable_redis_pool()));
 
-        let app = test::init_service(
-            App::new()
-                .app_data(db)
-                .app_data(redis)
-                .service(readiness),
-        )
-        .await;
+        let app =
+            test::init_service(App::new().app_data(db).app_data(redis).service(readiness)).await;
 
         let req = test::TestRequest::get().uri("/ready").to_request();
         let resp = test::call_service(&app, req).await;
@@ -179,13 +174,8 @@ mod tests {
         let db: web::Data<Arc<DatabaseConnection>> = web::Data::new(Arc::new(mock_db_err()));
         let redis: web::Data<Arc<Pool>> = web::Data::new(Arc::new(unreachable_redis_pool()));
 
-        let app = test::init_service(
-            App::new()
-                .app_data(db)
-                .app_data(redis)
-                .service(readiness),
-        )
-        .await;
+        let app =
+            test::init_service(App::new().app_data(db).app_data(redis).service(readiness)).await;
 
         let req = test::TestRequest::get().uri("/ready").to_request();
         let resp = test::call_service(&app, req).await;

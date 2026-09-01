@@ -716,7 +716,6 @@ mod tests {
         assert!(cloned_service.verify_token(&token2).is_ok());
     }
 
-
     // ======================================================================
     // Password reset token scoping
     //

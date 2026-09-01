@@ -1,5 +1,4 @@
 use crate::api::schemas::{ErrorDetail, ErrorResponse, SuccessResponse};
-use crate::shared::api::ErrorCode;
 use crate::blog::adapter::incoming::web::dto::{
     BlogPostCardResponse, BlogPostDetailResponse, BlogPostResponse, BlogPostTopicRequest,
     BlogPostTopicResponse, CreateBlogPostRequest, PatchBlogPostRequest,
@@ -12,14 +11,15 @@ use crate::cv::adapter::incoming::web::dto::{
 use crate::cv::adapter::incoming::web::routes::{
     CreateCVRequest, PatchCVRequest, ReplaceOp, UpdateCVRequest,
 };
+use crate::shared::api::ErrorCode;
 use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
 use utoipa::OpenApi;
 
 // Auth
 use crate::auth::adapter::incoming::web::routes::{
     CreateUserRequest, LoginRequestDto, LoginResponse, LoginUserInfo, LogoutRequestDto,
-    LogoutResponseBody, RefreshTokenRequestDto, RefreshTokenResponseBody, RegisterUserResponse,
-    PasswordResetResponse, RegisteredUser, RequestPasswordResetDto, ResetPasswordDto,
+    LogoutResponseBody, PasswordResetResponse, RefreshTokenRequestDto, RefreshTokenResponseBody,
+    RegisterUserResponse, RegisteredUser, RequestPasswordResetDto, ResetPasswordDto,
     UpdateUserRequest, UpdateUserResponse, UserProfileResponse, VerifyEmailResponse,
 };
 use crate::cv::application::ports::outgoing::{
@@ -288,10 +288,7 @@ mod tests {
             declared, published,
             "ErrorCode variants and the published enum disagree"
         );
-        assert!(
-            !declared.is_empty(),
-            "the vocabulary must not be empty"
-        );
+        assert!(!declared.is_empty(), "the vocabulary must not be empty");
     }
 
     /// `ErrorDetail.code` must point at the enum, not fall back to a bare
@@ -496,4 +493,3 @@ mod tests {
         );
     }
 }
-

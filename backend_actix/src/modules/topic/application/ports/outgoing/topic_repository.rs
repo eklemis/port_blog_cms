@@ -1,10 +1,15 @@
+//! Write-side port for topics.
+//!
+//! Topics are owned per user and act as shared vocabulary for blog posts and
+//! projects, which link to them through their own join-table ports.
+
 use async_trait::async_trait;
 use serde::Serialize;
 use uuid::Uuid;
 
 use crate::auth::application::domain::entities::UserId;
 
-// Input DTO for creating a user
+/// Everything needed to insert a topic.
 #[derive(Debug, Clone)]
 pub struct CreateTopicData {
     pub owner: UserId,
@@ -12,8 +17,7 @@ pub struct CreateTopicData {
     pub description: String,
 }
 
-// Unified output DTO for all user operations that return user data
-// This represents the essential user information after any state change
+/// A topic as returned after a write, and as serialised to clients.
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct TopicResult {
     /// Topic identifier
@@ -34,26 +38,44 @@ pub struct TopicResult {
     pub description: String,
 }
 
+/// Why a topic write failed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum TopicRepositoryError {
+    /// The store could not be reached.
     #[error("Database error: {0}")]
     DatabaseError(String),
 
+    /// No topic matched the id, or it belongs to another user.
     #[error("Topic not found")]
     TopicNotFound,
 
+    /// This owner already has a topic with that title. Uniqueness is per
+    /// owner, so another user holding the title is not a conflict.
     #[error("Topic already exists")]
     TopicAlreadyExists,
 }
 
+/// Writes topics.
 #[async_trait]
 pub trait TopicRepository: Send + Sync {
+    /// Inserts a topic.
+    ///
+    /// # Errors
+    /// [`TopicAlreadyExists`](TopicRepositoryError::TopicAlreadyExists) if the
+    /// owner already has one with that title.
     async fn create_topic(
         &self,
         data: CreateTopicData,
     ) -> Result<TopicResult, TopicRepositoryError>;
 
+    /// Clears the soft-delete flag, returning the topic to
+    /// [`TopicQuery::get_topics`](super::topic_query::TopicQuery::get_topics).
+    ///
+    /// Unlike the archiver ports in blog and project, this takes no owner and
+    /// so does not scope on one — the caller must check ownership first.
     async fn restore_topic(&self, topic_id: Uuid) -> Result<TopicResult, TopicRepositoryError>;
 
+    /// Flags the topic as deleted, hiding it from queries while leaving
+    /// existing post and project links intact.
     async fn soft_delete_topic(&self, topic_id: Uuid) -> Result<(), TopicRepositoryError>;
 }

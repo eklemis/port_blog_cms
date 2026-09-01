@@ -13,11 +13,7 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(BlogPostTopics::Table)
                     .if_not_exists()
-                    .col(
-                        ColumnDef::new(BlogPostTopics::BlogPostId)
-                            .uuid()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(BlogPostTopics::BlogPostId).uuid().not_null())
                     .col(ColumnDef::new(BlogPostTopics::TopicId).uuid().not_null())
                     .col(
                         ColumnDef::new(BlogPostTopics::CreatedAt)
@@ -70,9 +66,7 @@ impl MigrationTrait for Migration {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(
-                r#"DROP INDEX IF EXISTS idx_blog_post_topics_topic_id;"#,
-            )
+            .execute_unprepared(r#"DROP INDEX IF EXISTS idx_blog_post_topics_topic_id;"#)
             .await?;
 
         manager

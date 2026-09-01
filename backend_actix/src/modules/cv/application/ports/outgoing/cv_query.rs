@@ -1,3 +1,5 @@
+//! Read-side port for CVs: listings and single fetches, owner-facing and public.
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -5,17 +7,13 @@ use uuid::Uuid;
 use crate::cv::domain::entities::CVInfo;
 use utoipa::ToSchema;
 
-//
-// ──────────────────────────────────────────────────────────
-// Query DTOs
-// ──────────────────────────────────────────────────────────
-//
-
+/// Narrows a CV listing.
 #[derive(Debug, Clone, Default)]
 pub struct CVListFilter {
     pub search: Option<String>,
 }
 
+/// Listing order. Defaults to [`UpdatedNewest`](Self::UpdatedNewest).
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum CVSort {
@@ -35,6 +33,7 @@ impl Default for CVSort {
     }
 }
 
+/// Which page to return. Pages are 1-based; defaults to 20 per page.
 #[derive(Debug, Clone)]
 pub struct CVPageRequest {
     pub page: u32,
@@ -50,6 +49,7 @@ impl Default for CVPageRequest {
     }
 }
 
+/// One page of results, plus the totals a client needs to paginate.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CVPageResult<T> {
     /// List of items in the current page
@@ -74,6 +74,9 @@ pub struct CVPageResult<T> {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Why a CV read failed.
+///
+/// No "not found" variant: absence is `Ok(None)` or an empty page.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum CVQueryError {
     #[error("Database error: {0}")]
@@ -89,6 +92,7 @@ pub enum CVQueryError {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Reads CVs: owner listings and public single fetches.
 #[async_trait]
 pub trait CVQuery: Send + Sync {
     async fn list(

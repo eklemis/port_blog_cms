@@ -4,11 +4,11 @@ use serde::Deserialize;
 use utoipa::ToSchema;
 
 use crate::{
+    api::schemas::{ErrorResponse, SuccessResponse},
     auth::{
         adapter::incoming::web::extractors::auth::VerifiedUser,
         application::domain::entities::UserId,
     },
-    api::schemas::{ErrorResponse, SuccessResponse},
     shared::api::ApiResponse,
     topic::application::ports::incoming::use_cases::{
         CreateTopicCommand, CreateTopicCommandError, CreateTopicError,
@@ -112,9 +112,10 @@ fn map_command_error(err: CreateTopicCommandError) -> actix_web::HttpResponse {
         CreateTopicCommandError::EmptyTitle => {
             ApiResponse::bad_request(ErrorCode::EmptyTitle, "Title cannot be empty")
         }
-        CreateTopicCommandError::TitleTooLong => {
-            ApiResponse::bad_request(ErrorCode::TitleTooLong, "Title must not exceed 100 characters")
-        }
+        CreateTopicCommandError::TitleTooLong => ApiResponse::bad_request(
+            ErrorCode::TitleTooLong,
+            "Title must not exceed 100 characters",
+        ),
     }
 }
 
@@ -196,7 +197,7 @@ mod tests {
         fn verify_verification_token(&self, _token: &str) -> Result<Uuid, TokenError> {
             unimplemented!("Not used in create_topic tests")
         }
-    
+
         fn generate_password_reset_token(&self, _user_id: Uuid) -> Result<String, TokenError> {
             unimplemented!()
         }
@@ -204,7 +205,7 @@ mod tests {
         fn verify_password_reset_token(&self, _token: &str) -> Result<Uuid, TokenError> {
             unimplemented!()
         }
-}
+    }
 
     // ============================================================
     // CreateTopic Use Case Mock

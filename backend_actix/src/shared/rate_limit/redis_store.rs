@@ -136,7 +136,10 @@ mod tests {
 
         let d = s.consume(&k, 3, 60).await.unwrap();
         assert!(!d.allowed);
-        assert_eq!(d.remaining, 0, "remaining saturates rather than underflowing");
+        assert_eq!(
+            d.remaining, 0,
+            "remaining saturates rather than underflowing"
+        );
     }
 
     /// The TTL is set only by the request that creates the key. If it were

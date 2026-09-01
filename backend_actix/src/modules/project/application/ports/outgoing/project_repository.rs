@@ -1,4 +1,4 @@
-// src/modules/project/application/ports/outgoing/project_repository.rs
+//! Write-side port for projects.
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -7,21 +7,22 @@ use uuid::Uuid;
 
 use crate::auth::application::domain::entities::UserId;
 
-//
-// ──────────────────────────────────────────────────────────
-// PatchField (explicit PATCH semantics)
-// ──────────────────────────────────────────────────────────
-// Meaning:
-// - Unset: field not provided => keep DB value
-// - Null: explicitly null => set DB column NULL (only for nullable fields)
-// - Value(v): replace with v
-//
-// Serde behavior (recommended usage):
-// - omitted field => Unset (because of #[serde(default)])
-// - null => Null
-// - value => Value(value)
-//
-
+/// Three-way PATCH semantics: leave alone, set to null, or replace.
+///
+/// `Option<T>` cannot express this. A PATCH body that omits a field and one
+/// that sends `null` both deserialise to `None`, so an endpoint using `Option`
+/// cannot tell "don't touch this" from "clear this".
+///
+/// | Variant | JSON | Effect |
+/// | --- | --- | --- |
+/// | [`Unset`](Self::Unset) | field omitted | keep the stored value |
+/// | [`Null`](Self::Null) | `null` | set the column to NULL — nullable columns only |
+/// | [`Value`](Self::Value) | any value | replace |
+///
+/// Deserialising omitted fields as `Unset` relies on `#[serde(default)]` at
+/// the field's use site; without it, serde errors on the missing field instead.
+///
+/// `blog` carries its own copy as `BlogPatchField`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum PatchField<T> {
@@ -38,18 +39,23 @@ impl<T> Default for PatchField<T> {
 }
 
 impl<T> PatchField<T> {
+    /// True when the client did not mention this field.
     pub fn is_unset(&self) -> bool {
         matches!(self, PatchField::Unset)
     }
 
+    /// True when the client explicitly sent `null`, asking to clear it.
     pub fn is_null(&self) -> bool {
         matches!(self, PatchField::Null)
     }
 
+    /// True when the client supplied a replacement value.
     pub fn is_value(&self) -> bool {
         matches!(self, PatchField::Value(_))
     }
 
+    /// The replacement value, if any. Both `Unset` and `Null` yield `None` —
+    /// use [`is_null`](Self::is_null) to tell them apart.
     pub fn as_value(&self) -> Option<&T> {
         if let PatchField::Value(v) = self {
             Some(v)
@@ -65,6 +71,7 @@ impl<T> PatchField<T> {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Everything needed to insert a project.
 #[derive(Debug, Clone)]
 pub struct CreateProjectData {
     pub owner: UserId,
@@ -100,6 +107,7 @@ pub struct PatchProjectData {
     pub live_demo_url: PatchField<String>,
 }
 
+/// A project as returned after a write.
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct ProjectResult {
     pub id: Uuid,
@@ -123,6 +131,7 @@ pub struct ProjectResult {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Why a project write failed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ProjectRepositoryError {
     /// Project doesn't exist OR doesn't belong to owner.
@@ -146,6 +155,11 @@ pub enum ProjectRepositoryError {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Creates and edits projects.
+///
+/// Reads belong to [`ProjectQuery`](super::project_query::ProjectQuery),
+/// lifecycle transitions to [`ProjectArchiver`](super::project_archiver::ProjectArchiver),
+/// and topic links to [`ProjectTopicRepository`](super::project_topic_repository::ProjectTopicRepository).
 #[async_trait]
 pub trait ProjectRepository: Send + Sync {
     async fn create_project(

@@ -6,7 +6,7 @@ use utoipa::ToSchema;
 use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::application::use_cases::request_password_reset::RequestPasswordResetError;
 use crate::auth::application::use_cases::reset_password::ResetPasswordError;
-use crate::shared::api::{ErrorCode, ApiResponse};
+use crate::shared::api::{ApiResponse, ErrorCode};
 use crate::AppState;
 
 #[derive(Debug, Deserialize, ToSchema)]

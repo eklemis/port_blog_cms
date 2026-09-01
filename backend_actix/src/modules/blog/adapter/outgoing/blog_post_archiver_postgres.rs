@@ -45,11 +45,7 @@ impl BlogPostArchiverPostgres {
 
 #[async_trait]
 impl BlogPostArchiver for BlogPostArchiverPostgres {
-    async fn soft_delete(
-        &self,
-        owner: UserId,
-        post_id: Uuid,
-    ) -> Result<(), BlogPostArchiverError> {
+    async fn soft_delete(&self, owner: UserId, post_id: Uuid) -> Result<(), BlogPostArchiverError> {
         self.exec_scoped(
             r#"UPDATE blog_posts SET is_deleted = true, updated_at = NOW()
                WHERE id = $1 AND user_id = $2 AND is_deleted = false"#,
@@ -69,11 +65,7 @@ impl BlogPostArchiver for BlogPostArchiverPostgres {
         .await
     }
 
-    async fn hard_delete(
-        &self,
-        owner: UserId,
-        post_id: Uuid,
-    ) -> Result<(), BlogPostArchiverError> {
+    async fn hard_delete(&self, owner: UserId, post_id: Uuid) -> Result<(), BlogPostArchiverError> {
         // blog_post_topics cascades on the foreign key, so links go with it.
         self.exec_scoped(
             r#"DELETE FROM blog_posts WHERE id = $1 AND user_id = $2"#,

@@ -62,7 +62,9 @@ where
             Err(CVArchiverError::NotArchived) => Err(SoftDeleteCVError::RepositoryError(
                 "CV is not archived".to_string(),
             )),
-            Err(CVArchiverError::DatabaseError(msg)) => Err(SoftDeleteCVError::RepositoryError(msg)),
+            Err(CVArchiverError::DatabaseError(msg)) => {
+                Err(SoftDeleteCVError::RepositoryError(msg))
+            }
         }
     }
 }
@@ -210,10 +212,7 @@ mod tests {
             Ok(Some(cv_owned_by(cv_id, user_id))),
         );
 
-        let err = svc
-            .execute(UserId::from(user_id), cv_id)
-            .await
-            .unwrap_err();
+        let err = svc.execute(UserId::from(user_id), cv_id).await.unwrap_err();
         assert!(matches!(err, SoftDeleteCVError::RepositoryError(m) if m == "archive failed"));
     }
 }

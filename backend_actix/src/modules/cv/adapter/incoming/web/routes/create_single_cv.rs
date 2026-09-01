@@ -1,8 +1,7 @@
 use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::adapter::incoming::web::extractors::auth::VerifiedUser;
 use crate::cv::adapter::incoming::web::dto::{
-    ContactDetailDto, CoreSkillDto, CvResponse, EducationDto, ExperienceDto,
-    HighlightedProjectDto,
+    ContactDetailDto, CoreSkillDto, CvResponse, EducationDto, ExperienceDto, HighlightedProjectDto,
 };
 use crate::cv::application::ports::outgoing::CreateCVData;
 use crate::cv::application::use_cases::create_cv::CreateCVError;
@@ -126,9 +125,7 @@ mod tests {
     use crate::auth::application::ports::outgoing::token_provider::TokenProvider;
     use crate::cv::application::ports::outgoing::CreateCVData;
     use crate::cv::application::use_cases::create_cv::{CreateCVError, ICreateCVUseCase};
-    use crate::cv::domain::entities::{
-        CVInfo, Education, Experience, HighlightedProject,
-    };
+    use crate::cv::domain::entities::{CVInfo, Education, Experience, HighlightedProject};
     // Only the tests build wire-side contact values, so this import lives here
     // rather than at file scope.
     use crate::cv::adapter::incoming::web::dto::ContactTypeDto;

@@ -3,15 +3,15 @@ use serde::{Deserialize, Serialize};
 use tracing::error;
 use uuid::Uuid;
 
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::adapter::incoming::web::extractors::auth::VerifiedUser;
 use crate::auth::application::domain::entities::UserId;
 use crate::modules::project::application::ports::incoming::use_cases::PatchProjectError;
+use crate::modules::project::application::ports::outgoing::project_repository::ProjectResult;
 use crate::modules::project::application::ports::outgoing::project_repository::{
     PatchField, PatchProjectData,
 };
-use crate::api::schemas::{ErrorResponse, SuccessResponse};
-use crate::modules::project::application::ports::outgoing::project_repository::ProjectResult;
-use crate::shared::api::{ErrorCode, ApiResponse};
+use crate::shared::api::{ApiResponse, ErrorCode};
 use crate::AppState;
 use utoipa::ToSchema;
 

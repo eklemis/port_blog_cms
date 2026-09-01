@@ -8,8 +8,7 @@ use uuid::Uuid;
 
 use crate::auth::application::domain::entities::UserId;
 use crate::blog::application::ports::incoming::use_cases::{
-    ArchiveBlogPostError, ArchiveBlogPostUseCase, HardDeleteBlogPostUseCase,
-    RestoreBlogPostUseCase,
+    ArchiveBlogPostError, ArchiveBlogPostUseCase, HardDeleteBlogPostUseCase, RestoreBlogPostUseCase,
 };
 use crate::blog::application::ports::outgoing::BlogPostArchiver;
 
@@ -128,7 +127,10 @@ mod tests {
     async fn each_service_calls_its_own_archiver_operation() {
         let a = ArchiveBlogPostService::new(SpyArchiver::default());
         a.execute(owner(), Uuid::new_v4()).await.unwrap();
-        assert_eq!(a.archiver.called.lock().unwrap().as_slice(), ["soft_delete"]);
+        assert_eq!(
+            a.archiver.called.lock().unwrap().as_slice(),
+            ["soft_delete"]
+        );
 
         let r = RestoreBlogPostService::new(SpyArchiver::default());
         r.execute(owner(), Uuid::new_v4()).await.unwrap();
@@ -136,7 +138,10 @@ mod tests {
 
         let h = HardDeleteBlogPostService::new(SpyArchiver::default());
         h.execute(owner(), Uuid::new_v4()).await.unwrap();
-        assert_eq!(h.archiver.called.lock().unwrap().as_slice(), ["hard_delete"]);
+        assert_eq!(
+            h.archiver.called.lock().unwrap().as_slice(),
+            ["hard_delete"]
+        );
     }
 
     #[tokio::test]
@@ -144,15 +149,21 @@ mod tests {
         for svc in [0, 1, 2] {
             let spy = SpyArchiver::failing(BlogPostArchiverError::NotFound);
             let err = match svc {
-                0 => ArchiveBlogPostService::new(spy)
-                    .execute(owner(), Uuid::new_v4())
-                    .await,
-                1 => RestoreBlogPostService::new(spy)
-                    .execute(owner(), Uuid::new_v4())
-                    .await,
-                _ => HardDeleteBlogPostService::new(spy)
-                    .execute(owner(), Uuid::new_v4())
-                    .await,
+                0 => {
+                    ArchiveBlogPostService::new(spy)
+                        .execute(owner(), Uuid::new_v4())
+                        .await
+                }
+                1 => {
+                    RestoreBlogPostService::new(spy)
+                        .execute(owner(), Uuid::new_v4())
+                        .await
+                }
+                _ => {
+                    HardDeleteBlogPostService::new(spy)
+                        .execute(owner(), Uuid::new_v4())
+                        .await
+                }
             }
             .unwrap_err();
             assert!(matches!(err, ArchiveBlogPostError::NotFound));
@@ -164,18 +175,26 @@ mod tests {
         for svc in [0, 1, 2] {
             let spy = SpyArchiver::failing(BlogPostArchiverError::DatabaseError("db down".into()));
             let err = match svc {
-                0 => ArchiveBlogPostService::new(spy)
-                    .execute(owner(), Uuid::new_v4())
-                    .await,
-                1 => RestoreBlogPostService::new(spy)
-                    .execute(owner(), Uuid::new_v4())
-                    .await,
-                _ => HardDeleteBlogPostService::new(spy)
-                    .execute(owner(), Uuid::new_v4())
-                    .await,
+                0 => {
+                    ArchiveBlogPostService::new(spy)
+                        .execute(owner(), Uuid::new_v4())
+                        .await
+                }
+                1 => {
+                    RestoreBlogPostService::new(spy)
+                        .execute(owner(), Uuid::new_v4())
+                        .await
+                }
+                _ => {
+                    HardDeleteBlogPostService::new(spy)
+                        .execute(owner(), Uuid::new_v4())
+                        .await
+                }
             }
             .unwrap_err();
-            assert!(matches!(err, ArchiveBlogPostError::RepositoryError(m) if m.contains("db down")));
+            assert!(
+                matches!(err, ArchiveBlogPostError::RepositoryError(m) if m.contains("db down"))
+            );
         }
     }
 }

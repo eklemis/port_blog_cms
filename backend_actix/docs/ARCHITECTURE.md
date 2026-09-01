@@ -19,13 +19,15 @@ to "where does my new code go", skip to [Where things go](#where-things-go).
 - [Shared and cross-cutting code](#shared-and-cross-cutting-code)
 - [Two known structural issues](#two-known-structural-issues)
 - [Convention drift, and which convention to follow](#convention-drift-and-which-convention-to-follow)
+- [Documentation coverage](#documentation-coverage)
 - [Where things go](#where-things-go)
 
 ---
 
 ## The shape in one picture
 
-The crate is one binary, split into seven **modules** under `src/modules/`.
+The crate is a library with a thin binary shim, split into seven **modules**
+under `src/modules/`.
 Each module is a vertical slice of the product — it owns its routes, its
 business logic, its database tables and its errors — and each is internally
 split into the same three layers.
@@ -50,7 +52,7 @@ The important part is what the arrows mean: **they are dependencies, and they
 only point inward and then outward through traits.** The application layer in
 the middle never names a concrete adapter. It defines traits — *ports* — and
 the adapters implement them. Which concrete implementation gets used is decided
-once, in `main.rs`, at startup.
+once, in `lib.rs`, at startup.
 
 That is the whole idea. Everything below is detail.
 
@@ -158,7 +160,7 @@ sequenceDiagram
     P-->>R: Err(EmptyTitle) → 400 EMPTY_TITLE
     R->>S: create_topic_use_case.execute(command)
     S->>O: repository.create_topic(CreateTopicData)
-    O->>A: (trait dispatch, wired in main.rs)
+    O->>A: (trait dispatch, wired in lib.rs)
     A->>DB: INSERT
     DB-->>A: row / unique violation
     A-->>S: Ok(TopicResult) / Err(TopicAlreadyExists)
@@ -193,7 +195,7 @@ command into `CreateTopicData` and maps `TopicRepositoryError` onto
 **5. `topic/adapter/outgoing/topic_repository_postgres.rs`** — the SeaORM
 implementation.
 
-**6. `main.rs`** — the only place the two halves meet:
+**6. `lib.rs`** — the only place the two halves meet:
 
 ```rust
 let topic_repo   = TopicRepositoryPostgres::new(Arc::clone(&db_arc));
@@ -275,12 +277,19 @@ so this compiles, but it is a real cycle. See below.
 
 ## The composition root
 
-`main.rs` is the only file that knows both halves of every port. It constructs
+`lib.rs` is the only file that knows both halves of every port. It constructs
 concrete adapters, wraps each service in an `Arc<dyn …>`, and stores them in
 `AppState`, which every handler receives through `web::Data`.
 
-This is why `main.rs` is excluded from coverage: it is wiring, and covering it
-means booting the process against a real database and Redis.
+`main.rs` is a 20-line shim that installs the rustls crypto provider and calls
+[`start`]. Everything else lives in the library, which is what makes
+`cargo doc` produce a browsable reference — rustdoc emits nothing for a binary
+target.
+
+`start` is excluded from coverage: it is wiring, and covering it means booting
+the process against a real database and Redis.
+
+[`start`]: ../src/lib.rs
 
 `AppState` has 27 fields, and two shapes coexist in it. The older modules
 contribute 22 flat `Arc<dyn …>` fields:
@@ -427,11 +436,39 @@ recording it is that **new code should not add to it.**
 
 ---
 
+## Documentation coverage
+
+`cargo doc -p backend_actix --no-deps` produces a browsable reference, and CI
+fails the build on a broken intra-doc link.
+
+Coverage is deliberately uneven, because the value is:
+
+| Layer | Item-level docs |
+| --- | --- |
+| **Outgoing ports** — the contracts adapters must satisfy | **92/92** |
+| Incoming ports — the use-case traits | 1/78 |
+
+Outgoing ports came first because that is where implementers get things wrong:
+whether absence is `Ok(None)` or an error, whether an operation is idempotent,
+whether a method scopes on the owner in SQL, and which condition maps to which
+error variant. Those are documented in full, including the traps — that
+`UserQuery` returns soft-deleted users and the caller must check the flag, and
+that `CVArchiver` does *not* scope on owner while the blog and project
+archivers do.
+
+A `#![deny(missing_docs)]` gate is not in place yet. It demands a doc comment
+on every public struct **field**, and 181 of those remain in the outgoing ports
+alone. Most would be filler on self-describing DTO fields, so the gate is worth
+having only after a pass that writes the ones carrying real meaning. Until
+then, coverage is a review concern rather than a build error.
+
+---
+
 ## Where things go
 
 | You are adding… | It goes in… |
 | --- | --- |
-| A new endpoint on an existing module | `<module>/adapter/incoming/web/routes/`, plus a route registration in `main.rs::init_routes` **and** an entry in `src/api/openapi.rs` |
+| A new endpoint on an existing module | `<module>/adapter/incoming/web/routes/`, plus a route registration in `lib.rs::init_routes` **and** an entry in `src/api/openapi.rs` |
 | The business logic behind it | A trait in `<module>/application/ports/incoming/use_cases/`, implemented by a service in `<module>/application/service(s)/` |
 | A new thing the logic needs from outside | A trait in `<module>/application/ports/outgoing/`, implemented in `<module>/adapter/outgoing/` |
 | A database table | A migration in `migration/src/`, and a SeaORM entity in `<module>/adapter/outgoing/sea_orm_entity/` |

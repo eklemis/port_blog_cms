@@ -4,11 +4,11 @@ use actix_web::{delete, web, Responder};
 use uuid::Uuid;
 
 use crate::{
+    api::schemas::ErrorResponse,
     auth::{
         adapter::incoming::web::extractors::auth::VerifiedUser,
         application::domain::entities::UserId,
     },
-    api::schemas::ErrorResponse,
     shared::api::ApiResponse,
     topic::application::ports::incoming::use_cases::SoftDeleteTopicError,
     AppState,
@@ -166,7 +166,7 @@ mod tests {
         fn verify_verification_token(&self, _token: &str) -> Result<Uuid, TokenError> {
             unimplemented!("Not used in soft_delete_topic tests")
         }
-    
+
         fn generate_password_reset_token(&self, _user_id: Uuid) -> Result<String, TokenError> {
             unimplemented!()
         }
@@ -174,7 +174,7 @@ mod tests {
         fn verify_password_reset_token(&self, _token: &str) -> Result<Uuid, TokenError> {
             unimplemented!()
         }
-}
+    }
 
     // ============================================================
     // UseCase Mock

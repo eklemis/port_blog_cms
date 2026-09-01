@@ -187,10 +187,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "between 1 and 86400")]
     fn rejects_a_zero_access_expiry() {
-        let _scope = EnvScope::new(&[
-            ("JWT_SECRET", VALID_SECRET),
-            ("JWT_ACCESS_EXPIRY", "0"),
-        ]);
+        let _scope = EnvScope::new(&[("JWT_SECRET", VALID_SECRET), ("JWT_ACCESS_EXPIRY", "0")]);
         JwtConfig::from_env();
     }
 
@@ -199,10 +196,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "between 1 and 86400")]
     fn rejects_an_access_expiry_beyond_a_day() {
-        let _scope = EnvScope::new(&[
-            ("JWT_SECRET", VALID_SECRET),
-            ("JWT_ACCESS_EXPIRY", "86401"),
-        ]);
+        let _scope = EnvScope::new(&[("JWT_SECRET", VALID_SECRET), ("JWT_ACCESS_EXPIRY", "86401")]);
         JwtConfig::from_env();
     }
 

@@ -534,8 +534,7 @@ mod tests {
     /// token is rejected at parse time rather than reaching the use case.
     #[test]
     fn a_refresh_body_requires_the_token() {
-        let ok: Result<RefreshTokenRequest, _> =
-            serde_json::from_str(r#"{"refresh_token":"tok"}"#);
+        let ok: Result<RefreshTokenRequest, _> = serde_json::from_str(r#"{"refresh_token":"tok"}"#);
         assert!(ok.is_ok());
 
         let missing: Result<RefreshTokenRequest, _> = serde_json::from_str("{}");

@@ -178,10 +178,7 @@ mod tests {
 
     #[async_trait]
     impl UserRepository for SpyRepo {
-        async fn create_user(
-            &self,
-            _d: CreateUserData,
-        ) -> Result<UserResult, UserRepositoryError> {
+        async fn create_user(&self, _d: CreateUserData) -> Result<UserResult, UserRepositoryError> {
             unimplemented!()
         }
         async fn restore_user(&self, _u: Uuid) -> Result<UserResult, UserRepositoryError> {
@@ -251,10 +248,7 @@ mod tests {
     // to the use case, which takes its collaborators by value.
     #[async_trait]
     impl UserRepository for Arc<SpyRepo> {
-        async fn create_user(
-            &self,
-            d: CreateUserData,
-        ) -> Result<UserResult, UserRepositoryError> {
+        async fn create_user(&self, d: CreateUserData) -> Result<UserResult, UserRepositoryError> {
             (**self).create_user(d).await
         }
         async fn restore_user(&self, u: Uuid) -> Result<UserResult, UserRepositoryError> {
@@ -270,11 +264,7 @@ mod tests {
         ) -> Result<UserResult, UserRepositoryError> {
             (**self).set_full_name(u, n).await
         }
-        async fn update_password(
-            &self,
-            u: Uuid,
-            h: String,
-        ) -> Result<(), UserRepositoryError> {
+        async fn update_password(&self, u: Uuid, h: String) -> Result<(), UserRepositoryError> {
             (**self).update_password(u, h).await
         }
         async fn delete_user(&self, u: Uuid) -> Result<(), UserRepositoryError> {

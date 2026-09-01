@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use super::policy::{client_key, limit_for};
 use super::port::RateLimitStore;
-use crate::shared::api::{ErrorCode, ApiResponse};
+use crate::shared::api::{ApiResponse, ErrorCode};
 
 /// Applies per-caller limits to the unauthenticated auth endpoints.
 ///

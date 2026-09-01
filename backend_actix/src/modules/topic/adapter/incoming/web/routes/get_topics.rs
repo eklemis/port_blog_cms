@@ -4,11 +4,11 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 use crate::{
+    api::schemas::{ErrorResponse, SuccessResponse},
     auth::{
         adapter::incoming::web::extractors::auth::VerifiedUser,
         application::domain::entities::UserId,
     },
-    api::schemas::{ErrorResponse, SuccessResponse},
     shared::api::ApiResponse,
     topic::application::ports::incoming::use_cases::GetTopicsError,
     AppState,
@@ -141,7 +141,7 @@ mod tests {
         fn verify_verification_token(&self, _token: &str) -> Result<Uuid, TokenError> {
             unimplemented!("Not used in get_topics tests")
         }
-    
+
         fn generate_password_reset_token(&self, _user_id: Uuid) -> Result<String, TokenError> {
             unimplemented!()
         }
@@ -149,7 +149,7 @@ mod tests {
         fn verify_password_reset_token(&self, _token: &str) -> Result<Uuid, TokenError> {
             unimplemented!()
         }
-}
+    }
 
     // ============================================================
     // Helpers
