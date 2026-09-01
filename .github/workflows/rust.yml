@@ -1,0 +1,68 @@
+# Runs only when the Rust workspace changes. The path filter is what makes the
+# monorepo cheap: a frontend-only PR does not pay for a Rust build.
+name: Rust
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'backend_actix/**'
+      - 'image-processor-function/**'
+      - '.github/workflows/rust.yml'
+  pull_request:
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'backend_actix/**'
+      - 'image-processor-function/**'
+      - '.github/workflows/rust.yml'
+
+concurrency:
+  group: rust-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # The suite is not parallel-safe: tests share a process environment and
+      # several call dotenvy mid-run. See backend_actix/readme.md.
+      RUST_TEST_THREADS: '1'
+      # No Redis service is attached, so the integration tests that need a live
+      # instance are skipped explicitly. Unsetting REDIS_URL is not enough —
+      # dotenvy repopulates it partway through the run.
+      SKIP_REDIS_TESTS: '1'
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Dockerfiles pin rust:1.88. If you bump one, bump the other, or CI
+      # can pass on a toolchain the deploy build does not have.
+      - name: Install toolchain
+        run: rustup update stable && rustup default stable
+
+      - name: Cache cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      # --locked: fail if Cargo.lock is stale rather than silently re-resolving,
+      # so CI tests the same dependency graph the Dockerfiles build.
+      - name: Check all targets
+        run: cargo check --workspace --all-targets --locked
+
+      - name: Test
+        run: cargo test --workspace --locked
+
+      # Not a gate: 179 files are currently unformatted, so requiring this would
+      # be red on day one. Promote to a blocking step after a formatting pass.
+      - name: Formatting (informational)
+        run: cargo fmt --all --check
+        continue-on-error: true
