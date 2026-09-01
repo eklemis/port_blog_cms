@@ -39,17 +39,20 @@ pub enum ProjectArchiverError {
 /// deliberate: it avoids confirming that another user's project exists.
 #[async_trait]
 pub trait ProjectArchiver: Send + Sync {
+    /// Flags the project as deleted, hiding it while keeping the row.
     async fn soft_delete(
         &self,
         owner: UserId,
         project_id: Uuid,
     ) -> Result<(), ProjectArchiverError>;
 
+    /// Removes the row and its topic links permanently. Irreversible.
     async fn hard_delete(
         &self,
         owner: UserId,
         project_id: Uuid,
     ) -> Result<(), ProjectArchiverError>;
 
+    /// Clears the deleted flag.
     async fn restore(&self, owner: UserId, project_id: Uuid) -> Result<(), ProjectArchiverError>;
 }

@@ -13,14 +13,29 @@ use uuid::Uuid;
 /// let this type reach a response DTO.
 #[derive(Debug, Clone)]
 pub struct UserQueryResult {
+    /// Primary key.
     pub id: Uuid,
+    /// Login identifier and the address mail is sent to.
     pub email: String,
+    /// Public handle. Appears in public URLs, so it is visible to anyone.
     pub username: String,
+    /// Argon2 hash, carrying its own salt and parameters.
+    /// Never let this reach a response DTO.
     pub password_hash: String,
+    /// Display name, shown to the user and used to greet them in mail.
     pub full_name: String,
+    /// When the account was created.
     pub created_at: DateTime<Utc>,
+    /// When the row was last written.
     pub updated_at: DateTime<Utc>,
+    /// Whether the email address has been confirmed. Endpoints that require a
+    /// verified account must check this.
     pub is_verified: bool,
+    /// Whether the account is soft-deleted.
+    ///
+    /// **The query does not filter on this** — a deleted account is returned
+    /// with the flag set, and the caller must check it. See the trait
+    /// documentation.
     pub is_deleted: bool,
 }
 

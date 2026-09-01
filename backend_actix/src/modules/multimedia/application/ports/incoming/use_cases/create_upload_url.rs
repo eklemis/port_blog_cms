@@ -38,29 +38,50 @@ use crate::{
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum UploadUrlCommandError {
     #[error("Missing required field: {0}")]
+    /// A required field was absent. The payload names which one.
     MissingField(&'static str),
 
     #[error("Invalid file name")]
+    /// The file name is empty, too long, or contains a path separator.
     InvalidFileName,
 
     #[error("File too large (max {max_bytes} bytes, got {actual_bytes} bytes)")]
-    FileTooLarge { max_bytes: u64, actual_bytes: u64 },
+    /// The declared size exceeds the upload policy's limit.
+    FileTooLarge {
+        /// The policy's ceiling.
+        max_bytes: u64,
+        /// What the client declared.
+        actual_bytes: u64,
+    },
 
     #[error("Invalid image dimensions (max {max_px}px, got {width_px}x{height_px})")]
+    /// A declared image dimension is missing, zero, or above the limit.
     InvalidDimensions {
+        /// The policy's ceiling for either dimension.
         max_px: u32,
+        /// Declared width.
         width_px: u32,
+        /// Declared height.
         height_px: u32,
     },
 
     #[error("Invalid mime type: {0}")]
+    /// The declared MIME type is not one the policy allows.
     InvalidMimeType(String),
 
     #[error("Invalid file extension: {0}")]
+    /// The file extension is not one the policy allows.
     InvalidExtension(String),
 
     #[error("Mime type does not match file extension (mime={mime_type}, ext={ext})")]
-    MimeExtensionMismatch { mime_type: String, ext: String },
+    /// The declared MIME type and the file extension disagree, so at least one
+    /// of them is wrong.
+    MimeExtensionMismatch {
+        /// What the client declared.
+        mime_type: String,
+        /// What the file name implies.
+        ext: String,
+    },
 }
 
 fn sanitize_basename(file_name: &str, max_len: usize) -> Result<String, UploadUrlCommandError> {
@@ -187,24 +208,31 @@ impl CreateMediaCommand {
         CreateMediaCommandBuilder::default()
     }
 
+    /// The uploading user.
     pub fn owner(&self) -> &UserId {
         &self.owner
     }
+    /// The validated file name.
     pub fn original_name(&self) -> &str {
         &self.original_name
     }
+    /// The validated MIME type, as declared by the client.
     pub fn mime_type(&self) -> &str {
         &self.mime_type
     }
+    /// The validated declared size.
     pub fn file_size_bytes(&self) -> u64 {
         self.file_size_bytes
     }
+    /// Declared width, if the media has pixel dimensions.
     pub fn width_px(&self) -> Option<u32> {
         self.width_px
     }
+    /// Declared height, if the media has pixel dimensions.
     pub fn height_px(&self) -> Option<u32> {
         self.height_px
     }
+    /// Declared duration, if the media is time-based.
     pub fn duration_seconds(&self) -> Option<u64> {
         self.duration_seconds
     }
@@ -241,36 +269,43 @@ pub struct CreateMediaCommandBuilder {
 }
 
 impl CreateMediaCommandBuilder {
+    /// Sets the uploading user.
     pub fn owner(mut self, owner: UserId) -> Self {
         self.owner = Some(owner);
         self
     }
 
+    /// Sets the file name. Validated at `build`.
     pub fn file_name(mut self, file_name: String) -> Self {
         self.file_name = Some(file_name);
         self
     }
 
+    /// Sets the declared MIME type. Validated at `build`.
     pub fn mime_type(mut self, mime_type: String) -> Self {
         self.mime_type = Some(mime_type);
         self
     }
 
+    /// Sets the declared size. Validated at `build`.
     pub fn file_size_bytes(mut self, size: u64) -> Self {
         self.file_size_bytes = Some(size);
         self
     }
 
+    /// Sets the declared width. Validated at `build`.
     pub fn width_px(mut self, width_px: Option<u32>) -> Self {
         self.width_px = width_px;
         self
     }
 
+    /// Sets the declared height. Validated at `build`.
     pub fn height_px(mut self, height_px: Option<u32>) -> Self {
         self.height_px = height_px;
         self
     }
 
+    /// Sets the declared duration.
     pub fn duration_seconds(mut self, duration_seconds: Option<u64>) -> Self {
         self.duration_seconds = duration_seconds;
         self
@@ -364,28 +399,36 @@ impl CreateAttachmentCommand {
         CreateAttachmentCommandBuilder::default()
     }
 
+    /// The uploading user.
     pub fn owner(&self) -> &UserId {
         &self.owner
     }
+    /// What kind of thing the media attaches to.
     pub fn attachment_target(&self) -> &AttachmentTarget {
         &self.attachment_target
     }
+    /// The id of that thing.
     pub fn attachment_target_id(&self) -> Uuid {
         self.attachment_target_id
     }
+    /// What the media is for on its target.
     pub fn role(&self) -> &MediaRole {
         &self.role
     }
+    /// Display order within the role, starting at 0.
     pub fn position(&self) -> u8 {
         self.position
     }
+    /// Alternative text, if one was supplied.
     pub fn alt_text(&self) -> Option<&str> {
         self.alt_text.as_deref()
     }
+    /// Caption, if one was supplied.
     pub fn caption(&self) -> Option<&str> {
         self.caption.as_deref()
     }
 
+    /// Projects the command onto the attachment row the repository writes.
     pub fn to_new_attachment(&self) -> NewMediaAttachment {
         NewMediaAttachment {
             owner: self.owner,
@@ -412,35 +455,46 @@ pub struct CreateAttachmentCommandBuilder {
 }
 
 impl CreateAttachmentCommandBuilder {
+    /// Sets the uploading user.
     pub fn owner(mut self, owner: UserId) -> Self {
         self.owner = Some(owner);
         self
     }
+    /// Sets the target kind.
     pub fn attachment_target(mut self, target: AttachmentTarget) -> Self {
         self.attachment_target = Some(target);
         self
     }
+    /// Sets the target id.
     pub fn attachment_target_id(mut self, target_id: Uuid) -> Self {
         self.attachment_target_id = Some(target_id);
         self
     }
+    /// Sets the role.
     pub fn role(mut self, role: MediaRole) -> Self {
         self.role = Some(role);
         self
     }
+    /// Sets the display position.
     pub fn position(mut self, position: u8) -> Self {
         self.position = Some(position);
         self
     }
+    /// Sets the alternative text.
     pub fn alt_text(mut self, alt_text: String) -> Self {
         self.alt_text = Some(alt_text);
         self
     }
+    /// Sets the caption.
     pub fn caption(mut self, caption: String) -> Self {
         self.caption = Some(caption);
         self
     }
 
+    /// Checks that every required field was supplied and produces the command.
+    ///
+    /// # Errors
+    /// [`MissingField`](UploadUrlCommandError::MissingField), naming the field.
     pub fn build(self) -> Result<CreateAttachmentCommand, UploadUrlCommandError> {
         let owner = self
             .owner
@@ -477,9 +531,11 @@ impl CreateAttachmentCommandBuilder {
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum CreateUrlError {
     #[error("Repository error: {0}")]
+    /// The media and attachment rows could not be written.
     RepositoryError(String),
 
     #[error("Storage service error: {0}")]
+    /// The rows were written but the object store would not sign an upload URL.
     StorageError(String),
 }
 
@@ -491,7 +547,10 @@ impl From<SignUrlError> for CreateUrlError {
 /// The signed URL, plus the id the client uses to poll for readiness.
 #[derive(Debug, Clone)]
 pub struct CreateMediaResult {
+    /// The signed URL to PUT the bytes to. Short-lived, and a bearer
+    /// credential for that object key.
     pub url: String,
+    /// The id the client polls for readiness once the bytes are uploaded.
     pub media_id: Uuid,
 }
 /// Registers an upload and returns a URL to PUT the bytes to.

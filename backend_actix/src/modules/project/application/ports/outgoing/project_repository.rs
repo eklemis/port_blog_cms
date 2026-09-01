@@ -27,10 +27,13 @@ use crate::auth::application::domain::entities::UserId;
 #[serde(untagged)]
 #[derive(Default)]
 pub enum PatchField<T> {
+    /// The client did not mention the field. Keep the stored value.
     #[serde(skip)]
     #[default]
     Unset,
+    /// The client sent `null`. Set the column to NULL — nullable columns only.
     Null,
+    /// The client sent a replacement.
     Value(T),
 }
 
@@ -70,13 +73,16 @@ impl<T> PatchField<T> {
 /// Everything needed to insert a project.
 #[derive(Debug, Clone)]
 pub struct CreateProjectData {
+    /// The user the project belongs to.
     pub owner: UserId,
 
+    /// Display title.
     pub title: String,
 
     /// Slug is immutable: only set at creation time
     pub slug: String,
 
+    /// Long-form body.
     pub description: String,
 
     /// Stored as JSONB in DB (array of strings)
@@ -85,7 +91,9 @@ pub struct CreateProjectData {
     /// Stored as JSONB in DB (array of strings)
     pub screenshots: Vec<String>,
 
+    /// Source repository, if there is one.
     pub repo_url: Option<String>,
+    /// Running instance, if there is one.
     pub live_demo_url: Option<String>,
 }
 
@@ -95,29 +103,45 @@ pub struct CreateProjectData {
 /// - repo_url/live_demo_url: Unset => keep, Null => clear, Value => set
 #[derive(Debug, Clone, Default)]
 pub struct PatchProjectData {
+    /// New title, if the client sent one.
     pub title: PatchField<String>,
+    /// New body, if the client sent one.
     pub description: PatchField<String>,
+    /// Replaces the whole list. `Null` clears it.
     pub tech_stack: PatchField<Vec<String>>,
+    /// Replaces the whole list. `Null` clears it.
     pub screenshots: PatchField<Vec<String>>,
+    /// New repository URL. `Null` clears it.
     pub repo_url: PatchField<String>,
+    /// New demo URL. `Null` clears it.
     pub live_demo_url: PatchField<String>,
 }
 
 /// A project as returned after a write.
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct ProjectResult {
+    /// Primary key.
     pub id: Uuid,
     /// Owning user. Serialises as a bare UUID string.
     #[schema(value_type = String, example = "123e4567-e89b-12d3-a456-426614174000")]
     pub owner: UserId,
+    /// Display title.
     pub title: String,
+    /// URL segment. Unique per owner.
     pub slug: String,
+    /// Long-form body.
     pub description: String,
+    /// Technology labels, in the order the owner set them.
     pub tech_stack: Vec<String>,
+    /// Image URLs, in display order.
     pub screenshots: Vec<String>,
+    /// Source repository, if there is one.
     pub repo_url: Option<String>,
+    /// Running instance, if there is one.
     pub live_demo_url: Option<String>,
+    /// When the project was created.
     pub created_at: DateTime<Utc>,
+    /// When it was last edited.
     pub updated_at: DateTime<Utc>,
 }
 
@@ -138,9 +162,11 @@ pub enum ProjectRepositoryError {
     #[error("Slug already exists")]
     SlugAlreadyExists,
 
+    /// The store could not be reached.
     #[error("Database error: {0}")]
     DatabaseError(String),
 
+    /// A stored column could not be decoded into its Rust type.
     #[error("Serialization error: {0}")]
     SerializationError(String),
 }
@@ -158,6 +184,11 @@ pub enum ProjectRepositoryError {
 /// and topic links to [`ProjectTopicRepository`](super::project_topic_repository::ProjectTopicRepository).
 #[async_trait]
 pub trait ProjectRepository: Send + Sync {
+    /// Inserts a project.
+    ///
+    /// # Errors
+    /// [`SlugAlreadyExists`](ProjectRepositoryError::SlugAlreadyExists) if the
+    /// owner already uses that slug.
     async fn create_project(
         &self,
         data: CreateProjectData,

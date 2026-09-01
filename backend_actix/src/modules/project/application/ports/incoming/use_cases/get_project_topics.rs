@@ -22,9 +22,12 @@ use crate::project::application::ports::outgoing::project_query::ProjectTopicIte
 /// Why listing a project's topics failed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum GetProjectTopicsError {
+    /// No project matched the id, or it belongs to another user.
+    /// The repository scopes on owner in SQL, so the two are indistinguishable here.
     #[error("Project not found")]
     ProjectNotFound,
 
+    /// The read could not be executed. A 500 for the caller.
     #[error("Query failed: {0}")]
     QueryFailed(String),
 }

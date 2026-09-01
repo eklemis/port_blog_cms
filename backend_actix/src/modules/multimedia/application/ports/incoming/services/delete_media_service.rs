@@ -21,6 +21,7 @@ impl<R> DeleteMediaService<R>
 where
     R: MediaRepository,
 {
+    /// Builds the service from a media repository.
     pub fn new(media_repository: R) -> Self {
         Self { media_repository }
     }

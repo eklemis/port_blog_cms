@@ -16,6 +16,7 @@ use crate::{
 /// A target with no media is an empty `Vec`, not an error.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ListMediaError {
+    /// The store could not be reached.
     #[error("Repository error: {0}")]
     RepositoryError(String),
 }
@@ -27,7 +28,9 @@ impl From<MediaQueryError> for ListMediaError {
 
 /// Which target's media to list.
 pub struct ListMediaCommand {
+    /// The user asking. Listings are scoped to their own media.
     pub owner: UserId,
+    /// What kind of thing it is attached to.
     pub attachment_target: AttachmentTarget,
 }
 
@@ -38,14 +41,24 @@ pub struct ListMediaCommand {
 /// need a variant query per row.
 #[derive(Clone, Debug, Serialize, utoipa::ToSchema)]
 pub struct MediaItem {
+    /// The media item.
     pub media_id: Uuid,
+    /// The name the file was uploaded under.
     pub original_filename: String,
+    /// Where the item is in processing. A row exists before its bytes do, so
+    /// this is what says whether the file is usable.
     pub status: MediaState,
+    /// What kind of thing it is attached to.
     pub attachment_target: AttachmentTarget,
+    /// The id of that thing.
     pub attachment_target_id: Uuid,
+    /// What the media is for on its target.
     pub role: MediaRole,
+    /// Display order within the role, starting at 0.
     pub position: u8,
+    /// Alternative text. Empty rather than absent when unset.
     pub alt_text: String,
+    /// Caption. Empty rather than absent when unset.
     pub caption: String,
 }
 impl MediaItem {

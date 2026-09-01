@@ -12,8 +12,10 @@ pub struct RefreshTokenRequest {
     refresh_token: String, // Private - guaranteed non-empty
 }
 
+/// Why a refresh request could not be built.
 #[derive(Debug, Clone)]
 pub enum RefreshTokenRequestError {
+    /// No refresh token was supplied.
     EmptyToken,
 }
 
@@ -63,13 +65,21 @@ impl<'de> Deserialize<'de> for RefreshTokenRequest {
 }
 
 // ====================== Refresh Token Error =============================
+/// Why a refresh failed. Each maps to a distinct error code so a client can
+/// tell a recoverable case from a terminal one.
 #[derive(Debug, Clone)]
 pub enum RefreshTokenError {
+    /// The refresh token's lifetime has passed. The user must log in again.
     TokenExpired,
+    /// The token is not usable — malformed, or blacklisted by a logout.
     TokenInvalid,
+    /// The token's not-before claim is in the future. Clock skew, in practice.
     TokenNotYetValid,
+    /// A token of the wrong kind was offered — an access token, typically.
     InvalidTokenType,
+    /// The signature did not verify.
     InvalidSignature,
+    /// The refresh token was good but the new access token could not be minted.
     TokenGenerationFailed(String),
 }
 
@@ -105,16 +115,21 @@ impl From<TokenError> for RefreshTokenError {
 }
 
 // ============================ Refresh Token Response =========================
+/// A successful refresh.
 #[derive(Debug, Clone, Serialize)]
 pub struct RefreshTokenResponse {
+    /// The newly minted access token.
     pub access_token: String,
-    pub refresh_token: String, // Optional: return new refresh token (token rotation)
+    /// A new refresh token when rotation is enabled; otherwise the caller's
+    /// existing one, unchanged.
+    pub refresh_token: String,
 }
 
 // ============================ Refresh Token Use Case =============================
 /// Interface for Refresh Token use case
 #[async_trait]
 pub trait IRefreshTokenUseCase: Send + Sync {
+    /// Exchanges a refresh token for a fresh access token.
     async fn execute(
         &self,
         request: RefreshTokenRequest,
@@ -129,6 +144,7 @@ pub struct RefreshTokenUseCase {
 }
 
 impl RefreshTokenUseCase {
+    /// Builds the use case with rotation disabled.
     pub fn new(token_provider: Arc<dyn TokenProvider>) -> Self {
         Self {
             token_provider,
@@ -136,6 +152,10 @@ impl RefreshTokenUseCase {
         }
     }
 
+    /// Turns refresh-token rotation on or off.
+    ///
+    /// With rotation on, each refresh also returns a new refresh token, so a
+    /// stolen one is usable only until the legitimate client refreshes.
     pub fn with_token_rotation(mut self, enable: bool) -> Self {
         self.enable_token_rotation = enable;
         self
@@ -144,6 +164,7 @@ impl RefreshTokenUseCase {
 
 #[async_trait]
 impl IRefreshTokenUseCase for RefreshTokenUseCase {
+    /// Exchanges a refresh token for a fresh access token.
     async fn execute(
         &self,
         request: RefreshTokenRequest,

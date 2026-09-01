@@ -6,19 +6,31 @@ use crate::modules::auth::application::ports::outgoing::{
 };
 use async_trait::async_trait;
 
+/// Why email verification failed.
+///
+/// These surface as 400 rather than 401: the token arrives as a URL path
+/// segment a person clicked, so a bad one is malformed input rather than a
+/// rejected credential. See `docs/API_ERRORS.md`.
 #[derive(Debug, Clone)]
 pub enum VerifyUserEmailError {
+    /// The verification link has expired. The user must request a new one.
     TokenExpired,
+    /// The token is malformed, of the wrong kind, or its signature failed.
     TokenInvalid,
+    /// The token was valid but names a user who no longer exists.
     UserNotFound,
+    /// The write failed.
     DatabaseError,
 }
 
+/// Redeems an emailed verification token.
 #[async_trait]
 pub trait IVerifyUserEmailUseCase: Send + Sync {
+    /// Marks the user's address verified. Idempotent — verifying twice succeeds.
     async fn execute(&self, token: &str) -> Result<(), VerifyUserEmailError>;
 }
 
+/// The default implementation, generic over the user writer.
 #[derive(Clone)]
 pub struct VerifyUserEmailUseCase<R>
 where
@@ -32,6 +44,7 @@ impl<R> VerifyUserEmailUseCase<R>
 where
     R: UserRepository + Send + Sync,
 {
+    /// Builds the use case from its ports.
     pub fn new(repository: R, token_provider: Arc<dyn TokenProvider>) -> Self {
         Self {
             repository,

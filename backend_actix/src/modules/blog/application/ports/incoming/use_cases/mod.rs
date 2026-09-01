@@ -23,18 +23,25 @@ use crate::blog::domain::entities::{BlogPost, BlogPostTopic};
 /// repository is touched.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum CreateBlogPostError {
+    /// The title failed domain validation. Caught before the repository is
+    /// touched; the payload says which rule.
     #[error("Invalid title: {0}")]
     InvalidTitle(String),
 
+    /// The slug is empty, too long, or has characters outside `[a-z0-9-]`.
     #[error("Invalid slug: {0}")]
     InvalidSlug(String),
 
+    /// The body is empty or otherwise unacceptable.
     #[error("Invalid content: {0}")]
     InvalidContent(String),
 
+    /// The author already has a post with that slug.
     #[error("Slug already exists")]
     SlugAlreadyExists,
 
+    /// The store could not be reached, or failed for a reason this operation
+    /// does not model.
     #[error("Repository error: {0}")]
     RepositoryError(String),
 }
@@ -57,6 +64,7 @@ impl From<BlogPostRepositoryError> for CreateBlogPostError {
 /// failure is the store itself.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum GetBlogPostsError {
+    /// The read could not be executed.
     #[error("Query failed: {0}")]
     QueryFailed(String),
 }
@@ -64,9 +72,11 @@ pub enum GetBlogPostsError {
 /// Why fetching a single post failed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum GetBlogPostError {
+    /// No post matched.
     #[error("Blog post not found")]
     NotFound,
 
+    /// The read could not be executed.
     #[error("Query failed: {0}")]
     QueryFailed(String),
 }
@@ -88,18 +98,26 @@ impl From<BlogPostQueryError> for GetBlogPostError {
 /// the two happened. The archivers scope on owner in SQL and cannot tell.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum PatchBlogPostError {
+    /// No post matched.
     #[error("Blog post not found")]
     NotFound,
 
+    /// The post exists but belongs to another user. Distinguishable here because
+    /// the patch path fetches the post before writing; the archive operations
+    /// cannot tell, and report [`NotFound`](Self::NotFound) instead.
     #[error("Not the owner of this post")]
     Unauthorized,
 
+    /// The slug is empty, too long, or has characters outside `[a-z0-9-]`.
     #[error("Invalid slug: {0}")]
     InvalidSlug(String),
 
+    /// The author already has a post with that slug.
     #[error("Slug already exists")]
     SlugAlreadyExists,
 
+    /// The store could not be reached, or failed for a reason this operation
+    /// does not model.
     #[error("Repository error: {0}")]
     RepositoryError(String),
 }
@@ -113,9 +131,12 @@ pub enum PatchBlogPostError {
 /// exists.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ArchiveBlogPostError {
+    /// No post matched.
     #[error("Blog post not found")]
     NotFound,
 
+    /// The store could not be reached, or failed for a reason this operation
+    /// does not model.
     #[error("Repository error: {0}")]
     RepositoryError(String),
 }
@@ -135,12 +156,16 @@ impl From<BlogPostArchiverError> for ArchiveBlogPostError {
 /// a missing topic so the handler can say which id was wrong.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum BlogPostTopicError {
+    /// No post matched the id, or it belongs to another user.
     #[error("Blog post not found")]
     PostNotFound,
 
+    /// No topic matched the id.
     #[error("Topic not found")]
     TopicNotFound,
 
+    /// The store could not be reached, or failed for a reason this operation
+    /// does not model.
     #[error("Repository error: {0}")]
     RepositoryError(String),
 }
@@ -163,11 +188,18 @@ impl From<BlogPostTopicRepositoryError> for BlogPostTopicError {
 /// timestamp is published, a future one is scheduled.
 #[derive(Debug, Clone)]
 pub struct CreateBlogPostCommand {
+    /// The user the post will belong to.
     pub owner: UserId,
+    /// Display title.
     pub title: String,
+    /// URL segment. Unique per author.
     pub slug: String,
+    /// Short summary for listings.
     pub excerpt: Option<String>,
+    /// The post body.
     pub content: String,
+    /// `None` creates a draft. A timestamp publishes, and one in the future
+    /// schedules.
     pub published_at: Option<DateTime<Utc>>,
 }
 

@@ -449,34 +449,43 @@ recording it is that **new code should not add to it.**
 `cargo doc -p backend_actix --no-deps` produces a browsable reference, and CI
 fails the build on a broken intra-doc link.
 
-Every port is documented — all 170 public items across the incoming and
-outgoing port modules:
+`cargo doc -p backend_actix --no-deps` produces a browsable reference, and CI
+fails the build on a broken intra-doc link.
 
-| Layer | Item-level docs |
+**`#![deny(missing_docs)]` is enabled on the layers that form the contract**:
+every `application/ports` module in all seven feature modules, plus
+`src/shared` and `src/api`. An undocumented public item in any of them is a
+compile error, not a warning — including struct fields and enum variants, which
+is what makes the reference complete rather than merely present.
+
+| Layer | Gate |
 | --- | --- |
-| Outgoing ports — the contracts adapters must satisfy | **92/92** |
-| Incoming ports — the use-case traits | **78/78** |
+| `modules/*/application/ports/{incoming,outgoing}` | `deny(missing_docs)` |
+| `auth` and `cv`'s `application/use_cases` — their incoming contracts, which the older idiom puts here rather than under `ports/` | `deny(missing_docs)` |
+| `shared/` — the response envelope, `ErrorCode`, rate limiting | `deny(missing_docs)` |
+| `api/` — the OpenAPI document and its wrapper types | `deny(missing_docs)` |
+| `modules/*/{adapter,application/{services,domain}}` | not gated |
 
-Outgoing ports were done first because that is where implementers get things
-wrong: whether absence is `Ok(None)` or an error, whether an operation is
-idempotent, whether a method scopes on the owner in SQL, and which condition
-maps to which error variant. The traps are written down rather than left to be
-discovered — that `UserQuery` returns soft-deleted users and the caller must
-check the flag, and that `CVArchiver` does *not* scope on owner while the blog
-and project archivers do.
+The second row exists because of the convention drift described above: `auth`
+and `cv` declare their use-case traits beside the implementation instead of
+under `ports/`. Gating by directory alone would have left the two most
+security-sensitive modules' contracts uncovered, so those directories are
+gated too.
 
-Incoming ports carry the same treatment on the other side of the boundary: what
-each operation does, which error variants a handler must expect, and where two
-similarly-shaped use cases differ in a way that matters. `GetBlogPostsUseCase`
-and `GetPublicBlogPostsUseCase` have identical signatures and are not
-interchangeable — the public one forces published-only, so wiring the wrong one
-into a public route would leak drafts. That is now stated on both traits.
+Ports came first because that is where implementers get things wrong: whether
+absence is `Ok(None)` or an error, whether an operation is idempotent, whether a
+method scopes on the owner in SQL, and which condition maps to which error
+variant. The traps are written down rather than left to be discovered — that
+`UserQuery` returns soft-deleted users and the caller must check the flag, and
+that `CVArchiver` does *not* scope on owner while the blog and project archivers
+do.
 
-A `#![deny(missing_docs)]` gate is not in place yet. It demands a doc comment
-on every public struct **field**, and 181 of those remain in the outgoing ports
-alone. Most would be filler on self-describing DTO fields, so the gate is worth
-having only after a pass that writes the ones carrying real meaning. Until
-then, coverage is a review concern rather than a build error.
+What is left ungated is adapters and services — the implementations. They are
+read alongside the contract they satisfy, which now explains itself, so the
+marginal value of a comment on every concrete type is lower. Widening the gate
+is a mechanical follow-up whenever it seems worth it: one
+`#![deny(missing_docs)]` at the module root, then work through what the
+compiler lists.
 
 ---
 

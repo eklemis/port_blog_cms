@@ -24,6 +24,7 @@ pub struct ErrorResponse {
     pub error: ErrorDetail,
 }
 
+/// The `error` object inside a failed response.
 #[derive(Serialize, ToSchema)]
 pub struct ErrorDetail {
     /// Machine-readable error code. This is the stable contract — branch on it

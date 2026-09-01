@@ -15,12 +15,17 @@ use crate::auth::application::domain::entities::UserId;
 /// ownership itself.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum SoftDeleteTopicError {
+    /// No topic matched the id.
     #[error("Topic not found")]
     TopicNotFound,
 
+    /// The topic exists but belongs to another user. Distinguishable here
+    /// because the repository does not scope on owner — the use case reads the
+    /// topic and checks.
     #[error("You are not the owner of this topic")]
     Forbidden,
 
+    /// The store could not be reached.
     #[error("Database error: {0}")]
     DatabaseError(String),
 }

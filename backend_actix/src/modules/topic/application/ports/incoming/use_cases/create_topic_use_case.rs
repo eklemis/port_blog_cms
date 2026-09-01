@@ -35,9 +35,11 @@ pub struct CreateTopicCommand {
 /// case runs — nothing has been attempted yet.
 #[derive(Debug, thiserror::Error)]
 pub enum CreateTopicCommandError {
+    /// The title was empty once trimmed.
     #[error("Title cannot be empty")]
     EmptyTitle,
 
+    /// The title exceeds 100 characters.
     #[error("Title too long")]
     TitleTooLong,
 }
@@ -94,9 +96,11 @@ impl CreateTopicCommand {
 /// Why creating a topic failed once the use case ran.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum CreateTopicError {
+    /// The owner already has a topic with that title.
     #[error("Topic already exists")]
     TopicAlreadyExists,
 
+    /// The store could not be reached.
     #[error("Repository error: {0}")]
     RepositoryError(String),
 }

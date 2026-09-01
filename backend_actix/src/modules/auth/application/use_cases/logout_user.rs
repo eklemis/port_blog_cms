@@ -11,23 +11,35 @@ use crate::auth::application::ports::{
 };
 
 // ========================= Logout Request =========================
+/// A validated logout request.
 #[derive(Debug, Clone)]
 pub struct LogoutRequest {
     refresh_token: Option<String>,
 }
 
 impl LogoutRequest {
+    /// Builds the request.
+    ///
+    /// A missing token is accepted: logging out without one is a no-op rather
+    /// than an error, so a client that has already discarded its token can still
+    /// call this.
     pub fn new(refresh_token: Option<String>) -> Result<Self, LogoutRequestError> {
         Ok(Self {
             refresh_token: refresh_token.map(|t| t.trim().to_string()),
         })
     }
 
+    /// The token to blacklist, if one was supplied.
     pub fn refresh_token(&self) -> Option<&str> {
         self.refresh_token.as_deref()
     }
 }
 
+/// Why a logout request could not be built.
+///
+/// Deliberately empty: no input is rejected. The type exists so the
+/// constructor's signature matches the other commands, and so a future rule
+/// has somewhere to go.
 #[derive(Debug, Clone)]
 pub enum LogoutRequestError {
     // For future validation
@@ -58,15 +70,20 @@ impl<'de> Deserialize<'de> for LogoutRequest {
 }
 
 // ====================== Logout Response =============================
+/// The body returned after logging out.
 #[derive(Debug, Clone, Serialize)]
 pub struct LogoutResponse {
+    /// Human-readable confirmation.
     pub message: String,
 }
 
 // ====================== Logout Error =============================
+/// Why logout failed.
 #[derive(Debug, Clone)]
 pub enum LogoutError {
+    /// The token could not be blacklisted.
     TokenRevocationFailed(String),
+    /// The blacklist store could not be reached.
     DatabaseError(String),
 }
 
@@ -93,11 +110,14 @@ impl From<TokenRepositoryError> for LogoutError {
 }
 
 // ============================ Logout Use Case =============================
+/// Blacklists a refresh token.
 #[async_trait]
 pub trait ILogoutUseCase: Send + Sync {
+    /// Blacklists the token until its own expiry.
     async fn execute(&self, request: LogoutRequest) -> Result<LogoutResponse, LogoutError>;
 }
 
+/// The default implementation, generic over the blacklist store.
 #[derive(Clone)]
 pub struct LogoutUseCase<R>
 where
@@ -111,6 +131,7 @@ impl<R> LogoutUseCase<R>
 where
     R: TokenRepository + Send + Sync,
 {
+    /// Builds the use case from its ports.
     pub fn new(token_repository: R, token_provider: Arc<dyn TokenProvider>) -> Self {
         Self {
             token_repository,

@@ -65,12 +65,22 @@ impl Error for TokenError {}
 /// user rather than trusting the claim.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TokenClaims {
-    pub sub: Uuid,          // User ID
-    pub exp: i64,           // Expiration timestamp
-    pub iat: i64,           // Issued at timestamp - ADD THIS
-    pub nbf: i64,           // Not before timestamp - ADD THIS
-    pub token_type: String, // "access", "refresh", "verification", or "password_reset"
-    pub is_verified: bool,  // User verification status
+    /// The user the token identifies.
+    pub sub: Uuid,
+    /// Expiry, as a Unix timestamp. Past this the token is refused.
+    pub exp: i64,
+    /// When the token was issued, as a Unix timestamp.
+    pub iat: i64,
+    /// Not-before, as a Unix timestamp. A token presented earlier than this is
+    /// refused — in practice that means clock skew, not an attack.
+    pub nbf: i64,
+    /// Which kind of token this is: `access`, `refresh`, `verification` or
+    /// `password_reset`. Verification checks it, which is what keeps the four
+    /// kinds from being interchangeable.
+    pub token_type: String,
+    /// Whether the account's email was verified **when the token was minted**.
+    /// It does not track later changes — see the struct documentation.
+    pub is_verified: bool,
 }
 
 /// Mints and verifies the four kinds of token.

@@ -10,12 +10,16 @@ use crate::auth::application::domain::entities::UserId;
 /// Why a post-topic link operation failed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum BlogPostTopicRepositoryError {
+    /// No post matched the id, or it belongs to another user. Scoped in SQL,
+    /// so the two are indistinguishable here.
     #[error("Blog post not found")]
     PostNotFound,
 
+    /// No topic matched the id.
     #[error("Topic not found")]
     TopicNotFound,
 
+    /// The store could not be reached.
     #[error("Database error: {0}")]
     DatabaseError(String),
 }

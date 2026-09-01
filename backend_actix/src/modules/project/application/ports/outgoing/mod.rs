@@ -1,5 +1,7 @@
 //! What project needs from the outside: a project store split into write, read, lifecycle and topic-link ports.
 
+#![deny(missing_docs)]
+
 pub mod project_archiver;
 pub mod project_query;
 pub mod project_repository;

@@ -13,6 +13,7 @@ pub enum DeleteMediaError {
     #[error("Media not found")]
     MediaNotFound,
 
+    /// The store could not be reached.
     #[error("Repository error: {0}")]
     RepositoryError(String),
 }

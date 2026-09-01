@@ -12,6 +12,7 @@ use crate::{
 /// A user with no topics gets an empty `Vec`, not an error.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum GetTopicsError {
+    /// The store could not be reached.
     #[error("Failed to fetch topics: {0}")]
     QueryFailed(String),
 }

@@ -4,8 +4,10 @@ use async_trait::async_trait;
 use std::fmt;
 use uuid::Uuid;
 
+/// Why creating a CV failed.
 #[derive(Debug, Clone)]
 pub enum CreateCVError {
+    /// The store could not be reached, or the write failed.
     RepositoryError(String),
 }
 
@@ -22,6 +24,7 @@ impl fmt::Display for CreateCVError {
 /// An interface for the create CV use case
 #[async_trait]
 pub trait ICreateCVUseCase: Send + Sync {
+    /// Creates the CV and returns it as stored.
     async fn execute(&self, user_id: Uuid, cv_data: CreateCVData) -> Result<CVInfo, CreateCVError>;
 }
 
@@ -37,6 +40,7 @@ impl<R> CreateCVUseCase<R>
 where
     R: CVRepository,
 {
+    /// Builds the use case from its repository port.
     pub fn new(cv_repository: R) -> Self {
         Self { cv_repository }
     }

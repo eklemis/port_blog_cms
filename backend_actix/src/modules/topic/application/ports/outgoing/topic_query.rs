@@ -11,11 +11,17 @@ use crate::auth::application::domain::entities::UserId;
 /// filtered out by the query, so the flag would always be `false` here.
 #[derive(Debug, Clone)]
 pub struct TopicQueryResult {
+    /// Primary key.
     pub id: Uuid,
+    /// The user this topic belongs to.
     pub owner: UserId,
+    /// Display title. Unique per owner.
     pub title: String,
+    /// Long-form description. Empty rather than absent when unset.
     pub description: String,
+    /// When the topic was created.
     pub created_at: chrono::DateTime<chrono::Utc>,
+    /// When it was last edited.
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 

@@ -16,7 +16,11 @@ use crate::modules::project::application::ports::outgoing::project_repository::{
 /// Why creating a project failed.
 #[derive(Debug, Clone)]
 pub enum CreateProjectError {
+    /// The owner already has a project with that slug. Slugs are unique per
+    /// owner, so another user holding it is not a conflict.
     SlugAlreadyExists,
+    /// The store could not be reached, or failed for a reason this operation
+    /// does not model. A 500 for the caller.
     RepositoryError(String),
 }
 

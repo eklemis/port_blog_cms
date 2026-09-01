@@ -10,6 +10,7 @@ use utoipa::ToSchema;
 /// Narrows a CV listing.
 #[derive(Debug, Clone, Default)]
 pub struct CVListFilter {
+    /// Free-text filter. `None` matches everything.
     pub search: Option<String>,
 }
 
@@ -32,7 +33,9 @@ pub enum CVSort {
 /// Which page to return. Pages are 1-based; defaults to 20 per page.
 #[derive(Debug, Clone)]
 pub struct CVPageRequest {
+    /// 1-based page number.
     pub page: u32,
+    /// Rows per page.
     pub per_page: u32,
 }
 
@@ -75,9 +78,11 @@ pub struct CVPageResult<T> {
 /// No "not found" variant: absence is `Ok(None)` or an empty page.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum CVQueryError {
+    /// The store could not be reached.
     #[error("Database error: {0}")]
     DatabaseError(String),
 
+    /// The store was reached but the query did not execute.
     #[error("Query execution failed: {0}")]
     QueryFailed(String),
 }
@@ -91,6 +96,7 @@ pub enum CVQueryError {
 /// Reads CVs: owner listings and public single fetches.
 #[async_trait]
 pub trait CVQuery: Send + Sync {
+    /// Lists an owner's CVs, filtered, sorted and paginated.
     async fn list(
         &self,
         user_id: Uuid,
@@ -99,5 +105,7 @@ pub trait CVQuery: Send + Sync {
         page: CVPageRequest,
     ) -> Result<CVPageResult<CVInfo>, CVQueryError>;
 
+    /// Fetches one CV by id. `Ok(None)` when absent — the caller decides what a
+    /// missing CV means for its endpoint.
     async fn fetch_cv_by_id(&self, cv_id: Uuid) -> Result<Option<CVInfo>, CVQueryError>;
 }

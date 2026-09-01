@@ -3,6 +3,8 @@ use async_trait::async_trait;
 /// Outcome of consuming one unit of quota.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RateLimitDecision {
+    /// Whether the request may proceed. False means the caller is over its
+    /// limit for this window.
     pub allowed: bool,
     /// Requests still available in the current window.
     pub remaining: u32,
@@ -10,8 +12,14 @@ pub struct RateLimitDecision {
     pub retry_after_secs: u64,
 }
 
+/// Why the limiter could not reach a decision.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum RateLimitError {
+    /// The counter store could not be reached.
+    ///
+    /// The middleware treats this as **allow**: refusing every login during a
+    /// cache outage would turn it into a total authentication outage. See
+    /// `docs/adr/0001-rate-limiter-fails-open.md`.
     #[error("Rate limit store unavailable: {0}")]
     Unavailable(String),
 }

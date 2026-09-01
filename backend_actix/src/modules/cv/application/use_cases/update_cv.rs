@@ -3,14 +3,20 @@ use crate::cv::domain::entities::CVInfo;
 use async_trait::async_trait;
 use uuid::Uuid;
 
+/// Why a full replacement failed.
 #[derive(Debug, Clone)]
 pub enum UpdateCVError {
+    /// No CV matched the id.
     CVNotFound,
+    /// The store could not be reached, or the write failed.
     RepositoryError(String),
 }
 
+/// Replaces a CV's contents wholesale. Contrast
+/// [`IPatchCVUseCase`](super::patch_cv::IPatchCVUseCase), which is partial.
 #[async_trait]
 pub trait IUpdateCVUseCase: Send + Sync {
+    /// Replaces the CV and returns it as stored.
     async fn execute(
         &self,
         user_id: Uuid,
@@ -19,12 +25,14 @@ pub trait IUpdateCVUseCase: Send + Sync {
     ) -> Result<CVInfo, UpdateCVError>;
 }
 
+/// The default implementation, generic over the repository port.
 #[derive(Debug, Clone)]
 pub struct UpdateCVUseCase<R: CVRepository> {
     repository: R,
 }
 
 impl<R: CVRepository> UpdateCVUseCase<R> {
+    /// Builds the use case from its repository port.
     pub fn new(repository: R) -> Self {
         Self { repository }
     }
@@ -35,6 +43,7 @@ impl<R> IUpdateCVUseCase for UpdateCVUseCase<R>
 where
     R: CVRepository + Send + Sync,
 {
+    /// Replaces the CV and returns it as stored.
     async fn execute(
         &self,
         user_id: Uuid,

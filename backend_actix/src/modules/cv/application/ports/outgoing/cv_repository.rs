@@ -11,7 +11,9 @@ use uuid::Uuid;
 /// Why a CV write failed.
 #[derive(Debug, Clone)]
 pub enum CVRepositoryError {
+    /// No CV matched the id.
     NotFound,
+    /// The store could not be reached.
     DatabaseError(String),
 }
 
@@ -45,30 +47,50 @@ pub trait CVRepository: Send + Sync {
 /// Everything needed to insert a CV.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateCVData {
+    /// Job title shown under the display name.
     pub role: String,
+    /// Free-form introduction.
     pub bio: String,
+    /// Name shown on the CV, which need not match the account's full name.
     pub display_name: String,
+    /// Portrait image. Empty when none has been set.
     pub photo_url: String,
+    /// Headline skills, in display order.
     pub core_skills: Vec<CoreSkill>,
+    /// Education entries, in display order.
     pub educations: Vec<Education>,
+    /// Work history, in display order.
     pub experiences: Vec<Experience>,
+    /// Projects featured on the CV, in display order.
     pub highlighted_projects: Vec<HighlightedProject>,
+    /// Contact rows — email, links, phone. Public on a published CV.
     pub contact_info: Vec<ContactDetail>,
 }
 
 // Separate struct for updating CV
+/// A full replacement carries the same fields as a creation, so the two share
+/// one type. Contrast [`PatchCVData`], which is partial.
 pub type UpdateCVData = CreateCVData;
 
 /// A partial CV update. Omitted fields are left as stored.
 #[derive(Debug, Clone)]
 pub struct PatchCVData {
+    /// New bio, or `None` to leave it alone.
     pub bio: Option<String>,
+    /// New role, or `None` to leave it alone.
     pub role: Option<String>,
+    /// New portrait URL, or `None` to leave it alone.
     pub photo_url: Option<String>,
+    /// New display name, or `None` to leave it alone.
     pub display_name: Option<String>,
+    /// Replaces the whole list when present. There is no per-item patch.
     pub core_skills: Option<Vec<CoreSkill>>,
+    /// Replaces the whole list when present.
     pub educations: Option<Vec<Education>>,
+    /// Replaces the whole list when present.
     pub experiences: Option<Vec<Experience>>,
+    /// Replaces the whole list when present.
     pub highlighted_projects: Option<Vec<HighlightedProject>>,
+    /// Replaces the whole list when present.
     pub contact_info: Option<Vec<ContactDetail>>,
 }
