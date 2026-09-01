@@ -640,4 +640,71 @@ mod tests {
         let err = svc.get_latest_manifest("m4").await.unwrap_err();
         assert!(matches!(err, StorageQueryError::NetworkInterrupted));
     }
+
+    // ------------------------------------------------------------------
+    // Error classification
+    // ------------------------------------------------------------------
+
+    /// `map_sign_error` turns an opaque SDK message into a variant the route
+    /// can act on: Configuration is our fault and worth alerting, AccessDenied
+    /// means credentials, Infrastructure is a retry.
+    #[test]
+    fn sign_errors_are_classified_by_message() {
+        assert_eq!(map_sign_error("403 Forbidden"), SignUrlError::AccessDenied);
+        assert_eq!(
+            map_sign_error("bucket not found"),
+            SignUrlError::BucketNotFound
+        );
+        assert_eq!(
+            map_sign_error("invalid configuration"),
+            SignUrlError::Configuration
+        );
+        assert_eq!(map_sign_error("something odd"), SignUrlError::Infrastructure);
+    }
+
+    /// Classification is case-insensitive, since SDK messages are not
+    /// consistently cased.
+    #[test]
+    fn sign_error_classification_ignores_case() {
+        assert_eq!(map_sign_error("ACCESS DENIED"), SignUrlError::AccessDenied);
+        assert_eq!(
+            map_sign_error("Invalid Config"),
+            SignUrlError::Configuration
+        );
+    }
+
+    #[test]
+    fn a_missing_manifest_is_distinguished_from_a_transport_failure() {
+        assert_eq!(
+            map_read_error("404 not found"),
+            StorageQueryError::ManifestNotFound
+        );
+        assert_eq!(
+            map_read_error("connection reset"),
+            StorageQueryError::NetworkInterrupted
+        );
+    }
+
+    /// Worth recording: the network branch and the fallback in `map_read_error`
+    /// both return NetworkInterrupted, so the timeout/dns/connection/tcp test
+    /// changes nothing — any non-404 is reported the same way. Harmless today,
+    /// but the branch reads as if it discriminates when it does not, and
+    /// StorageQueryError has no variant for "unclassified" to give it meaning.
+    #[test]
+    fn every_non_404_read_error_maps_to_network_interrupted() {
+        for msg in [
+            "timeout waiting for response",
+            "dns failure",
+            "connection reset",
+            "network unreachable",
+            "tcp error",
+            "something entirely unrelated",
+        ] {
+            assert_eq!(
+                map_read_error(msg),
+                StorageQueryError::NetworkInterrupted,
+                "{msg:?}"
+            );
+        }
+    }
 }

@@ -1,0 +1,50 @@
+# Runs only when the SvelteKit app changes.
+name: Frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'blogport_frontend/**'
+      - '.github/workflows/frontend.yml'
+  pull_request:
+    paths:
+      - 'blogport_frontend/**'
+      - '.github/workflows/frontend.yml'
+
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: blogport_frontend
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # bun.lockb is the lockfile in this project, so bun is required — npm
+      # would resolve a different tree.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      # The vitest "client" project runs in a real headless Chromium via
+      # @vitest/browser-playwright, so the browser has to be present.
+      - name: Install Chromium for browser tests
+        run: bunx playwright install --with-deps chromium
+
+      - name: Typecheck
+        run: bun run check
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Test
+        run: bun run test

@@ -3,14 +3,6 @@ name = "image-processor-function"
 version = "0.1.0"
 edition = "2021"
 
-[profile.release]
-opt-level = 3        # Already default, explicit is fine
-debug = false        # Already default
-lto = "fat"          # Enable LTO
-panic = "abort"      # Abort on panic to reduce binary size
-codegen-units = 1    # Maximize potential for optimizations
-strip = "symbols"    # Strip debug symbols
-
 [dependencies]
 actix-web = "4"
 serde = { version = "1", features = ["derive"] }

@@ -162,3 +162,60 @@ pub trait ProjectRepository: Send + Sync {
         data: PatchProjectData,
     ) -> Result<ProjectResult, ProjectRepositoryError>;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// PatchField exists to tell "leave alone" from "set to null" — the
+    /// distinction Option cannot express. These predicates are how callers read
+    /// that, and getting one wrong would silently turn an omitted field into a
+    /// clear, wiping data the caller never mentioned.
+    #[test]
+    fn the_three_states_are_distinguishable() {
+        let unset: PatchField<String> = PatchField::Unset;
+        assert!(unset.is_unset() && !unset.is_null() && !unset.is_value());
+
+        let null: PatchField<String> = PatchField::Null;
+        assert!(null.is_null() && !null.is_unset() && !null.is_value());
+
+        let value = PatchField::Value("x".to_string());
+        assert!(value.is_value() && !value.is_unset() && !value.is_null());
+    }
+
+    #[test]
+    fn as_value_yields_the_inner_value_only_when_present() {
+        assert_eq!(
+            PatchField::Value("hello".to_string()).as_value(),
+            Some(&"hello".to_string())
+        );
+        assert_eq!(PatchField::<String>::Null.as_value(), None);
+        assert_eq!(PatchField::<String>::Unset.as_value(), None);
+    }
+
+    #[test]
+    fn the_default_is_unset_so_an_omitted_field_changes_nothing() {
+        assert!(PatchField::<String>::default().is_unset());
+    }
+
+    /// The enum is `#[serde(untagged)]` with `Unset` skipped, so an absent key
+    /// deserialises to Unset while an explicit null becomes Null. That mapping
+    /// is the whole contract of a PATCH body.
+    #[test]
+    fn absent_and_null_deserialise_differently() {
+        #[derive(serde::Deserialize)]
+        struct Body {
+            #[serde(default)]
+            title: PatchField<String>,
+        }
+
+        let absent: Body = serde_json::from_str("{}").unwrap();
+        assert!(absent.title.is_unset());
+
+        let null: Body = serde_json::from_str(r#"{"title":null}"#).unwrap();
+        assert!(null.title.is_null());
+
+        let set: Body = serde_json::from_str(r#"{"title":"hi"}"#).unwrap();
+        assert_eq!(set.title.as_value(), Some(&"hi".to_string()));
+    }
+}

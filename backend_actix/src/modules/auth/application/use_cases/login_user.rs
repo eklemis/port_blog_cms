@@ -631,4 +631,40 @@ mod tests {
         let result = use_case.execute(request).await;
         assert!(result.is_ok(), "Should succeed with normalized email");
     }
+
+    // ------------------------------------------------------------------
+    // Request parsing and error display
+    // ------------------------------------------------------------------
+
+    /// LoginRequest has a hand-written Deserialize, so a body missing either
+    /// field is rejected at parse time rather than reaching the use case with
+    /// an empty credential.
+    #[test]
+    fn a_login_body_requires_both_fields() {
+        let ok: Result<LoginRequest, _> =
+            serde_json::from_str(r#"{"email":"a@b.com","password":"secret"}"#);
+        assert!(ok.is_ok());
+
+        for bad in [r#"{"email":"a@b.com"}"#, r#"{"password":"secret"}"#, "{}"] {
+            let r: Result<LoginRequest, _> = serde_json::from_str(bad);
+            assert!(r.is_err(), "{bad} should not parse");
+        }
+    }
+
+    /// These strings are logged and, for some variants, returned to the caller.
+    #[test]
+    fn login_errors_render_their_cause() {
+        assert_eq!(
+            LoginError::PasswordVerificationFailed("argon2 died".into()).to_string(),
+            "Password verification failed: argon2 died"
+        );
+        assert_eq!(
+            LoginError::TokenGenerationFailed("no key".into()).to_string(),
+            "Token generation failed: no key"
+        );
+        assert_eq!(
+            LoginError::QueryError("db down".into()).to_string(),
+            "Query error: db down"
+        );
+    }
 }

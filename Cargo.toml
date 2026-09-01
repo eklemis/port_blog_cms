@@ -1,0 +1,32 @@
+# Root workspace for the repository's Rust services.
+#
+# Members share one Cargo.lock and one target/ directory, so a dependency
+# resolves to the same version everywhere and a build of one service warms
+# the cache for the other. Previously backend_actix owned a workspace of
+# its own and image-processor-function was a standalone crate, which meant
+# two lockfiles and ~17.5G of duplicated build artefacts.
+[workspace]
+resolver = "2"
+members = [
+    "backend_actix",
+    "backend_actix/entity",
+    "backend_actix/migration",
+    "image-processor-function",
+]
+
+[profile.test]
+opt-level = 0
+
+# Cargo only honours profiles declared on the workspace root, so these are
+# the merged settings from the two crates' former [profile.release] blocks.
+[profile.release]
+opt-level = 3
+lto = true          # equivalent to image-processor-function's lto = "fat"
+codegen-units = 1   # increases optimization potential, longer compile times
+panic = "abort"     # smaller binaries; both crates already set this
+strip = "debuginfo" # keep symbols so Cloud Run panic backtraces stay readable
+
+# image-processor-function stripped symbols too before the hoist. Keep its
+# binary as small as it was; backend_actix keeps its backtraces.
+[profile.release.package.image-processor-function]
+strip = "symbols"

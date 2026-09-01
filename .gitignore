@@ -1,8 +1,14 @@
-/backend_actix/target
-/backend_actix/Cargo.lock
-/image-processor-function/target
-/image-processor-function/Cargo.lock
+# Rust build output. Matches the root workspace target/ and any stale
+# per-crate target/ dirs left over from before the workspace was hoisted.
+target/
+
+# Cargo.lock IS committed. These are deployable binaries, and both
+# Dockerfiles copy the lockfile so a Cloud Build produces the same
+# dependency graph as a local build.
+
 /media-status-updater/node_modules/
+node_modules/
+
 *.env
 *.env.test
 *.npmrc
@@ -17,4 +23,5 @@ graphify-out/
 # coverage output
 /backend_actix/tarpaulin-report.*
 /backend_actix/lcov.info
-/backend_actix/target/llvm-cov-target/
+
+.DS_Store

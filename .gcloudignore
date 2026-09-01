@@ -1,0 +1,14 @@
+# Mirrors .dockerignore. Cloud Build uploads this directory as the build
+# context, so keep the frontend and node services out of the tarball.
+.git/
+.gitignore
+target/
+node_modules/
+blogport_frontend/
+backend_node/
+media-status-updater/
+graphify-out/
+**/graphify-out/
+**/*.env
+**/postman/
+**/docs/

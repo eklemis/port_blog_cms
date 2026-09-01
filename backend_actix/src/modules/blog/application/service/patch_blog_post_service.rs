@@ -305,4 +305,121 @@ mod tests {
         let seen = svc.repository.seen.lock().unwrap().clone().unwrap();
         assert!(matches!(seen.published_at, BlogPatchField::Null));
     }
+
+    /// The repository is consulted twice — once to establish ownership, once to
+    /// write — and each call maps its errors independently. Both mappings are
+    /// exercised here, since a mistake in either turns a 404 or 409 into a 500.
+    #[tokio::test]
+    async fn errors_from_the_ownership_read_are_mapped() {
+        struct FailingFetch(BlogPostRepositoryError);
+
+        #[async_trait]
+        impl BlogPostRepository for FailingFetch {
+            async fn create(
+                &self,
+                _d: CreateBlogPostData,
+            ) -> Result<BlogPost, BlogPostRepositoryError> {
+                unimplemented!()
+            }
+            async fn fetch_by_id(
+                &self,
+                _id: Uuid,
+            ) -> Result<Option<BlogPost>, BlogPostRepositoryError> {
+                Err(self.0.clone())
+            }
+            async fn patch(
+                &self,
+                _id: Uuid,
+                _d: PatchBlogPostData,
+            ) -> Result<BlogPost, BlogPostRepositoryError> {
+                unimplemented!()
+            }
+        }
+
+        let cases = [
+            (BlogPostRepositoryError::NotFound, "notfound"),
+            (BlogPostRepositoryError::SlugAlreadyExists, "slug"),
+            (BlogPostRepositoryError::DatabaseError("db".into()), "db"),
+        ];
+
+        for (err, kind) in cases {
+            let svc = PatchBlogPostService::new(FailingFetch(err));
+            let got = svc
+                .execute(
+                    UserId::from(Uuid::new_v4()),
+                    Uuid::new_v4(),
+                    PatchBlogPostData::default(),
+                )
+                .await
+                .unwrap_err();
+
+            match kind {
+                "notfound" => assert!(matches!(got, PatchBlogPostError::NotFound)),
+                "slug" => assert!(matches!(got, PatchBlogPostError::SlugAlreadyExists)),
+                _ => assert!(matches!(got, PatchBlogPostError::RepositoryError(m) if m == "db")),
+            }
+        }
+    }
+
+    /// A slug collision can only be detected by the database, on the write —
+    /// the service cannot know another post holds the slug until the unique
+    /// index rejects it. So this arm is the one that produces the 409.
+    #[tokio::test]
+    async fn errors_from_the_write_are_mapped() {
+        let user_id = Uuid::new_v4();
+
+        for (err, expect_slug) in [
+            (BlogPostRepositoryError::SlugAlreadyExists, true),
+            (BlogPostRepositoryError::NotFound, false),
+            (BlogPostRepositoryError::DatabaseError("db".into()), false),
+        ] {
+            let svc = PatchBlogPostService::new(MockRepo {
+                existing: Some(a_post(user_id)),
+                patch_result: Err(err),
+                seen: Mutex::new(None),
+            });
+
+            let got = svc
+                .execute(
+                    UserId::from(user_id),
+                    Uuid::new_v4(),
+                    PatchBlogPostData::default(),
+                )
+                .await
+                .unwrap_err();
+
+            if expect_slug {
+                assert!(matches!(got, PatchBlogPostError::SlugAlreadyExists));
+            } else {
+                assert!(!matches!(got, PatchBlogPostError::SlugAlreadyExists));
+            }
+        }
+    }
+
+    /// Slug validation matches creation exactly: a patched slug still lands in
+    /// a URL and still meets the same unique index.
+    #[tokio::test]
+    async fn a_patched_slug_faces_the_same_rules_as_a_created_one() {
+        let user_id = Uuid::new_v4();
+
+        for bad in ["", "   ", "has space", "has/slash", "héllo", &"a".repeat(201)] {
+            let svc = service(Some(a_post(user_id)));
+            let err = svc
+                .execute(
+                    UserId::from(user_id),
+                    Uuid::new_v4(),
+                    PatchBlogPostData {
+                        slug: BlogPatchField::Value(bad.to_string()),
+                        ..Default::default()
+                    },
+                )
+                .await
+                .unwrap_err();
+
+            assert!(
+                matches!(err, PatchBlogPostError::InvalidSlug(_)),
+                "{bad:?} should be rejected"
+            );
+        }
+    }
 }

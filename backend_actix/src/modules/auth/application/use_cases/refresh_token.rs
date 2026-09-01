@@ -473,4 +473,72 @@ mod tests {
         let claims = jwt_service.verify_token(&access_token).unwrap();
         assert_eq!(claims.is_verified, false);
     }
+
+    // ------------------------------------------------------------------
+    // Error mapping and display
+    // ------------------------------------------------------------------
+
+    /// Every TokenError has to land on a distinct RefreshTokenError, because
+    /// the route turns them into different HTTP statuses. A wrong arm here
+    /// would, for instance, report an expired token as a server fault.
+    #[test]
+    fn every_token_error_maps_to_its_own_variant() {
+        use crate::auth::application::ports::outgoing::token_provider::TokenError;
+
+        assert!(matches!(
+            RefreshTokenError::from(TokenError::TokenExpired),
+            RefreshTokenError::TokenExpired
+        ));
+        assert!(matches!(
+            RefreshTokenError::from(TokenError::TokenNotYetValid),
+            RefreshTokenError::TokenNotYetValid
+        ));
+        assert!(matches!(
+            RefreshTokenError::from(TokenError::InvalidSignature),
+            RefreshTokenError::InvalidSignature
+        ));
+        // Note the rename across the boundary: a malformed token surfaces as
+        // TokenInvalid, not a same-named variant.
+        assert!(matches!(
+            RefreshTokenError::from(TokenError::MalformedToken),
+            RefreshTokenError::TokenInvalid
+        ));
+        assert!(matches!(
+            RefreshTokenError::from(TokenError::InvalidTokenType("refresh".into())),
+            RefreshTokenError::InvalidTokenType
+        ));
+        assert!(matches!(
+            RefreshTokenError::from(TokenError::EncodingError("boom".into())),
+            RefreshTokenError::TokenGenerationFailed(m) if m == "boom"
+        ));
+    }
+
+    /// These strings are what a client reads when a refresh fails.
+    #[test]
+    fn refresh_errors_render_readable_messages() {
+        assert_eq!(
+            RefreshTokenError::TokenNotYetValid.to_string(),
+            "Token is not yet valid"
+        );
+        assert_eq!(
+            RefreshTokenError::InvalidSignature.to_string(),
+            "Invalid token signature"
+        );
+        assert_eq!(
+            RefreshTokenError::TokenGenerationFailed("boom".into()).to_string(),
+            "Token generation failed: boom"
+        );
+    }
+
+    /// The request type has a hand-written Deserialize, so a body missing the
+    /// token is rejected at parse time rather than reaching the use case.
+    #[test]
+    fn a_refresh_body_requires_the_token() {
+        let ok: Result<RefreshTokenRequest, _> =
+            serde_json::from_str(r#"{"refresh_token":"tok"}"#);
+        assert!(ok.is_ok());
+
+        let missing: Result<RefreshTokenRequest, _> = serde_json::from_str("{}");
+        assert!(missing.is_err(), "a body with no token should not parse");
+    }
 }

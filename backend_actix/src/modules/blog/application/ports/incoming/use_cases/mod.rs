@@ -257,3 +257,91 @@ pub trait GetBlogPostTopicsUseCase: Send + Sync {
         post_id: Uuid,
     ) -> Result<Vec<BlogPostTopic>, GetBlogPostError>;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Each From impl exists so a handler matches only outcomes its endpoint can
+    /// produce. A wrong arm here changes an HTTP status — a slug clash becoming
+    /// a 500 instead of a 409, say — which no route test would catch, since they
+    /// construct the incoming error directly.
+    #[test]
+    fn repository_errors_map_onto_create_variants() {
+        assert!(matches!(
+            CreateBlogPostError::from(BlogPostRepositoryError::SlugAlreadyExists),
+            CreateBlogPostError::SlugAlreadyExists
+        ));
+        assert!(matches!(
+            CreateBlogPostError::from(BlogPostRepositoryError::DatabaseError("db".into())),
+            CreateBlogPostError::RepositoryError(m) if m == "db"
+        ));
+        // NotFound has no meaning when creating, so it degrades to a repository
+        // error rather than silently becoming a success or a slug clash.
+        assert!(matches!(
+            CreateBlogPostError::from(BlogPostRepositoryError::NotFound),
+            CreateBlogPostError::RepositoryError(_)
+        ));
+    }
+
+    #[test]
+    fn query_errors_map_onto_get_variants() {
+        assert!(matches!(
+            GetBlogPostError::from(BlogPostQueryError::NotFound),
+            GetBlogPostError::NotFound
+        ));
+        assert!(matches!(
+            GetBlogPostError::from(BlogPostQueryError::DatabaseError("db".into())),
+            GetBlogPostError::QueryFailed(m) if m == "db"
+        ));
+    }
+
+    #[test]
+    fn archiver_errors_map_onto_archive_variants() {
+        assert!(matches!(
+            ArchiveBlogPostError::from(BlogPostArchiverError::NotFound),
+            ArchiveBlogPostError::NotFound
+        ));
+        assert!(matches!(
+            ArchiveBlogPostError::from(BlogPostArchiverError::DatabaseError("db".into())),
+            ArchiveBlogPostError::RepositoryError(m) if m == "db"
+        ));
+    }
+
+    /// PostNotFound and TopicNotFound must stay separate: the route reports
+    /// different error codes for each, which is the only way a caller can tell
+    /// whether the post or the topic was the problem.
+    #[test]
+    fn topic_repository_errors_keep_post_and_topic_distinct() {
+        assert!(matches!(
+            BlogPostTopicError::from(BlogPostTopicRepositoryError::PostNotFound),
+            BlogPostTopicError::PostNotFound
+        ));
+        assert!(matches!(
+            BlogPostTopicError::from(BlogPostTopicRepositoryError::TopicNotFound),
+            BlogPostTopicError::TopicNotFound
+        ));
+        assert!(matches!(
+            BlogPostTopicError::from(BlogPostTopicRepositoryError::DatabaseError("db".into())),
+            BlogPostTopicError::RepositoryError(m) if m == "db"
+        ));
+    }
+
+    /// The Display strings reach clients in error bodies.
+    #[test]
+    fn error_messages_are_human_readable() {
+        assert_eq!(
+            CreateBlogPostError::InvalidSlug("bad".into()).to_string(),
+            "Invalid slug: bad"
+        );
+        assert_eq!(GetBlogPostError::NotFound.to_string(), "Blog post not found");
+        assert_eq!(
+            PatchBlogPostError::Unauthorized.to_string(),
+            "Not the owner of this post"
+        );
+        assert_eq!(
+            BlogPostTopicError::TopicNotFound.to_string(),
+            "Topic not found"
+        );
+    }
+}

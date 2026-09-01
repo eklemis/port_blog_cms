@@ -25,6 +25,37 @@ Run without `SKIP_REDIS_TESTS=1` for a true figure. Skipping the Redis
 integration tests leaves `token_repository_redis.rs` reading as ~0% when it is
 in fact covered.
 
+#### Current coverage and what is excluded
+
+As of the last measurement: **94.68% line coverage** overall, **92.26% counting
+production code only** (3324/3603 lines).
+
+llvm-cov measures the test binary, so `#[cfg(test)]` modules are included in the
+overall figure. Those are largely self-covering, which flatters it — the
+production-only number is the one worth tracking.
+
+Of the 279 uncovered production lines, 101 cannot be reached by a unit test:
+
+| Lines | Area | Why |
+| --- | --- | --- |
+| 38 | `token_repository_redis.rs`, `rate_limit/redis_store.rs` | Need a reachable Redis |
+| 55 | `*/sea_orm_entity/*` | `DeriveEntityModel` output — `Relation`, `ActiveModel` |
+| 8 | `smtp_sender::new_local` | Constructs a live SMTP transport |
+
+Excluding those, production coverage is **94.92%**. The Redis lines are covered
+by the integration tests below, which need a real instance; they read as
+uncovered whenever `SKIP_REDIS_TESTS=1` is set.
+
+The remaining 178 are spread across roughly 60 files at a median of about 3
+lines each — mostly error-mapping arms. Closing them adds tests that move a
+number without catching regressions, so they are left deliberately.
+
+Two things excluded on purpose that should stay that way:
+
+- `main.rs` — composition only; covering it means booting the process.
+- `LogoutRequestError` — an enum with no variants, so its `Display` impl cannot
+  execute. Unreachable by construction, not an oversight.
+
 #### Why not tarpaulin
 
 Tarpaulin cannot attribute the body of an `async fn` inside `#[async_trait]`,
@@ -41,6 +72,27 @@ proc-macro dylibs that rust-analyzer caches paths to. That produces
 
 in the editor after every run. `cargo llvm-cov` builds into
 `target/llvm-cov-target` instead and leaves the normal build alone.
+
+### Integration tests (need real services)
+
+Some paths cannot be exercised with a mock. They are gated so the suite stays
+green without them, and they read as uncovered when skipped.
+
+```bash
+# Redis: token blacklist + rate-limit counters
+export RUST_TEST_THREADS=1
+REDIS_URL='rediss://...' cargo test
+```
+
+`token_repository_redis` covers the blacklist; `rate_limit::redis_store` covers
+the INCR / EXPIRE / TTL sequence. The middleware tests use an in-memory store
+that reimplements the counting, so they cannot catch a mistake in the Redis
+commands themselves — only these can. They also assert the window does not
+slide when a caller keeps exceeding the limit, which would otherwise let someone
+hold their own window open indefinitely.
+
+Set `SKIP_REDIS_TESTS=1` to skip them. Note that unsetting `REDIS_URL` alone is
+not enough, because other tests call `dotenvy` mid-run and repopulate it.
 
 ### Run the test without a reachable Redis
 The `token_repository_redis` tests are integration tests that need a live Redis.
