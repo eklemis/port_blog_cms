@@ -140,27 +140,34 @@ mod tests {
     }
 
     /// The TTL is set only by the request that creates the key. If it were
-    /// refreshed each time, a caller who keeps hitting the limit would hold
-    /// their own window open forever and never recover.
+    /// refreshed on every request, a caller who keeps hitting the limit would
+    /// hold their own window open forever and never recover.
+    ///
+    /// The assertion has to be strict and separated in time. An earlier version
+    /// compared `<=` with no delay, which passes either way: with the bug the
+    /// TTL is reset to the full window each call, so it stays *equal* rather
+    /// than growing. Sleeping first means a correct implementation shows a
+    /// decayed TTL, while a refreshing one snaps back to the maximum.
     #[tokio::test]
     async fn the_window_does_not_slide_when_the_limit_is_exceeded() {
         let Some(s) = store() else { return };
         let k = key("ttl");
+        let window = 30;
 
-        let first = s.consume(&k, 1, 60).await.unwrap();
+        let first = s.consume(&k, 1, window).await.unwrap();
         assert!(first.allowed);
-        let ttl_after_first = first.retry_after_secs;
 
-        // Exceed the limit several times.
-        for _ in 0..3 {
-            let d = s.consume(&k, 1, 60).await.unwrap();
-            assert!(!d.allowed);
-            assert!(
-                d.retry_after_secs <= ttl_after_first,
-                "TTL grew from {ttl_after_first} to {} — the window slid",
-                d.retry_after_secs
-            );
-        }
+        tokio::time::sleep(std::time::Duration::from_millis(3_000)).await;
+
+        // Exceed the limit; the window must keep counting down from the first
+        // request, not restart.
+        let after = s.consume(&k, 1, window).await.unwrap();
+        assert!(!after.allowed);
+        assert!(
+            after.retry_after_secs < window,
+            "TTL is still {} of {window}s after a 3s wait — the window slid",
+            after.retry_after_secs
+        );
     }
 
     #[tokio::test]
