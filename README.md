@@ -31,6 +31,13 @@ The four Rust crates form **one Cargo workspace rooted at the repository root**
 - **Release profile settings live only in `./Cargo.toml`.** Cargo ignores
   `[profile.*]` in member crates. `image-processor-function` keeps its smaller
   binary through a `[profile.release.package.…]` override.
+- **The lockfile has to stay buildable on the Dockerfiles' pinned toolchain**
+  (`rust:1.88`), which is older than a typical local `stable`. Cargo enforces
+  each dependency's `rust-version`, so a careless `cargo update` can pull a
+  crate that needs a newer rustc and break the container build while everything
+  still passes locally. If that happens, either pin the offending crate back
+  (`cargo update -p <name> --precise <ver>`) or raise the pin in both
+  Dockerfiles and the CI workflow together.
 
 Common commands, all from the repository root:
 
