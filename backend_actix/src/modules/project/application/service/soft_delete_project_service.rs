@@ -7,6 +7,7 @@ use crate::modules::project::application::ports::incoming::use_cases::{
 };
 use crate::modules::project::application::ports::outgoing::project_archiver::ProjectArchiver;
 
+/// Implements the corresponding use-case contract.
 pub struct SoftDeleteProjectService<A>
 where
     A: ProjectArchiver,
@@ -18,6 +19,7 @@ impl<A> SoftDeleteProjectService<A>
 where
     A: ProjectArchiver,
 {
+    /// Builds it from the ports it depends on.
     pub fn new(archiver: A) -> Self {
         Self { archiver }
     }

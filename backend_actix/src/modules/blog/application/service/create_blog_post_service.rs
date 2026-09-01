@@ -6,6 +6,7 @@ use crate::blog::application::ports::incoming::use_cases::{
 use crate::blog::application::ports::outgoing::{BlogPostRepository, CreateBlogPostData};
 use crate::blog::domain::entities::BlogPost;
 
+/// Implements the corresponding use-case contract.
 pub struct CreateBlogPostService<R>
 where
     R: BlogPostRepository,
@@ -17,6 +18,7 @@ impl<R> CreateBlogPostService<R>
 where
     R: BlogPostRepository,
 {
+    /// Builds it from the ports it depends on.
     pub fn new(repository: R) -> Self {
         Self { repository }
     }

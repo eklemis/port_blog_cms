@@ -21,21 +21,32 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 #[serde(bound = "T: Serialize + serde::de::DeserializeOwned")]
 pub struct ReplaceOp<T> {
+    /// The full replacement list. There is no per-item patch: a list is replaced
+    /// wholesale or left alone.
     pub replace: Vec<T>,
 }
 
 /// Partial CV update. Every field is optional; omitted fields are left as-is.
 #[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct PatchCVRequest {
+    /// New bio, or `None` to leave it.
     pub bio: Option<String>,
+    /// New role, or `None` to leave it.
     pub role: Option<String>,
+    /// New portrait URL, or `None` to leave it.
     pub photo_url: Option<String>,
+    /// New display name, or `None` to leave it.
     pub display_name: Option<String>,
 
+    /// Replaces the skills list when present.
     pub core_skills: Option<ReplaceOp<CoreSkillDto>>,
+    /// Replaces the education list when present.
     pub educations: Option<ReplaceOp<EducationDto>>,
+    /// Replaces the work history when present.
     pub experiences: Option<ReplaceOp<ExperienceDto>>,
+    /// Replaces the featured projects when present.
     pub highlighted_projects: Option<ReplaceOp<HighlightedProjectDto>>,
+    /// Replaces the contact rows when present.
     pub contact_info: Option<ReplaceOp<ContactDetailDto>>,
 }
 

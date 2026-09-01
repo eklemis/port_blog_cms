@@ -8,12 +8,14 @@ use crate::blog::application::ports::outgoing::{
     BlogPostTopicRepository, BlogPostTopicRepositoryError,
 };
 
+/// The SeaORM implementation of the matching outgoing port.
 #[derive(Clone)]
 pub struct BlogPostTopicRepositoryPostgres {
     db: Arc<DatabaseConnection>,
 }
 
 impl BlogPostTopicRepositoryPostgres {
+    /// Builds it from the ports it depends on.
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self { db }
     }

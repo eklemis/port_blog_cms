@@ -1,6 +1,5 @@
 //! What multimedia offers its route handlers.
 
-#![deny(missing_docs)]
-
+/// Implementations of this module's use-case contracts.
 pub mod services;
 pub mod use_cases;

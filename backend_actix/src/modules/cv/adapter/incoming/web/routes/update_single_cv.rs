@@ -16,14 +16,23 @@ use uuid::Uuid;
 /// Full replacement body for a CV.
 #[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct UpdateCVRequest {
+    /// Free-form introduction.
     pub bio: String,
+    /// Job title shown under the display name.
     pub role: String,
+    /// Portrait image. Empty when unset.
     pub photo_url: String,
+    /// Name shown on the CV.
     pub display_name: String,
+    /// Headline skills, in display order.
     pub core_skills: Vec<CoreSkillDto>,
+    /// Education entries, in display order.
     pub educations: Vec<EducationDto>,
+    /// Work history, in display order.
     pub experiences: Vec<ExperienceDto>,
+    /// Projects featured on the CV, in display order.
     pub highlighted_projects: Vec<HighlightedProjectDto>,
+    /// Contact rows. Public on a published CV.
     pub contact_info: Vec<ContactDetailDto>,
 }
 

@@ -15,14 +15,23 @@ use uuid::Uuid;
 /// scheduled by setting a future timestamp without any extra state.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct BlogPost {
+    /// Primary key.
     pub id: Uuid,
+    /// The owning user.
     pub user_id: Uuid,
+    /// Display title.
     pub title: String,
+    /// URL segment. Unique per owner.
     pub slug: String,
+    /// Short summary for listings. `None` when none was written.
     pub excerpt: Option<String>,
+    /// The body.
     pub content: String,
+    /// `None` is a draft; a past value is published, a future one scheduled.
     pub published_at: Option<DateTime<Utc>>,
+    /// When it was created.
     pub created_at: DateTime<Utc>,
+    /// When it was last edited.
     pub updated_at: DateTime<Utc>,
 }
 
@@ -39,8 +48,11 @@ impl BlogPost {
 /// A topic attached to a post, as read back for display.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct BlogPostTopic {
+    /// Primary key.
     pub id: Uuid,
+    /// Display title.
     pub title: String,
+    /// Long-form description.
     pub description: String,
 }
 

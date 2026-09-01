@@ -15,9 +15,12 @@ use crate::{
     AppState,
 };
 
+/// See the module documentation.
 #[derive(Debug, Deserialize)]
 pub struct PublicProjectPath {
+    /// Public handle.
     pub username: String,
+    /// The project's URL segment.
     pub project_slug: String,
 }
 

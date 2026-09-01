@@ -18,14 +18,22 @@ use utoipa::ToSchema;
 // ──────────────────────────────────────────────────────────
 //
 
+/// Request body accepted by this endpoint.
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct CreateProjectRequest {
+    /// Display title.
     pub title: String,
+    /// URL segment. Unique per owner.
     pub slug: String,
+    /// Long-form description.
     pub description: String,
+    /// Technology labels, in display order.
     pub tech_stack: Vec<String>,
+    /// Image URLs, in display order.
     pub screenshots: Vec<String>,
+    /// Source repository, if published.
     pub repo_url: Option<String>,
+    /// Running instance, if there is one.
     pub live_demo_url: Option<String>,
 }
 

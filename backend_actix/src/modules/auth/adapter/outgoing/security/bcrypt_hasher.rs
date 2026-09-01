@@ -3,6 +3,7 @@ use bcrypt::{hash, verify, DEFAULT_COST};
 
 use crate::auth::application::ports::outgoing::password_hasher::{HashError, PasswordHasher};
 
+/// See the module documentation.
 #[derive(Clone)]
 pub struct BcryptHasher;
 
@@ -13,6 +14,7 @@ impl Default for BcryptHasher {
 }
 
 impl BcryptHasher {
+    /// Builds it from the ports it depends on.
     pub fn new() -> Self {
         Self
     }

@@ -13,9 +13,12 @@ use crate::{
     AppState,
 };
 
+/// See the module documentation.
 #[derive(Debug, Deserialize)]
 pub struct PublicPostPath {
+    /// Public handle.
     pub username: String,
+    /// URL segment. Unique per owner.
     pub slug: String,
 }
 

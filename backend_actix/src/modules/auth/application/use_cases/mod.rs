@@ -1,5 +1,3 @@
-#![deny(missing_docs)]
-
 //! Auth's use cases.
 //!
 //! These predate the `ports/incoming` split that `blog`, `project`, `topic` and

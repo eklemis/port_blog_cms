@@ -6,6 +6,7 @@ use crate::auth::application::{
 };
 use async_trait::async_trait;
 
+/// Implements the corresponding use-case contract.
 pub struct UpdateUserProfileService<R>
 where
     R: UserRepository + Send + Sync,
@@ -17,6 +18,7 @@ impl<R> UpdateUserProfileService<R>
 where
     R: UserRepository + Send + Sync,
 {
+    /// Builds it from the ports it depends on.
     pub fn new(repository: R) -> Self {
         Self {
             user_repository: repository,

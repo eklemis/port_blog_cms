@@ -2,6 +2,7 @@ use crate::auth::application::ports::incoming::password_policy::{
     PasswordPolicy, PasswordPolicyError,
 };
 
+/// See the module documentation.
 pub struct BasicPasswordPolicy;
 
 impl PasswordPolicy for BasicPasswordPolicy {

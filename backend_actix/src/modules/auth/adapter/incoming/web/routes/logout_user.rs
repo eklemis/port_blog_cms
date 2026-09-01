@@ -16,6 +16,7 @@ pub struct LogoutRequestDto {
     pub refresh_token: Option<String>,
 }
 
+/// Response body returned by this endpoint.
 #[derive(Serialize, ToSchema)]
 pub struct LogoutResponseBody {
     /// Success message

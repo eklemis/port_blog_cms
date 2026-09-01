@@ -8,12 +8,14 @@ use uuid::Uuid;
 
 use super::sea_orm_entity::Model as CvModel;
 
+/// The SeaORM implementation of the matching outgoing port.
 #[derive(Debug, Clone)]
 pub struct CVArchiverPostgres {
     db: Arc<DatabaseConnection>,
 }
 
 impl CVArchiverPostgres {
+    /// Builds it from the ports it depends on.
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self { db }
     }

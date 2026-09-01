@@ -3,25 +3,31 @@ use std::sync::Arc;
 use crate::auth::application::domain::entities::UserId;
 use crate::auth::application::ports::outgoing::user_query::{UserQuery, UserQueryError};
 
+/// See the module documentation.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ResolveUserIdError {
+    /// No user matched that username.
     #[error("User not found")]
     NotFound,
 
+    /// The user store could not be reached.
     #[error("Repository error: {0}")]
     RepositoryError(String),
 }
 
+/// See the module documentation.
 #[derive(Clone)]
 pub struct UserIdentityResolver {
     user_query: Arc<dyn UserQuery + Send + Sync>,
 }
 
 impl UserIdentityResolver {
+    /// Builds it from the ports it depends on.
     pub fn new(user_query: Arc<dyn UserQuery + Send + Sync>) -> Self {
         Self { user_query }
     }
 
+    /// Looks up a user by their public handle.
     pub async fn by_username(&self, username: &str) -> Result<UserId, ResolveUserIdError> {
         match self.user_query.find_by_username(username).await {
             Ok(Some(user)) if !user.is_deleted => Ok(UserId::from(user.id)),

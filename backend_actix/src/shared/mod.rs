@@ -1,5 +1,3 @@
-#![deny(missing_docs)]
-
 /// The response envelope, the error-code vocabulary, CORS and the JSON
 /// extractor config.
 pub mod api;

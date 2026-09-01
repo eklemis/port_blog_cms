@@ -1,6 +1,7 @@
 mod archive_blog_post;
 mod blog_post_topics;
 mod create_blog_post;
+/// Listing blog posts, owner-facing and public.
 pub mod get_blog_posts;
 mod get_public_blog_post;
 mod get_public_blog_posts;

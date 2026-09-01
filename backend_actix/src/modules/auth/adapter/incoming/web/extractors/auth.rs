@@ -12,7 +12,11 @@ use crate::{auth::application::ports::outgoing::token_provider::TokenProvider, A
 /// Represents an authenticated user (verified or not)
 #[derive(Debug, Clone)]
 pub struct AuthenticatedUser {
+    /// The owning user.
     pub user_id: Uuid,
+    /// Whether the token said the account's email was verified **when it was
+    /// minted**. Endpoints that must not be fooled by a stale claim should re-read
+    /// the user.
     pub is_verified: bool,
 }
 
@@ -70,6 +74,7 @@ impl FromRequest for AuthenticatedUser {
 /// Represents a verified authenticated user
 #[derive(Debug, Clone)]
 pub struct VerifiedUser {
+    /// The owning user.
     pub user_id: Uuid,
 }
 
@@ -112,6 +117,9 @@ fn extract_token_from_header(req: &HttpRequest) -> Option<String> {
 // propagate it. HttpResponse is 128 bytes, which clippy flags, but boxing it
 // would churn every call site to save a move that only happens on the error
 // path.
+/// Resolves a username to a `UserId`, or returns the response to send.
+///
+/// Used by the public routes, which address users by name rather than id.
 #[allow(clippy::result_large_err)]
 pub async fn resolve_owner_id_or_response(
     data: &web::Data<AppState>,

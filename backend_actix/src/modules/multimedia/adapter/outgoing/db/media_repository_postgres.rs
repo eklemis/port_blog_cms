@@ -18,12 +18,14 @@ use crate::multimedia::application::{
 // Repository Implementation (Production)
 // ============================================================================
 
+/// The SeaORM implementation of the matching outgoing port.
 #[derive(Clone)]
 pub struct MediaRepositoryPostgres {
     db: Arc<DatabaseConnection>,
 }
 
 impl MediaRepositoryPostgres {
+    /// Builds it from the ports it depends on.
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self { db }
     }

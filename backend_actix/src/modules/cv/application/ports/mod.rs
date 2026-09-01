@@ -5,4 +5,5 @@
 //! `docs/ARCHITECTURE.md`.
 
 // incoming ports are the use cases themselves
+/// Driving side: the concrete implementations of this module's outgoing ports.
 pub mod outgoing;

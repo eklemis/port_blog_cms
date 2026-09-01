@@ -20,6 +20,8 @@ use crate::blog::domain::entities::BlogPostTopic;
 
 macro_rules! query_service {
     ($name:ident) => {
+        /// A read-side blog service. Thin: the query adapter owns filtering and
+        /// pagination, so this maps the outgoing error onto the endpoint's.
         pub struct $name<Q>
         where
             Q: BlogPostQuery,
@@ -31,6 +33,7 @@ macro_rules! query_service {
         where
             Q: BlogPostQuery,
         {
+            /// Builds it from the ports it depends on.
             pub fn new(query: Q) -> Self {
                 Self { query }
             }

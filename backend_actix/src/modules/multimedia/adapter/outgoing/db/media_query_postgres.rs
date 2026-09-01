@@ -15,12 +15,14 @@ use crate::{
 // Query Implementation (Production)
 // ============================================================================
 
+/// The SeaORM implementation of the matching outgoing port.
 #[derive(Clone)]
 pub struct MediaQueryPostgres {
     db: Arc<DatabaseConnection>,
 }
 
 impl MediaQueryPostgres {
+    /// Builds it from the ports it depends on.
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self { db }
     }

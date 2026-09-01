@@ -10,12 +10,14 @@ use crate::modules::topic::application::ports::outgoing::{
 // SeaORM entity imports
 use super::sea_orm_entity::topics::{ActiveModel as TopicActiveModel, Model as TopicModel};
 
+/// The SeaORM implementation of the matching outgoing port.
 #[derive(Debug, Clone)]
 pub struct TopicRepositoryPostgres {
     db: Arc<DatabaseConnection>,
 }
 
 impl TopicRepositoryPostgres {
+    /// Builds it from the ports it depends on.
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self { db }
     }

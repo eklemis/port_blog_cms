@@ -14,6 +14,8 @@ use crate::blog::application::ports::outgoing::BlogPostArchiver;
 
 macro_rules! archiver_service {
     ($name:ident) => {
+        /// An archive, restore or hard-delete service. A pass-through to the
+        /// archiver, which is already owner-scoped in SQL.
         pub struct $name<A>
         where
             A: BlogPostArchiver,
@@ -25,6 +27,7 @@ macro_rules! archiver_service {
         where
             A: BlogPostArchiver,
         {
+            /// Builds it from the ports it depends on.
             pub fn new(archiver: A) -> Self {
                 Self { archiver }
             }

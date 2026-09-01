@@ -15,12 +15,14 @@ use crate::blog::application::ports::outgoing::{
 };
 use crate::blog::domain::entities::BlogPost;
 
+/// The SeaORM implementation of the matching outgoing port.
 #[derive(Clone)]
 pub struct BlogPostRepositoryPostgres {
     db: Arc<DatabaseConnection>,
 }
 
 impl BlogPostRepositoryPostgres {
+    /// Builds it from the ports it depends on.
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self { db }
     }

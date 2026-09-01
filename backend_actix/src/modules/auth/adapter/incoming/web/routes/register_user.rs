@@ -29,6 +29,7 @@ pub struct CreateUserRequest {
     pub full_name: String,
 }
 
+/// Response body returned by this endpoint.
 #[derive(Serialize, ToSchema)]
 pub struct RegisterUserResponse {
     /// Success message
@@ -41,6 +42,7 @@ pub struct RegisterUserResponse {
     user: RegisteredUser,
 }
 
+/// See the module documentation.
 #[derive(Serialize, ToSchema)]
 pub struct RegisteredUser {
     /// User ID (UUID)

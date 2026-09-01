@@ -1,12 +1,18 @@
 use std::env;
 
+/// See the module documentation.
 #[derive(Debug, Clone)]
 pub struct JwtConfig {
+    /// HS256 signing key. At least 32 bytes, enforced at startup.
     pub secret_key: String,
+    /// The `iss` claim stamped on every token.
     pub issuer: String,
-    pub access_token_expiry: i64,       // Expiration in seconds
-    pub refresh_token_expiry: i64,      // Expiration in seconds
-    pub verification_token_expiry: i64, // Expiration in seconds
+    /// Access-token lifetime in seconds. Validated to 1..=86400.
+    pub access_token_expiry: i64,
+    /// Refresh-token lifetime in seconds. Must exceed the access lifetime.
+    pub refresh_token_expiry: i64,
+    /// Verification-link lifetime in seconds.
+    pub verification_token_expiry: i64,
     /// Shorter than verification by default: a reset link is a live credential
     /// for the account, so its useful lifetime should be the time a person
     /// needs to read one email, not a day.

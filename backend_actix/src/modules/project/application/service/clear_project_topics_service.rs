@@ -7,6 +7,7 @@ use crate::modules::project::application::ports::incoming::use_cases::{
 };
 use crate::modules::project::application::ports::outgoing::project_topic_repository::ProjectTopicRepository;
 
+/// Implements the corresponding use-case contract.
 pub struct ClearProjectTopicsService<R>
 where
     R: ProjectTopicRepository,
@@ -18,6 +19,7 @@ impl<R> ClearProjectTopicsService<R>
 where
     R: ProjectTopicRepository,
 {
+    /// Builds it from the ports it depends on.
     pub fn new(repo: R) -> Self {
         Self { repo }
     }

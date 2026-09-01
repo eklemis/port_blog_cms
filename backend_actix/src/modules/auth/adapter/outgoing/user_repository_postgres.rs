@@ -13,12 +13,14 @@ use crate::modules::auth::application::ports::outgoing::user_repository::{
 
 use super::sea_orm_entity::users::{ActiveModel as UserActiveModel, Model as UserModel};
 
+/// The SeaORM implementation of the matching outgoing port.
 #[derive(Clone, Debug)]
 pub struct UserRepositoryPostgres {
     db: Arc<DatabaseConnection>,
 }
 
 impl UserRepositoryPostgres {
+    /// Builds it from the ports it depends on.
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self { db }
     }

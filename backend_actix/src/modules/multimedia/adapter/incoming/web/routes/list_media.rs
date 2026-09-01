@@ -17,11 +17,13 @@ use crate::{
 };
 use utoipa::ToSchema;
 
+/// See the module documentation.
 #[derive(Debug, Deserialize)]
 pub struct ListMediaPath {
     target: String,
 }
 
+/// Response body returned by this endpoint.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct ListMediaResponse {
     rows: Vec<MediaItem>,

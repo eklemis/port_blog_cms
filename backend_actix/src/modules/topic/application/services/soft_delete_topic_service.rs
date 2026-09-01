@@ -9,6 +9,7 @@ use crate::{
     topic::application::ports::outgoing::{TopicQuery, TopicRepository, TopicRepositoryError},
 };
 
+/// Implements the corresponding use-case contract.
 #[derive(Debug, Clone)]
 pub struct SoftDeleteTopicService<Q, R>
 where
@@ -24,6 +25,7 @@ where
     Q: TopicQuery,
     R: TopicRepository,
 {
+    /// Builds it from the ports it depends on.
     pub fn new(query: Q, repository: R) -> Self {
         Self { query, repository }
     }

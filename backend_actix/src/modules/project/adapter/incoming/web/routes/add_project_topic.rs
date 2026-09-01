@@ -12,6 +12,7 @@ use crate::{
     shared::api::ApiResponse, AppState,
 };
 
+/// Request body accepted by this endpoint.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct AddProjectTopicRequest {
     /// Topic to attach. Must already exist and belong to the caller.

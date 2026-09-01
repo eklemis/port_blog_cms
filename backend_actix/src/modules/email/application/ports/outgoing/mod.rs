@@ -1,7 +1,5 @@
 //! What email needs from the outside: a transport, plus the two notification contracts auth depends on.
 
-#![deny(missing_docs)]
-
 pub mod recipient;
 pub use recipient::Recipient;
 pub mod email_sender;

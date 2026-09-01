@@ -17,12 +17,14 @@ use crate::modules::cv::adapter::outgoing::sea_orm_entity::{
     Column as ResumeColumn, Entity as ResumeEntity, Model as ResumeModel,
 };
 
+/// The SeaORM implementation of the matching outgoing port.
 #[derive(Debug, Clone)]
 pub struct CVQueryPostgres {
     db: Arc<sea_orm::DatabaseConnection>,
 }
 
 impl CVQueryPostgres {
+    /// Builds it from the ports it depends on.
     pub fn new(db: Arc<sea_orm::DatabaseConnection>) -> Self {
         Self { db }
     }

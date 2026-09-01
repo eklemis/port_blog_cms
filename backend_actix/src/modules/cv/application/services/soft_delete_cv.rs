@@ -6,6 +6,7 @@ use crate::cv::application::use_cases::soft_delete_cv::{SoftDeleteCVError, SoftD
 use async_trait::async_trait;
 use uuid::Uuid;
 
+/// Implements the corresponding use-case contract.
 pub struct SoftDeleteCvService<A, R>
 where
     A: CVArchiver + Send + Sync,
@@ -20,6 +21,7 @@ where
     A: CVArchiver + Send + Sync,
     R: CVRepository + Send + Sync,
 {
+    /// Builds it from the ports it depends on.
     pub fn new(cv_archiver: A, cv_repository: R) -> Self {
         Self {
             cv_archiver,

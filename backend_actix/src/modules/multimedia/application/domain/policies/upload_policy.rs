@@ -1,14 +1,23 @@
+/// See the module documentation.
 #[derive(Debug, Clone)]
 pub struct UploadPolicy {
+    /// Largest declared size accepted.
     pub max_file_size_bytes: u64,
+    /// Ceiling applied to both declared dimensions.
     pub max_width_height_px: u32,
+    /// Longest file name accepted.
     pub max_file_name_len: usize,
+    /// MIME types the upload endpoint accepts.
     pub allowed_mime_types: &'static [&'static str],
+    /// Bucket uploads are destined for.
     pub bucket_name: String,
 }
 
 impl UploadPolicy {
+    /// Bucket used when `MULTIMEDIA_UPLOAD_BUCKET` is unset.
     pub const DEFAULT_BUCKET_NAME: &'static str = "blogport-cms-upload";
+    /// Images only. Widening this needs the processor to handle the new type
+    /// too.
     pub const DEFAULT_ALLOWED_MIME_TYPES: &'static [&'static str] =
         &["image/jpeg", "image/png", "image/webp"];
 

@@ -23,6 +23,7 @@ use crate::{
 // ──────────────────────────────────────────────────────────
 //
 
+/// Request body accepted by this endpoint.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateTopicRequest {
     /// Topic title. Trimmed, must be non-empty and at most 100 characters.

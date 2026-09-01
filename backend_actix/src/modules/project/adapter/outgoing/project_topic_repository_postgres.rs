@@ -10,12 +10,14 @@ use crate::modules::project::application::ports::outgoing::project_topic_reposit
     ProjectTopicRepository, ProjectTopicRepositoryError,
 };
 
+/// The SeaORM implementation of the matching outgoing port.
 #[derive(Clone)]
 pub struct ProjectTopicRepositoryPostgres {
     db: Arc<DatabaseConnection>,
 }
 
 impl ProjectTopicRepositoryPostgres {
+    /// Builds it from the ports it depends on.
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self { db }
     }

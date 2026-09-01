@@ -18,6 +18,7 @@ use crate::{
     AppState,
 };
 
+/// Adapter implementing the matching outgoing port.
 #[derive(Debug, Deserialize, IntoParams)]
 #[into_params(parameter_in = Query)]
 pub struct GetBlogPostsQuery {
@@ -32,13 +33,16 @@ pub struct GetBlogPostsQuery {
     /// Ignored by the public listing, which always forces published only.
     pub published: Option<bool>,
 
+    /// Listing order.
     #[serde(default)]
     pub sort: BlogPostSort,
 
+    /// 1-based page number.
     #[param(example = 1, minimum = 1)]
     #[serde(default)]
     pub page: u32,
 
+    /// Rows per page.
     #[param(example = 10, minimum = 1, maximum = 100)]
     #[serde(default)]
     pub per_page: u32,

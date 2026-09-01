@@ -11,6 +11,7 @@ use crate::auth::application::ports::outgoing::token_provider::{
 
 use super::jwt_config::JwtConfig;
 
+/// Implements the corresponding use-case contract.
 #[derive(Clone)]
 pub struct JwtTokenService {
     config: JwtConfig,
