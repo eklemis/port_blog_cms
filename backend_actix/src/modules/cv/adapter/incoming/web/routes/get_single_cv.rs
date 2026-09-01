@@ -6,8 +6,8 @@ use uuid::Uuid;
 use crate::{
     api::schemas::{ErrorResponse, SuccessResponse},
     auth::adapter::incoming::web::extractors::auth::VerifiedUser,
-    cv::application::use_cases::fetch_cv_by_id::FetchCVByIdError,
     cv::adapter::incoming::web::dto::CvResponse,
+    cv::application::use_cases::fetch_cv_by_id::FetchCVByIdError,
     shared::api::ApiResponse,
     AppState,
 };
@@ -60,7 +60,9 @@ pub async fn get_cv_by_id_handler(
     {
         Ok(cv) => ApiResponse::success(CvResponse::from(cv)),
 
-        Err(FetchCVByIdError::CVNotFound) => ApiResponse::not_found(ErrorCode::CvNotFound, "CV not found"),
+        Err(FetchCVByIdError::CVNotFound) => {
+            ApiResponse::not_found(ErrorCode::CvNotFound, "CV not found")
+        }
 
         Err(FetchCVByIdError::RepositoryError(err)) => {
             error!("Repository error fetching CV by id: {}", err);

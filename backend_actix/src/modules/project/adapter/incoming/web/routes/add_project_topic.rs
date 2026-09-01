@@ -1,13 +1,12 @@
 use crate::shared::api::ErrorCode;
 use actix_web::{post, web, Responder};
 use serde::Deserialize;
-use utoipa::ToSchema;
 use tracing::error;
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 use crate::{
-    api::schemas::ErrorResponse,
-    auth::adapter::incoming::web::extractors::auth::VerifiedUser,
+    api::schemas::ErrorResponse, auth::adapter::incoming::web::extractors::auth::VerifiedUser,
     auth::application::domain::entities::UserId,
     modules::project::application::ports::incoming::use_cases::AddProjectTopicError,
     shared::api::ApiResponse, AppState,

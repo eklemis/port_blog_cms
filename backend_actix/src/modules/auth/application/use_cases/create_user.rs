@@ -285,13 +285,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::auth::application::services::password::BasicPasswordPolicy;
     use super::*;
     use crate::auth::application::ports::outgoing::{
         password_hasher::{HashError, PasswordHasher},
         user_query::{UserQuery, UserQueryError, UserQueryResult},
         user_repository::UserResult,
     };
+    use crate::auth::application::services::password::BasicPasswordPolicy;
     use async_trait::async_trait;
     use chrono::Utc;
     use std::sync::Arc;
@@ -664,7 +664,10 @@ mod tests {
     async fn rejects_an_empty_username() {
         let mut i = valid_input();
         i.username = "   ".into();
-        assert!(matches!(expect_error(i).await, CreateUserError::InvalidUsername(_)));
+        assert!(matches!(
+            expect_error(i).await,
+            CreateUserError::InvalidUsername(_)
+        ));
     }
 
     #[tokio::test]

@@ -1,6 +1,6 @@
 use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::application::use_cases::refresh_token::{RefreshTokenError, RefreshTokenRequest};
-use crate::shared::api::{ErrorCode, ApiResponse};
+use crate::shared::api::{ApiResponse, ErrorCode};
 use crate::AppState;
 use actix_web::{post, web, Responder};
 use serde::{Deserialize, Serialize};

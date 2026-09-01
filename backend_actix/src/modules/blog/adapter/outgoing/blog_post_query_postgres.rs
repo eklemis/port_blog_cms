@@ -9,7 +9,8 @@ use uuid::Uuid;
 
 use crate::auth::application::domain::entities::UserId;
 use crate::blog::adapter::outgoing::sea_orm_entity::{
-    blog_post_topics, blog_posts::{Column as PostColumn, Entity as PostEntity},
+    blog_post_topics,
+    blog_posts::{Column as PostColumn, Entity as PostEntity},
 };
 use crate::blog::application::ports::outgoing::{
     BlogPageRequest, BlogPageResult, BlogPostCard, BlogPostListFilter, BlogPostQuery,
@@ -86,7 +87,12 @@ impl BlogPostQueryPostgres {
             };
         }
 
-        if let Some(search) = filter.search.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+        if let Some(search) = filter
+            .search
+            .as_ref()
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+        {
             let pattern = format!("%{search}%");
             condition = condition.add(
                 Condition::any()
@@ -162,7 +168,10 @@ impl BlogPostQueryPostgres {
         // entity would point it the wrong way.
         let rows = blog_post_topics::Entity::find()
             .filter(blog_post_topics::Column::BlogPostId.eq(post_id))
-            .join(JoinType::InnerJoin, blog_post_topics::Relation::Topics.def())
+            .join(
+                JoinType::InnerJoin,
+                blog_post_topics::Relation::Topics.def(),
+            )
             .filter(topics::Column::IsDeleted.eq(false))
             .select_only()
             .column(topics::Column::Id)
@@ -339,7 +348,9 @@ mod tests {
         .unwrap();
         drop(q);
 
-        let log = Arc::try_unwrap(conn).expect("sole owner").into_transaction_log();
+        let log = Arc::try_unwrap(conn)
+            .expect("sole owner")
+            .into_transaction_log();
         let sql = format!("{log:?}").replace("\\\"", "\"");
 
         assert!(sql.contains("blog_posts.\"title\"") || sql.contains("\"title\""));
@@ -375,7 +386,9 @@ mod tests {
         .unwrap();
         drop(q);
 
-        let log = Arc::try_unwrap(conn).expect("sole owner").into_transaction_log();
+        let log = Arc::try_unwrap(conn)
+            .expect("sole owner")
+            .into_transaction_log();
         let sql = format!("{log:?}").replace("\\\"", "\"");
         assert!(
             sql.contains("published_at\" IS NULL"),
@@ -409,7 +422,9 @@ mod tests {
         .unwrap();
         drop(q);
 
-        let log = Arc::try_unwrap(conn).expect("sole owner").into_transaction_log();
+        let log = Arc::try_unwrap(conn)
+            .expect("sole owner")
+            .into_transaction_log();
         let sql = format!("{log:?}").replace("\\\"", "\"");
         assert!(
             sql.contains("IS NOT NULL"),
@@ -465,10 +480,15 @@ mod tests {
             .await;
         drop(q);
 
-        let log = Arc::try_unwrap(conn).expect("sole owner").into_transaction_log();
+        let log = Arc::try_unwrap(conn)
+            .expect("sole owner")
+            .into_transaction_log();
         let sql = format!("{log:?}").replace("\\\"", "\"");
         assert!(sql.contains("hello"), "slug should be normalised: {sql}");
-        assert!(!sql.contains("HeLLo"), "raw slug should not be queried: {sql}");
+        assert!(
+            !sql.contains("HeLLo"),
+            "raw slug should not be queried: {sql}"
+        );
     }
 
     fn topic_row(title: &str) -> BTreeMap<String, Value> {
@@ -581,9 +601,17 @@ mod tests {
         .unwrap();
         drop(q);
 
-        let sql = format!("{:?}", Arc::try_unwrap(conn).expect("sole owner").into_transaction_log())
-            .replace("\\\"", "\"");
-        assert!(!sql.contains("LIKE"), "blank search should add no clause: {sql}");
+        let sql = format!(
+            "{:?}",
+            Arc::try_unwrap(conn)
+                .expect("sole owner")
+                .into_transaction_log()
+        )
+        .replace("\\\"", "\"");
+        assert!(
+            !sql.contains("LIKE"),
+            "blank search should add no clause: {sql}"
+        );
     }
 
     #[tokio::test]
@@ -610,8 +638,13 @@ mod tests {
         .unwrap();
         drop(q);
 
-        let sql = format!("{:?}", Arc::try_unwrap(conn).expect("sole owner").into_transaction_log())
-            .replace("\\\"", "\"");
+        let sql = format!(
+            "{:?}",
+            Arc::try_unwrap(conn)
+                .expect("sole owner")
+                .into_transaction_log()
+        )
+        .replace("\\\"", "\"");
         assert!(sql.contains("LIKE"));
         // Trimmed before being wrapped in wildcards.
         assert!(sql.contains("%rust%"), "{sql}");
@@ -642,8 +675,13 @@ mod tests {
         .unwrap();
         drop(q);
 
-        let sql = format!("{:?}", Arc::try_unwrap(conn).expect("sole owner").into_transaction_log())
-            .replace("\\\"", "\"");
+        let sql = format!(
+            "{:?}",
+            Arc::try_unwrap(conn)
+                .expect("sole owner")
+                .into_transaction_log()
+        )
+        .replace("\\\"", "\"");
         assert!(sql.contains("blog_post_topics"), "{sql}");
     }
 
@@ -675,8 +713,13 @@ mod tests {
             .unwrap();
             drop(q);
 
-            let sql = format!("{:?}", Arc::try_unwrap(conn).expect("sole owner").into_transaction_log())
-                .replace("\\\"", "\"");
+            let sql = format!(
+                "{:?}",
+                Arc::try_unwrap(conn)
+                    .expect("sole owner")
+                    .into_transaction_log()
+            )
+            .replace("\\\"", "\"");
             assert!(
                 sql.contains(&format!("{col}\" {dir}")),
                 "expected ORDER BY {col} {dir}, got: {sql}"

@@ -278,7 +278,10 @@ mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(svc.query.called.lock().unwrap().as_slice(), ["list_by_owner"]);
+        assert_eq!(
+            svc.query.called.lock().unwrap().as_slice(),
+            ["list_by_owner"]
+        );
     }
 
     /// The whole reason this is a separate service: it must never reach
@@ -297,7 +300,10 @@ mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(svc.query.called.lock().unwrap().as_slice(), ["list_published"]);
+        assert_eq!(
+            svc.query.called.lock().unwrap().as_slice(),
+            ["list_published"]
+        );
     }
 
     #[tokio::test]

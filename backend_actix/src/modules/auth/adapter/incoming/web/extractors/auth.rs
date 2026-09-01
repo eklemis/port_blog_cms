@@ -114,9 +114,10 @@ pub async fn resolve_owner_id_or_response(
     match data.user_identity_resolver.by_username(username).await {
         Ok(owner_id) => Ok(owner_id.value()),
 
-        Err(ResolveUserIdError::NotFound) => {
-            Err(ApiResponse::not_found(ErrorCode::UserNotFound, "User not found"))
-        }
+        Err(ResolveUserIdError::NotFound) => Err(ApiResponse::not_found(
+            ErrorCode::UserNotFound,
+            "User not found",
+        )),
 
         Err(ResolveUserIdError::RepositoryError(msg)) => {
             tracing::error!("Repository error resolving username {}: {}", username, msg);

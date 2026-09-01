@@ -4,10 +4,10 @@ use tracing::error;
 
 use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::adapter::incoming::web::extractors::auth::VerifiedUser;
+use crate::cv::adapter::incoming::web::dto::CvResponse;
 use crate::cv::application::ports::outgoing::CVPageResult;
 use crate::cv::application::ports::outgoing::{CVListFilter, CVPageRequest, CVSort};
 use crate::cv::application::use_cases::fetch_user_cvs::FetchCVError;
-use crate::cv::adapter::incoming::web::dto::CvResponse;
 use crate::shared::api::ApiResponse;
 use crate::AppState;
 use utoipa::IntoParams;

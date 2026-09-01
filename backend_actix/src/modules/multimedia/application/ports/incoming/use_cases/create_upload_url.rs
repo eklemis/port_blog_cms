@@ -656,7 +656,10 @@ mod tests {
                 .build(&policy())
                 .unwrap_err();
             assert!(
-                matches!(err, UploadUrlCommandError::MissingField("width_px/height_px")),
+                matches!(
+                    err,
+                    UploadUrlCommandError::MissingField("width_px/height_px")
+                ),
                 "({w:?}, {h:?}) should be rejected"
             );
         }
@@ -719,7 +722,10 @@ mod tests {
 
     #[test]
     fn a_built_command_starts_pending_and_carries_the_policy_bucket() {
-        let cmd = valid_builder().duration_seconds(Some(12)).build(&policy()).unwrap();
+        let cmd = valid_builder()
+            .duration_seconds(Some(12))
+            .build(&policy())
+            .unwrap();
 
         assert_eq!(cmd.original_name(), "photo.png");
         assert_eq!(cmd.mime_type(), "image/png");

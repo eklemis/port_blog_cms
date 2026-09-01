@@ -125,6 +125,5 @@ pub trait MediaRepository: Send + Sync {
     ///
     /// Scoped by owner, so another user's media reports `NotFound` rather than
     /// revealing that it exists.
-    async fn soft_delete(&self, owner: UserId, media_id: Uuid)
-        -> Result<(), MediaRepositoryError>;
+    async fn soft_delete(&self, owner: UserId, media_id: Uuid) -> Result<(), MediaRepositoryError>;
 }

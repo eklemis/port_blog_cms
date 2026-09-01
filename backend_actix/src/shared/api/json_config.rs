@@ -1,5 +1,5 @@
 // src/shared/api/json_config.rs
-use crate::shared::api::{ErrorCode, ApiResponse};
+use crate::shared::api::{ApiResponse, ErrorCode};
 use actix_web::web::JsonConfig;
 
 pub fn custom_json_config() -> JsonConfig {

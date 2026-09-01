@@ -25,12 +25,7 @@ where
     T: TokenProvider + Send + Sync,
     E: EmailSender + Send + Sync,
 {
-    pub fn new(
-        token_provider: T,
-        email_sender: E,
-        app_url: String,
-        reset_url: String,
-    ) -> Self {
+    pub fn new(token_provider: T, email_sender: E, app_url: String, reset_url: String) -> Self {
         Self {
             token_provider,
             email_sender,
@@ -182,11 +177,10 @@ mod tests {
     #[async_trait]
     impl EmailSender for SpySender {
         async fn send_email(&self, to: &str, subject: &str, body: &str) -> Result<(), String> {
-            self.sent.lock().unwrap().push((
-                to.to_string(),
-                subject.to_string(),
-                body.to_string(),
-            ));
+            self.sent
+                .lock()
+                .unwrap()
+                .push((to.to_string(), subject.to_string(), body.to_string()));
             if self.fail {
                 return Err("smtp refused".to_string());
             }
@@ -194,10 +188,7 @@ mod tests {
         }
     }
 
-    fn service(
-        tokens: StubTokens,
-        sender: SpySender,
-    ) -> UserEmailService<StubTokens, SpySender> {
+    fn service(tokens: StubTokens, sender: SpySender) -> UserEmailService<StubTokens, SpySender> {
         UserEmailService::new(
             tokens,
             sender,

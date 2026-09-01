@@ -76,7 +76,9 @@ pub async fn restore_cv_handler(
     {
         Ok(cv) => ApiResponse::success(CvResponse::from(cv)),
 
-        Err(RestoreCVError::CVNotFound) => ApiResponse::not_found(ErrorCode::CvNotFound, "CV not found"),
+        Err(RestoreCVError::CVNotFound) => {
+            ApiResponse::not_found(ErrorCode::CvNotFound, "CV not found")
+        }
 
         Err(RestoreCVError::Unauthorized) => ApiResponse::forbidden(
             ErrorCode::CvUnauthorized,

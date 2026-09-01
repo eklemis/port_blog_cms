@@ -157,7 +157,7 @@ mod tests {
         ) -> Result<Vec<MediaVariant>, MediaRepositoryError> {
             Err(MediaRepositoryError::DatabaseError("not used".into()))
         }
-    
+
         async fn soft_delete(
             &self,
             _owner: crate::auth::application::domain::entities::UserId,
@@ -165,7 +165,7 @@ mod tests {
         ) -> Result<(), MediaRepositoryError> {
             unimplemented!("not used in upload-url tests")
         }
-}
+    }
 
     #[derive(Clone)]
     struct MockStorage {

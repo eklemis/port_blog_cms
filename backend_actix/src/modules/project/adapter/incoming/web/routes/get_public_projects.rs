@@ -1,11 +1,11 @@
 use actix_web::{get, web, Responder};
 use tracing::error;
 
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::adapter::incoming::web::extractors::auth::resolve_owner_id_or_response;
 use crate::auth::application::domain::entities::UserId;
 use crate::modules::project::adapter::incoming::web::routes::get_projects::GetProjectsQuery;
 use crate::modules::project::application::ports::incoming::use_cases::GetProjectsError;
-use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::modules::project::application::ports::outgoing::project_query::{
     PageResult, ProjectCardView,
 };

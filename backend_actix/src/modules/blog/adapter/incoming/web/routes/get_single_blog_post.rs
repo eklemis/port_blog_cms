@@ -119,7 +119,9 @@ mod tests {
         }
     }
 
-    async fn call(result: Result<BlogPostView, GetBlogPostError>) -> actix_web::dev::ServiceResponse {
+    async fn call(
+        result: Result<BlogPostView, GetBlogPostError>,
+    ) -> actix_web::dev::ServiceResponse {
         let j = JwtTokenService::new(JwtConfig {
             issuer: "Lotion".to_string(),
             secret_key: "test_secret_key_for_testing_purposes_only".to_string(),

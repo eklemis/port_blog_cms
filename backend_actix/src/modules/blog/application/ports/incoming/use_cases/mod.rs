@@ -187,11 +187,8 @@ pub trait GetPublicBlogPostsUseCase: Send + Sync {
 
 #[async_trait]
 pub trait GetSingleBlogPostUseCase: Send + Sync {
-    async fn execute(
-        &self,
-        owner: UserId,
-        post_id: Uuid,
-    ) -> Result<BlogPostView, GetBlogPostError>;
+    async fn execute(&self, owner: UserId, post_id: Uuid)
+        -> Result<BlogPostView, GetBlogPostError>;
 }
 
 #[async_trait]
@@ -334,7 +331,10 @@ mod tests {
             CreateBlogPostError::InvalidSlug("bad".into()).to_string(),
             "Invalid slug: bad"
         );
-        assert_eq!(GetBlogPostError::NotFound.to_string(), "Blog post not found");
+        assert_eq!(
+            GetBlogPostError::NotFound.to_string(),
+            "Blog post not found"
+        );
         assert_eq!(
             PatchBlogPostError::Unauthorized.to_string(),
             "Not the owner of this post"

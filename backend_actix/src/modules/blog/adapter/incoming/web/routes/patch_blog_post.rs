@@ -84,7 +84,9 @@ pub async fn patch_blog_post_handler(
     {
         Ok(post) => ApiResponse::success(BlogPostResponse::from(post)),
 
-        Err(PatchBlogPostError::InvalidSlug(m)) => ApiResponse::bad_request(ErrorCode::InvalidSlug, &m),
+        Err(PatchBlogPostError::InvalidSlug(m)) => {
+            ApiResponse::bad_request(ErrorCode::InvalidSlug, &m)
+        }
         Err(PatchBlogPostError::NotFound) => {
             ApiResponse::not_found(ErrorCode::PostNotFound, "Blog post not found")
         }
@@ -264,7 +266,10 @@ mod tests {
 
     #[actix_web::test]
     async fn clearing_the_slug_is_a_bad_request() {
-        let resp = call_err(PatchBlogPostError::InvalidSlug("Slug cannot be cleared".into())).await;
+        let resp = call_err(PatchBlogPostError::InvalidSlug(
+            "Slug cannot be cleared".into(),
+        ))
+        .await;
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 
         let body: Value = test::read_body_json(resp).await;

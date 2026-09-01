@@ -9,7 +9,8 @@ use crate::{
     auth::application::domain::entities::UserId,
     modules::project::application::ports::incoming::use_cases::GetSingleProjectError,
     modules::project::application::ports::outgoing::project_query::ProjectView,
-    shared::api::ApiResponse, AppState,
+    shared::api::ApiResponse,
+    AppState,
 };
 
 /// Get one of the authenticated user's projects

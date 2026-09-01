@@ -108,10 +108,7 @@ mod tests {
 
     #[async_trait]
     impl UserQuery for MockUserQuery {
-        async fn find_by_email(
-            &self,
-            _e: &str,
-        ) -> Result<Option<UserQueryResult>, UserQueryError> {
+        async fn find_by_email(&self, _e: &str) -> Result<Option<UserQueryResult>, UserQueryError> {
             unimplemented!()
         }
         async fn find_by_username(
@@ -120,10 +117,7 @@ mod tests {
         ) -> Result<Option<UserQueryResult>, UserQueryError> {
             self.result.clone()
         }
-        async fn find_by_id(
-            &self,
-            _i: Uuid,
-        ) -> Result<Option<UserQueryResult>, UserQueryError> {
+        async fn find_by_id(&self, _i: Uuid) -> Result<Option<UserQueryResult>, UserQueryError> {
             unimplemented!()
         }
     }
@@ -134,11 +128,7 @@ mod tests {
 
     #[async_trait]
     impl GetPublicBlogPostUseCase for MockGetPublic {
-        async fn execute(
-            &self,
-            _o: UserId,
-            _s: &str,
-        ) -> Result<BlogPostView, GetBlogPostError> {
+        async fn execute(&self, _o: UserId, _s: &str) -> Result<BlogPostView, GetBlogPostError> {
             self.result.clone()
         }
     }

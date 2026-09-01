@@ -33,9 +33,6 @@ pub trait BlogPostTopicRepository: Send + Sync {
         topic_id: Uuid,
     ) -> Result<(), BlogPostTopicRepositoryError>;
 
-    async fn clear(
-        &self,
-        owner: UserId,
-        post_id: Uuid,
-    ) -> Result<(), BlogPostTopicRepositoryError>;
+    async fn clear(&self, owner: UserId, post_id: Uuid)
+        -> Result<(), BlogPostTopicRepositoryError>;
 }

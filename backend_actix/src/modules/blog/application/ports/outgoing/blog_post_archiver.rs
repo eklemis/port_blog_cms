@@ -17,11 +17,9 @@ pub enum BlogPostArchiverError {
 /// depend on archiving without gaining the ability to edit content.
 #[async_trait]
 pub trait BlogPostArchiver: Send + Sync {
-    async fn soft_delete(&self, owner: UserId, post_id: Uuid)
-        -> Result<(), BlogPostArchiverError>;
+    async fn soft_delete(&self, owner: UserId, post_id: Uuid) -> Result<(), BlogPostArchiverError>;
 
     async fn restore(&self, owner: UserId, post_id: Uuid) -> Result<(), BlogPostArchiverError>;
 
-    async fn hard_delete(&self, owner: UserId, post_id: Uuid)
-        -> Result<(), BlogPostArchiverError>;
+    async fn hard_delete(&self, owner: UserId, post_id: Uuid) -> Result<(), BlogPostArchiverError>;
 }

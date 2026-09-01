@@ -61,7 +61,6 @@ impl<T> BlogPatchField<T> {
     }
 }
 
-
 #[derive(Debug, Clone, Default)]
 pub struct PatchBlogPostData {
     pub title: BlogPatchField<String>,
@@ -79,10 +78,8 @@ pub trait BlogPostRepository: Send + Sync {
 
     /// Fetches a post regardless of publication state, including soft-deleted
     /// ones, so callers can perform ownership checks before acting.
-    async fn fetch_by_id(
-        &self,
-        post_id: Uuid,
-    ) -> Result<Option<BlogPost>, BlogPostRepositoryError>;
+    async fn fetch_by_id(&self, post_id: Uuid)
+        -> Result<Option<BlogPost>, BlogPostRepositoryError>;
 
     async fn patch(
         &self,

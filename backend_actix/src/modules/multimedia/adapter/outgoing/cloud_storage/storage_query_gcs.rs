@@ -659,7 +659,10 @@ mod tests {
             map_sign_error("invalid configuration"),
             SignUrlError::Configuration
         );
-        assert_eq!(map_sign_error("something odd"), SignUrlError::Infrastructure);
+        assert_eq!(
+            map_sign_error("something odd"),
+            SignUrlError::Infrastructure
+        );
     }
 
     /// Classification is case-insensitive, since SDK messages are not

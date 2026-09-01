@@ -110,9 +110,7 @@ where
 mod tests {
     use super::*;
     use crate::auth::application::domain::entities::UserId;
-    use crate::blog::application::ports::outgoing::{
-        BlogPostRepositoryError, PatchBlogPostData,
-    };
+    use crate::blog::application::ports::outgoing::{BlogPostRepositoryError, PatchBlogPostData};
     use chrono::Utc;
     use std::sync::Mutex;
     use uuid::Uuid;
@@ -187,10 +185,7 @@ mod tests {
     #[tokio::test]
     async fn creates_a_post_with_a_valid_command() {
         let svc = CreateBlogPostService::new(MockRepo::ok());
-        assert!(svc
-            .execute(command("Hello", "hello", "body"))
-            .await
-            .is_ok());
+        assert!(svc.execute(command("Hello", "hello", "body")).await.is_ok());
     }
 
     #[tokio::test]
@@ -209,7 +204,9 @@ mod tests {
     #[tokio::test]
     async fn blank_excerpts_become_none() {
         let svc = CreateBlogPostService::new(MockRepo::ok());
-        svc.execute(command("Hello", "hello", "body")).await.unwrap();
+        svc.execute(command("Hello", "hello", "body"))
+            .await
+            .unwrap();
 
         let seen = svc.repository.seen.lock().unwrap().clone().unwrap();
         assert_eq!(seen.excerpt, None);
@@ -218,14 +215,20 @@ mod tests {
     #[tokio::test]
     async fn rejects_an_empty_title() {
         let svc = CreateBlogPostService::new(MockRepo::ok());
-        let err = svc.execute(command("   ", "hello", "body")).await.unwrap_err();
+        let err = svc
+            .execute(command("   ", "hello", "body"))
+            .await
+            .unwrap_err();
         assert!(matches!(err, CreateBlogPostError::InvalidTitle(_)));
     }
 
     #[tokio::test]
     async fn rejects_an_empty_slug() {
         let svc = CreateBlogPostService::new(MockRepo::ok());
-        let err = svc.execute(command("Hello", "  ", "body")).await.unwrap_err();
+        let err = svc
+            .execute(command("Hello", "  ", "body"))
+            .await
+            .unwrap_err();
         assert!(matches!(err, CreateBlogPostError::InvalidSlug(_)));
     }
 
@@ -249,7 +252,10 @@ mod tests {
     #[tokio::test]
     async fn rejects_empty_content() {
         let svc = CreateBlogPostService::new(MockRepo::ok());
-        let err = svc.execute(command("Hello", "hello", "  ")).await.unwrap_err();
+        let err = svc
+            .execute(command("Hello", "hello", "  "))
+            .await
+            .unwrap_err();
         assert!(matches!(err, CreateBlogPostError::InvalidContent(_)));
     }
 
@@ -257,7 +263,10 @@ mod tests {
     async fn maps_a_slug_collision_to_its_own_error() {
         let svc =
             CreateBlogPostService::new(MockRepo::err(BlogPostRepositoryError::SlugAlreadyExists));
-        let err = svc.execute(command("Hello", "hello", "body")).await.unwrap_err();
+        let err = svc
+            .execute(command("Hello", "hello", "body"))
+            .await
+            .unwrap_err();
         assert!(matches!(err, CreateBlogPostError::SlugAlreadyExists));
     }
 }

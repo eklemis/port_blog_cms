@@ -135,7 +135,10 @@ mod tests {
         );
 
         svc.execute(owner, topic_id).await.unwrap();
-        assert_eq!(svc.repository.deleted.lock().unwrap().as_slice(), [topic_id]);
+        assert_eq!(
+            svc.repository.deleted.lock().unwrap().as_slice(),
+            [topic_id]
+        );
     }
 
     /// Ownership is established by listing the caller's topics and checking
@@ -161,10 +164,7 @@ mod tests {
     #[tokio::test]
     async fn an_owner_with_no_topics_is_forbidden_rather_than_not_found() {
         let owner = UserId::from(Uuid::new_v4());
-        let svc = SoftDeleteTopicService::new(
-            MockQuery { result: Ok(vec![]) },
-            SpyRepo::default(),
-        );
+        let svc = SoftDeleteTopicService::new(MockQuery { result: Ok(vec![]) }, SpyRepo::default());
 
         assert!(matches!(
             svc.execute(owner, Uuid::new_v4()).await.unwrap_err(),

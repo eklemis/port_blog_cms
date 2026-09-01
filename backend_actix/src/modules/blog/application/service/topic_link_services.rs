@@ -147,11 +147,15 @@ mod tests {
     #[tokio::test]
     async fn each_service_calls_its_own_repository_operation() {
         let a = AttachBlogPostTopicService::new(SpyRepo::default());
-        a.execute(owner(), Uuid::new_v4(), Uuid::new_v4()).await.unwrap();
+        a.execute(owner(), Uuid::new_v4(), Uuid::new_v4())
+            .await
+            .unwrap();
         assert_eq!(a.repository.called.lock().unwrap().as_slice(), ["attach"]);
 
         let d = DetachBlogPostTopicService::new(SpyRepo::default());
-        d.execute(owner(), Uuid::new_v4(), Uuid::new_v4()).await.unwrap();
+        d.execute(owner(), Uuid::new_v4(), Uuid::new_v4())
+            .await
+            .unwrap();
         assert_eq!(d.repository.called.lock().unwrap().as_slice(), ["detach"]);
 
         let c = ClearBlogPostTopicsService::new(SpyRepo::default());
@@ -167,7 +171,9 @@ mod tests {
             BlogPostTopicRepositoryError::PostNotFound,
         ));
         assert!(matches!(
-            p.execute(owner(), Uuid::new_v4(), Uuid::new_v4()).await.unwrap_err(),
+            p.execute(owner(), Uuid::new_v4(), Uuid::new_v4())
+                .await
+                .unwrap_err(),
             BlogPostTopicError::PostNotFound
         ));
 
@@ -175,7 +181,9 @@ mod tests {
             BlogPostTopicRepositoryError::TopicNotFound,
         ));
         assert!(matches!(
-            t.execute(owner(), Uuid::new_v4(), Uuid::new_v4()).await.unwrap_err(),
+            t.execute(owner(), Uuid::new_v4(), Uuid::new_v4())
+                .await
+                .unwrap_err(),
             BlogPostTopicError::TopicNotFound
         ));
     }
@@ -186,13 +194,17 @@ mod tests {
 
         let a = AttachBlogPostTopicService::new(SpyRepo::failing(e()));
         assert!(matches!(
-            a.execute(owner(), Uuid::new_v4(), Uuid::new_v4()).await.unwrap_err(),
+            a.execute(owner(), Uuid::new_v4(), Uuid::new_v4())
+                .await
+                .unwrap_err(),
             BlogPostTopicError::RepositoryError(_)
         ));
 
         let d = DetachBlogPostTopicService::new(SpyRepo::failing(e()));
         assert!(matches!(
-            d.execute(owner(), Uuid::new_v4(), Uuid::new_v4()).await.unwrap_err(),
+            d.execute(owner(), Uuid::new_v4(), Uuid::new_v4())
+                .await
+                .unwrap_err(),
             BlogPostTopicError::RepositoryError(_)
         ));
 

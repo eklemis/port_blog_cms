@@ -69,11 +69,7 @@ pub async fn attach_blog_post_topic_handler(
     match data
         .blog
         .attach_topic
-        .execute(
-            UserId::from(user.user_id),
-            path.into_inner(),
-            body.topic_id,
-        )
+        .execute(UserId::from(user.user_id), path.into_inner(), body.topic_id)
         .await
     {
         Ok(()) => ApiResponse::no_content(),
@@ -110,11 +106,7 @@ pub async fn detach_blog_post_topic_handler(
     match data
         .blog
         .detach_topic
-        .execute(
-            UserId::from(user.user_id),
-            path.into_inner(),
-            body.topic_id,
-        )
+        .execute(UserId::from(user.user_id), path.into_inner(), body.topic_id)
         .await
     {
         Ok(()) => ApiResponse::no_content(),

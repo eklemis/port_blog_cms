@@ -99,8 +99,9 @@ mod tests {
 
     #[actix_web::test]
     async fn execute_project_not_found() {
-        let service =
-            SoftDeleteProjectService::new(MockProjectArchiver::error(ProjectArchiverError::NotFound));
+        let service = SoftDeleteProjectService::new(MockProjectArchiver::error(
+            ProjectArchiverError::NotFound,
+        ));
 
         let result = service
             .execute(UserId::from(Uuid::new_v4()), Uuid::new_v4())

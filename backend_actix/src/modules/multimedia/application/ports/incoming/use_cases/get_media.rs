@@ -71,6 +71,5 @@ impl From<MediaQueryError> for GetMediaError {
 
 #[async_trait]
 pub trait GetMediaUseCase: Send + Sync {
-    async fn execute(&self, owner: UserId, media_id: Uuid)
-        -> Result<MediaDetail, GetMediaError>;
+    async fn execute(&self, owner: UserId, media_id: Uuid) -> Result<MediaDetail, GetMediaError>;
 }

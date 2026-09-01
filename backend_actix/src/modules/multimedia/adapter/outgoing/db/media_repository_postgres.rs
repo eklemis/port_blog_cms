@@ -360,11 +360,7 @@ impl MediaRepository for MediaRepositoryPostgres {
         })
     }
 
-    async fn soft_delete(
-        &self,
-        owner: UserId,
-        media_id: Uuid,
-    ) -> Result<(), MediaRepositoryError> {
+    async fn soft_delete(&self, owner: UserId, media_id: Uuid) -> Result<(), MediaRepositoryError> {
         // `deleted_at IS NULL` keeps this idempotent at the SQL level: a second
         // delete matches no row, which is then reported as success below only
         // if the row exists and is already deleted.
@@ -936,4 +932,3 @@ mod state_and_variant_tests {
         );
     }
 }
-

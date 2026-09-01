@@ -51,9 +51,9 @@ use crate::modules::cv::application::use_cases::soft_delete_cv::SoftDeleteCvUseC
 use crate::modules::email::application::ports::outgoing::password_reset_notifier::PasswordResetNotifier;
 use crate::modules::email::application::ports::outgoing::user_email_notifier::UserEmailNotifier;
 
+use crate::modules::blog::application::blog_use_cases::BlogUseCases;
 use crate::modules::multimedia::application::domain::policies::upload_policy::UploadPolicy;
 use crate::modules::multimedia::application::media_use_cases::MultimediaUseCases;
-use crate::modules::blog::application::blog_use_cases::BlogUseCases;
 use crate::modules::project::application::project_use_cases::ProjectUseCases;
 use crate::modules::topic::application::ports::incoming::use_cases::CreateTopicUseCase;
 use crate::modules::topic::application::ports::incoming::use_cases::GetTopicsUseCase;

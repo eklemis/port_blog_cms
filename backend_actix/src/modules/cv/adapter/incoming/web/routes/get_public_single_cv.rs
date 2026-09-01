@@ -6,9 +6,10 @@ use uuid::Uuid;
 use crate::{
     api::schemas::{ErrorResponse, SuccessResponse},
     auth::adapter::incoming::web::extractors::auth::resolve_owner_id_or_response,
-    cv::application::use_cases::get_public_single_cv::GetPublicSingleCvError,
     cv::adapter::incoming::web::dto::CvResponse,
-    shared::api::ApiResponse, AppState,
+    cv::application::use_cases::get_public_single_cv::GetPublicSingleCvError,
+    shared::api::ApiResponse,
+    AppState,
 };
 
 /// Get a single CV publicly by username and id

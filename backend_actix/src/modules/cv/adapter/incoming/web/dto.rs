@@ -353,17 +353,12 @@ mod tests {
         assert_eq!(response.photo_url, original.photo_url);
 
         // Round-trip the collections back into domain types and compare.
-        let skills: Vec<CoreSkill> = response
-            .core_skills
-            .into_iter()
-            .map(Into::into)
-            .collect();
+        let skills: Vec<CoreSkill> = response.core_skills.into_iter().map(Into::into).collect();
         assert_eq!(skills.len(), 1);
         assert_eq!(skills[0].title, original.core_skills[0].title);
         assert_eq!(skills[0].description, original.core_skills[0].description);
 
-        let educations: Vec<Education> =
-            response.educations.into_iter().map(Into::into).collect();
+        let educations: Vec<Education> = response.educations.into_iter().map(Into::into).collect();
         assert_eq!(educations[0].degree, original.educations[0].degree);
         assert_eq!(
             educations[0].institution,

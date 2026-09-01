@@ -9,9 +9,7 @@ use crate::{
         application::domain::entities::UserId,
     },
     blog::adapter::incoming::web::dto::{BlogPostResponse, CreateBlogPostRequest},
-    blog::application::ports::incoming::use_cases::{
-        CreateBlogPostCommand, CreateBlogPostError,
-    },
+    blog::application::ports::incoming::use_cases::{CreateBlogPostCommand, CreateBlogPostError},
     shared::api::ApiResponse,
     AppState,
 };
@@ -81,8 +79,12 @@ pub async fn create_blog_post_handler(
     match data.blog.create.execute(command).await {
         Ok(post) => ApiResponse::created(BlogPostResponse::from(post)),
 
-        Err(CreateBlogPostError::InvalidTitle(m)) => ApiResponse::bad_request(ErrorCode::InvalidTitle, &m),
-        Err(CreateBlogPostError::InvalidSlug(m)) => ApiResponse::bad_request(ErrorCode::InvalidSlug, &m),
+        Err(CreateBlogPostError::InvalidTitle(m)) => {
+            ApiResponse::bad_request(ErrorCode::InvalidTitle, &m)
+        }
+        Err(CreateBlogPostError::InvalidSlug(m)) => {
+            ApiResponse::bad_request(ErrorCode::InvalidSlug, &m)
+        }
         Err(CreateBlogPostError::InvalidContent(m)) => {
             ApiResponse::bad_request(ErrorCode::InvalidContent, &m)
         }

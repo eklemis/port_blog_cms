@@ -4,11 +4,10 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::{
-    api::schemas::ErrorResponse,
+    api::schemas::ErrorResponse, api::schemas::SuccessResponse,
     auth::adapter::incoming::web::extractors::auth::VerifiedUser,
     auth::application::domain::entities::UserId,
     modules::project::application::ports::incoming::use_cases::GetProjectTopicsError,
-    api::schemas::SuccessResponse,
     modules::project::application::ports::outgoing::project_query::ProjectTopicItem,
     shared::api::ApiResponse, AppState,
 };

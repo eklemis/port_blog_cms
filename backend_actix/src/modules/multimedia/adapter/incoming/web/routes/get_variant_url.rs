@@ -3,11 +3,11 @@ use serde::{Deserialize, Serialize};
 use tracing::error;
 use uuid::Uuid;
 
+use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::adapter::incoming::web::extractors::auth::VerifiedUser;
 use crate::multimedia::application::domain::entities::MediaSize;
 use crate::multimedia::application::ports::incoming::use_cases::{GetReadUrlError, GetUrlCommand};
-use crate::api::schemas::{ErrorResponse, SuccessResponse};
-use crate::shared::api::{ErrorCode, ApiResponse};
+use crate::shared::api::{ApiResponse, ErrorCode};
 use crate::AppState;
 use utoipa::ToSchema;
 

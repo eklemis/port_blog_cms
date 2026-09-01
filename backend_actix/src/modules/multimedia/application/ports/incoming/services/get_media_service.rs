@@ -28,11 +28,7 @@ impl<Q> GetMediaUseCase for GetMediaService<Q>
 where
     Q: MediaQuery + Send + Sync,
 {
-    async fn execute(
-        &self,
-        owner: UserId,
-        media_id: Uuid,
-    ) -> Result<MediaDetail, GetMediaError> {
+    async fn execute(&self, owner: UserId, media_id: Uuid) -> Result<MediaDetail, GetMediaError> {
         // `get_attachment_info` is not owner-scoped, so ownership is enforced
         // here. A mismatch is reported as not-found rather than forbidden, to
         // match the delete endpoint and avoid confirming that an id exists.
@@ -115,7 +111,10 @@ mod tests {
     async fn returns_media_with_its_available_sizes() {
         let owner = UserId::from(Uuid::new_v4());
         let svc = GetMediaService::new(MockQuery {
-            result: Ok(attachment(owner, vec![MediaSize::Thumbnail, MediaSize::Large])),
+            result: Ok(attachment(
+                owner,
+                vec![MediaSize::Thumbnail, MediaSize::Large],
+            )),
         });
 
         let detail = svc.execute(owner, Uuid::new_v4()).await.unwrap();
