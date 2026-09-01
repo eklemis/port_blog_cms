@@ -76,7 +76,7 @@ newman run postman/CV_API_Test.postman_collection.json
 They answer different questions and neither replaces the other.
 
 - **What the API accepts and returns** → the OpenAPI document. It is generated
-  from the handlers, covers all 48 routes including blog, and a test in
+  from the handlers, covers all 53 routes including blog, and a test in
   `src/api/openapi.rs` fails the build if a schema reference goes stale.
   Browsable at `http://localhost:8080/swagger-ui/`, raw at
   `/api-docs/openapi.json`.
