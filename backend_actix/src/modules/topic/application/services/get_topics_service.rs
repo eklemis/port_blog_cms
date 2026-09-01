@@ -8,6 +8,7 @@ use crate::{
     },
 };
 
+/// Implements the corresponding use-case contract.
 #[derive(Debug, Clone)]
 pub struct GetTopicsService<Q>
 where
@@ -20,6 +21,7 @@ impl<Q> GetTopicsService<Q>
 where
     Q: TopicQuery + Send + Sync,
 {
+    /// Builds it from the ports it depends on.
     pub fn new(query: Q) -> Self {
         Self { query }
     }

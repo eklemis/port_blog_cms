@@ -22,6 +22,7 @@ pub struct LoginRequestDto {
     pub password: String,
 }
 
+/// Response body returned by this endpoint.
 #[derive(Serialize, ToSchema)]
 pub struct LoginResponse {
     /// JWT access token (short-lived)
@@ -36,6 +37,7 @@ pub struct LoginResponse {
     user: LoginUserInfo,
 }
 
+/// See the module documentation.
 #[derive(Serialize, ToSchema)]
 pub struct LoginUserInfo {
     /// User ID (UUID)

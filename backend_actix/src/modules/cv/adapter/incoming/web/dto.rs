@@ -18,6 +18,7 @@ use crate::cv::domain::entities::{
     CVInfo, ContactDetail, ContactType, CoreSkill, Education, Experience, HighlightedProject,
 };
 
+/// Request or response shape for the HTTP layer.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CoreSkillDto {
     /// Skill title
@@ -29,29 +30,38 @@ pub struct CoreSkillDto {
     pub description: String,
 }
 
+/// Request or response shape for the HTTP layer.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct EducationDto {
+    /// Qualification earned.
     #[schema(example = "Bachelor of Science in Computer Science")]
     pub degree: String,
 
+    /// Where it was earned.
     #[schema(example = "MIT")]
     pub institution: String,
 
+    /// Year of completion.
     #[schema(example = 2015)]
     pub graduation_year: i32,
 }
 
+/// Request or response shape for the HTTP layer.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ExperienceDto {
+    /// Employer.
     #[schema(example = "Tech Corp")]
     pub company: String,
 
+    /// Job title.
     #[schema(example = "Senior Backend Engineer")]
     pub position: String,
 
+    /// Where the role was based.
     #[schema(example = "San Francisco, CA")]
     pub location: String,
 
+    /// When the role began. Free-form, so partial dates are allowed.
     #[schema(example = "2020-01")]
     pub start_date: String,
 
@@ -59,44 +69,59 @@ pub struct ExperienceDto {
     #[schema(example = "2023-12")]
     pub end_date: Option<String>,
 
+    /// Long-form description.
     #[schema(example = "Led backend development team...")]
     pub description: String,
 
+    /// Responsibilities, in display order.
     #[schema(example = json!(["Designed microservices architecture"]))]
     pub tasks: Vec<String>,
 
+    /// Notable outcomes, in display order.
     #[schema(example = json!(["Reduced latency by 40%"]))]
     pub achievements: Vec<String>,
 }
 
+/// Request or response shape for the HTTP layer.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct HighlightedProjectDto {
+    /// The project's identifier.
     #[schema(example = "proj-123")]
     pub id: String,
 
+    /// Display title.
     #[schema(example = "E-commerce Platform")]
     pub title: String,
 
+    /// URL segment. Unique per owner.
     #[schema(example = "ecommerce-platform")]
     pub slug: String,
 
+    /// One-line summary.
     #[schema(example = "A scalable e-commerce platform")]
     pub short_description: String,
 }
 
+/// See the module documentation.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, ToSchema)]
 pub enum ContactTypeDto {
+    /// A telephone number.
     PhoneNumber,
+    /// A link — a site, a profile, a repository.
     WebPage,
 }
 
+/// Request or response shape for the HTTP layer.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ContactDetailDto {
+    /// Which kind of contact row this is; decides how a client renders it.
     pub contact_type: ContactTypeDto,
 
+    /// Display title.
     #[schema(example = "Work Email")]
     pub title: String,
 
+    /// The body.
     #[schema(example = "john@example.com")]
     pub content: String,
 }
@@ -104,28 +129,39 @@ pub struct ContactDetailDto {
 /// A CV as returned by the API.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CvResponse {
+    /// Primary key.
     #[schema(example = "123e4567-e89b-12d3-a456-426614174000")]
     pub id: Uuid,
 
+    /// The owning user.
     #[schema(example = "987e6543-e21b-12d3-a456-426614174000")]
     pub user_id: Uuid,
 
+    /// Job title shown under the display name.
     #[schema(example = "Senior Software Engineer")]
     pub role: String,
 
+    /// Name shown on the CV.
     #[schema(example = "John Doe")]
     pub display_name: String,
 
+    /// Free-form introduction.
     #[schema(example = "Passionate software engineer...")]
     pub bio: String,
 
+    /// Portrait image. Empty when unset.
     #[schema(example = "https://example.com/photos/profile.jpg")]
     pub photo_url: String,
 
+    /// Headline skills, in display order.
     pub core_skills: Vec<CoreSkillDto>,
+    /// Education entries, in display order.
     pub educations: Vec<EducationDto>,
+    /// Work history, in display order.
     pub experiences: Vec<ExperienceDto>,
+    /// Projects featured on the CV, in display order.
     pub highlighted_projects: Vec<HighlightedProjectDto>,
+    /// Contact rows. Public on a published CV.
     pub contact_info: Vec<ContactDetailDto>,
 }
 

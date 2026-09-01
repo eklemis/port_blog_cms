@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use tracing::error;
 use utoipa::ToSchema;
 
+/// Request body accepted by this endpoint.
 #[derive(Deserialize, ToSchema)]
 pub struct UpdateUserRequest {
     /// New full name for the user
@@ -23,6 +24,7 @@ pub struct UpdateUserRequest {
     full_name: String,
 }
 
+/// Response body returned by this endpoint.
 #[derive(Serialize, ToSchema)]
 pub struct UpdateUserResponse {
     /// User ID (UUID)

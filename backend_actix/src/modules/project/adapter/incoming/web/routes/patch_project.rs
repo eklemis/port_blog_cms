@@ -35,22 +35,27 @@ pub struct PatchProjectRequest {
     #[schema(value_type = Option<String>, example = "Portfolio CMS")]
     pub title: PatchField<String>,
 
+    /// New body, if the client sent one.
     #[serde(default)]
     #[schema(value_type = Option<String>)]
     pub description: PatchField<String>,
 
+    /// Replaces the list. `null` clears it.
     #[serde(default)]
     #[schema(value_type = Option<Vec<String>>, example = json!(["rust", "actix-web"]))]
     pub tech_stack: PatchField<Vec<String>>,
 
+    /// Replaces the list. `null` clears it.
     #[serde(default)]
     #[schema(value_type = Option<Vec<String>>)]
     pub screenshots: PatchField<Vec<String>>,
 
+    /// New repository URL. `null` clears it.
     #[serde(default)]
     #[schema(value_type = Option<String>, example = "https://github.com/user/repo")]
     pub repo_url: PatchField<String>,
 
+    /// New demo URL. `null` clears it.
     #[serde(default)]
     #[schema(value_type = Option<String>, example = "https://demo.example.com")]
     pub live_demo_url: PatchField<String>,

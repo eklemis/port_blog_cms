@@ -6,12 +6,14 @@ use serde::Serialize;
 use std::sync::Arc;
 use utoipa::ToSchema;
 
+/// Response body returned by this endpoint.
 #[derive(Serialize, ToSchema)]
 pub struct HealthResponse {
     #[schema(example = "ok")]
     status: &'static str,
 }
 
+/// Response body returned by this endpoint.
 #[derive(Serialize, ToSchema)]
 pub struct ReadinessResponse {
     /// "ok" only when every dependency is reachable

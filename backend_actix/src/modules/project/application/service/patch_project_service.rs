@@ -15,6 +15,7 @@ use crate::modules::project::application::ports::outgoing::project_repository::{
 // ──────────────────────────────────────────────────────────
 //
 
+/// Implements the corresponding use-case contract.
 pub struct PatchProjectService<R>
 where
     R: ProjectRepository,
@@ -26,6 +27,7 @@ impl<R> PatchProjectService<R>
 where
     R: ProjectRepository,
 {
+    /// Builds it from the ports it depends on.
     pub fn new(project_repository: R) -> Self {
         Self { project_repository }
     }

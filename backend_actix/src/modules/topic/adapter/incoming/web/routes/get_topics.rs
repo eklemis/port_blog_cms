@@ -14,6 +14,7 @@ use crate::{
     AppState,
 };
 
+/// Response body returned by this endpoint.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TopicResponse {
     /// Topic identifier

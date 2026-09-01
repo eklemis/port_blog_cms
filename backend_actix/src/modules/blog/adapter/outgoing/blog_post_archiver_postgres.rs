@@ -6,12 +6,14 @@ use uuid::Uuid;
 use crate::auth::application::domain::entities::UserId;
 use crate::blog::application::ports::outgoing::{BlogPostArchiver, BlogPostArchiverError};
 
+/// The SeaORM implementation of the matching outgoing port.
 #[derive(Clone)]
 pub struct BlogPostArchiverPostgres {
     db: Arc<DatabaseConnection>,
 }
 
 impl BlogPostArchiverPostgres {
+    /// Builds it from the ports it depends on.
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self { db }
     }

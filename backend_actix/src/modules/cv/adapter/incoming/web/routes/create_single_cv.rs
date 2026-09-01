@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use tracing::error;
 use utoipa::ToSchema;
 
+/// Request body accepted by this endpoint.
 #[derive(Deserialize, Serialize, ToSchema)]
 pub struct CreateCVRequest {
     /// Professional role or job title
@@ -30,10 +31,15 @@ pub struct CreateCVRequest {
     #[schema(example = "https://example.com/photos/profile.jpg")]
     pub photo_url: String,
 
+    /// Headline skills, in display order.
     pub core_skills: Vec<CoreSkillDto>,
+    /// Education entries, in display order.
     pub educations: Vec<EducationDto>,
+    /// Work history, in display order.
     pub experiences: Vec<ExperienceDto>,
+    /// Projects featured on the CV, in display order.
     pub highlighted_projects: Vec<HighlightedProjectDto>,
+    /// Contact rows. Public on a published CV.
     pub contact_info: Vec<ContactDetailDto>,
 }
 

@@ -13,6 +13,7 @@ use crate::cv::domain::entities::CVInfo;
 // ──────────────────────────────────────────────────────────
 //
 
+/// Implements the corresponding use-case contract.
 pub struct GetPublicSingleCvService<Q>
 where
     Q: CVQuery,
@@ -24,6 +25,7 @@ impl<Q> GetPublicSingleCvService<Q>
 where
     Q: CVQuery,
 {
+    /// Builds it from the ports it depends on.
     pub fn new(query: Q) -> Self {
         Self { query }
     }

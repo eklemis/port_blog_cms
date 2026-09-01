@@ -2,10 +2,16 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// A user's identity.
+///
+/// A newtype rather than a bare `Uuid` so a user id cannot be passed where a
+/// post or project id is expected. Every other module imports this — it is
+/// auth's published surface, and a change to it is a change to all seven.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct UserId(Uuid);
 
 impl UserId {
+    /// The underlying UUID, for the boundaries that need one.
     pub fn value(&self) -> Uuid {
         self.0
     }
@@ -23,28 +29,49 @@ impl From<UserId> for Uuid {
     }
 }
 
+/// A user account, as the domain sees it.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct User {
+    /// Primary key.
     pub id: Uuid,
+    /// Public handle. Appears in public URLs.
     pub username: String,
+    /// Login address.
     pub email: String,
+    /// Argon2 hash. Never a plaintext password.
     pub password_hash: String,
+    /// When the account was created.
     pub created_at: DateTime<Utc>,
+    /// When the row was last written.
     pub updated_at: DateTime<Utc>,
-    pub is_verified: bool, // ✅ Added for email verification
-    pub is_deleted: bool,  // ✅ Added for soft delete
+    /// Whether the email address has been confirmed.
+    pub is_verified: bool,
+    /// Whether the account is soft-deleted. Queries do not filter on it, so
+    /// callers must check.
+    pub is_deleted: bool,
 }
 
+/// A refresh token that must no longer be accepted.
+///
+/// Stored as a hash, never in the clear — the table would otherwise be a pile
+/// of working credentials.
 #[derive(Debug, Clone)]
 pub struct BlacklistedToken {
+    /// Primary key.
     pub id: Uuid,
+    /// SHA-256 of the token.
     pub token_hash: String,
+    /// Whose token it was.
     pub user_id: Uuid,
+    /// When it was revoked.
     pub blacklisted_at: DateTime<Utc>,
+    /// The token's own expiry. Past this the entry is dead weight, which is what
+    /// lets the store expire it.
     pub expires_at: DateTime<Utc>,
 }
 
 impl BlacklistedToken {
+    /// Records a revocation, stamped now.
     pub fn new(token_hash: String, user_id: Uuid, expires_at: DateTime<Utc>) -> Self {
         Self {
             id: Uuid::new_v4(),

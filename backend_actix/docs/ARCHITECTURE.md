@@ -452,40 +452,33 @@ fails the build on a broken intra-doc link.
 `cargo doc -p backend_actix --no-deps` produces a browsable reference, and CI
 fails the build on a broken intra-doc link.
 
-**`#![deny(missing_docs)]` is enabled on the layers that form the contract**:
-every `application/ports` module in all seven feature modules, plus
-`src/shared` and `src/api`. An undocumented public item in any of them is a
-compile error, not a warning — including struct fields and enum variants, which
-is what makes the reference complete rather than merely present.
+**`#![deny(missing_docs)]` is on at the crate root.** Every publicly reachable
+item — struct field, enum variant, method, module — must carry a doc comment or
+the build fails. There is one attribute, in `lib.rs`, and no per-layer
+exceptions.
 
-| Layer | Gate |
-| --- | --- |
-| `modules/*/application/ports/{incoming,outgoing}` | `deny(missing_docs)` |
-| `auth` and `cv`'s `application/use_cases` — their incoming contracts, which the older idiom puts here rather than under `ports/` | `deny(missing_docs)` |
-| `shared/` — the response envelope, `ErrorCode`, rate limiting | `deny(missing_docs)` |
-| `api/` — the OpenAPI document and its wrapper types | `deny(missing_docs)` |
-| `modules/*/{adapter,application/{services,domain}}` | not gated |
+Two things are worth knowing about its reach.
 
-The second row exists because of the convention drift described above: `auth`
-and `cv` declare their use-case traits beside the implementation instead of
-under `ports/`. Gating by directory alone would have left the two most
-security-sensitive modules' contracts uncovered, so those directories are
-gated too.
+**It covers the public API, not the whole crate.** `missing_docs` lints what is
+reachable from the crate root. Items behind `pub(crate)`, and types in private
+modules that are never re-exported, are outside it by construction. That is the
+lint's design rather than a gap in the configuration — but it means "the build
+is green" says the *published surface* is documented, not literally every
+`pub fn` in the tree.
 
-Ports came first because that is where implementers get things wrong: whether
-absence is `Ok(None)` or an error, whether an operation is idempotent, whether a
-method scopes on the owner in SQL, and which condition maps to which error
-variant. The traps are written down rather than left to be discovered — that
-`UserQuery` returns soft-deleted users and the caller must check the flag, and
-that `CVArchiver` does *not* scope on owner while the blog and project archivers
-do.
+**SeaORM entities carry a documented `#![allow(missing_docs)]`.** In those ten
+files `Model`'s fields mirror the table's columns one for one, and `Column`,
+`Relation` and `ActiveModel` are macro output. The columns are defined in
+`migration/` and what they *mean* is documented on the port DTOs the entity is
+mapped into; a third copy would restate the field name and nothing else. Each
+file says so at the top.
 
-What is left ungated is adapters and services — the implementations. They are
-read alongside the contract they satisfy, which now explains itself, so the
-marginal value of a comment on every concrete type is lower. Widening the gate
-is a mechanical follow-up whenever it seems worth it: one
-`#![deny(missing_docs)]` at the module root, then work through what the
-compiler lists.
+Ports were documented first, because that is where implementers get things
+wrong: whether absence is `Ok(None)` or an error, whether an operation is
+idempotent, whether a method scopes on the owner in SQL. The traps are written
+down rather than left to be discovered — that `UserQuery` returns soft-deleted
+users and the caller must check the flag, and that `CVArchiver` does *not* scope
+on owner while the blog and project archivers do.
 
 ---
 

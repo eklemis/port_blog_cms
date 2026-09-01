@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! Portfolio CMS backend — the API behind `port_blog_cms`.
 //!
 //! The crate is laid out as ports and adapters. Each module under [`modules`]
@@ -26,6 +27,8 @@
 //! server. The binary in `main.rs` is a shim that installs the rustls crypto
 //! provider and calls it.
 
+/// The seven feature modules. Each is a vertical slice; see
+/// `docs/ARCHITECTURE.md`.
 pub mod modules;
 pub use modules::auth;
 pub use modules::blog;
@@ -36,6 +39,7 @@ pub use modules::project;
 pub use modules::topic;
 /// The OpenAPI document and the wrapper types it describes.
 pub mod api;
+/// The `/health` and `/ready` probes.
 pub mod health;
 /// Cross-cutting concerns that belong to no module: the response envelope,
 /// the error-code vocabulary, CORS and rate limiting.
@@ -107,36 +111,79 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod tests;
 
 #[derive(Clone)]
+/// Everything a route handler can reach, assembled once at startup.
+///
+/// Handlers receive it through `web::Data`. Each field is a trait object, so
+/// a handler depends on the contract and never on the adapter behind it —
+/// [`start`] is the only place that decides which implementation is used.
+///
+/// Two shapes coexist: the older modules contribute one flat field per use
+/// case, the newer ones a single grouped struct. Prefer the grouped form; see
+/// the convention section of `docs/ARCHITECTURE.md`.
 pub struct AppState {
+    /// The `fetch cv` use case.
     pub fetch_cv_use_case: Arc<dyn IFetchCVUseCase + Send + Sync>,
+    /// The `fetch cv by id` use case.
     pub fetch_cv_by_id_use_case: Arc<dyn IFetchCVByIdUseCase + Send + Sync>,
+    /// The `get public single cv` use case.
     pub get_public_single_cv_use_case: Arc<dyn GetPublicSingleCvUseCase + Send + Sync>,
+    /// The `create cv` use case.
     pub create_cv_use_case: Arc<dyn ICreateCVUseCase + Send + Sync>,
+    /// The `update cv` use case.
     pub update_cv_use_case: Arc<dyn IUpdateCVUseCase + Send + Sync>,
+    /// The `patch cv` use case.
     pub patch_cv_use_case: Arc<dyn IPatchCVUseCase + Send + Sync>,
+    /// Registration, which spans user creation and the verification email.
+    /// A concrete type rather than a trait object: it is the only orchestrator.
     pub register_user_orchestrator: Arc<UserRegistrationOrchestrator>,
+    /// The `verify user email` use case.
     pub verify_user_email_use_case: Arc<dyn IVerifyUserEmailUseCase + Send + Sync>,
+    /// The `login user` use case.
     pub login_user_use_case: Arc<dyn ILoginUserUseCase + Send + Sync>,
+    /// The `refresh token` use case.
     pub refresh_token_use_case: Arc<dyn IRefreshTokenUseCase + Send + Sync>,
+    /// The `request password reset` use case.
     pub request_password_reset_use_case: Arc<dyn IRequestPasswordResetUseCase + Send + Sync>,
+    /// The `reset password` use case.
     pub reset_password_use_case: Arc<dyn IResetPasswordUseCase + Send + Sync>,
+    /// The `logout user` use case.
     pub logout_user_use_case: Arc<dyn ILogoutUseCase + Send + Sync>,
+    /// The `soft delete user` use case.
     pub soft_delete_user_use_case: Arc<dyn ISoftDeleteUserUseCase + Send + Sync>,
+    /// The `fetch user profile` use case.
     pub fetch_user_profile_use_case: Arc<dyn FetchUserProfileUseCase + Send + Sync>,
+    /// The `update user profile` use case.
     pub update_user_profile_use_case: Arc<dyn UpdateUserProfileUseCase + Send + Sync>,
+    /// The `hard delete cv` use case.
     pub hard_delete_cv_use_case: Arc<dyn HardDeleteCvUseCase + Send + Sync>,
+    /// The `soft delete cv` use case.
     pub soft_delete_cv_use_case: Arc<dyn SoftDeleteCvUseCase + Send + Sync>,
+    /// The `restore cv` use case.
     pub restore_cv_use_case: Arc<dyn RestoreDeletedCvUseCase + Send + Sync>,
+    /// The `create topic` use case.
     pub create_topic_use_case: Arc<dyn CreateTopicUseCase + Send + Sync>,
+    /// The `get topics` use case.
     pub get_topics_use_case: Arc<dyn GetTopicsUseCase + Send + Sync>,
+    /// The `soft delete topic` use case.
     pub soft_delete_topic_use_case: Arc<dyn SoftDeleteTopicUseCase + Send + Sync>,
+    /// Blog's use cases, grouped.
     pub blog: BlogUseCases,
+    /// Project's use cases, grouped.
     pub project: ProjectUseCases,
+    /// Multimedia's use cases, grouped.
     pub multimedia: MultimediaUseCases,
+    /// Turns a username into a `UserId`. Shared by the public routes, which
+    /// address users by name rather than id.
     pub user_identity_resolver: UserIdentityResolver,
+    /// Size, dimension and MIME limits applied to uploads.
     pub multimedia_upload_policy: UploadPolicy,
 }
 
+/// Builds every adapter, wires them into [`AppState`], and runs the server.
+///
+/// The composition root: the only place that knows both halves of every port.
+/// Excluded from coverage, because covering it means booting the process
+/// against a real database and Redis.
 #[actix_web::main]
 pub async fn start() -> std::io::Result<()> {
     use crate::{
@@ -531,6 +578,10 @@ pub async fn start() -> std::io::Result<()> {
     .await
 }
 
+/// Registers every route on the Actix app.
+///
+/// **A new handler must be added here and to `src/api/openapi.rs`** — a test
+/// fails if the OpenAPI document and the registered routes disagree.
 pub fn init_routes(cfg: &mut web::ServiceConfig) {
     // Health
     cfg.service(crate::health::health);

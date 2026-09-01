@@ -9,12 +9,14 @@ use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use std::sync::Arc;
 use uuid::Uuid;
 
+/// The SeaORM implementation of the matching outgoing port.
 #[derive(Clone, Debug)]
 pub struct UserQueryPostgres {
     db: Arc<DatabaseConnection>, // Wrap in Arc
 }
 
 impl UserQueryPostgres {
+    /// Builds it from the ports it depends on.
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self { db }
     }

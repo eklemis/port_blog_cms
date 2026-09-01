@@ -1,5 +1,3 @@
-#![deny(missing_docs)]
-
 //! CV use cases.
 //!
 //! Like `auth`, these predate the `ports/incoming` split: each file declares

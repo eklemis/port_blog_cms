@@ -5,6 +5,7 @@ use crate::topic::application::ports::{
     outgoing::{CreateTopicData, TopicRepository, TopicRepositoryError, TopicResult},
 };
 
+/// Implements the corresponding use-case contract.
 #[derive(Debug, Clone)]
 pub struct CreateTopicService<R>
 where
@@ -17,6 +18,7 @@ impl<R> CreateTopicService<R>
 where
     R: TopicRepository + Send + Sync,
 {
+    /// Builds it from the ports it depends on.
     pub fn new(repository: R) -> Self {
         Self { repository }
     }

@@ -12,6 +12,7 @@ use crate::{
     shared::api::ApiResponse, AppState,
 };
 
+/// Request body accepted by this endpoint.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct RemoveProjectTopicRequest {
     /// Topic to detach from the project.

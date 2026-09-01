@@ -16,6 +16,8 @@ use crate::blog::application::ports::outgoing::BlogPostTopicRepository;
 
 macro_rules! topic_link_service {
     ($name:ident) => {
+        /// A post-topic link service. A pass-through to the join-table
+        /// repository, which is already owner-scoped in SQL.
         pub struct $name<R>
         where
             R: BlogPostTopicRepository,
@@ -27,6 +29,7 @@ macro_rules! topic_link_service {
         where
             R: BlogPostTopicRepository,
         {
+            /// Builds it from the ports it depends on.
             pub fn new(repository: R) -> Self {
                 Self { repository }
             }

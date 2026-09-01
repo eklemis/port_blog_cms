@@ -7,6 +7,7 @@ use serde::Serialize;
 use tracing::error;
 use utoipa::ToSchema;
 
+/// Response body returned by this endpoint.
 #[derive(Serialize, ToSchema)]
 pub struct VerifyEmailResponse {
     /// Success message

@@ -5,11 +5,14 @@ use lettre::{
     message::header::ContentType, AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 };
 
+/// The seam that makes the SMTP sender testable without a live relay.
 #[async_trait]
 pub trait Mailer: Send + Sync {
+    /// Hands one composed message to the transport.
     async fn send(&self, email: Message) -> Result<(), String>;
 }
 
+/// See the module documentation.
 pub struct SmtpEmailSender {
     mailer: Box<dyn Mailer>,
     from_email: String,
@@ -26,12 +29,14 @@ impl Mailer for AsyncSmtpTransport<Tokio1Executor> {
 }
 
 impl SmtpEmailSender {
+    /// Builds the sender around a supplied transport. Used by tests.
     pub fn new_with_mailer(mailer: Box<dyn Mailer>, from_email: &str) -> Self {
         Self {
             mailer,
             from_email: from_email.to_string(),
         }
     }
+    /// Builds it from the ports it depends on.
     pub fn new(
         smtp_server: &str,
         smtp_username: &str,
@@ -53,6 +58,8 @@ impl SmtpEmailSender {
         }
     }
     // Local/test constructor (Mailpit, MailHog, etc.)
+    /// Builds a sender pointed at a local unauthenticated relay — Mailpit under
+    /// `RUST_ENV=test`.
     pub fn new_local(host: &str, port: u16, from_email: &str) -> Self {
         let transport = AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(host)
             .port(port)

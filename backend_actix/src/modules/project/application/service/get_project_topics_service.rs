@@ -8,6 +8,7 @@ use crate::modules::project::application::ports::incoming::use_cases::{
 use crate::modules::project::application::ports::outgoing::project_query::ProjectQuery;
 use crate::project::application::ports::outgoing::project_query::ProjectTopicItem;
 
+/// Implements the corresponding use-case contract.
 pub struct GetProjectTopicsService<Q>
 where
     Q: ProjectQuery,
@@ -19,6 +20,7 @@ impl<Q> GetProjectTopicsService<Q>
 where
     Q: ProjectQuery,
 {
+    /// Builds it from the ports it depends on.
     pub fn new(query: Q) -> Self {
         Self { query }
     }

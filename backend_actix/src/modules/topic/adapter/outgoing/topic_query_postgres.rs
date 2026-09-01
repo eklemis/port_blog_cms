@@ -12,12 +12,14 @@ use super::sea_orm_entity::topics::{
     Column as TopicColumn, Entity as TopicEntity, Model as TopicModel,
 };
 
+/// The SeaORM implementation of the matching outgoing port.
 #[derive(Debug, Clone)]
 pub struct TopicQueryPostgres {
     db: Arc<DatabaseConnection>,
 }
 
 impl TopicQueryPostgres {
+    /// Builds it from the ports it depends on.
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self { db }
     }

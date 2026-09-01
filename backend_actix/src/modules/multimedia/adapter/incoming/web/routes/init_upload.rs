@@ -21,30 +21,43 @@ use utoipa::ToSchema;
 // ──────────────────────────────────────────────────────────
 //
 
+/// Request body accepted by this endpoint.
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct InitUploadRequest {
     // File metadata
+    /// Name to store the upload under. Path separators are rejected.
     pub file_name: String,
+    /// MIME type **as declared by the client**. Never checked against the bytes,
+    /// which never reach this service.
     pub mime_type: String,
+    /// Size as declared by the client.
     pub file_size_bytes: u64,
 
+    /// Declared width, for media with pixel dimensions.
     #[serde(default)]
     pub width_px: Option<u32>,
 
+    /// Declared height, for media with pixel dimensions.
     #[serde(default)]
     pub height_px: Option<u32>,
 
     // Attachment metadata
+    /// What kind of thing this attaches to.
     pub attachment_target: AttachmentTarget,
+    /// The id of that thing.
     pub attachment_target_id: Uuid,
+    /// What the media is for on its target.
     pub role: MediaRole,
 
+    /// Display order within the role, starting at 0.
     #[serde(default)]
     pub position: u8,
 
+    /// Alternative text.
     #[serde(default)]
     pub alt_text: Option<String>,
 
+    /// Caption.
     #[serde(default)]
     pub caption: Option<String>,
 }
@@ -55,9 +68,12 @@ pub struct InitUploadRequest {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Response body returned by this endpoint.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct InitUploadResponse {
+    /// Signed URL to PUT the bytes to. Short-lived.
     pub upload_url: String,
+    /// Poll this id to learn when variants are ready.
     pub media_id: Uuid,
 }
 

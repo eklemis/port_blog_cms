@@ -1,7 +1,5 @@
 //! What blog needs from the outside: a post store split into write, read, lifecycle and topic-link ports.
 
-#![deny(missing_docs)]
-
 mod blog_post_archiver;
 mod blog_post_query;
 mod blog_post_repository;

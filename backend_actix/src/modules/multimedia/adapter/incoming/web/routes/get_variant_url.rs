@@ -17,9 +17,12 @@ use utoipa::ToSchema;
 // ──────────────────────────────────────────────────────────
 //
 
+/// See the module documentation.
 #[derive(Debug, Deserialize)]
 pub struct GetVariantPath {
+    /// Which media item.
     pub media_id: Uuid,
+    /// Which generated size.
     pub media_size: MediaSize,
 }
 
@@ -29,11 +32,16 @@ pub struct GetVariantPath {
 // ──────────────────────────────────────────────────────────
 //
 
+/// Response body returned by this endpoint.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct GetVariantUrlResponse {
+    /// Which media item.
     pub media_id: Uuid,
+    /// The size the URL points at.
     pub size: MediaSize,
+    /// Where the resource is served from.
     pub url: String,
+    /// When the URL stops working. Short by design.
     pub expires_at: chrono::DateTime<chrono::Utc>,
 }
 

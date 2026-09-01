@@ -12,6 +12,7 @@ use crate::modules::project::application::ports::outgoing::project_query::{
 // Service Implementation
 // ============================================================================
 
+/// Implements the corresponding use-case contract.
 pub struct GetProjectsService<Q>
 where
     Q: ProjectQuery,
@@ -23,6 +24,7 @@ impl<Q> GetProjectsService<Q>
 where
     Q: ProjectQuery,
 {
+    /// Builds it from the ports it depends on.
     pub fn new(query: Q) -> Self {
         Self { query }
     }

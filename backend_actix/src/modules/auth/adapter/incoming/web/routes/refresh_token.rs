@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{error, info, warn};
 use utoipa::ToSchema;
 
+/// Response body returned by this endpoint.
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct RefreshTokenResponseBody {
     /// New JWT access token
@@ -18,6 +19,7 @@ pub struct RefreshTokenResponseBody {
     refresh_token: String,
 }
 
+/// Request or response shape for the HTTP layer.
 #[derive(Deserialize, ToSchema)]
 pub struct RefreshTokenRequestDto {
     /// Refresh token to exchange for new tokens

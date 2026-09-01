@@ -22,6 +22,7 @@ use utoipa::IntoParams;
 // ──────────────────────────────────────────────────────────
 //
 
+/// Adapter implementing the matching outgoing port.
 #[derive(Debug, Deserialize, IntoParams)]
 #[into_params(parameter_in = Query)]
 pub struct GetProjectsQuery {
@@ -32,12 +33,15 @@ pub struct GetProjectsQuery {
     /// Restrict results to projects carrying this topic
     pub topic_id: Option<uuid::Uuid>,
 
+    /// Listing order.
     #[serde(default)]
     pub sort: ProjectSort,
 
+    /// 1-based page number.
     #[serde(default)]
     pub page: u32,
 
+    /// Rows per page.
     #[serde(default)]
     pub per_page: u32,
 }

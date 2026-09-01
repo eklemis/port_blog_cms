@@ -11,12 +11,18 @@ use crate::email::application::ports::outgoing::Recipient;
 // ============================================================================
 // Registration Output with Message
 // ============================================================================
+/// See the module documentation.
 #[derive(Debug)]
 pub struct UserRegistrationOutput {
+    /// Primary key of the newly created user.
     pub user_id: uuid::Uuid,
+    /// Email address.
     pub email: String,
+    /// Public handle.
     pub username: String,
+    /// Display name.
     pub full_name: String,
+    /// Human-readable text for the caller.
     pub message: String,
 }
 
@@ -37,14 +43,21 @@ impl From<CreateUserOutput> for UserRegistrationOutput {
 // Registration Errors
 // ============================================================================
 
+/// See the module documentation.
 #[derive(Debug, thiserror::Error)]
 pub enum UserRegistrationError {
+    /// The account could not be created; nothing was sent.
     #[error("User creation failed: {0}")]
     CreateUserFailed(#[from] CreateUserError),
 
+    /// The account exists but the verification token could not be minted, so no
+    /// mail was attempted. Surfaced rather than swallowed — see
+    /// `docs/adr/0005-break-the-auth-email-cycle.md`.
     #[error("Token generation failed: {0}")]
     TokenGenerationFailed(String),
 
+    /// Retained for callers that treat delivery as fatal. The registration path
+    /// itself sends in a detached task and does not produce this.
     #[error("Email sending failed: {0}")]
     EmailSendingFailed(String),
 }
@@ -53,6 +66,7 @@ pub enum UserRegistrationError {
 // User Registration Service (Orchestration Layer)
 // ============================================================================
 
+/// See the module documentation.
 #[derive(Clone)]
 pub struct UserRegistrationOrchestrator {
     create_user_use_case: Arc<dyn ICreateUserUseCase + Send + Sync>,
@@ -64,6 +78,7 @@ pub struct UserRegistrationOrchestrator {
 }
 
 impl UserRegistrationOrchestrator {
+    /// Builds it from the ports it depends on.
     pub fn new(
         create_user_use_case: Arc<dyn ICreateUserUseCase + Send + Sync>,
         token_provider: Arc<dyn TokenProvider + Send + Sync>,

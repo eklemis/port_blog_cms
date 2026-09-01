@@ -6,6 +6,7 @@ use crate::auth::application::{
     use_cases::fetch_profile::{FetchUserError, FetchUserOutput, FetchUserProfileUseCase},
 };
 
+/// Implements the corresponding use-case contract.
 pub struct FetchUserProfileService<Q>
 where
     Q: UserQuery + Send + Sync,
@@ -17,6 +18,7 @@ impl<Q> FetchUserProfileService<Q>
 where
     Q: UserQuery + Send + Sync,
 {
+    /// Builds it from the ports it depends on.
     pub fn new(query: Q) -> Self {
         Self { user_query: query }
     }

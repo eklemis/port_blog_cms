@@ -19,6 +19,7 @@ use crate::blog::application::ports::outgoing::{
 use crate::blog::domain::entities::BlogPostTopic;
 use crate::topic::adapter::outgoing::sea_orm_entity::topics;
 
+/// The SeaORM implementation of the matching outgoing port.
 #[derive(Clone)]
 pub struct BlogPostQueryPostgres {
     db: Arc<DatabaseConnection>,
@@ -48,6 +49,7 @@ struct TopicRow {
 }
 
 impl BlogPostQueryPostgres {
+    /// Builds it from the ports it depends on.
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self { db }
     }

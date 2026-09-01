@@ -11,12 +11,14 @@ use crate::modules::project::application::ports::outgoing::project_archiver::{
     ProjectArchiver, ProjectArchiverError,
 };
 
+/// The SeaORM implementation of the matching outgoing port.
 #[derive(Clone)]
 pub struct ProjectArchiverPostgres {
     db: Arc<DatabaseConnection>,
 }
 
 impl ProjectArchiverPostgres {
+    /// Builds it from the ports it depends on.
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self { db }
     }

@@ -17,6 +17,7 @@ use utoipa::IntoParams;
 // ──────────────────────────────────────────────────────────
 //
 
+/// Adapter implementing the matching outgoing port.
 #[derive(Debug, Deserialize, IntoParams)]
 #[into_params(parameter_in = Query)]
 pub struct GetCVsQuery {

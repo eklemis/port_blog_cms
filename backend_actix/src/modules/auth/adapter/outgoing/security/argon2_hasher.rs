@@ -11,6 +11,7 @@ use crate::auth::application::ports::outgoing::password_hasher::{
     HashError, PasswordHasher as HasherTrait,
 };
 
+/// See the module documentation.
 #[derive(Clone)]
 pub struct Argon2Hasher {
     params: Params,

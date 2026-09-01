@@ -1,3 +1,4 @@
+/// Password policy and hashing helpers.
 pub mod password;
 mod user_profile;
 

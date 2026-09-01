@@ -9,18 +9,23 @@ use crate::auth::application::use_cases::reset_password::ResetPasswordError;
 use crate::shared::api::{ApiResponse, ErrorCode};
 use crate::AppState;
 
+/// Request or response shape for the HTTP layer.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct RequestPasswordResetDto {
+    /// Email address.
     #[schema(example = "john@example.com")]
     pub email: String,
 }
 
+/// Response body returned by this endpoint.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct PasswordResetResponse {
+    /// Human-readable text for the caller.
     #[schema(example = "If that email is registered, a reset link has been sent")]
     pub message: String,
 }
 
+/// Request or response shape for the HTTP layer.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct ResetPasswordDto {
     /// Must satisfy the same policy as registration: 12-128 characters.
