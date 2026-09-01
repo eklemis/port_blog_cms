@@ -59,6 +59,23 @@ impl fmt::Display for MediaSize {
     }
 }
 
+/// Parsing is the inverse of [`Display`](std::fmt::Display), so the wire form
+/// and the URL segment are the same string. Lives here rather than in a route
+/// so every caller agrees on which sizes exist.
+impl std::str::FromStr for MediaSize {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "thumbnail" => Ok(MediaSize::Thumbnail),
+            "small" => Ok(MediaSize::Small),
+            "medium" => Ok(MediaSize::Medium),
+            "large" => Ok(MediaSize::Large),
+            _ => Err(()),
+        }
+    }
+}
+
 /// One generated size and where its object lives.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MediaVariant {

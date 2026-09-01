@@ -192,14 +192,6 @@ mod tests {
 
     #[async_trait::async_trait]
     impl StorageQuery for MockStorage {
-        fn public_read_url(&self, media_info: &MediaInfo) -> String {
-            format!(
-                "https://public.example/{}/{}",
-                media_info.bucket_name(),
-                media_info.object_name()
-            )
-        }
-
         async fn get_signed_upload_url(
             &self,
             media_info: MediaInfo,

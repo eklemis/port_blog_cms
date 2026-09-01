@@ -163,6 +163,14 @@ mod tests {
 
     #[async_trait]
     impl MediaQuery for MockMediaQuery {
+        async fn find_public_variant(
+            &self,
+            _media_id: Uuid,
+            _size: MediaSize,
+        ) -> Result<Option<StoredVariant>, MediaQueryError> {
+            Ok(None)
+        }
+
         async fn get_state(&self, _media_id: Uuid) -> Result<MediaStateInfo, MediaQueryError> {
             unimplemented!()
         }
@@ -190,14 +198,6 @@ mod tests {
 
     #[async_trait]
     impl StorageQuery for MockStorageQuery {
-        fn public_read_url(&self, media_info: &MediaInfo) -> String {
-            format!(
-                "https://public.example/{}/{}",
-                media_info.bucket_name(),
-                media_info.object_name()
-            )
-        }
-
         async fn get_signed_upload_url(
             &self,
             _media_info: MediaInfo,

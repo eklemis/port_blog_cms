@@ -159,27 +159,6 @@ pub trait StorageQuery: Send + Sync {
     /// Manifests are written by the image processing service and contain
     /// the current processing status (pending, processing, ready, failed).
     async fn get_latest_manifest(&self, media_id: &str) -> Result<ManifestInfo, StorageQueryError>;
-
-    /// The durable, unsigned URL for an object in a publicly readable bucket.
-    ///
-    /// Used for **public responses only**; the console keeps
-    /// [`get_signed_read_url`](Self::get_signed_read_url).
-    ///
-    /// # Why public responses cannot use a signed URL
-    ///
-    /// Signed URLs expire. A server-rendered public page is cached, so a signed
-    /// URL baked into one outlives its own validity — a page cached for an hour
-    /// serves links that died in fifteen minutes. An unsigned URL has no expiry
-    /// and survives caching.
-    ///
-    /// The trade is that **anyone holding the URL can fetch the object
-    /// indefinitely**, including after the post referencing it is unpublished.
-    /// Object keys carry a UUID so they are not guessable, but they are not
-    /// revocable either. This is only correct for objects that are meant to be
-    /// public; see `docs/adr/0006-public-media-urls.md`.
-    ///
-    /// Synchronous and infallible: it builds a string and performs no I/O.
-    fn public_read_url(&self, media_info: &MediaInfo) -> String;
 }
 
 // ============================================================================

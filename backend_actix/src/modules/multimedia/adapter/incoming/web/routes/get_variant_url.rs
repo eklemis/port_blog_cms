@@ -108,12 +108,8 @@ pub async fn get_variant_read_url_handler(
 ) -> impl Responder {
     let (media_id, media_size_raw) = path.into_inner();
 
-    let media_size = match media_size_raw.as_str() {
-        "thumbnail" => MediaSize::Thumbnail,
-        "small" => MediaSize::Small,
-        "medium" => MediaSize::Medium,
-        "large" => MediaSize::Large,
-        _ => return ApiResponse::not_found(ErrorCode::VariantNotFound, "Invalid media size"),
+    let Ok(media_size) = media_size_raw.parse::<MediaSize>() else {
+        return ApiResponse::not_found(ErrorCode::VariantNotFound, "Invalid media size");
     };
 
     let command = GetUrlCommand {

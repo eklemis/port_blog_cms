@@ -143,6 +143,7 @@ impl Default for TestAppStateBuilder {
                 soft_delete: Arc::new(StubSoftDeleteProjectUseCase),
             }),
             multimedia: Some(MultimediaUseCases {
+                get_public_variant_url: Arc::new(StubGetPublicVariantUrl),
                 create_signed_post_url: Arc::new(StubCreateUploadMediaUrlUseCase),
                 create_signed_get_url: Arc::new(StubGetVariantReadUrlService),
                 list_media: Arc::new(StubListMediaUseCase),

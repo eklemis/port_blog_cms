@@ -124,6 +124,7 @@ use crate::topic::application::ports::outgoing::TopicResult;
         crate::multimedia::adapter::incoming::web::routes::list_media_handler,
         crate::multimedia::adapter::incoming::web::routes::delete_media_handler,
         crate::multimedia::adapter::incoming::web::routes::get_media_handler,
+        crate::multimedia::adapter::incoming::web::routes::get_public_variant_handler,
     ),
     components(
         schemas(

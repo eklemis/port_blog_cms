@@ -66,6 +66,14 @@ mod tests {
 
     #[async_trait]
     impl MediaQuery for MockQuery {
+        async fn find_public_variant(
+            &self,
+            _media_id: Uuid,
+            _size: MediaSize,
+        ) -> Result<Option<StoredVariant>, MediaQueryError> {
+            Ok(None)
+        }
+
         async fn get_state(&self, _media_id: Uuid) -> Result<MediaStateInfo, MediaQueryError> {
             unimplemented!()
         }

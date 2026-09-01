@@ -10,3 +10,5 @@ pub use create_upload_url_service::CreateUploadMediaUrlService;
 pub use delete_media_service::DeleteMediaService;
 pub use get_media_service::GetMediaService;
 pub use list_media_service::ListMediaService;
+mod get_public_variant_url_service;
+pub use get_public_variant_url_service::GetPublicVariantUrlService;

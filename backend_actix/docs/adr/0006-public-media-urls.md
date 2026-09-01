@@ -1,68 +1,85 @@
-# 0006 — Public responses carry unsigned media URLs
+# 0006 — Public media is served by a signing redirect, not a public bucket
 
 **Status:** Accepted
-**Component:** `multimedia` storage port, `blog` public read path
+**Component:** `multimedia` public read path, `blog` public responses
 
 ## Context
 
-Media variants live in a GCS bucket and were reachable only two ways: through
-`GET /api/media/{id}/{size}`, which is behind the `VerifiedUser` extractor, or
-not at all. No public response carried a media field.
+Media variants live in a GCS bucket and were reachable only through
+`GET /api/media/{id}/{size}`, which sits behind the `VerifiedUser` extractor.
+No public response carried a media field. So a published post's cover was
+invisible to readers — a portfolio site that could not show the work. An
+anonymous visitor holds no token, and the SvelteKit server has no credential to
+borrow.
 
-So a published post's cover and a project's screenshots were invisible to
-readers — a portfolio site that could not show the work. The frontend has no
-way around it: an anonymous visitor holds no token, and the SvelteKit server has
-no credential to borrow.
+The obvious fix is to put signed URLs in the public response. That does not
+work, and understanding why is what rules out most of the alternatives.
 
-The obvious fix — let the public call the existing variant route — does not
-work, and the reason is the decision here.
+**A signed URL cannot survive caching.** Signed URLs carry a short expiry. A
+server-rendered public page is cached; a page cached for an hour with a
+fifteen-minute URL baked into it serves dead links for forty-five minutes. The
+failure is invisible in development, where nothing is cached that long, and
+appears in production as intermittently broken images.
 
 ## Decision
 
-**Objects in the ready bucket are publicly readable, and public responses
-return plain, unsigned URLs. The console keeps signed URLs.**
+**The ready bucket stays private. Public responses carry a stable URL into this
+API — `GET /api/public/media/{media_id}/{size}` — which checks visibility, signs
+a short-lived URL, and returns `302`.**
 
-`StorageQuery` gained `public_read_url`, alongside `get_signed_read_url`. The
-two paths share one storage client.
+The console keeps `GET /api/media/{id}/{size}` and its signed URLs.
+
+The caching problem disappears because the string in the cached page is the API
+path, which never expires. The signature is minted per fetch and only has to
+live for the redirect hop.
 
 ## Consequences
 
-**A signed URL cannot survive caching, and public pages are cached.** Signed
-URLs carry a short expiry. A server-rendered page cached for an hour with a
-fifteen-minute URL baked into it serves dead links for forty-five minutes. The
-failure is invisible in development, where nothing is cached long enough, and
-shows up as intermittently broken images in production. Lengthening the expiry
-does not fix it; it only moves the boundary and weakens the signature's point.
+**The bucket is never public.** No object is reachable except through this API,
+which is the property the deployment requires. Nothing needs to be granted to
+`allUsers`, and there is no deploy step attached to this change.
 
-**The cost is that a public object URL is permanent and unrevocable.** Anyone
-who has the URL can fetch the object indefinitely — including after the post
-referencing it is unpublished or deleted. Object keys carry a UUID so they are
-not guessable, but "not guessable" is not "revocable".
+**Access is revocable, which a public bucket could never be.** The lookup joins
+the variant to what it is attached to and requires a blog post that is
+published, not scheduled, and not deleted; it also requires the media itself not
+to be soft-deleted. Unpublish the post and the endpoint 404s from the next
+request. With a world-readable bucket, a URL that escaped stayed valid forever.
 
-That is accepted because the objects in question are *published work on a
-portfolio site*. They are meant to be looked at. The alternative buys a weaker
-version of the same exposure in exchange for a real caching bug.
+**A missing variant and a non-visible one are the same 404**, deliberately.
+Telling them apart would let a caller probe for media attached to drafts.
 
-**Two paths now exist for the same object, and they must not be crossed.** The
-owner-facing `GET /api/blog/{post_id}` deliberately returns no media, so an
-authenticated read cannot leak an unsigned URL into a context that assumed a
-signed one. The public read is the only producer of unsigned URLs.
+**The cost is one API request per image.** No bytes pass through the API — the
+redirect sends the browser to GCS — but the request still costs a Cloud Run
+invocation. The redirect carries `Cache-Control: public, max-age=300`, shorter
+than the signed URL it points at, so a cached redirect never outlives its
+target.
 
-**This requires a bucket configuration change, not just code.** The ready
-bucket must grant `roles/storage.objectViewer` to `allUsers`. Until that is
-done the URLs are well-formed and return 403. The upload bucket must **not**
-be made public — only the ready bucket, which holds generated variants.
+**The visibility rule lives in one SQL statement.** Adding projects or CVs to
+the public surface means another arm in `find_public_variant_stmt`, not another
+route. That is deliberate: a second place to decide "may a reader see this" is a
+second place to get it wrong.
 
 ## Alternatives considered
 
-**A public variant route that signs on demand.** Rejected: it reintroduces the
-expiry problem for cached pages, and adds an unauthenticated endpoint that
-performs a signing operation per request.
+**A world-readable ready bucket, with plain URLs in public responses.** This was
+the first implementation and it was wrong. It solves caching but makes every
+object permanently and unrevocably fetchable by anyone holding a URL, including
+after the post referencing it is unpublished. It also contradicts the
+deployment's premise that the bucket is reachable only through the backend.
 
-**Long-expiry signed URLs — days rather than minutes.** Rejected: it trades a
-caching bug for a leak with extra steps. A URL valid for a week is
-substantially "public" already, but with machinery that implies otherwise.
+An earlier draft of this record rejected the signing-redirect option on the
+grounds that it "reintroduces the expiry problem for cached pages". **That was a
+reasoning error.** The cached page holds the API path, not the signed URL, so
+there is no expiry to reintroduce. The mistake is recorded here because the
+argument sounded right and could easily be made again.
 
-**A CDN or proxy in front of the bucket.** The right answer at a larger scale,
-and compatible with this decision — it would sit in front of the same public
-objects. Not worth the infrastructure today.
+**Proxying the bytes through the API.** Same privacy and revocation properties,
+and it never exposes the storage host. Rejected on cost: every image on every
+page becomes Cloud Run bandwidth and request time, where the redirect costs a
+few hundred bytes.
+
+**Cloud CDN with an authenticated origin in front of the private bucket.** The
+right answer at a larger scale — best performance, no per-image API hit — and
+compatible with this decision, since it would sit in front of the same private
+bucket. Rejected for now as real infrastructure work whose revocation story is
+cache invalidation rather than an immediate 404.

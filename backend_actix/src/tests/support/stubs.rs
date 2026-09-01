@@ -59,8 +59,9 @@ use crate::email::application::ports::outgoing::Recipient;
 use crate::multimedia::application::ports::incoming::use_cases::{
     CreateAttachmentCommand, CreateMediaCommand, CreateMediaResult, CreateUploadMediaUrlUseCase,
     CreateUrlError, DeleteMediaError, DeleteMediaUseCase, GetMediaError, GetMediaUseCase,
-    GetReadUrlError, GetUrlCommand, GetUrlResult, GetVariantReadUrlUseCase, ListMediaCommand,
-    ListMediaError, ListMediaUseCase, MediaDetail, MediaItem,
+    GetPublicVariantUrlError, GetPublicVariantUrlUseCase, GetReadUrlError, GetUrlCommand,
+    GetUrlResult, GetVariantReadUrlUseCase, ListMediaCommand, ListMediaError, ListMediaUseCase,
+    MediaDetail, MediaItem,
 };
 
 use crate::project::application::ports::incoming::use_cases::{
@@ -253,6 +254,21 @@ impl UserEmailNotifier for StubUserEmailNotifier {
 /// The registration orchestrator mints the token itself now, so anything that
 /// builds one needs a token provider. See
 /// `docs/adr/0005-break-the-auth-email-cycle.md`.
+/// Never resolves a public variant.
+#[derive(Default, Clone)]
+pub struct StubGetPublicVariantUrl;
+
+#[async_trait]
+impl GetPublicVariantUrlUseCase for StubGetPublicVariantUrl {
+    async fn execute(
+        &self,
+        _media_id: uuid::Uuid,
+        _size: crate::multimedia::application::domain::entities::MediaSize,
+    ) -> Result<String, GetPublicVariantUrlError> {
+        Err(GetPublicVariantUrlError::NotFound)
+    }
+}
+
 #[derive(Default, Clone)]
 pub struct StubTokenProvider;
 

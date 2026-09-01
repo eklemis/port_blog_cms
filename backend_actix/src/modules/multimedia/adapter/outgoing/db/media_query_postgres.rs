@@ -31,6 +31,43 @@ impl MediaQueryPostgres {
     // SQL builders
     // =====================================================
 
+    /// One variant, joined to whatever it is attached to, filtered to things a
+    /// reader can already see.
+    ///
+    /// Today that means published blog posts. Adding projects or CVs means a
+    /// second `UNION` arm here rather than a new route — the visibility rule
+    /// belongs in one place.
+    ///
+    /// `media.deleted_at IS NULL` is checked too, so soft-deleting a media item
+    /// stops it being served even while the post referencing it stays live.
+    fn find_public_variant_stmt(media_id: Uuid, size: &str) -> Statement {
+        Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            r#"
+            SELECT
+                v.bucket_name,
+                v.object_key,
+                v.mime_type,
+                v.file_size_bytes,
+                v.width,
+                v.height
+            FROM media_variants v
+            JOIN media m            ON m.id = v.media_id
+            JOIN media_attachments a ON a.media_id = v.media_id
+            JOIN blog_posts p        ON p.id = a.attachable_id
+            WHERE v.media_id = $1
+              AND v.variant_type = $2
+              AND m.deleted_at IS NULL
+              AND a.attachable_type = 'blog_post'
+              AND p.is_deleted = false
+              AND p.published_at IS NOT NULL
+              AND p.published_at <= now()
+            LIMIT 1
+            "#,
+            vec![media_id.into(), size.into()],
+        )
+    }
+
     fn get_state_stmt(media_id: Uuid) -> Statement {
         Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
@@ -228,6 +265,37 @@ impl MediaQueryPostgres {
 
 #[async_trait]
 impl MediaQuery for MediaQueryPostgres {
+    async fn find_public_variant(
+        &self,
+        media_id: Uuid,
+        size: MediaSize,
+    ) -> Result<Option<StoredVariant>, MediaQueryError> {
+        let stmt = Self::find_public_variant_stmt(media_id, &size.to_string());
+
+        let Some(row) = self.db.query_one(stmt).await.map_err(Self::map_db_err)? else {
+            return Ok(None);
+        };
+
+        let bucket_name: String = row.try_get("", "bucket_name").map_err(Self::map_db_err)?;
+        let object_key: String = row.try_get("", "object_key").map_err(Self::map_db_err)?;
+        let mime_type: String = row.try_get("", "mime_type").map_err(Self::map_db_err)?;
+        let file_size_bytes: i64 = row
+            .try_get("", "file_size_bytes")
+            .map_err(Self::map_db_err)?;
+        let width: i32 = row.try_get("", "width").map_err(Self::map_db_err)?;
+        let height: i32 = row.try_get("", "height").map_err(Self::map_db_err)?;
+
+        Ok(Some(StoredVariant {
+            size,
+            bucket_name,
+            object_name: object_key,
+            width: width as u32,
+            height: height as u32,
+            file_size_bytes: file_size_bytes as u64,
+            mime_type,
+        }))
+    }
+
     async fn get_state(&self, media_id: Uuid) -> Result<MediaStateInfo, MediaQueryError> {
         let stmt = Self::get_state_stmt(media_id);
 

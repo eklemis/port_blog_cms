@@ -21,19 +21,12 @@ use crate::blog::application::ports::outgoing::{
 use crate::blog::domain::entities::BlogPostTopic;
 use crate::multimedia::adapter::outgoing::db::sea_orm_entity::{media_attachments, media_variants};
 use crate::multimedia::application::domain::entities::AttachmentTarget;
-use crate::multimedia::application::ports::outgoing::cloud_storage::{MediaInfo, StorageQuery};
 use crate::topic::adapter::outgoing::sea_orm_entity::topics;
 
 /// The SeaORM implementation of the matching outgoing port.
 #[derive(Clone)]
 pub struct BlogPostQueryPostgres {
     db: Arc<DatabaseConnection>,
-    /// Turns a bucket and object key into a public URL.
-    ///
-    /// Held here rather than in the service so GCS's URL shape stays inside the
-    /// multimedia adapter; blog's application layer only ever sees a finished
-    /// string.
-    storage: Arc<dyn StorageQuery>,
 }
 
 /// Exactly the columns a listing row needs. Selecting the full model and
@@ -61,8 +54,8 @@ struct TopicRow {
 
 impl BlogPostQueryPostgres {
     /// Builds it from the ports it depends on.
-    pub fn new(db: Arc<DatabaseConnection>, storage: Arc<dyn StorageQuery>) -> Self {
-        Self { db, storage }
+    pub fn new(db: Arc<DatabaseConnection>) -> Self {
+        Self { db }
     }
 
     fn db_err(e: sea_orm::DbErr) -> BlogPostQueryError {
@@ -241,19 +234,15 @@ impl BlogPostQueryPostgres {
         let mut by_media: std::collections::HashMap<Uuid, BTreeMap<String, String>> =
             std::collections::HashMap::new();
         for v in variants {
-            let Ok(info) = MediaInfo::try_new(
-                v.bucket_name.clone(),
-                v.object_key.clone(),
-                AttachmentTarget::BlogPost,
-            ) else {
-                // A row with a blank bucket or key cannot produce a usable URL.
-                // Skip it rather than emitting a broken one.
-                continue;
-            };
+            // A stable URL into this API, not a URL into the bucket. The bucket
+            // stays private; `GET /api/public/media/{id}/{size}` signs and
+            // redirects per fetch. That is what lets a cached page hold this
+            // string indefinitely — see docs/adr/0006-public-media-urls.md.
+            let url = format!("/api/public/media/{}/{}", v.media_id, v.variant_type);
             by_media
                 .entry(v.media_id)
                 .or_default()
-                .insert(v.variant_type, self.storage.public_read_url(&info));
+                .insert(v.variant_type, url);
         }
 
         Ok(attachments
@@ -353,51 +342,6 @@ impl BlogPostQuery for BlogPostQueryPostgres {
 mod tests {
     use super::*;
 
-    /// Builds public URLs without touching GCS.
-    #[derive(Debug, Clone)]
-    struct StubStorage;
-
-    #[async_trait]
-    impl StorageQuery for StubStorage {
-        async fn get_signed_upload_url(
-            &self,
-            _m: MediaInfo,
-        ) -> Result<
-            String,
-            crate::multimedia::application::ports::outgoing::cloud_storage::SignUrlError,
-        > {
-            unimplemented!()
-        }
-        async fn get_signed_read_url(
-            &self,
-            _m: MediaInfo,
-        ) -> Result<
-            String,
-            crate::multimedia::application::ports::outgoing::cloud_storage::SignUrlError,
-        > {
-            unimplemented!()
-        }
-        async fn get_latest_manifest(
-            &self,
-            _id: &str,
-        ) -> Result<
-            crate::multimedia::application::ports::outgoing::cloud_storage::ManifestInfo,
-            crate::multimedia::application::ports::outgoing::cloud_storage::StorageQueryError,
-        > {
-            unimplemented!()
-        }
-        fn public_read_url(&self, media_info: &MediaInfo) -> String {
-            format!(
-                "https://public.example/{}/{}",
-                media_info.bucket_name(),
-                media_info.object_name()
-            )
-        }
-    }
-
-    fn storage() -> Arc<dyn StorageQuery> {
-        Arc::new(StubStorage)
-    }
     use crate::blog::adapter::outgoing::sea_orm_entity::blog_posts::Model as PostModel;
     use sea_orm::{DatabaseBackend, MockDatabase, Value};
     use std::collections::BTreeMap;
@@ -425,7 +369,7 @@ mod tests {
     }
 
     fn query(db: DatabaseConnection) -> BlogPostQueryPostgres {
-        BlogPostQueryPostgres::new(Arc::new(db), storage())
+        BlogPostQueryPostgres::new(Arc::new(db))
     }
 
     #[tokio::test]
@@ -466,7 +410,7 @@ mod tests {
                 .into_connection(),
         );
 
-        let q = BlogPostQueryPostgres::new(Arc::clone(&conn), storage());
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
         q.list_by_owner(
             UserId::from(user_id),
             BlogPostListFilter::default(),
@@ -501,7 +445,7 @@ mod tests {
                 .into_connection(),
         );
 
-        let q = BlogPostQueryPostgres::new(Arc::clone(&conn), storage());
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
         q.list_by_owner(
             UserId::from(user_id),
             BlogPostListFilter {
@@ -537,7 +481,7 @@ mod tests {
                 .into_connection(),
         );
 
-        let q = BlogPostQueryPostgres::new(Arc::clone(&conn), storage());
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
         q.list_published(
             UserId::from(user_id),
             BlogPostListFilter {
@@ -603,7 +547,7 @@ mod tests {
                 .into_connection(),
         );
 
-        let q = BlogPostQueryPostgres::new(Arc::clone(&conn), storage());
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
         let _ = q
             .get_published_by_slug(UserId::from(Uuid::new_v4()), "  HeLLo  ")
             .await;
@@ -781,10 +725,20 @@ mod tests {
         assert_eq!(cover.alt_text, "Hexagonal layout");
         // A NULL caption becomes an empty string, not a missing key.
         assert_eq!(cover.caption, "");
+        // A stable URL into this API — never a bucket URL. The bucket is
+        // private; this path signs and redirects per fetch.
         assert_eq!(
             cover.variants.get("thumbnail").map(String::as_str),
-            Some("https://public.example/ready-bucket/m/thumb.webp"),
-            "variants must carry unsigned URLs: {:?}",
+            Some(format!("/api/public/media/{media_id}/thumbnail").as_str()),
+            "variants must be stable API URLs: {:?}",
+            cover.variants
+        );
+        assert!(
+            !cover
+                .variants
+                .values()
+                .any(|u| u.contains("storage.googleapis.com")),
+            "no variant may leak a bucket URL: {:?}",
             cover.variants
         );
         assert_eq!(cover.variants.len(), 2);
@@ -831,7 +785,7 @@ mod tests {
                 .into_connection(),
         );
 
-        let q = BlogPostQueryPostgres::new(Arc::clone(&conn), storage());
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
         q.list_by_owner(
             UserId::from(user_id),
             BlogPostListFilter {
@@ -868,7 +822,7 @@ mod tests {
                 .into_connection(),
         );
 
-        let q = BlogPostQueryPostgres::new(Arc::clone(&conn), storage());
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
         q.list_by_owner(
             UserId::from(user_id),
             BlogPostListFilter {
@@ -905,7 +859,7 @@ mod tests {
                 .into_connection(),
         );
 
-        let q = BlogPostQueryPostgres::new(Arc::clone(&conn), storage());
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
         q.list_by_owner(
             UserId::from(user_id),
             BlogPostListFilter {
@@ -946,7 +900,7 @@ mod tests {
                     .into_connection(),
             );
 
-            let q = BlogPostQueryPostgres::new(Arc::clone(&conn), storage());
+            let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
             q.list_by_owner(
                 UserId::from(Uuid::new_v4()),
                 BlogPostListFilter::default(),
@@ -982,7 +936,7 @@ mod tests {
                 .into_connection(),
         );
 
-        let q = BlogPostQueryPostgres::new(Arc::clone(&conn), storage());
+        let q = BlogPostQueryPostgres::new(Arc::clone(&conn));
         let result = q
             .list_by_owner(
                 UserId::from(Uuid::new_v4()),

@@ -205,14 +205,6 @@ impl StorageQuery for GcsStorageQuery {
             .map_err(|e| map_sign_error(&e))
     }
 
-    fn public_read_url(&self, media_info: &MediaInfo) -> String {
-        format!(
-            "https://storage.googleapis.com/{}/{}",
-            media_info.bucket_name(),
-            media_info.object_name()
-        )
-    }
-
     async fn get_latest_manifest(&self, media_id: &str) -> Result<ManifestInfo, StorageQueryError> {
         let media_id = media_id.trim();
         if media_id.is_empty() {
