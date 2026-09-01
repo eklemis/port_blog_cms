@@ -5,7 +5,7 @@ use crate::cv::adapter::incoming::web::dto::{
 use crate::cv::application::ports::outgoing::PatchCVData;
 use crate::cv::application::use_cases::patch_cv::PatchCVError;
 use crate::api::schemas::{ErrorResponse, SuccessResponse};
-use crate::shared::api::ApiResponse;
+use crate::shared::api::{ErrorCode, ApiResponse};
 use crate::AppState;
 use actix_web::patch;
 use actix_web::{web, Responder};
@@ -116,7 +116,7 @@ pub async fn patch_cv_handler(
         .await
     {
         Ok(cv) => ApiResponse::success(CvResponse::from(cv)),
-        Err(PatchCVError::CVNotFound) => ApiResponse::not_found("CV_NOT_FOUND", "CV not found"),
+        Err(PatchCVError::CVNotFound) => ApiResponse::not_found(ErrorCode::CvNotFound, "CV not found"),
         Err(PatchCVError::RepositoryError(e)) => {
             error!("Repository error patching CV: {}", e);
             ApiResponse::internal_error()

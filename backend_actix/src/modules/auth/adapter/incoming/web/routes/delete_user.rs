@@ -3,7 +3,7 @@ use crate::auth::adapter::incoming::web::extractors::auth::AuthenticatedUser;
 use crate::auth::application::use_cases::soft_delete_user::{
     SoftDeleteUserError, SoftDeleteUserRequest,
 };
-use crate::shared::api::ApiResponse;
+use crate::shared::api::{ErrorCode, ApiResponse};
 use crate::AppState;
 use actix_web::{delete, web, Responder};
 use tracing::error;
@@ -73,7 +73,7 @@ pub async fn soft_delete_user_handler(
         Ok(_) => ApiResponse::no_content(),
 
         Err(SoftDeleteUserError::Unauthorized) => ApiResponse::unauthorized(
-            "USER_UNAUTHORIZED",
+            ErrorCode::UserUnauthorized,
             "You are not authorized to delete this account",
         ),
 
@@ -81,7 +81,7 @@ pub async fn soft_delete_user_handler(
             error!("Database error soft deleting user: {}", e);
 
             if e.contains("User not found") {
-                ApiResponse::not_found("USER_NOT_FOUND", "User not found")
+                ApiResponse::not_found(ErrorCode::UserNotFound, "User not found")
             } else {
                 ApiResponse::internal_error()
             }

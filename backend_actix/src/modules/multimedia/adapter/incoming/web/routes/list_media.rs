@@ -1,3 +1,4 @@
+use crate::shared::api::ErrorCode;
 use actix_web::{get, web, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 
@@ -33,7 +34,7 @@ fn parse_attachment_target(s: &str) -> Result<AttachmentTarget, HttpResponse> {
         "project" => Ok(AttachmentTarget::Project),
         "blog_post" => Ok(AttachmentTarget::BlogPost),
         _ => Err(ApiResponse::bad_request(
-            "TARGET_NOT_FOUND",
+            ErrorCode::TargetNotFound,
             "Target Attachment Is Not Exist",
         )),
     }

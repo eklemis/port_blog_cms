@@ -1,3 +1,4 @@
+use crate::shared::api::ErrorCode;
 use actix_web::{dev::Payload, web, Error as ActixError, FromRequest, HttpRequest, HttpResponse};
 use std::{
     future::{ready, Ready},
@@ -37,7 +38,7 @@ impl FromRequest for AuthenticatedUser {
             Some(t) => t,
             None => {
                 return ready(Err(create_api_error(ApiResponse::unauthorized(
-                    "MISSING_AUTH_HEADER",
+                    ErrorCode::MissingAuthHeader,
                     "Missing or invalid authorization header",
                 ))));
             }
@@ -48,7 +49,7 @@ impl FromRequest for AuthenticatedUser {
             Ok(claims) => {
                 if claims.token_type != "access" {
                     return ready(Err(create_api_error(ApiResponse::unauthorized(
-                        "INVALID_TOKEN_TYPE",
+                        ErrorCode::InvalidTokenType,
                         "Invalid token type",
                     ))));
                 }
@@ -59,7 +60,7 @@ impl FromRequest for AuthenticatedUser {
                 }))
             }
             Err(_) => ready(Err(create_api_error(ApiResponse::unauthorized(
-                "INVALID_TOKEN",
+                ErrorCode::InvalidToken,
                 "Invalid or expired token",
             )))),
         }
@@ -83,7 +84,7 @@ impl FromRequest for VerifiedUser {
             Ok(auth_user) => {
                 if !auth_user.is_verified {
                     return ready(Err(create_api_error(ApiResponse::forbidden(
-                        "EMAIL_NOT_VERIFIED",
+                        ErrorCode::EmailNotVerified,
                         "Email verification required",
                     ))));
                 }
@@ -114,7 +115,7 @@ pub async fn resolve_owner_id_or_response(
         Ok(owner_id) => Ok(owner_id.value()),
 
         Err(ResolveUserIdError::NotFound) => {
-            Err(ApiResponse::not_found("USER_NOT_FOUND", "User not found"))
+            Err(ApiResponse::not_found(ErrorCode::UserNotFound, "User not found"))
         }
 
         Err(ResolveUserIdError::RepositoryError(msg)) => {

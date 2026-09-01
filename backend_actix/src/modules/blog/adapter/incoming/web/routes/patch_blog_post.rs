@@ -1,3 +1,4 @@
+use crate::shared::api::ErrorCode;
 use actix_web::{patch, web, Responder};
 use tracing::error;
 use uuid::Uuid;
@@ -83,16 +84,16 @@ pub async fn patch_blog_post_handler(
     {
         Ok(post) => ApiResponse::success(BlogPostResponse::from(post)),
 
-        Err(PatchBlogPostError::InvalidSlug(m)) => ApiResponse::bad_request("INVALID_SLUG", &m),
+        Err(PatchBlogPostError::InvalidSlug(m)) => ApiResponse::bad_request(ErrorCode::InvalidSlug, &m),
         Err(PatchBlogPostError::NotFound) => {
-            ApiResponse::not_found("POST_NOT_FOUND", "Blog post not found")
+            ApiResponse::not_found(ErrorCode::PostNotFound, "Blog post not found")
         }
         Err(PatchBlogPostError::Unauthorized) => ApiResponse::forbidden(
-            "POST_UNAUTHORIZED",
+            ErrorCode::PostUnauthorized,
             "You are not authorized to edit this post",
         ),
         Err(PatchBlogPostError::SlugAlreadyExists) => {
-            ApiResponse::conflict("SLUG_ALREADY_EXISTS", "Slug already exists")
+            ApiResponse::conflict(ErrorCode::SlugAlreadyExists, "Slug already exists")
         }
         Err(PatchBlogPostError::RepositoryError(e)) => {
             error!("Repository error patching blog post: {}", e);

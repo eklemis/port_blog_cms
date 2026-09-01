@@ -6,7 +6,7 @@ use utoipa::ToSchema;
 use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::application::use_cases::request_password_reset::RequestPasswordResetError;
 use crate::auth::application::use_cases::reset_password::ResetPasswordError;
-use crate::shared::api::ApiResponse;
+use crate::shared::api::{ErrorCode, ApiResponse};
 use crate::AppState;
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -78,7 +78,7 @@ pub async fn request_password_reset_handler(
         }),
 
         Err(RequestPasswordResetError::InvalidEmail(m)) => {
-            ApiResponse::bad_request("INVALID_EMAIL", &m)
+            ApiResponse::bad_request(ErrorCode::InvalidEmail, &m)
         }
         Err(RequestPasswordResetError::QueryError(e)) => {
             error!("Query error during password reset request: {}", e);
@@ -152,14 +152,14 @@ pub async fn reset_password_handler(
         }),
 
         Err(ResetPasswordError::InvalidToken) => ApiResponse::unauthorized(
-            "INVALID_RESET_TOKEN",
+            ErrorCode::InvalidResetToken,
             "Invalid or expired reset token",
         ),
         Err(ResetPasswordError::InvalidPassword(m)) => {
-            ApiResponse::bad_request("INVALID_PASSWORD", &m)
+            ApiResponse::bad_request(ErrorCode::InvalidPassword, &m)
         }
         Err(ResetPasswordError::UserNotFound) => {
-            ApiResponse::not_found("USER_NOT_FOUND", "User not found")
+            ApiResponse::not_found(ErrorCode::UserNotFound, "User not found")
         }
         Err(ResetPasswordError::HashingFailed(e)) => {
             error!("Hashing failed during password reset: {}", e);

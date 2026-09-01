@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use super::policy::{client_key, limit_for};
 use super::port::RateLimitStore;
-use crate::shared::api::ApiResponse;
+use crate::shared::api::{ErrorCode, ApiResponse};
 
 /// Applies per-caller limits to the unauthenticated auth endpoints.
 ///
@@ -84,7 +84,7 @@ where
                     // the API emits, then attach Retry-After on top.
                     let mut response = ApiResponse::<()>::error(
                         StatusCode::TOO_MANY_REQUESTS,
-                        "RATE_LIMITED",
+                        ErrorCode::RateLimited,
                         "Too many requests. Please try again later.",
                     );
 

@@ -1,3 +1,4 @@
+use crate::shared::api::ErrorCode;
 use actix_web::{post, web, Responder};
 use tracing::error;
 
@@ -80,13 +81,13 @@ pub async fn create_blog_post_handler(
     match data.blog.create.execute(command).await {
         Ok(post) => ApiResponse::created(BlogPostResponse::from(post)),
 
-        Err(CreateBlogPostError::InvalidTitle(m)) => ApiResponse::bad_request("INVALID_TITLE", &m),
-        Err(CreateBlogPostError::InvalidSlug(m)) => ApiResponse::bad_request("INVALID_SLUG", &m),
+        Err(CreateBlogPostError::InvalidTitle(m)) => ApiResponse::bad_request(ErrorCode::InvalidTitle, &m),
+        Err(CreateBlogPostError::InvalidSlug(m)) => ApiResponse::bad_request(ErrorCode::InvalidSlug, &m),
         Err(CreateBlogPostError::InvalidContent(m)) => {
-            ApiResponse::bad_request("INVALID_CONTENT", &m)
+            ApiResponse::bad_request(ErrorCode::InvalidContent, &m)
         }
         Err(CreateBlogPostError::SlugAlreadyExists) => {
-            ApiResponse::conflict("SLUG_ALREADY_EXISTS", "Slug already exists")
+            ApiResponse::conflict(ErrorCode::SlugAlreadyExists, "Slug already exists")
         }
         Err(CreateBlogPostError::RepositoryError(e)) => {
             error!("Repository error creating blog post: {}", e);

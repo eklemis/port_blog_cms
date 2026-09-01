@@ -1,4 +1,5 @@
 // src/modules/topic/adapter/incoming/web/routes/soft_delete_topic.rs
+use crate::shared::api::ErrorCode;
 use actix_web::{delete, web, Responder};
 use uuid::Uuid;
 
@@ -84,10 +85,10 @@ pub async fn soft_delete_topic_handler(
 fn map_soft_delete_topic_error(err: SoftDeleteTopicError) -> actix_web::HttpResponse {
     match err {
         SoftDeleteTopicError::TopicNotFound => {
-            ApiResponse::not_found("TOPIC_NOT_FOUND", "Topic not found")
+            ApiResponse::not_found(ErrorCode::TopicNotFound, "Topic not found")
         }
         SoftDeleteTopicError::Forbidden => {
-            ApiResponse::forbidden("FORBIDDEN", "You are not the owner of this topic")
+            ApiResponse::forbidden(ErrorCode::Forbidden, "You are not the owner of this topic")
         }
         SoftDeleteTopicError::DatabaseError(_) => ApiResponse::internal_error(),
     }

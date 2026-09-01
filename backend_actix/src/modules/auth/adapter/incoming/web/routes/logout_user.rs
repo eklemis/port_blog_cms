@@ -1,6 +1,6 @@
 use crate::api::schemas::SuccessResponse;
 use crate::modules::auth::application::use_cases::logout_user::{LogoutError, LogoutRequest};
-use crate::shared::api::ApiResponse;
+use crate::shared::api::{ErrorCode, ApiResponse};
 use crate::AppState;
 use actix_web::{post, web, Responder};
 use serde::{Deserialize, Serialize};
@@ -62,7 +62,7 @@ pub async fn logout_user_handler(
         Ok(req) => req,
         Err(e) => {
             warn!("Invalid logout request: {}", e);
-            return ApiResponse::bad_request("INVALID_REQUEST", &e.to_string());
+            return ApiResponse::bad_request(ErrorCode::InvalidRequest, &e.to_string());
         }
     };
 

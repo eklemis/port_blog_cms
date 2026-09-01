@@ -2,7 +2,7 @@ use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::application::orchestrator::user_registration::UserRegistrationError;
 use crate::auth::application::use_cases::create_user::CreateUserInput;
 use crate::modules::auth::application::use_cases::create_user::CreateUserError;
-use crate::shared::api::ApiResponse;
+use crate::shared::api::{ErrorCode, ApiResponse};
 use crate::AppState;
 use actix_web::{post, web, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
@@ -69,7 +69,7 @@ fn map_create_user_error(err: CreateUserError, req: &CreateUserRequest) -> HttpR
                 error = %err,
                 "Invalid registration input"
             );
-            ApiResponse::bad_request("INVALID_USERNAME", &msg)
+            ApiResponse::bad_request(ErrorCode::InvalidUsername, &msg)
         }
 
         CreateUserError::InvalidEmail(msg) => {
@@ -79,7 +79,7 @@ fn map_create_user_error(err: CreateUserError, req: &CreateUserRequest) -> HttpR
                 error = %err,
                 "Invalid registration input"
             );
-            ApiResponse::bad_request("INVALID_EMAIL", &msg)
+            ApiResponse::bad_request(ErrorCode::InvalidEmail, &msg)
         }
 
         CreateUserError::InvalidPassword(msg) => {
@@ -89,7 +89,7 @@ fn map_create_user_error(err: CreateUserError, req: &CreateUserRequest) -> HttpR
                 error = %err,
                 "Invalid registration input"
             );
-            ApiResponse::bad_request("INVALID_PASSWORD", &msg)
+            ApiResponse::bad_request(ErrorCode::InvalidPassword, &msg)
         }
 
         CreateUserError::InvalidFullName(msg) => {
@@ -99,7 +99,7 @@ fn map_create_user_error(err: CreateUserError, req: &CreateUserRequest) -> HttpR
                 error = %err,
                 "Invalid registration input"
             );
-            ApiResponse::bad_request("INVALID_FULL_NAME", &msg)
+            ApiResponse::bad_request(ErrorCode::InvalidFullName, &msg)
         }
 
         CreateUserError::UserAlreadyExists => {
@@ -108,7 +108,7 @@ fn map_create_user_error(err: CreateUserError, req: &CreateUserRequest) -> HttpR
                 email = %req.email,
                 "User already exists"
             );
-            ApiResponse::conflict("USER_ALREADY_EXISTS", "User already exists")
+            ApiResponse::conflict(ErrorCode::UserAlreadyExists, "User already exists")
         }
 
         other => {

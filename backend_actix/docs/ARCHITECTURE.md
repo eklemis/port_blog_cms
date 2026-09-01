@@ -309,8 +309,11 @@ object appears only at the `AppState` boundary where a uniform type is needed.
 `src/shared/` holds what is not any module's business:
 
 - **`shared/api`** — the `ApiResponse` envelope every endpoint returns
-  (`{ success, data, error: { code, message } }`), the CORS builder, and the
-  JSON extractor config.
+  (`{ success, data, error: { code, message } }`), the `ErrorCode` vocabulary,
+  the CORS builder, and the JSON extractor config. Error codes are an enum, not
+  strings: add a variant in `shared/api/error_code.rs` and both
+  [`API_ERRORS.md`](API_ERRORS.md) and the OpenAPI schema follow. See that file
+  for why HTTP status is not encoded on the code.
 - **`shared/rate_limit`** — the Actix middleware, the `RateLimitStore` port,
   its Redis implementation, and the per-endpoint policy table.
 
@@ -433,7 +436,7 @@ recording it is that **new code should not add to it.**
 | A new thing the logic needs from outside | A trait in `<module>/application/ports/outgoing/`, implemented in `<module>/adapter/outgoing/` |
 | A database table | A migration in `migration/src/`, and a SeaORM entity in `<module>/adapter/outgoing/sea_orm_entity/` |
 | A validation rule | The command's constructor in `ports/incoming/`, or a domain type — not the handler |
-| A new error the client can see | A variant on the use case's error enum, mapped to a status and error code in the handler |
+| A new error the client can see | A variant on the use case's error enum, plus an `ErrorCode` variant in `shared/api/error_code.rs`, mapped to a status in the handler. Regenerate `docs/API_ERRORS.md` |
 | Something two modules need | An outgoing port in the module that owns the concern; import it from the other. If it is HTTP-shaped and used by many, `src/shared/api/` |
 | A whole new feature area | A new module under `src/modules/`, following the newer convention above |
 

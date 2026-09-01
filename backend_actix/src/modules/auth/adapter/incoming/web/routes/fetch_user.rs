@@ -1,3 +1,4 @@
+use crate::shared::api::ErrorCode;
 use crate::{
     auth::{
         adapter::incoming::web::extractors::auth::AuthenticatedUser,
@@ -113,7 +114,7 @@ pub async fn get_user_profile_handler(
             full_name: output.full_name,
         }),
         Err(FetchUserError::UserNotFound(msg)) => {
-            ApiResponse::not_found("USER_NOT_FOUND", &format!("User not found: {}", msg))
+            ApiResponse::not_found(ErrorCode::UserNotFound, &format!("User not found: {}", msg))
         }
         Err(FetchUserError::QueryError(e)) => {
             error!("Database error fetching user profile: {}", e);

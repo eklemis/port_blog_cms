@@ -1,5 +1,7 @@
 // src/shared/api/response.rs
 use actix_web::{http::StatusCode, HttpResponse};
+
+use crate::shared::api::ErrorCode;
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -13,7 +15,7 @@ pub struct ApiResponse<T: Serialize> {
 
 #[derive(Serialize, Clone)]
 pub struct ApiError {
-    pub code: String,
+    pub code: ErrorCode,
     pub message: String,
 }
 
@@ -40,41 +42,41 @@ impl ApiResponse<()> {
         HttpResponse::NoContent().finish()
     }
 
-    pub fn error(status: StatusCode, code: &str, message: &str) -> HttpResponse {
+    pub fn error(status: StatusCode, code: ErrorCode, message: &str) -> HttpResponse {
         HttpResponse::build(status).json(ApiResponse::<()> {
             success: false,
             data: None,
             error: Some(ApiError {
-                code: code.to_string(),
+                code,
                 message: message.to_string(),
             }),
         })
     }
 
-    pub fn not_found(code: &str, message: &str) -> HttpResponse {
+    pub fn not_found(code: ErrorCode, message: &str) -> HttpResponse {
         Self::error(StatusCode::NOT_FOUND, code, message)
     }
 
-    pub fn bad_request(code: &str, message: &str) -> HttpResponse {
+    pub fn bad_request(code: ErrorCode, message: &str) -> HttpResponse {
         Self::error(StatusCode::BAD_REQUEST, code, message)
     }
 
-    pub fn forbidden(code: &str, message: &str) -> HttpResponse {
+    pub fn forbidden(code: ErrorCode, message: &str) -> HttpResponse {
         Self::error(StatusCode::FORBIDDEN, code, message)
     }
 
-    pub fn unauthorized(code: &str, message: &str) -> HttpResponse {
+    pub fn unauthorized(code: ErrorCode, message: &str) -> HttpResponse {
         Self::error(StatusCode::UNAUTHORIZED, code, message)
     }
 
-    pub fn conflict(code: &str, message: &str) -> HttpResponse {
+    pub fn conflict(code: ErrorCode, message: &str) -> HttpResponse {
         Self::error(StatusCode::CONFLICT, code, message)
     }
 
     pub fn internal_error() -> HttpResponse {
         Self::error(
             StatusCode::INTERNAL_SERVER_ERROR,
-            "INTERNAL_ERROR",
+            ErrorCode::InternalError,
             "An unexpected error occurred",
         )
     }

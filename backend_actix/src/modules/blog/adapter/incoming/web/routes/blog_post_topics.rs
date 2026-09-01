@@ -3,6 +3,7 @@
 //! Kept in one file because the four handlers share the same error mapping and
 //! differ only in verb and payload.
 
+use crate::shared::api::ErrorCode;
 use actix_web::{delete, get, post, web, Responder};
 use tracing::error;
 use uuid::Uuid;
@@ -22,10 +23,10 @@ use crate::{
 fn map_topic_error(e: BlogPostTopicError) -> actix_web::HttpResponse {
     match e {
         BlogPostTopicError::PostNotFound => {
-            ApiResponse::not_found("POST_NOT_FOUND", "Blog post not found")
+            ApiResponse::not_found(ErrorCode::PostNotFound, "Blog post not found")
         }
         BlogPostTopicError::TopicNotFound => {
-            ApiResponse::not_found("TOPIC_NOT_FOUND", "Topic not found")
+            ApiResponse::not_found(ErrorCode::TopicNotFound, "Topic not found")
         }
         BlogPostTopicError::RepositoryError(e) => {
             error!("Repository error on blog post topics: {}", e);
@@ -191,7 +192,7 @@ pub async fn get_blog_post_topics_handler(
                 .collect::<Vec<_>>(),
         ),
         Err(GetBlogPostError::NotFound) => {
-            ApiResponse::not_found("POST_NOT_FOUND", "Blog post not found")
+            ApiResponse::not_found(ErrorCode::PostNotFound, "Blog post not found")
         }
         Err(GetBlogPostError::QueryFailed(e)) => {
             error!("Failed to list blog post topics: {}", e);

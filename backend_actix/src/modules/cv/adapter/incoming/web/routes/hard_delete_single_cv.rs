@@ -1,3 +1,4 @@
+use crate::shared::api::ErrorCode;
 use actix_web::{delete, web, Responder};
 use tracing::error;
 use uuid::Uuid;
@@ -67,10 +68,10 @@ pub async fn hard_delete_cv_handler(
     {
         Ok(()) => ApiResponse::no_content(),
         Err(HardDeleteCVError::CVNotFound) => {
-            ApiResponse::not_found("CV_NOT_FOUND", "CV not found")
+            ApiResponse::not_found(ErrorCode::CvNotFound, "CV not found")
         }
         Err(HardDeleteCVError::Unauthorized) => ApiResponse::forbidden(
-            "CV_UNAUTHORIZED",
+            ErrorCode::CvUnauthorized,
             "You are not authorized to delete this CV",
         ),
         Err(HardDeleteCVError::RepositoryError(e)) => {

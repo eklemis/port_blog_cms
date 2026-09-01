@@ -8,7 +8,7 @@ use crate::modules::project::application::ports::incoming::use_cases::CreateProj
 use crate::modules::project::application::ports::outgoing::project_repository::CreateProjectData;
 use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::modules::project::application::ports::outgoing::project_repository::ProjectResult;
-use crate::shared::api::ApiResponse;
+use crate::shared::api::{ErrorCode, ApiResponse};
 use crate::AppState;
 use utoipa::ToSchema;
 
@@ -90,7 +90,7 @@ pub async fn create_project_handler(
         Ok(created) => ApiResponse::created(created),
 
         Err(CreateProjectError::SlugAlreadyExists) => {
-            ApiResponse::conflict("SLUG_ALREADY_EXISTS", "Project slug already exists")
+            ApiResponse::conflict(ErrorCode::SlugAlreadyExists, "Project slug already exists")
         }
 
         Err(CreateProjectError::RepositoryError(e)) => {

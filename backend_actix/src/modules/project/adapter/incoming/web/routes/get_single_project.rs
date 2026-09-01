@@ -1,3 +1,4 @@
+use crate::shared::api::ErrorCode;
 use actix_web::{get, web, Responder};
 use tracing::error;
 use uuid::Uuid;
@@ -60,7 +61,7 @@ pub async fn get_project_by_id_handler(
         Ok(project) => ApiResponse::success(project),
 
         Err(GetSingleProjectError::NotFound) => {
-            ApiResponse::not_found("PROJECT_NOT_FOUND", "Project not found")
+            ApiResponse::not_found(ErrorCode::ProjectNotFound, "Project not found")
         }
 
         Err(GetSingleProjectError::RepositoryError(e)) => {

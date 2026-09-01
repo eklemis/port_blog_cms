@@ -11,7 +11,7 @@ use crate::multimedia::application::ports::incoming::use_cases::{
     CreateAttachmentCommand, CreateMediaCommand, CreateUrlError, UploadUrlCommandError,
 };
 use crate::api::schemas::{ErrorResponse, SuccessResponse};
-use crate::shared::api::ApiResponse;
+use crate::shared::api::{ErrorCode, ApiResponse};
 use crate::AppState;
 use utoipa::ToSchema;
 
@@ -175,7 +175,7 @@ pub async fn init_upload_handler(
             error!("Full error details: {:?}", e);
             ApiResponse::error(
                 actix_web::http::StatusCode::BAD_GATEWAY,
-                "STORAGE_ERROR",
+                ErrorCode::StorageError,
                 "Failed to generate upload URL",
             )
         }
@@ -190,16 +190,16 @@ pub async fn init_upload_handler(
 fn map_command_error(e: UploadUrlCommandError) -> actix_web::HttpResponse {
     match e {
         UploadUrlCommandError::MissingField(field) => {
-            ApiResponse::bad_request("MISSING_FIELD", &format!("Missing field: {}", field))
+            ApiResponse::bad_request(ErrorCode::MissingField, &format!("Missing field: {}", field))
         }
         UploadUrlCommandError::InvalidFileName => {
-            ApiResponse::bad_request("INVALID_FILE_NAME", "Invalid file name")
+            ApiResponse::bad_request(ErrorCode::InvalidFileName, "Invalid file name")
         }
         UploadUrlCommandError::FileTooLarge {
             max_bytes,
             actual_bytes,
         } => ApiResponse::bad_request(
-            "FILE_TOO_LARGE",
+            ErrorCode::FileTooLarge,
             &format!(
                 "File too large (max {} bytes, got {} bytes)",
                 max_bytes, actual_bytes
@@ -210,22 +210,22 @@ fn map_command_error(e: UploadUrlCommandError) -> actix_web::HttpResponse {
             width_px,
             height_px,
         } => ApiResponse::bad_request(
-            "INVALID_DIMENSIONS",
+            ErrorCode::InvalidDimensions,
             &format!(
                 "Invalid dimensions (max {}px, got {}x{})",
                 max_px, width_px, height_px
             ),
         ),
         UploadUrlCommandError::InvalidMimeType(mime) => {
-            ApiResponse::bad_request("INVALID_MIME_TYPE", &format!("Invalid mime type: {}", mime))
+            ApiResponse::bad_request(ErrorCode::InvalidMimeType, &format!("Invalid mime type: {}", mime))
         }
         UploadUrlCommandError::InvalidExtension(ext) => ApiResponse::bad_request(
-            "INVALID_EXTENSION",
+            ErrorCode::InvalidExtension,
             &format!("Invalid file extension: {}", ext),
         ),
         UploadUrlCommandError::MimeExtensionMismatch { mime_type, ext } => {
             ApiResponse::bad_request(
-                "MIME_EXTENSION_MISMATCH",
+                ErrorCode::MimeExtensionMismatch,
                 &format!("Mime type {} does not match extension {}", mime_type, ext),
             )
         }

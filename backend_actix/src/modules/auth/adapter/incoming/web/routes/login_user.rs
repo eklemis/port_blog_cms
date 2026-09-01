@@ -1,7 +1,7 @@
 use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::application::use_cases::login_user::LoginError;
 use crate::auth::application::use_cases::login_user::LoginRequest;
-use crate::shared::api::ApiResponse;
+use crate::shared::api::{ErrorCode, ApiResponse};
 use crate::AppState;
 use actix_web::{post, web, Responder};
 use serde::Deserialize;
@@ -135,7 +135,7 @@ pub async fn login_user_handler(
         Ok(req) => req,
         Err(e) => {
             // Handle validation error if LoginRequest::new validates
-            return ApiResponse::bad_request("VALIDATION_ERROR", &e.to_string());
+            return ApiResponse::bad_request(ErrorCode::ValidationError, &e.to_string());
         }
     };
 
@@ -163,12 +163,12 @@ pub async fn login_user_handler(
 
         Err(LoginError::InvalidCredentials) => {
             warn!("Login failed: Invalid credentials");
-            ApiResponse::unauthorized("INVALID_CREDENTIALS", "Invalid email or password")
+            ApiResponse::unauthorized(ErrorCode::InvalidCredentials, "Invalid email or password")
         }
 
         Err(LoginError::UserDeleted) => {
             warn!("Login failed: User deleted");
-            ApiResponse::forbidden("USER_DELETED", "This account has been deleted")
+            ApiResponse::forbidden(ErrorCode::UserDeleted, "This account has been deleted")
         }
 
         Err(LoginError::PasswordVerificationFailed(ref e)) => {

@@ -1,3 +1,4 @@
+use crate::shared::api::ErrorCode;
 use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::{
     auth::{
@@ -124,7 +125,7 @@ pub async fn update_user_profile_handler(
             full_name: output.full_name,
         }),
         Err(UpdateUserError::InvalidFullName(msg)) => {
-            ApiResponse::bad_request("INVALID_FULL_NAME", &msg)
+            ApiResponse::bad_request(ErrorCode::InvalidFullName, &msg)
         }
         Err(UpdateUserError::RepositoryError(e)) => {
             error!("Repository error updating user profile: {}", e);

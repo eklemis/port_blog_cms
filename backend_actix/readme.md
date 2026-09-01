@@ -95,6 +95,10 @@ Every one of the 53 routes is documented there, with request and response
 schemas and example values, and you can call them from the page. The raw
 document is served at `/api-docs/openapi.json`.
 
+Error responses all share one shape, and the `code` field is a stable
+contract — see [`docs/API_ERRORS.md`](docs/API_ERRORS.md) for the full
+vocabulary of 49 codes and what each means.
+
 Two probes are also live immediately:
 
 | Endpoint | What it tells you |

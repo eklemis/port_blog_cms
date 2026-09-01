@@ -1,6 +1,6 @@
 use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::auth::application::use_cases::refresh_token::{RefreshTokenError, RefreshTokenRequest};
-use crate::shared::api::ApiResponse;
+use crate::shared::api::{ErrorCode, ApiResponse};
 use crate::AppState;
 use actix_web::{post, web, Responder};
 use serde::{Deserialize, Serialize};
@@ -115,7 +115,7 @@ pub async fn refresh_token_handler(
     let request = match RefreshTokenRequest::new(dto.refresh_token) {
         Ok(req) => req,
         Err(e) => {
-            return ApiResponse::bad_request("VALIDATION_ERROR", &e.to_string());
+            return ApiResponse::bad_request(ErrorCode::ValidationError, &e.to_string());
         }
     };
 
@@ -133,27 +133,27 @@ pub async fn refresh_token_handler(
         Err(RefreshTokenError::TokenExpired) => {
             warn!("Token refresh failed: Token expired");
             ApiResponse::unauthorized(
-                "TOKEN_EXPIRED",
+                ErrorCode::TokenExpired,
                 "Refresh token has expired. Please login again.",
             )
         }
 
         Err(RefreshTokenError::TokenInvalid) | Err(RefreshTokenError::InvalidSignature) => {
             warn!("Token refresh failed: Invalid token");
-            ApiResponse::unauthorized("TOKEN_INVALID", "Invalid refresh token")
+            ApiResponse::unauthorized(ErrorCode::TokenInvalid, "Invalid refresh token")
         }
 
         Err(RefreshTokenError::InvalidTokenType) => {
             warn!("Token refresh failed: Wrong token type");
             ApiResponse::bad_request(
-                "INVALID_TOKEN_TYPE",
+                ErrorCode::InvalidTokenType,
                 "Invalid token type. Please use a refresh token.",
             )
         }
 
         Err(RefreshTokenError::TokenNotYetValid) => {
             warn!("Token refresh failed: Token not yet valid");
-            ApiResponse::bad_request("TOKEN_NOT_YET_VALID", "Token is not yet valid")
+            ApiResponse::bad_request(ErrorCode::TokenNotYetValid, "Token is not yet valid")
         }
 
         Err(RefreshTokenError::TokenGenerationFailed(ref e)) => {

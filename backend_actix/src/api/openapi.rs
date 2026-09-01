@@ -1,4 +1,5 @@
 use crate::api::schemas::{ErrorDetail, ErrorResponse, SuccessResponse};
+use crate::shared::api::ErrorCode;
 use crate::blog::adapter::incoming::web::dto::{
     BlogPostCardResponse, BlogPostDetailResponse, BlogPostResponse, BlogPostTopicRequest,
     BlogPostTopicResponse, CreateBlogPostRequest, PatchBlogPostRequest,
@@ -129,6 +130,7 @@ use crate::topic::application::ports::outgoing::TopicResult;
             // Response wrappers
             SuccessResponse<RegisterUserResponse>,
             ErrorResponse,
+            ErrorCode,
             ErrorDetail,
 
             // Health probes
@@ -258,6 +260,51 @@ mod tests {
 
     fn doc() -> Value {
         serde_json::to_value(ApiDoc::openapi()).expect("ApiDoc must serialize")
+    }
+
+    /// Every `ErrorCode` variant must reach the published document.
+    ///
+    /// The schema is built from `ErrorCode::ALL`, so this cannot drift by
+    /// omission — but it can drift if someone replaces the generated enum with
+    /// a hand-written list, which is exactly the failure this guards.
+    #[test]
+    fn every_error_code_is_published_in_the_spec() {
+        use crate::shared::api::ErrorCode;
+
+        let doc = doc();
+        let published = doc["components"]["schemas"]["ErrorCode"]["enum"]
+            .as_array()
+            .expect("ErrorCode must be published as a string enum")
+            .iter()
+            .map(|v| v.as_str().expect("enum values must be strings"))
+            .collect::<BTreeSet<_>>();
+
+        let declared = ErrorCode::ALL
+            .iter()
+            .map(|c| c.as_str())
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(
+            declared, published,
+            "ErrorCode variants and the published enum disagree"
+        );
+        assert!(
+            !declared.is_empty(),
+            "the vocabulary must not be empty"
+        );
+    }
+
+    /// `ErrorDetail.code` must point at the enum, not fall back to a bare
+    /// string — otherwise generated clients lose exhaustive matching.
+    #[test]
+    fn error_detail_code_references_the_error_code_schema() {
+        let doc = doc();
+        let code = &doc["components"]["schemas"]["ErrorDetail"]["properties"]["code"];
+        assert_eq!(
+            code["$ref"].as_str(),
+            Some("#/components/schemas/ErrorCode"),
+            "ErrorDetail.code should $ref ErrorCode, got: {code}"
+        );
     }
 
     /// Collects every `#/components/schemas/X` reference anywhere in the document.

@@ -1,3 +1,4 @@
+use crate::shared::api::ErrorCode;
 use actix_web::{get, web, Responder};
 use tracing::error;
 use uuid::Uuid;
@@ -82,7 +83,7 @@ pub async fn get_media_handler(
         Ok(detail) => ApiResponse::success(detail),
 
         Err(GetMediaError::MediaNotFound) => {
-            ApiResponse::not_found("MEDIA_NOT_FOUND", "Media not found")
+            ApiResponse::not_found(ErrorCode::MediaNotFound, "Media not found")
         }
 
         Err(GetMediaError::QueryError(e)) => {

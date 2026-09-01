@@ -1,3 +1,4 @@
+use crate::shared::api::ErrorCode;
 use actix_web::{get, web, Responder};
 use tracing::error;
 use uuid::Uuid;
@@ -59,7 +60,7 @@ pub async fn get_cv_by_id_handler(
     {
         Ok(cv) => ApiResponse::success(CvResponse::from(cv)),
 
-        Err(FetchCVByIdError::CVNotFound) => ApiResponse::not_found("CV_NOT_FOUND", "CV not found"),
+        Err(FetchCVByIdError::CVNotFound) => ApiResponse::not_found(ErrorCode::CvNotFound, "CV not found"),
 
         Err(FetchCVByIdError::RepositoryError(err)) => {
             error!("Repository error fetching CV by id: {}", err);

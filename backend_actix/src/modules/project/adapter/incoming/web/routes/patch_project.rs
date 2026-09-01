@@ -11,7 +11,7 @@ use crate::modules::project::application::ports::outgoing::project_repository::{
 };
 use crate::api::schemas::{ErrorResponse, SuccessResponse};
 use crate::modules::project::application::ports::outgoing::project_repository::ProjectResult;
-use crate::shared::api::ApiResponse;
+use crate::shared::api::{ErrorCode, ApiResponse};
 use crate::AppState;
 use utoipa::ToSchema;
 
@@ -130,7 +130,7 @@ pub async fn patch_project_handler(
         Ok(updated) => ApiResponse::success(updated),
 
         Err(PatchProjectError::NotFound) => {
-            ApiResponse::not_found("PROJECT_NOT_FOUND", "Project not found")
+            ApiResponse::not_found(ErrorCode::ProjectNotFound, "Project not found")
         }
 
         Err(PatchProjectError::RepositoryError(e)) => {

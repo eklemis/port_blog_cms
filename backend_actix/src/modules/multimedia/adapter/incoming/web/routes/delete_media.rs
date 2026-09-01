@@ -1,3 +1,4 @@
+use crate::shared::api::ErrorCode;
 use actix_web::{delete, web, Responder};
 use tracing::error;
 use uuid::Uuid;
@@ -63,7 +64,7 @@ pub async fn delete_media_handler(
         Ok(()) => ApiResponse::no_content(),
 
         Err(DeleteMediaError::MediaNotFound) => {
-            ApiResponse::not_found("MEDIA_NOT_FOUND", "Media not found")
+            ApiResponse::not_found(ErrorCode::MediaNotFound, "Media not found")
         }
 
         Err(DeleteMediaError::RepositoryError(e)) => {
