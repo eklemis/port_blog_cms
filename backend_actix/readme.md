@@ -1,8 +1,184 @@
-### Run the test
+# backend_actix
+
+The API behind `port_blog_cms` — authentication, blog posts, projects, topics,
+CVs and media uploads. Actix Web 4 on SeaORM/Postgres, with Redis for the
+refresh-token blacklist and rate-limit counters, and GCS for uploads. Deployed
+to Cloud Run.
+
+It owns the database schema through the `migration` crate that lives beside it,
+and it is a member of the Cargo workspace rooted at the repository root — so
+every `cargo` command below works from anywhere in the repo.
+
+The code is laid out as ports and adapters: each module under `src/modules/`
+splits into `adapter/{incoming,outgoing}` and `application/{ports,use_cases,…}`.
+
+---
+
+## Prerequisites
+
+| | |
+| --- | --- |
+| Rust | 1.88 or newer. The Dockerfiles pin `rust:1.88` and CI runs `stable`; there is no `rust-toolchain.toml`, so keep local `stable` at or above the pin. |
+| Docker | For the Postgres container. Optional if you already have Postgres 16 on `:5432`. |
+| Redis | Required — `REDIS_URL` is mandatory. The compose file does not provide one; see step 2. |
+| A GCS service-account key | Only for the media endpoints. Everything else runs without it. |
+
+## Quick start
+
+Five steps from a clean clone to a browsable API.
+
+### 1. Configure
+
+```bash
+cp .env.example .env
+cp docker/.env.example docker/.env
+```
+
+Then edit `.env`: at minimum set `JWT_SECRET` to something at least 32
+characters (`openssl rand -base64 48`). The defaults for `DATABASE_URL` and
+`REDIS_URL` already match steps 2 and 3.
+
+`.env.example` documents every variable the process reads, which ones are
+mandatory, and what the code defaults to when they are unset.
+
+### 2. Start Postgres and Redis
+
+Postgres comes from the compose file in `docker/`:
+
+```bash
+docker compose -f docker/postgres.compose.yml up -d
+```
+
+Redis is not in that file — start one however you like:
+
+```bash
+docker run -d --name cms-redis -p 6379:6379 redis:7
+```
+
+Check both are reachable before going further:
+
+```bash
+psql "$DATABASE_URL" -c "select 1;"
+redis-cli -u "$REDIS_URL" ping
+```
+
+### 3. Apply migrations
+
+The server does **not** migrate on startup, so this is a required step, not an
+optimisation:
+
+```bash
+cargo run -p migration -- up
+```
+
+`cargo run -p migration -- status` lists what is applied and what is pending.
+Both read `DATABASE_URL` from the environment.
+
+### 4. Run the server
+
+```bash
+cargo run
+```
+
+It prints `Server run on: 0.0.0.0:8080`.
+
+### 5. Open the API documentation
+
+```
+http://localhost:8080/swagger-ui/
+```
+
+Every one of the 48 routes is documented there, with request and response
+schemas and example values, and you can call them from the page. The raw
+document is served at `/api-docs/openapi.json`.
+
+Two probes are also live immediately:
+
+| Endpoint | What it tells you |
+| --- | --- |
+| `GET /health` | The process is up. No dependency checks. |
+| `GET /ready` | Postgres and Redis are both reachable. Use this to confirm step 2 worked. |
+
+---
+
+## Configuration
+
+**`.env.example` is the reference** — it lists all 21 variables the process
+reads, grouped by whether the process panics without them, with the defaults
+the code actually applies.
+
+Loading works like this: the process reads `RUST_ENV` (default
+`development`), tries `.env.<RUST_ENV>`, and falls back to `.env` if that file
+does not exist. So `RUST_ENV=test` loads `.env.test`. Real environment
+variables always win, which is how Cloud Run injects secrets with no `.env`
+file present.
+
+The variables worth calling out here:
+
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `DATABASE_URL` | **yes** | — | Postgres connection string. Startup panics without it. |
+| `REDIS_URL` | **yes** | — | Token blacklist and rate-limit counters. Startup panics without it. |
+| `JWT_SECRET` | **yes** | — | HS256 signing key. Startup panics if shorter than 32 characters. |
+| `EMAIL_FROM` | **yes** | — | `From:` address on verification and reset mail. |
+| `SMTP_SERVER`, `SMTP_USERNAME`, `SMTP_PASSWORD` | unless `RUST_ENV=test` | — | Outbound mail. Under `RUST_ENV=test` these are ignored in favour of local Mailpit on `SMTP_HOST`/`SMTP_PORT` (`localhost:1025`). |
+| `CORS_ALLOWED_ORIGINS` | no | `http://localhost:5173`, `http://127.0.0.1:5173` | Comma-separated browser origins allowed to call the API. **Set this in production** — the fallback is development-only and the server logs a warning when it is used. |
+| `PASSWORD_RESET_HANDLER_URL` | no | `0.0.0.0:5173/password-reset` | Frontend route the emailed reset link points at. The token is appended as a path segment. |
+| `VERIFICATION_HANDLER_URL` | no | `0.0.0.0:5173/email/verification` | Frontend route the emailed verification link points at. |
+| `JWT_PASSWORD_RESET_EXPIRY` | no | `3600` | Reset-token lifetime in seconds. Shorter than verification on purpose — the link is a live credential for the account. |
+| `MULTIMEDIA_UPLOAD_BUCKET` | no | `blogport-cms-upload` | GCS bucket that receives uploads. |
+| `SKIP_REDIS_TESTS` | no | unset | Set to `1` to skip the Redis integration tests. |
+
+`GOOGLE_APPLICATION_CREDENTIALS` is not an application setting but the media
+endpoints need it: signed URLs require a service-account key, so
+`gcloud auth application-default login` is not sufficient. Export the path to a
+service-account JSON in your shell.
+
+The four `ARGON2_*` / `USE_BLOCKING_HASH` variables appear in `.env.test` but
+are currently inert — `main.rs` picks a hardcoded Argon2 profile from
+`RUST_ENV` rather than calling `Argon2Hasher::from_env()`.
+
+## Rate limiting
+
+The unauthenticated auth endpoints are limited per caller, backed by Redis:
+
+| Endpoint | Limit |
+| --- | --- |
+| `POST /api/auth/login` | 10 / 5 min |
+| `POST /api/auth/register` | 5 / hour |
+| `POST /api/auth/password-reset` | 5 / hour |
+| `POST /api/auth/password-reset/{token}` | 10 / hour |
+| `POST /api/auth/refresh` | 30 / 5 min |
+
+Authenticated routes are not limited: reaching them already requires a
+valid token. The limits are low because each of these costs us an Argon2
+hash, and registration also sends mail — they are a denial-of-service
+lever as much as a credential-guessing one.
+
+Callers are keyed on the left-most `X-Forwarded-For` entry, falling back to
+the peer address. Behind Cloud Run the peer address is the load balancer for
+every request, so keying on it would collapse all clients onto one counter
+and let one busy caller lock out everybody. **This is only sound behind a
+proxy that overwrites the header.** Cloud Run does; a proxy that merely
+appends would let a caller rotate the value for a fresh bucket per request.
+
+If Redis is unreachable the limiter fails open and logs. Refusing every
+login during a cache outage would turn it into a total authentication
+outage; the limiter is a mitigation, not the security boundary.
+
+---
+
+## Running the tests
+
 ```bash
 export RUST_TEST_THREADS=1
 cargo test -- --nocapture
 ```
+
+There is a second suite that `cargo test` does not run: an end-to-end Postman
+collection with ~889 assertions across auth, CVs, projects, topics, profile and
+media. It needs a running server built with the `test-helpers` feature. See
+[`postman/README.md`](postman/README.md).
 
 ### Coverage
 
@@ -105,55 +281,41 @@ Note: unsetting `REDIS_URL` is not enough on its own — other tests in the bina
 call `dotenvy`, which loads `.env` into the shared process environment partway
 through a run.
 
-## Environment variables
 
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `CORS_ALLOWED_ORIGINS` | no | `http://localhost:5173`, `http://127.0.0.1:5173` | Comma-separated browser origins allowed to call the API. **Set this in production** — the fallback is development-only. |
-| `SKIP_REDIS_TESTS` | no | unset | Set to `1` to skip the Redis integration tests. |
+---
 
-### Rate limiting
+## Handy commands
 
-The unauthenticated auth endpoints are limited per caller, backed by Redis:
+Open a psql shell against the compose container:
 
-| Endpoint | Limit |
-| --- | --- |
-| `POST /api/auth/login` | 10 / 5 min |
-| `POST /api/auth/register` | 5 / hour |
-| `POST /api/auth/password-reset` | 5 / hour |
-| `POST /api/auth/password-reset/{token}` | 10 / hour |
-| `POST /api/auth/refresh` | 30 / 5 min |
+```bash
+docker exec -it cms-postgres psql -d cms -U developer
+```
 
-Authenticated routes are not limited: reaching them already requires a
-valid token. The limits are low because each of these costs us an Argon2
-hash, and registration also sends mail — they are a denial-of-service
-lever as much as a credential-guessing one.
+Run the server with the test-only helper routes, in release mode:
 
-Callers are keyed on the left-most `X-Forwarded-For` entry, falling back to
-the peer address. Behind Cloud Run the peer address is the load balancer for
-every request, so keying on it would collapse all clients onto one counter
-and let one busy caller lock out everybody. **This is only sound behind a
-proxy that overwrites the header.** Cloud Run does; a proxy that merely
-appends would let a caller rotate the value for a fresh bucket per request.
-
-If Redis is unreachable the limiter fails open and logs. Refusing every
-login during a cache outage would turn it into a total authentication
-outage; the limiter is a mitigation, not the security boundary.
-
-| `PASSWORD_RESET_HANDLER_URL` | no | `0.0.0.0:5173/password-reset` | Frontend route the emailed reset link points at. The token is appended as a path segment. |
-| `JWT_PASSWORD_RESET_EXPIRY` | no | `3600` | Reset-token lifetime in seconds. Shorter than verification on purpose — the link is a live credential for the account. |
-
-## Run server with `test-helpers` flag and release version
 ```bash
 RUST_ENV=test cargo run --release --features test-helpers
 ```
 
-## Open postgres database cms from terminal
+The `test-helpers` feature refuses to start under `RUST_ENV=production`.
+
+Save the OpenAPI document from a running server, e.g. to diff it against a
+previous release:
+
 ```bash
-docker exec -it postgres-db psql -d cms -U developer
+curl -s http://localhost:8080/api-docs/openapi.json | jq . > openapi.json
 ```
 
-## Create postgres docker container
-```bash
+## Deploying
 
+See [`build_steps.md`](build_steps.md). Short version, from this directory:
+
+```bash
+./build.sh && ./deploy.sh
 ```
+
+`build.sh` builds and pushes the image (~15–20 min); `deploy.sh` applies
+pending migrations, then updates the Cloud Run service (~1–2 min). Migrations
+run *before* the service update and a failure aborts the deploy — see
+`build_steps.md` for why that ordering matters.
