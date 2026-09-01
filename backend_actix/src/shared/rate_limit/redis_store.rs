@@ -85,7 +85,21 @@ mod tests {
     /// that exercise the INCR / EXPIRE / TTL sequence — the in-memory store used
     /// by the middleware tests reimplements the counting, so it cannot catch a
     /// mistake in the Redis commands themselves.
+    static TLS_INIT: std::sync::Once = std::sync::Once::new();
+
+    /// rustls 0.23 refuses to build a TLS connection until a crypto provider is
+    /// installed, and Upstash requires TLS. `main.rs` does this at startup;
+    /// tests have to do it themselves or every rediss:// connection panics
+    /// inside rustls rather than failing as a connection error.
+    fn init_tls() {
+        TLS_INIT.call_once(|| {
+            let _ = rustls::crypto::ring::default_provider().install_default();
+        });
+    }
+
     fn store() -> Option<RedisRateLimitStore> {
+        init_tls();
+
         if std::env::var("SKIP_REDIS_TESTS").is_ok_and(|v| v == "1") {
             eprintln!("SKIP_REDIS_TESTS=1; skipping Redis rate-limit tests.");
             return None;
