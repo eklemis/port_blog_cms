@@ -11,6 +11,9 @@ every `cargo` command below works from anywhere in the repo.
 
 The code is laid out as ports and adapters: each module under `src/modules/`
 splits into `adapter/{incoming,outgoing}` and `application/{ports,use_cases,…}`.
+**Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) before your first
+change** — it covers the layering rule, the module map, a request traced end to
+end, and where new code belongs.
 
 ---
 
@@ -88,7 +91,7 @@ It prints `Server run on: 0.0.0.0:8080`.
 http://localhost:8080/swagger-ui/
 ```
 
-Every one of the 48 routes is documented there, with request and response
+Every one of the 53 routes is documented there, with request and response
 schemas and example values, and you can call them from the page. The raw
 document is served at `/api-docs/openapi.json`.
 
