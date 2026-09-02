@@ -255,7 +255,11 @@ impl MediaQueryPostgres {
             "avatar" => Ok(MediaRole::Avatar),
             "profile" => Ok(MediaRole::Profile),
             "cover" => Ok(MediaRole::Cover),
-            "screenshoot" => Ok(MediaRole::Screenshoot),
+            // Step 1 of the rename in docs/adr/0007-screenshot-role-rename.md:
+            // read both spellings, keep writing the old one. The data
+            // migration cannot land before every running build can parse the
+            // value it writes, so this arm has to ship and deploy first.
+            "screenshoot" | "screenshot" => Ok(MediaRole::Screenshoot),
             "gallery" => Ok(MediaRole::Gallery),
             "inline" => Ok(MediaRole::Inline),
             _ => Err(MediaQueryError::DatabaseError(format!(
@@ -1218,6 +1222,31 @@ mod tests {
             MediaQueryPostgres::parse_media_role("inline").unwrap(),
             MediaRole::Inline
         ));
+    }
+
+    /// Step 1 of the role rename: rows written by the current build say
+    /// "screenshoot", rows the data migration will write say "screenshot", and
+    /// during the rollout both exist at once. A build that cannot read the new
+    /// spelling would start erroring on media the moment the migration ran, so
+    /// this is the arm that has to be deployed everywhere before step 2.
+    #[tokio::test]
+    async fn both_screenshot_spellings_parse_during_the_rename() {
+        assert!(matches!(
+            MediaQueryPostgres::parse_media_role("screenshoot").unwrap(),
+            MediaRole::Screenshoot
+        ));
+        assert!(matches!(
+            MediaQueryPostgres::parse_media_role("screenshot").unwrap(),
+            MediaRole::Screenshoot
+        ));
+    }
+
+    /// Writing is deliberately unchanged in step 1 — the new spelling is only
+    /// readable, not yet written. Step 3 flips this, and it must not flip
+    /// early or it writes values older builds cannot read.
+    #[tokio::test]
+    async fn the_written_spelling_is_still_the_old_one() {
+        assert_eq!(MediaRole::Screenshoot.to_string(), "screenshoot");
     }
 
     #[tokio::test]
