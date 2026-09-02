@@ -115,7 +115,11 @@ mod tests {
             unimplemented!("not used in GetProjectsService tests")
         }
 
-        async fn slug_exists(&self, _slug: &str) -> Result<bool, ProjectQueryError> {
+        async fn slug_exists(
+            &self,
+            _owner: UserId,
+            _slug: &str,
+        ) -> Result<bool, ProjectQueryError> {
             unimplemented!("not used in GetProjectsService tests")
         }
     }

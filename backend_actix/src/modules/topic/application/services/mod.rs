@@ -6,3 +6,5 @@ pub use get_topics_service::GetTopicsService;
 pub use soft_delete_topic_service::SoftDeleteTopicService;
 mod get_topic_usage_service;
 pub use get_topic_usage_service::GetTopicUsageService;
+mod patch_topic_service;
+pub use patch_topic_service::PatchTopicService;

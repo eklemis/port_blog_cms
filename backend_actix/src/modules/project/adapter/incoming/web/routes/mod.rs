@@ -9,6 +9,7 @@ mod get_single_project;
 mod hard_delete_project;
 mod patch_project;
 mod remove_project_topic;
+mod slug_available;
 mod soft_delete_project;
 
 // Glob re-exports carry the hidden `__path_<handler>` structs that
@@ -24,4 +25,5 @@ pub use get_single_project::*;
 pub use hard_delete_project::*;
 pub use patch_project::*;
 pub use remove_project_topic::*;
+pub use slug_available::*;
 pub use soft_delete_project::*;

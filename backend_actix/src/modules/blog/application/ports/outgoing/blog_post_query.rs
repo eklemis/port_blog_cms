@@ -177,6 +177,12 @@ pub trait BlogPostQuery: Send + Sync {
         page: BlogPageRequest,
     ) -> Result<BlogPageResult<BlogPostCard>, BlogPostQueryError>;
 
+    /// Whether this author already uses a slug.
+    ///
+    /// Scoped by author, matching the unique index `(user_id, lower(slug))`.
+    /// Soft-deleted posts do not count: their slug is free to reuse.
+    async fn slug_exists(&self, owner: UserId, slug: &str) -> Result<bool, BlogPostQueryError>;
+
     /// Lists the topics attached to a post.
     async fn get_topics(&self, post_id: Uuid) -> Result<Vec<BlogPostTopic>, BlogPostQueryError>;
 }

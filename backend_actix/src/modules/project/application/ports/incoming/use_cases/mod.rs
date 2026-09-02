@@ -23,3 +23,5 @@ pub use hard_delete_project::{HardDeleteProjectError, HardDeleteProjectUseCase};
 pub use patch_project::{PatchProjectError, PatchProjectUseCase};
 pub use remove_project_topic::{RemoveProjectTopicError, RemoveProjectTopicUseCase};
 pub use soft_delete_project::{SoftDeleteProjectError, SoftDeleteProjectUseCase};
+mod slug_available;
+pub use slug_available::ProjectSlugAvailableUseCase;

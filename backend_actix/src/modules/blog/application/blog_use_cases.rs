@@ -5,7 +5,7 @@ use crate::blog::application::ports::incoming::use_cases::{
     CreateBlogPostUseCase, DetachBlogPostTopicUseCase, GetBlogPostTopicsUseCase,
     GetBlogPostsUseCase, GetPublicBlogPostUseCase, GetPublicBlogPostsUseCase,
     GetSingleBlogPostUseCase, HardDeleteBlogPostUseCase, PatchBlogPostUseCase,
-    RestoreBlogPostUseCase,
+    RestoreBlogPostUseCase, SlugAvailableUseCase,
 };
 
 /// Bundles the blog use cases so `AppState` gains one field rather than
@@ -36,6 +36,8 @@ pub struct BlogUseCases {
     pub detach_topic: Arc<dyn DetachBlogPostTopicUseCase + Send + Sync>,
     /// The [`ClearBlogPostTopicsUseCase`] implementation.
     pub clear_topics: Arc<dyn ClearBlogPostTopicsUseCase + Send + Sync>,
+    /// The [`SlugAvailableUseCase`] implementation.
+    pub slug_available: Arc<dyn SlugAvailableUseCase + Send + Sync>,
     /// The [`GetBlogPostTopicsUseCase`] implementation.
     pub get_topics: Arc<dyn GetBlogPostTopicsUseCase + Send + Sync>,
 }

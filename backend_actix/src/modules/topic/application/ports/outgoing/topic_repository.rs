@@ -78,6 +78,25 @@ pub trait TopicRepository: Send + Sync {
     /// so does not scope on one — the caller must check ownership first.
     async fn restore_topic(&self, topic_id: Uuid) -> Result<TopicResult, TopicRepositoryError>;
 
+    /// Applies a partial update.
+    ///
+    /// Scoped by owner, so another user's topic reports
+    /// [`TopicNotFound`](TopicRepositoryError::TopicNotFound). A rename onto a
+    /// title the owner already uses is
+    /// [`TopicAlreadyExists`](TopicRepositoryError::TopicAlreadyExists).
+    ///
+    /// Renaming does not touch the post and project links: the topic keeps its
+    /// id, so everything tagged with it follows the new name automatically.
+    /// That is the whole point — the workaround was create-retag-retire, by
+    /// hand, across every tagged item.
+    async fn patch_topic(
+        &self,
+        owner: UserId,
+        topic_id: Uuid,
+        title: Option<String>,
+        description: Option<String>,
+    ) -> Result<TopicResult, TopicRepositoryError>;
+
     /// Flags the topic as deleted, hiding it from queries while leaving
     /// existing post and project links intact.
     async fn soft_delete_topic(&self, topic_id: Uuid) -> Result<(), TopicRepositoryError>;

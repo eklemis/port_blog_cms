@@ -1,5 +1,7 @@
 use async_trait::async_trait;
 use chrono::Utc;
+use sea_orm::sea_query::extension::postgres::PgExpr;
+use sea_orm::sea_query::Expr;
 use sea_orm::{
     ColumnTrait, Condition, DatabaseConnection, EntityTrait, FromQueryResult, JoinType,
     PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait,
@@ -101,10 +103,18 @@ impl BlogPostQueryPostgres {
             .filter(|s| !s.is_empty())
         {
             let pattern = format!("%{search}%");
+            // ILIKE, not LIKE: `LIKE` is case-sensitive in Postgres, so
+            // searching "Rust" missed a post titled "rust and the borrow
+            // checker" while the same search on projects found it. That reads
+            // as flaky search rather than as a bug, which is why it survived.
+            //
+            // Content is included so an author with a few hundred posts can
+            // find one by what it says, not only by how it was titled.
             condition = condition.add(
                 Condition::any()
-                    .add(PostColumn::Title.like(&pattern))
-                    .add(PostColumn::Excerpt.like(&pattern)),
+                    .add(Expr::col(PostColumn::Title).ilike(&pattern))
+                    .add(Expr::col(PostColumn::Excerpt).ilike(&pattern))
+                    .add(Expr::col(PostColumn::Content).ilike(&pattern)),
             );
         }
 
@@ -316,6 +326,22 @@ impl BlogPostQuery for BlogPostQueryPostgres {
             topics,
             media,
         })
+    }
+
+    async fn slug_exists(&self, owner: UserId, slug: &str) -> Result<bool, BlogPostQueryError> {
+        // Slugs are normalised the same way the write path does it, so the
+        // check answers about the value that would actually be stored.
+        let normalized = slug.trim().to_lowercase();
+
+        let count = PostEntity::find()
+            .filter(PostColumn::UserId.eq(owner.value()))
+            .filter(PostColumn::Slug.eq(&normalized))
+            .filter(PostColumn::IsDeleted.eq(false))
+            .count(&*self.db)
+            .await
+            .map_err(Self::db_err)?;
+
+        Ok(count > 0)
     }
 
     async fn get_topics(&self, post_id: Uuid) -> Result<Vec<BlogPostTopic>, BlogPostQueryError> {
@@ -763,7 +789,7 @@ mod tests {
         assert_eq!(topics[0].title, "Rust");
     }
 
-    /// A blank or whitespace-only search must not become a `LIKE '%%'` filter,
+    /// A blank or whitespace-only search must not become an `ILIKE '%%'` filter,
     /// which would be a no-op clause on every listing query.
     #[tokio::test]
     async fn a_blank_search_term_is_ignored() {
@@ -803,7 +829,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_search_term_filters_on_title_and_excerpt() {
+    async fn a_search_term_filters_case_insensitively_on_title_excerpt_and_content() {
         let user_id = Uuid::new_v4();
         let conn = Arc::new(
             MockDatabase::new(DatabaseBackend::Postgres)
@@ -833,10 +859,23 @@ mod tests {
                 .into_transaction_log()
         )
         .replace("\\\"", "\"");
-        assert!(sql.contains("LIKE"));
+        // ILIKE, not LIKE. Postgres `LIKE` is case-sensitive, so this used to
+        // miss a post titled "Rust and the borrow checker" for the search
+        // "rust" — while the same search on projects, which already used
+        // ILIKE, found it. That asymmetry reads as flaky search rather than as
+        // a bug, which is how it survived.
+        assert!(
+            sql.contains("ILIKE"),
+            "search must be case-insensitive: {sql}"
+        );
         // Trimmed before being wrapped in wildcards.
         assert!(sql.contains("%rust%"), "{sql}");
-        assert!(sql.contains("title") && sql.contains("excerpt"));
+        // Content included so an author can find a post by what it says, not
+        // only by how it was titled.
+        assert!(
+            sql.contains("title") && sql.contains("excerpt") && sql.contains("content"),
+            "search must cover title, excerpt and content: {sql}"
+        );
     }
 
     #[tokio::test]

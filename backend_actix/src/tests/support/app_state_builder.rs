@@ -116,6 +116,7 @@ impl Default for TestAppStateBuilder {
             get_topics: Some(Arc::new(StubGetTopicsUseCase::success(vec![]))),
             soft_delete_topic: Some(Arc::new(StubSoftDeleteTopicUseCase)),
             blog: Some(BlogUseCases {
+                slug_available: Arc::new(StubSlugAvailable),
                 create: Arc::new(StubCreateBlogPost),
                 list: Arc::new(StubGetBlogPosts),
                 list_public: Arc::new(StubGetPublicBlogPosts),
@@ -131,6 +132,7 @@ impl Default for TestAppStateBuilder {
                 get_topics: Arc::new(StubGetBlogPostTopics),
             }),
             project: Some(ProjectUseCases {
+                slug_available: Arc::new(StubProjectSlugAvailable),
                 create: Arc::new(StubCreateProjectUseCase::repo_error(
                     "not used in this test",
                 )),
@@ -628,6 +630,7 @@ impl TestAppStateBuilder {
             create_topic_use_case: self.create_topic.unwrap(),
             get_topics_use_case: self.get_topics.unwrap(),
             get_topic_usage_use_case: Arc::new(StubGetTopicUsage),
+            patch_topic_use_case: Arc::new(StubPatchTopic),
             soft_delete_topic_use_case: self.soft_delete_topic.unwrap(),
             blog: self.blog.unwrap(),
             project: self.project.unwrap(),

@@ -91,6 +91,16 @@ mod tests {
 
     #[async_trait]
     impl TopicRepository for MockTopicRepository {
+        async fn patch_topic(
+            &self,
+            _owner: UserId,
+            _topic_id: Uuid,
+            _title: Option<String>,
+            _description: Option<String>,
+        ) -> Result<TopicResult, TopicRepositoryError> {
+            unimplemented!()
+        }
+
         async fn create_topic(
             &self,
             _data: CreateTopicData,
