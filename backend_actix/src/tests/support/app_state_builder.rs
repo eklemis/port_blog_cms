@@ -3,6 +3,7 @@ use crate::auth::application::orchestrator::user_registration::UserRegistrationO
 use crate::auth::application::use_cases::fetch_profile::FetchUserProfileUseCase;
 use crate::auth::application::use_cases::refresh_token::IRefreshTokenUseCase;
 use crate::auth::application::use_cases::request_password_reset::IRequestPasswordResetUseCase;
+use crate::auth::application::use_cases::resend_verification_email::IResendVerificationEmailUseCase;
 use crate::auth::application::use_cases::reset_password::IResetPasswordUseCase;
 use crate::auth::application::use_cases::soft_delete_user::ISoftDeleteUserUseCase;
 use crate::auth::application::use_cases::update_profile::UpdateUserProfileUseCase;
@@ -58,6 +59,7 @@ pub struct TestAppStateBuilder {
     login_user: Option<Arc<dyn ILoginUserUseCase + Send + Sync>>,
     refresh_token: Option<Arc<dyn IRefreshTokenUseCase + Send + Sync>>,
     request_password_reset: Option<Arc<dyn IRequestPasswordResetUseCase + Send + Sync>>,
+    resend_verification_email: Option<Arc<dyn IResendVerificationEmailUseCase + Send + Sync>>,
     reset_password: Option<Arc<dyn IResetPasswordUseCase + Send + Sync>>,
     logout_user: Option<Arc<dyn ILogoutUseCase + Send + Sync>>,
     soft_delete_user: Option<Arc<dyn ISoftDeleteUserUseCase + Send + Sync>>,
@@ -101,6 +103,7 @@ impl Default for TestAppStateBuilder {
             login_user: Some(Arc::new(StubLoginUserUseCase)),
             refresh_token: Some(Arc::new(StubRefreshTokenUseCase)),
             request_password_reset: Some(Arc::new(StubRequestPasswordReset)),
+            resend_verification_email: Some(Arc::new(StubResendVerificationEmail)),
             reset_password: Some(Arc::new(StubResetPassword)),
             logout_user: Some(Arc::new(StubLogoutUserUseCase)),
             soft_delete_user: Some(Arc::new(StubSoftDeleteUserUseCase)),
@@ -270,6 +273,15 @@ impl TestAppStateBuilder {
             .as_mut()
             .expect("Blog use cases must be initialized");
         blog.get_topics = std::sync::Arc::new(uc);
+        self
+    }
+
+    /// Overrides the verification-resend use case.
+    pub fn with_resend_verification_email(
+        mut self,
+        uc: impl IResendVerificationEmailUseCase + 'static,
+    ) -> Self {
+        self.resend_verification_email = Some(Arc::new(uc));
         self
     }
 
@@ -600,6 +612,7 @@ impl TestAppStateBuilder {
             login_user_use_case: self.login_user.unwrap(),
             refresh_token_use_case: self.refresh_token.unwrap(),
             request_password_reset_use_case: self.request_password_reset.unwrap(),
+            resend_verification_email_use_case: self.resend_verification_email.unwrap(),
             reset_password_use_case: self.reset_password.unwrap(),
             logout_user_use_case: self.logout_user.unwrap(),
             soft_delete_user_use_case: self.soft_delete_user.unwrap(),

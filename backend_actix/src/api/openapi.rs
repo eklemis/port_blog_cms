@@ -20,8 +20,9 @@ use utoipa::OpenApi;
 use crate::auth::adapter::incoming::web::routes::{
     CreateUserRequest, LoginRequestDto, LoginResponse, LoginUserInfo, LogoutRequestDto,
     LogoutResponseBody, PasswordResetResponse, RefreshTokenRequestDto, RefreshTokenResponseBody,
-    RegisterUserResponse, RegisteredUser, RequestPasswordResetDto, ResetPasswordDto,
-    UpdateUserRequest, UpdateUserResponse, UserProfileResponse, VerifyEmailResponse,
+    RegisterUserResponse, RegisteredUser, RequestPasswordResetDto, ResendVerificationDto,
+    ResendVerificationResponse, ResetPasswordDto, UpdateUserRequest, UpdateUserResponse,
+    UserProfileResponse, VerifyEmailResponse,
 };
 use crate::cv::application::ports::outgoing::{
     CVPageResult, // Just import the generic type
@@ -68,6 +69,7 @@ use crate::topic::application::ports::outgoing::TopicResult;
         crate::auth::adapter::incoming::web::routes::refresh_token_handler,
         crate::auth::adapter::incoming::web::routes::verify_user_email_handler,
         crate::auth::adapter::incoming::web::routes::request_password_reset_handler,
+        crate::auth::adapter::incoming::web::routes::resend_verification_handler,
         crate::auth::adapter::incoming::web::routes::reset_password_handler,
 
         // User endpoints
@@ -142,6 +144,8 @@ use crate::topic::application::ports::outgoing::TopicResult;
             // Auth DTOs
             CreateUserRequest,
             RegisterUserResponse,
+            ResendVerificationDto,
+            ResendVerificationResponse,
             RegisteredUser,
             LoginRequestDto,
             LoginResponse,

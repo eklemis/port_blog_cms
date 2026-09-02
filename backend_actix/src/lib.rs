@@ -76,6 +76,9 @@ use crate::modules::auth::application::services::UpdateUserProfileService;
 use crate::modules::auth::application::use_cases::fetch_profile::FetchUserProfileUseCase;
 use crate::modules::auth::application::use_cases::refresh_token::IRefreshTokenUseCase;
 use crate::modules::auth::application::use_cases::request_password_reset::IRequestPasswordResetUseCase;
+use crate::modules::auth::application::use_cases::resend_verification_email::{
+    IResendVerificationEmailUseCase, ResendVerificationEmailUseCase,
+};
 use crate::modules::auth::application::use_cases::reset_password::IResetPasswordUseCase;
 use crate::modules::auth::application::use_cases::update_profile::UpdateUserProfileUseCase;
 use crate::modules::cv::application::use_cases::get_public_single_cv::GetPublicSingleCvUseCase;
@@ -145,6 +148,8 @@ pub struct AppState {
     pub refresh_token_use_case: Arc<dyn IRefreshTokenUseCase + Send + Sync>,
     /// The `request password reset` use case.
     pub request_password_reset_use_case: Arc<dyn IRequestPasswordResetUseCase + Send + Sync>,
+    /// The `resend verification email` use case.
+    pub resend_verification_email_use_case: Arc<dyn IResendVerificationEmailUseCase + Send + Sync>,
     /// The `reset password` use case.
     pub reset_password_use_case: Arc<dyn IResetPasswordUseCase + Send + Sync>,
     /// The `logout user` use case.
@@ -391,7 +396,7 @@ pub async fn start() -> std::io::Result<()> {
     let register_user_orchestrator = UserRegistrationOrchestrator::new(
         create_user_uc_arc,
         Arc::new(jwt_service.clone()),
-        email_notifier_arc,
+        Arc::clone(&email_notifier_arc),
     );
 
     let verify_user_email_use_case =
@@ -406,6 +411,11 @@ pub async fn start() -> std::io::Result<()> {
         user_query.clone(),
         Arc::new(jwt_service.clone()),
         password_reset_notifier_arc,
+    );
+    let resend_verification_email_use_case = ResendVerificationEmailUseCase::new(
+        user_query.clone(),
+        Arc::new(jwt_service.clone()),
+        Arc::clone(&email_notifier_arc),
     );
     let reset_password_use_case = ResetPasswordUseCase::new(
         user_repo.clone(),
@@ -517,6 +527,7 @@ pub async fn start() -> std::io::Result<()> {
         login_user_use_case: Arc::new(login_user_use_case),
         refresh_token_use_case: Arc::new(refresh_token_use_case),
         request_password_reset_use_case: Arc::new(request_password_reset_use_case),
+        resend_verification_email_use_case: Arc::new(resend_verification_email_use_case),
         reset_password_use_case: Arc::new(reset_password_use_case),
         logout_user_use_case: Arc::new(logout_user_use_case),
         soft_delete_user_use_case: Arc::new(soft_delete_user_use_case),
@@ -606,6 +617,7 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::auth::adapter::incoming::web::routes::login_user_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::refresh_token_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::request_password_reset_handler);
+    cfg.service(crate::auth::adapter::incoming::web::routes::resend_verification_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::reset_password_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::logout_user_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::soft_delete_user_handler);
