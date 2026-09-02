@@ -221,6 +221,7 @@ mod tests {
             topics: vec![],
             created_at: Utc::now(),
             updated_at: Utc::now(),
+            media: Vec::new(),
         }
     }
 

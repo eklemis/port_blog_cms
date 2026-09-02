@@ -24,3 +24,5 @@ pub use delete_media::{DeleteMediaError, DeleteMediaUseCase};
 pub use get_media::{GetMediaError, GetMediaUseCase, MediaDetail};
 
 pub use list_media::{ListMediaCommand, ListMediaError, ListMediaUseCase, MediaItem};
+mod get_public_variant_url;
+pub use get_public_variant_url::{GetPublicVariantUrlError, GetPublicVariantUrlUseCase};

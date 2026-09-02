@@ -11,6 +11,7 @@ use crate::cv::adapter::incoming::web::dto::{
 use crate::cv::adapter::incoming::web::routes::{
     CreateCVRequest, PatchCVRequest, ReplaceOp, UpdateCVRequest,
 };
+use crate::multimedia::application::domain::entities::PublicMedia;
 use crate::shared::api::ErrorCode;
 use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
 use utoipa::OpenApi;
@@ -124,6 +125,7 @@ use crate::topic::application::ports::outgoing::TopicResult;
         crate::multimedia::adapter::incoming::web::routes::list_media_handler,
         crate::multimedia::adapter::incoming::web::routes::delete_media_handler,
         crate::multimedia::adapter::incoming::web::routes::get_media_handler,
+        crate::multimedia::adapter::incoming::web::routes::get_public_variant_handler,
     ),
     components(
         schemas(
@@ -187,6 +189,7 @@ use crate::topic::application::ports::outgoing::TopicResult;
             BlogPostDetailResponse,
             BlogPostCardResponse,
             BlogPostTopicResponse,
+            PublicMedia,
             CreateBlogPostRequest,
             PatchBlogPostRequest,
             BlogPostTopicRequest,

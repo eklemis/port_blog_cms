@@ -19,6 +19,7 @@ non-obvious. Routine choices do not need one.
 | [0003](0003-migrate-before-deploy.md) | Migrations run before the Cloud Run update, not on startup | Accepted |
 | [0004](0004-llvm-cov-over-tarpaulin.md) | Coverage is measured with `cargo llvm-cov`, not tarpaulin | Accepted |
 | [0005](0005-break-the-auth-email-cycle.md) | `email` does not depend on `auth` | Accepted |
+| [0006](0006-public-media-urls.md) | Public responses carry unsigned media URLs | Accepted |
 
 ## Format
 

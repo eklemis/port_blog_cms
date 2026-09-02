@@ -86,6 +86,28 @@ pub trait MediaQuery: Send + Sync {
     ) -> Result<Vec<MediaAttachment>, MediaQueryError>;
 
     /// What a media item is attached to, and in what role.
+    /// The storage coordinates of one variant, **only if it is publicly
+    /// visible**.
+    ///
+    /// Publicly visible means the media is attached to something a reader can
+    /// already see — today, a blog post that is published, not scheduled for
+    /// the future, and not deleted.
+    ///
+    /// This is what makes public media revocable. Unpublishing a post makes
+    /// this return `Ok(None)`, and the redirect route 404s from then on. A
+    /// world-readable bucket could not do that: once a URL escaped, the object
+    /// was reachable forever.
+    ///
+    /// Returns `Ok(None)` for "no such variant" and for "not publicly
+    /// visible", deliberately collapsed: telling them apart would let a caller
+    /// discover which drafts exist.
+    async fn find_public_variant(
+        &self,
+        media_id: Uuid,
+        size: MediaSize,
+    ) -> Result<Option<StoredVariant>, MediaQueryError>;
+
+    /// What a media item is attached to, and in what role.
     async fn get_attachment_info(&self, media_id: Uuid)
         -> Result<MediaAttachment, MediaQueryError>;
 }

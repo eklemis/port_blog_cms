@@ -1,5 +1,6 @@
 mod delete_media;
 mod get_media;
+mod get_public_variant;
 mod get_variant_url;
 mod init_upload;
 mod list_media;
@@ -8,6 +9,7 @@ mod list_media;
 // `#[utoipa::path]` generates alongside each handler; `ApiDoc` needs them.
 pub use delete_media::*;
 pub use get_media::*;
+pub use get_public_variant::*;
 pub use get_variant_url::*;
 pub use init_upload::*;
 pub use list_media::*;

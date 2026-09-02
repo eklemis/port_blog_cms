@@ -188,6 +188,7 @@ mod tests {
     fn sample_page_result() -> PageResult<ProjectCardView> {
         PageResult {
             items: vec![ProjectCardView {
+                cover: None,
                 id: Uuid::new_v4(),
                 title: "Test Project".to_string(),
                 slug: "test-project".to_string(),

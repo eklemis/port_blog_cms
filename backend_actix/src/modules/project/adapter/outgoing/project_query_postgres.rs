@@ -16,6 +16,10 @@ use crate::modules::project::application::ports::outgoing::project_query::{
     PageRequest, PageResult, ProjectCardView, ProjectListFilter, ProjectQuery, ProjectQueryError,
     ProjectSort, ProjectView,
 };
+use crate::multimedia::adapter::outgoing::db::public_media_loader::{
+    load_public_media, load_public_media_for,
+};
+use crate::multimedia::application::domain::entities::{AttachmentTarget, PublicMedia};
 use crate::project::application::ports::outgoing::project_query::ProjectTopicItem;
 
 // ============================================================================
@@ -54,7 +58,9 @@ impl ProjectQuery for ProjectQueryPostgres {
 
         let topics = self.get_project_topics(project_id).await?;
 
-        model_to_view(project, topics)
+        // Owner-facing: no public media. The console reads through the media
+        // endpoints and gets signed URLs.
+        model_to_view(project, topics, Vec::new())
     }
 
     async fn get_by_slug(&self, slug: &str) -> Result<ProjectView, ProjectQueryError> {
@@ -69,8 +75,11 @@ impl ProjectQuery for ProjectQueryPostgres {
             .ok_or(ProjectQueryError::NotFound)?;
 
         let topics = self.get_project_topics(project.id).await?;
+        let media = load_public_media_for(&self.db, AttachmentTarget::Project, project.id)
+            .await
+            .map_err(map_db_err)?;
 
-        model_to_view(project, topics)
+        model_to_view(project, topics, media)
     }
 
     async fn list(
@@ -148,9 +157,35 @@ impl ProjectQuery for ProjectQueryPostgres {
             .await
             .map_err(map_db_err)?;
 
-        // Map to card views
-        let items: Result<Vec<ProjectCardView>, ProjectQueryError> =
-            projects.into_iter().map(model_to_card_view).collect();
+        // Covers for the whole page in one pair of queries, not one per row.
+        //
+        // Unlike blog, this runs for the owner-facing listing too: projects
+        // have no draft state and one shared `list`, so a project the owner can
+        // see is already publicly visible. The URLs therefore reveal nothing
+        // the public listing would not, even though blog deliberately withholds
+        // them from its owner view.
+        let ids: Vec<Uuid> = projects.iter().map(|p| p.id).collect();
+        let mut covers: std::collections::HashMap<Uuid, PublicMedia> =
+            load_public_media(&self.db, AttachmentTarget::Project, &ids)
+                .await
+                .map_err(map_db_err)?
+                .into_iter()
+                .filter_map(|(project_id, media)| {
+                    media
+                        .into_iter()
+                        .filter(|m| m.role.eq_ignore_ascii_case("cover"))
+                        .min_by_key(|m| m.position)
+                        .map(|cover| (project_id, cover))
+                })
+                .collect();
+
+        let items: Result<Vec<ProjectCardView>, ProjectQueryError> = projects
+            .into_iter()
+            .map(|p| {
+                let cover = covers.remove(&p.id);
+                model_to_card_view(p, cover)
+            })
+            .collect();
 
         Ok(PageResult {
             items: items?,
@@ -239,6 +274,7 @@ impl ProjectQuery for ProjectQueryPostgres {
 fn model_to_view(
     model: projects::Model,
     topics: Vec<ProjectTopicItem>,
+    media: Vec<PublicMedia>,
 ) -> Result<ProjectView, ProjectQueryError> {
     Ok(ProjectView {
         id: model.id,
@@ -251,13 +287,18 @@ fn model_to_view(
         repo_url: model.repo_url,
         live_demo_url: model.live_demo_url,
         topics,
+        media,
         created_at: model.created_at.into(),
         updated_at: model.updated_at.into(),
     })
 }
 
-fn model_to_card_view(model: projects::Model) -> Result<ProjectCardView, ProjectQueryError> {
+fn model_to_card_view(
+    model: projects::Model,
+    cover: Option<PublicMedia>,
+) -> Result<ProjectCardView, ProjectQueryError> {
     Ok(ProjectCardView {
+        cover,
         id: model.id,
         title: model.title,
         slug: model.slug,
@@ -436,6 +477,8 @@ mod tests {
                 ("topic_title".to_string(), Value::String(None)),
                 ("topic_description".to_string(), Value::String(None)),
             ])]])
+            // get_by_slug is the public path, so it also loads media.
+            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
             .into_connection();
 
         let query = ProjectQueryPostgres::new(Arc::new(db));
@@ -465,6 +508,8 @@ mod tests {
                 ("topic_title".to_string(), Value::String(None)),
                 ("topic_description".to_string(), Value::String(None)),
             ])]])
+            // get_by_slug is the public path, so it also loads media.
+            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
             .into_connection();
 
         let query = ProjectQueryPostgres::new(Arc::new(db));
@@ -661,7 +706,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let model = create_mock_project_model(project_id, user_id, "Test", "test-slug");
 
-        let result = model_to_card_view(model);
+        let result = model_to_card_view(model, None);
 
         assert!(result.is_ok());
         let card = result.unwrap();
@@ -683,7 +728,7 @@ mod tests {
             description: "Systems programming".to_string(),
         }];
 
-        let result = model_to_view(model, topics);
+        let result = model_to_view(model, topics, Vec::new());
 
         assert!(result.is_ok());
         let view = result.unwrap();

@@ -17,6 +17,11 @@ use crate::blog::application::ports::outgoing::{
     BlogPostQueryError, BlogPostSort, BlogPostView,
 };
 use crate::blog::domain::entities::BlogPostTopic;
+use crate::multimedia::adapter::outgoing::db::public_media_loader::{
+    load_public_media, load_public_media_for,
+};
+use crate::multimedia::application::domain::entities::AttachmentTarget;
+use crate::multimedia::application::domain::entities::PublicMedia;
 use crate::topic::adapter::outgoing::sea_orm_entity::topics;
 
 /// The SeaORM implementation of the matching outgoing port.
@@ -143,9 +148,19 @@ impl BlogPostQueryPostgres {
             .await
             .map_err(Self::db_err)?;
 
+        // Covers only on the public listing, and only for the rows on this
+        // page — one extra pair of queries for the page, not per row.
+        let mut covers = if published_only {
+            let ids: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
+            self.covers_for(&ids).await?
+        } else {
+            std::collections::HashMap::new()
+        };
+
         let items = rows
             .into_iter()
             .map(|m| BlogPostCard {
+                cover: covers.remove(&m.id),
                 id: m.id,
                 title: m.title,
                 slug: m.slug,
@@ -193,6 +208,40 @@ impl BlogPostQueryPostgres {
             })
             .collect())
     }
+
+    /// Media attached to a post, for the public read path.
+    ///
+    /// Delegates to the multimedia module, which owns the schema and the URL
+    /// shape. See `public_media_loader`.
+    async fn media_for(&self, post_id: Uuid) -> Result<Vec<PublicMedia>, BlogPostQueryError> {
+        load_public_media_for(&self.db, AttachmentTarget::BlogPost, post_id)
+            .await
+            .map_err(Self::db_err)
+    }
+
+    /// Covers for a whole page of listing rows, in one pair of queries.
+    ///
+    /// Batched deliberately: a per-row lookup would make a twenty-post index
+    /// forty round trips.
+    async fn covers_for(
+        &self,
+        post_ids: &[Uuid],
+    ) -> Result<std::collections::HashMap<Uuid, PublicMedia>, BlogPostQueryError> {
+        let by_post = load_public_media(&self.db, AttachmentTarget::BlogPost, post_ids)
+            .await
+            .map_err(Self::db_err)?;
+
+        Ok(by_post
+            .into_iter()
+            .filter_map(|(post_id, media)| {
+                media
+                    .into_iter()
+                    .filter(|m| m.role.eq_ignore_ascii_case("cover"))
+                    .min_by_key(|m| m.position)
+                    .map(|cover| (post_id, cover))
+            })
+            .collect())
+    }
 }
 
 #[async_trait]
@@ -232,9 +281,13 @@ impl BlogPostQuery for BlogPostQueryPostgres {
 
         let topics = self.topics_for(post_id).await?;
 
+        // The console reads media through the media endpoints, which return
+        // signed URLs. Leaving this empty keeps the owner-facing path one query
+        // cheaper and stops unsigned URLs leaking into an authenticated view.
         Ok(BlogPostView {
             post: model.to_domain(),
             topics,
+            media: Vec::new(),
         })
     }
 
@@ -256,10 +309,12 @@ impl BlogPostQuery for BlogPostQueryPostgres {
 
         let post_id = model.id;
         let topics = self.topics_for(post_id).await?;
+        let media = self.media_for(post_id).await?;
 
         Ok(BlogPostView {
             post: model.to_domain(),
             topics,
+            media,
         })
     }
 
@@ -271,6 +326,7 @@ impl BlogPostQuery for BlogPostQueryPostgres {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use crate::blog::adapter::outgoing::sea_orm_entity::blog_posts::Model as PostModel;
     use sea_orm::{DatabaseBackend, MockDatabase, Value};
     use std::collections::BTreeMap;
@@ -554,7 +610,8 @@ mod tests {
         let user_id = Uuid::new_v4();
         let db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_results(vec![vec![model(user_id, Some(Utc::now()))]])
-            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
+            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()]) // topics
+            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()]) // attachments
             .into_connection();
 
         let view = query(db)
@@ -564,6 +621,135 @@ mod tests {
 
         assert!(view.post.published_at.is_some());
         assert!(view.topics.is_empty());
+        assert!(view.media.is_empty());
+    }
+
+    /// A post with no attachments must not issue the variants query at all —
+    /// otherwise every image-less public page pays for a round trip that can
+    /// only return nothing.
+    ///
+    /// Exactly three results are queued. `MockDatabase` fails a fourth query
+    /// with "`query_results` buffer is empty", so this passing *is* the
+    /// assertion that the variants query never ran.
+    #[tokio::test]
+    async fn a_post_with_no_attachments_skips_the_variants_query() {
+        let user_id = Uuid::new_v4();
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![model(user_id, Some(Utc::now()))]])
+            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()]) // topics
+            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()]) // attachments
+            .into_connection();
+
+        let view = query(db)
+            .get_published_by_slug(UserId::from(user_id), "hello")
+            .await
+            .unwrap();
+
+        assert!(view.media.is_empty());
+    }
+
+    /// The whole point of the feature: an attachment plus its variants come
+    /// back as one item carrying public, unsigned URLs.
+    #[tokio::test]
+    async fn public_read_projects_attachments_and_their_variants() {
+        let user_id = Uuid::new_v4();
+        let media_id = Uuid::new_v4();
+        // The loader keys results by attachable_id, so the fixture has to name
+        // the post the attachment actually belongs to.
+        let post_id = Uuid::new_v4();
+        let mut post = model(user_id, Some(Utc::now()));
+        post.id = post_id;
+
+        let attachment = BTreeMap::from([
+            ("id".to_string(), Value::from(Uuid::new_v4())),
+            ("media_id".to_string(), Value::from(media_id)),
+            ("attachable_type".to_string(), Value::from("blog_post")),
+            ("attachable_id".to_string(), Value::from(post_id)),
+            ("role".to_string(), Value::from("cover")),
+            ("position".to_string(), Value::from(0i32)),
+            ("alt_text".to_string(), Value::from("Hexagonal layout")),
+            ("caption".to_string(), Value::from(Option::<String>::None)),
+            (
+                "created_at".to_string(),
+                Value::from(Utc::now().fixed_offset()),
+            ),
+        ]);
+
+        let variant = |size: &str, key: &str| {
+            BTreeMap::from([
+                ("id".to_string(), Value::from(Uuid::new_v4())),
+                ("media_id".to_string(), Value::from(media_id)),
+                ("variant_type".to_string(), Value::from(size)),
+                ("bucket_name".to_string(), Value::from("ready-bucket")),
+                ("object_key".to_string(), Value::from(key)),
+                ("mime_type".to_string(), Value::from("image/webp")),
+                ("file_size_bytes".to_string(), Value::from(1234i64)),
+                ("width".to_string(), Value::from(Option::<i32>::None)),
+                ("height".to_string(), Value::from(Option::<i32>::None)),
+                (
+                    "created_at".to_string(),
+                    Value::from(Utc::now().fixed_offset()),
+                ),
+            ])
+        };
+
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![post]])
+            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()]) // topics
+            .append_query_results(vec![vec![attachment]])
+            .append_query_results(vec![vec![
+                variant("thumbnail", "m/thumb.webp"),
+                variant("large", "m/large.webp"),
+            ]])
+            .into_connection();
+
+        let view = query(db)
+            .get_published_by_slug(UserId::from(user_id), "hello")
+            .await
+            .unwrap();
+
+        assert_eq!(view.media.len(), 1);
+        let cover = &view.media[0];
+        assert_eq!(cover.media_id, media_id);
+        assert_eq!(cover.role, "cover");
+        assert_eq!(cover.alt_text, "Hexagonal layout");
+        // A NULL caption becomes an empty string, not a missing key.
+        assert_eq!(cover.caption, "");
+        // A stable URL into this API — never a bucket URL. The bucket is
+        // private; this path signs and redirects per fetch.
+        assert_eq!(
+            cover.variants.get("thumbnail").map(String::as_str),
+            Some(format!("/api/public/media/{media_id}/thumbnail").as_str()),
+            "variants must be stable API URLs: {:?}",
+            cover.variants
+        );
+        assert!(
+            !cover
+                .variants
+                .values()
+                .any(|u| u.contains("storage.googleapis.com")),
+            "no variant may leak a bucket URL: {:?}",
+            cover.variants
+        );
+        assert_eq!(cover.variants.len(), 2);
+    }
+
+    /// The owner-facing read deliberately carries no public media: the console
+    /// goes through the media endpoints, which return signed URLs.
+    #[tokio::test]
+    async fn get_by_id_returns_no_public_media() {
+        let user_id = Uuid::new_v4();
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![model(user_id, None)]])
+            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()]) // topics
+            .into_connection();
+
+        let view = query(db)
+            .get_by_id(UserId::from(user_id), Uuid::new_v4())
+            .await
+            .unwrap();
+
+        assert!(view.media.is_empty());
     }
 
     #[tokio::test]

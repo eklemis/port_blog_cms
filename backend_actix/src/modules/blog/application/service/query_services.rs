@@ -238,6 +238,7 @@ mod tests {
                 Ok(BlogPostView {
                     post: a_post(),
                     topics: vec![],
+                    media: Vec::new(),
                 })
             })
         }
@@ -251,6 +252,7 @@ mod tests {
                 Ok(BlogPostView {
                     post: a_post(),
                     topics: vec![],
+                    media: Vec::new(),
                 })
             })
         }

@@ -8,6 +8,8 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::multimedia::application::domain::entities::PublicMedia;
+
 use crate::auth::application::domain::entities::UserId;
 use crate::blog::domain::entities::{BlogPost, BlogPostTopic};
 
@@ -109,6 +111,13 @@ pub struct BlogPostCard {
     pub created_at: chrono::DateTime<chrono::Utc>,
     /// When it was last edited.
     pub updated_at: chrono::DateTime<chrono::Utc>,
+
+    /// The post's cover, on the **public** listing only.
+    ///
+    /// `None` when the post has no cover, and always `None` on the
+    /// owner-facing listing — the console reads media through the media
+    /// endpoints, which return signed URLs.
+    pub cover: Option<PublicMedia>,
 }
 
 /// A post plus its topics, for detail views.
@@ -118,6 +127,12 @@ pub struct BlogPostView {
     pub post: BlogPost,
     /// Topics attached to it.
     pub topics: Vec<BlogPostTopic>,
+
+    /// Media attached to it, ordered by role then position.
+    ///
+    /// Populated only on the **public** read path; the console's reads leave it
+    /// empty and go through the media endpoints, which return signed URLs.
+    pub media: Vec<PublicMedia>,
 }
 
 /// Reads blog posts.

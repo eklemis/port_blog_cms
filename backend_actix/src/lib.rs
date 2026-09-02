@@ -88,6 +88,7 @@ use crate::modules::email::application::ports::outgoing::user_email_notifier::Us
 use crate::modules::blog::application::blog_use_cases::BlogUseCases;
 use crate::modules::multimedia::application::domain::policies::upload_policy::UploadPolicy;
 use crate::modules::multimedia::application::media_use_cases::MultimediaUseCases;
+use crate::modules::multimedia::application::ports::incoming::services::GetPublicVariantUrlService;
 use crate::modules::project::application::project_use_cases::ProjectUseCases;
 use crate::modules::topic::application::ports::incoming::use_cases::CreateTopicUseCase;
 use crate::modules::topic::application::ports::incoming::use_cases::GetTopicsUseCase;
@@ -489,12 +490,15 @@ pub async fn start() -> std::io::Result<()> {
     let create_upload_media_signed_url =
         CreateUploadMediaUrlService::new(storage_query.clone(), media_repo);
     let media_query = MediaQueryPostgres::new(Arc::clone(&db_arc));
-    let create_variant_get_url = GetVariantReadUrlService::new(storage_query, media_query.clone());
+    let create_variant_get_url =
+        GetVariantReadUrlService::new(storage_query.clone(), media_query.clone());
+    let public_variant_url = GetPublicVariantUrlService::new(media_query.clone(), storage_query);
     let get_media_uc = GetMediaService::new(media_query.clone());
     let list_media = ListMediaService::new(media_query);
     let media_use_cases = MultimediaUseCases {
         create_signed_post_url: Arc::new(create_upload_media_signed_url),
         create_signed_get_url: Arc::new(create_variant_get_url),
+        get_public_variant_url: Arc::new(public_variant_url),
         list_media: Arc::new(list_media),
         delete_media: Arc::new(delete_media_uc),
         get_media: Arc::new(get_media_uc),
@@ -644,4 +648,5 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::multimedia::adapter::incoming::web::routes::list_media_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::delete_media_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::get_media_handler);
+    cfg.service(crate::multimedia::adapter::incoming::web::routes::get_public_variant_handler);
 }
