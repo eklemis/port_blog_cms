@@ -255,11 +255,12 @@ impl MediaQueryPostgres {
             "avatar" => Ok(MediaRole::Avatar),
             "profile" => Ok(MediaRole::Profile),
             "cover" => Ok(MediaRole::Cover),
-            // Step 1 of the rename in docs/adr/0007-screenshot-role-rename.md:
-            // read both spellings, keep writing the old one. The data
-            // migration cannot land before every running build can parse the
-            // value it writes, so this arm has to ship and deploy first.
-            "screenshoot" | "screenshot" => Ok(MediaRole::Screenshoot),
+            // "screenshoot" is the pre-rename spelling. The migration in
+            // m20260902_000002 renamed every row, so nothing writes it any
+            // more, but reading it costs one match arm and means a database
+            // restored from a pre-rename backup still loads. See
+            // docs/adr/0008-collapse-the-screenshot-rename.md.
+            "screenshot" | "screenshoot" => Ok(MediaRole::Screenshot),
             "gallery" => Ok(MediaRole::Gallery),
             "inline" => Ok(MediaRole::Inline),
             _ => Err(MediaQueryError::DatabaseError(format!(
@@ -880,7 +881,7 @@ mod tests {
         assert_eq!(info.media_id, media_id);
         assert_eq!(info.attachment_target, AttachmentTarget::Project);
         assert_eq!(info.status, MediaState::Processing);
-        assert_eq!(info.role, MediaRole::Screenshoot);
+        assert_eq!(info.role, MediaRole::Screenshot);
         assert_eq!(info.position, 2);
         assert_eq!(info.alt_text, "screenshot");
         assert_eq!(info.caption, "");
@@ -1211,8 +1212,8 @@ mod tests {
             MediaRole::Cover
         ));
         assert!(matches!(
-            MediaQueryPostgres::parse_media_role("screenshoot").unwrap(),
-            MediaRole::Screenshoot
+            MediaQueryPostgres::parse_media_role("screenshot").unwrap(),
+            MediaRole::Screenshot
         ));
         assert!(matches!(
             MediaQueryPostgres::parse_media_role("gallery").unwrap(),
@@ -1224,29 +1225,20 @@ mod tests {
         ));
     }
 
-    /// Step 1 of the role rename: rows written by the current build say
-    /// "screenshoot", rows the data migration will write say "screenshot", and
-    /// during the rollout both exist at once. A build that cannot read the new
-    /// spelling would start erroring on media the moment the migration ran, so
-    /// this is the arm that has to be deployed everywhere before step 2.
+    /// The misspelling is still readable so a database restored from a
+    /// pre-rename backup loads rather than erroring on every project image.
     #[tokio::test]
-    async fn both_screenshot_spellings_parse_during_the_rename() {
+    async fn the_pre_rename_spelling_still_parses() {
         assert!(matches!(
             MediaQueryPostgres::parse_media_role("screenshoot").unwrap(),
-            MediaRole::Screenshoot
-        ));
-        assert!(matches!(
-            MediaQueryPostgres::parse_media_role("screenshot").unwrap(),
-            MediaRole::Screenshoot
+            MediaRole::Screenshot
         ));
     }
 
-    /// Writing is deliberately unchanged in step 1 — the new spelling is only
-    /// readable, not yet written. Step 3 flips this, and it must not flip
-    /// early or it writes values older builds cannot read.
+    /// Nothing writes the misspelling any more.
     #[tokio::test]
-    async fn the_written_spelling_is_still_the_old_one() {
-        assert_eq!(MediaRole::Screenshoot.to_string(), "screenshoot");
+    async fn the_written_spelling_is_corrected() {
+        assert_eq!(MediaRole::Screenshot.to_string(), "screenshot");
     }
 
     #[tokio::test]
