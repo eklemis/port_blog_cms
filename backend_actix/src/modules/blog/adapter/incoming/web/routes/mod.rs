@@ -2,6 +2,7 @@ mod archive_blog_post;
 mod blog_post_topics;
 mod bulk_blog_posts;
 mod create_blog_post;
+mod draft_preview;
 /// Listing blog posts, owner-facing and public.
 pub mod get_blog_posts;
 mod get_public_blog_post;
@@ -18,6 +19,7 @@ pub use archive_blog_post::*;
 pub use blog_post_topics::*;
 pub use bulk_blog_posts::*;
 pub use create_blog_post::*;
+pub use draft_preview::*;
 pub use get_blog_posts::*;
 pub use get_public_blog_post::*;
 pub use get_public_blog_posts::*;

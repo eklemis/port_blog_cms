@@ -91,6 +91,7 @@ use crate::modules::email::application::ports::outgoing::password_reset_notifier
 use crate::modules::email::application::ports::outgoing::user_email_notifier::UserEmailNotifier;
 use crate::modules::multimedia::adapter::outgoing::db::AvatarLoaderPostgres;
 
+use crate::modules::blog::application::blog_preview_use_cases::BlogPreviewUseCases;
 use crate::modules::blog::application::blog_use_cases::BlogUseCases;
 use crate::modules::multimedia::application::domain::policies::upload_policy::UploadPolicy;
 use crate::modules::multimedia::application::media_use_cases::MultimediaUseCases;
@@ -188,6 +189,8 @@ pub struct AppState {
     pub soft_delete_topic_use_case: Arc<dyn SoftDeleteTopicUseCase + Send + Sync>,
     /// Blog's use cases, grouped.
     pub blog: BlogUseCases,
+    /// The draft-preview use cases.
+    pub blog_preview: BlogPreviewUseCases,
     /// Project's use cases, grouped.
     pub project: ProjectUseCases,
     /// Multimedia's use cases, grouped.
@@ -221,7 +224,7 @@ pub async fn start() -> std::io::Result<()> {
         blog::{
             adapter::outgoing::{
                 BlogPostArchiverPostgres, BlogPostQueryPostgres, BlogPostRepositoryPostgres,
-                BlogPostTopicRepositoryPostgres,
+                BlogPostTopicRepositoryPostgres, DraftPreviewStorePostgres,
             },
             application::ports::incoming::use_cases::{
                 ArchiveBlogPostUseCase, AttachBlogPostTopicUseCase, DetachBlogPostTopicUseCase,
@@ -230,9 +233,11 @@ pub async fn start() -> std::io::Result<()> {
             application::service::{
                 ArchiveBlogPostService, AttachBlogPostTopicService, BulkBlogPostsService,
                 ClearBlogPostTopicsService, CreateBlogPostService, DetachBlogPostTopicService,
-                GetBlogPostTopicsService, GetBlogPostsService, GetPublicBlogPostService,
-                GetPublicBlogPostsService, GetSingleBlogPostService, HardDeleteBlogPostService,
-                PatchBlogPostService, RestoreBlogPostService, SlugAvailableService,
+                GetBlogPostTopicsService, GetBlogPostsService, GetDraftPreviewService,
+                GetPublicBlogPostService, GetPublicBlogPostsService, GetSingleBlogPostService,
+                HardDeleteBlogPostService, PatchBlogPostService, ReadDraftPreviewService,
+                RestoreBlogPostService, RevokeDraftPreviewService, ShareDraftService,
+                SlugAvailableService,
             },
         },
         cv::{
@@ -517,6 +522,18 @@ pub async fn start() -> std::io::Result<()> {
         get_topics: Arc::new(GetBlogPostTopicsService::new(blog_query)),
     };
 
+    let preview_store = DraftPreviewStorePostgres::new(Arc::clone(&db_arc));
+    let blog_preview_use_cases = BlogPreviewUseCases {
+        share: Arc::new(ShareDraftService::new(preview_store.clone())),
+        get: Arc::new(GetDraftPreviewService::new(preview_store.clone())),
+        revoke: Arc::new(RevokeDraftPreviewService::new(preview_store.clone())),
+        read: Arc::new(ReadDraftPreviewService::new(
+            preview_store,
+            BlogPostQueryPostgres::new(Arc::clone(&db_arc)),
+            UserQueryPostgres::new(Arc::clone(&db_arc)),
+        )),
+    };
+
     // Project use cases, repos and query
     let project_repo = ProjectRepositoryPostgres::new(Arc::clone(&db_arc));
     let project_topic_repo = ProjectTopicRepositoryPostgres::new(Arc::clone(&db_arc));
@@ -642,6 +659,7 @@ pub async fn start() -> std::io::Result<()> {
         patch_topic_use_case: Arc::new(patch_topic_uc),
         soft_delete_topic_use_case: Arc::new(soft_delete_topic_uc),
         blog: blog_use_cases,
+        blog_preview: blog_preview_use_cases,
         project: project_use_cases,
         multimedia: media_use_cases,
         user_identity_resolver: identity_resolver,
@@ -758,6 +776,10 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::blog::adapter::incoming::web::routes::archive_blog_post_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::restore_blog_post_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::bulk_blog_posts_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::share_draft_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::get_draft_preview_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::revoke_draft_preview_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::read_draft_preview_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::bulk_projects_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::bulk_media_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::hard_delete_blog_post_handler);

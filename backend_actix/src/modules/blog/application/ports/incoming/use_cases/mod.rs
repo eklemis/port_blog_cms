@@ -488,3 +488,112 @@ pub trait BulkBlogPostsUseCase: Send + Sync {
         ids: Vec<Uuid>,
     ) -> Result<BulkOutcome, BulkRequestError>;
 }
+
+/// How long a freshly minted or renewed preview link lasts.
+///
+/// Generous on purpose. A draft under review sits for a week or two, and a
+/// 24-hour link dies over a weekend — the author then learns about it from a
+/// reviewer who got an error, which is the worst way to find out. Expiry is not
+/// the problem; expiry the author cannot see is, which is why
+/// [`DraftPreviewState`] reports it.
+pub const DRAFT_PREVIEW_TTL_DAYS: i64 = 14;
+
+/// The author-facing view of a post's sharing state.
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
+pub struct DraftPreviewState {
+    /// The shareable secret. Shown so the sharing panel can display the link
+    /// again rather than re-minting one and breaking the reviewer's bookmark.
+    pub token: String,
+
+    /// When the link stops working.
+    pub expires_at: DateTime<Utc>,
+
+    /// When it was first shared. Unchanged by renewing.
+    pub created_at: DateTime<Utc>,
+
+    /// True once `expires_at` has passed. The link still exists and can be
+    /// renewed; it just does not currently work.
+    pub expired: bool,
+}
+
+/// Why a preview operation failed.
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum DraftPreviewError {
+    /// No post matched, or it belongs to another author.
+    #[error("Blog post not found")]
+    PostNotFound,
+
+    /// The post has no preview link.
+    #[error("This post is not shared")]
+    NotShared,
+
+    /// The store could not be reached.
+    #[error("Repository error: {0}")]
+    RepositoryError(String),
+}
+
+impl From<crate::blog::application::ports::outgoing::DraftPreviewStoreError> for DraftPreviewError {
+    fn from(e: crate::blog::application::ports::outgoing::DraftPreviewStoreError) -> Self {
+        use crate::blog::application::ports::outgoing::DraftPreviewStoreError as E;
+        match e {
+            E::PostNotFound => DraftPreviewError::PostNotFound,
+            E::DatabaseError(m) => DraftPreviewError::RepositoryError(m),
+        }
+    }
+}
+
+/// Creates a post's preview link, or extends the one it has.
+#[async_trait]
+pub trait ShareDraftUseCase: Send + Sync {
+    /// Mints or renews, and returns the resulting state.
+    async fn execute(
+        &self,
+        owner: UserId,
+        post_id: Uuid,
+    ) -> Result<DraftPreviewState, DraftPreviewError>;
+}
+
+/// Reads a post's sharing state for its author.
+#[async_trait]
+pub trait GetDraftPreviewUseCase: Send + Sync {
+    /// Returns the state, or `NotShared`.
+    async fn execute(
+        &self,
+        owner: UserId,
+        post_id: Uuid,
+    ) -> Result<DraftPreviewState, DraftPreviewError>;
+}
+
+/// Withdraws a post's preview link.
+#[async_trait]
+pub trait RevokeDraftPreviewUseCase: Send + Sync {
+    /// Revoking a post that is not shared succeeds.
+    async fn execute(&self, owner: UserId, post_id: Uuid) -> Result<(), DraftPreviewError>;
+}
+
+/// What the holder of a preview token should be shown.
+#[derive(Debug, Clone)]
+pub enum PreviewResolution {
+    /// The post is still a draft or scheduled. Serve it, with the banner.
+    Draft(Box<BlogPostView>),
+
+    /// The post has since been published. The public page is the better
+    /// destination, so the reviewer's bookmark quietly upgrades to it rather
+    /// than reporting an expired link for something anyone can now read.
+    Published {
+        /// Author's handle, for the public path.
+        username: String,
+        /// The post's slug.
+        slug: String,
+    },
+}
+
+/// Resolves a preview token for a reader with no account.
+#[async_trait]
+pub trait ReadDraftPreviewUseCase: Send + Sync {
+    /// Resolves the token.
+    ///
+    /// An unknown, revoked or expired token is `PostNotFound` — the three must
+    /// be indistinguishable, or the endpoint confirms which drafts exist.
+    async fn execute(&self, token: &str) -> Result<PreviewResolution, DraftPreviewError>;
+}

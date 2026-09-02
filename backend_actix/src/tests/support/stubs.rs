@@ -40,10 +40,12 @@ use crate::auth::application::use_cases::update_profile::{
 use crate::blog::application::ports::incoming::use_cases::{
     ArchiveBlogPostError, ArchiveBlogPostUseCase, AttachBlogPostTopicUseCase, BlogBulkOp,
     BlogPostTopicError, BulkBlogPostsUseCase, ClearBlogPostTopicsUseCase, CreateBlogPostCommand,
-    CreateBlogPostError, CreateBlogPostUseCase, DetachBlogPostTopicUseCase, GetBlogPostError,
-    GetBlogPostTopicsUseCase, GetBlogPostsError, GetBlogPostsUseCase, GetPublicBlogPostUseCase,
+    CreateBlogPostError, CreateBlogPostUseCase, DetachBlogPostTopicUseCase, DraftPreviewError,
+    DraftPreviewState, GetBlogPostError, GetBlogPostTopicsUseCase, GetBlogPostsError,
+    GetBlogPostsUseCase, GetDraftPreviewUseCase, GetPublicBlogPostUseCase,
     GetPublicBlogPostsUseCase, GetSingleBlogPostUseCase, HardDeleteBlogPostUseCase,
-    PatchBlogPostError, PatchBlogPostUseCase, RestoreBlogPostUseCase,
+    PatchBlogPostError, PatchBlogPostUseCase, PreviewResolution, ReadDraftPreviewUseCase,
+    RestoreBlogPostUseCase, RevokeDraftPreviewUseCase, ShareDraftUseCase,
 };
 use crate::blog::application::ports::outgoing::{
     BlogPageRequest, BlogPageResult, BlogPostCard, BlogPostListFilter, BlogPostSort, BlogPostView,
@@ -353,6 +355,50 @@ fn stub_all_missing(
         outcome.fail(id, code, "Stub bulk use case not configured for this test");
     }
     Ok(outcome)
+}
+
+/// Reports every post as unshared. Tests that exercise the routes supply their own.
+#[derive(Default, Clone)]
+pub struct StubDraftPreview;
+
+#[async_trait]
+impl ShareDraftUseCase for StubDraftPreview {
+    async fn execute(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _post_id: uuid::Uuid,
+    ) -> Result<DraftPreviewState, DraftPreviewError> {
+        Err(DraftPreviewError::PostNotFound)
+    }
+}
+
+#[async_trait]
+impl GetDraftPreviewUseCase for StubDraftPreview {
+    async fn execute(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _post_id: uuid::Uuid,
+    ) -> Result<DraftPreviewState, DraftPreviewError> {
+        Err(DraftPreviewError::NotShared)
+    }
+}
+
+#[async_trait]
+impl RevokeDraftPreviewUseCase for StubDraftPreview {
+    async fn execute(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _post_id: uuid::Uuid,
+    ) -> Result<(), DraftPreviewError> {
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl ReadDraftPreviewUseCase for StubDraftPreview {
+    async fn execute(&self, _token: &str) -> Result<PreviewResolution, DraftPreviewError> {
+        Err(DraftPreviewError::PostNotFound)
+    }
 }
 
 /// Never restores. Tests that exercise the route supply their own.
