@@ -90,7 +90,15 @@ pub struct MediaVariant {
 ///
 /// The role decides how a client renders it, and lets one target carry
 /// several images without ambiguity.
+///
+/// The serde form and the [`Display`](std::fmt::Display) form are deliberately
+/// the same string: `Display` is what gets stored and what public responses
+/// carry, so a client must be able to post back a role it just read. They
+/// disagreed once — see
+/// [ADR 0008](../../../../docs/adr/0008-collapse-the-screenshot-rename.md) —
+/// and a test now walks every variant to keep them in step.
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "lowercase")]
 pub enum MediaRole {
     /// Small round portrait.
     Avatar,
@@ -99,9 +107,8 @@ pub enum MediaRole {
     Profile,
     /// Wide banner at the top of a page.
     Cover,
-    /// A project screenshot. **Spelling is load-bearing** — it is persisted, so
-    /// correcting it needs a migration.
-    Screenshoot,
+    /// A project screenshot.
+    Screenshot,
     /// One of several images shown together.
     Gallery,
     /// Embedded in body content.
@@ -113,7 +120,7 @@ impl fmt::Display for MediaRole {
             MediaRole::Avatar => "avatar",
             MediaRole::Profile => "profile",
             MediaRole::Cover => "cover",
-            MediaRole::Screenshoot => "screenshoot",
+            MediaRole::Screenshot => "screenshot",
             MediaRole::Gallery => "gallery",
             MediaRole::Inline => "inline",
         };
@@ -125,7 +132,11 @@ impl fmt::Display for MediaRole {
 ///
 /// Persisted, so adding a variant needs a migration and removing one needs a
 /// backfill.
+///
+/// `snake_case` rather than `lowercase`, because `BlogPost` has always stored
+/// as `blog_post`; see [`MediaRole`] for why the two forms must agree.
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum AttachmentTarget {
     /// A user account.
     User,
@@ -184,4 +195,81 @@ pub struct PublicMedia {
     /// processing carries the attachment with no URLs yet.
     #[schema(example = json!({"thumbnail": "https://storage.googleapis.com/…"}))]
     pub variants: std::collections::BTreeMap<String, String>,
+}
+
+#[cfg(test)]
+mod wire_format_tests {
+    use super::*;
+
+    /// The defect this pins: `MediaRole` and `AttachmentTarget` derived serde
+    /// without `rename_all`, so JSON used the Rust variant names
+    /// (`"Screenshoot"`, `"BlogPost"`) while `Display` — and therefore the
+    /// database and every public response — used lowercase. A client could not
+    /// send back a role it had just read.
+    ///
+    /// Asserting the two agree for every variant is what makes that
+    /// unrepresentable, rather than asserting one spelling and trusting the
+    /// other to follow.
+    #[test]
+    fn every_media_role_serializes_as_it_displays() {
+        for role in [
+            MediaRole::Avatar,
+            MediaRole::Profile,
+            MediaRole::Cover,
+            MediaRole::Screenshot,
+            MediaRole::Gallery,
+            MediaRole::Inline,
+        ] {
+            let json = serde_json::to_string(&role).unwrap();
+            assert_eq!(
+                json,
+                format!("\"{role}\""),
+                "serde and Display disagree for {role:?}"
+            );
+
+            let back: MediaRole = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, role, "{role:?} did not round-trip");
+        }
+    }
+
+    #[test]
+    fn every_attachment_target_serializes_as_it_displays() {
+        for target in [
+            AttachmentTarget::User,
+            AttachmentTarget::Resume,
+            AttachmentTarget::Project,
+            AttachmentTarget::BlogPost,
+        ] {
+            let json = serde_json::to_string(&target).unwrap();
+            assert_eq!(
+                json,
+                format!("\"{target}\""),
+                "serde and Display disagree for {target:?}"
+            );
+        }
+    }
+
+    /// `BlogPost` is why the attribute is `snake_case` and not `lowercase`:
+    /// the stored value has always been `blog_post`, and `lowercase` would
+    /// have produced `blogpost`, trading one mismatch for another.
+    #[test]
+    fn blog_post_keeps_its_underscore() {
+        assert_eq!(
+            serde_json::to_string(&AttachmentTarget::BlogPost).unwrap(),
+            "\"blog_post\""
+        );
+        assert_eq!(AttachmentTarget::BlogPost.to_string(), "blog_post");
+    }
+
+    /// A role read from a public response must be postable to `POST /api/media/upload-url`.
+    /// This is the round trip that was broken.
+    #[test]
+    fn a_role_read_from_a_response_can_be_sent_back() {
+        let from_response = MediaRole::Screenshot.to_string();
+
+        let parsed: MediaRole = serde_json::from_str(&format!("\"{from_response}\""))
+            .expect("a role string taken from a response must deserialize into a request body");
+
+        assert_eq!(parsed, MediaRole::Screenshot);
+    }
 }

@@ -64,7 +64,7 @@ pub struct ProjectView {
     /// Media attached to the project, on the **public** read path only.
     ///
     /// Each item carries its `role`, so a client picks screenshots with
-    /// `role == "screenshoot"` and a cover with `role == "cover"`.
+    /// `role == "screenshot"` and a cover with `role == "cover"`.
     ///
     /// Distinct from [`screenshots`](Self::screenshots), which is a plain list
     /// of author-supplied URLs stored on the project row. The two coexist; this

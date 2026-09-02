@@ -1,6 +1,6 @@
 # 0007 — Renaming the `screenshoot` media role takes three deploys
 
-**Status:** Accepted — step 1 shipped, steps 2 and 3 pending
+**Status:** Superseded by [0008](0008-collapse-the-screenshot-rename.md) — step 1 shipped; steps 2 and 3 were collapsed into one, because no backend had been rolled out. The sequencing here still applies to a rename made while something is serving.
 **Component:** `multimedia/`, `migration/`
 
 ## Context
@@ -62,5 +62,5 @@ A separate defect found while mapping this one, and **not** addressed here:
 therefore uses the Rust variant names (`"Screenshoot"`, `"BlogPost"`) while
 `Display` — and so the database and every public response — uses lowercase
 (`"screenshoot"`, `"blog_post"`). A client cannot feed a role it read from a
-public response back into `POST /api/media/init-upload`. Fixing that is also a
+public response back into `POST /api/media/upload-url`. Fixing that is also a
 client-visible contract change and needs its own decision.
