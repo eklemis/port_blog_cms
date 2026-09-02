@@ -148,6 +148,7 @@ mod tests {
             is_deleted: false,
             created_at: Utc::now(),
             updated_at: Utc::now(),
+            bio: None,
         }
     }
 

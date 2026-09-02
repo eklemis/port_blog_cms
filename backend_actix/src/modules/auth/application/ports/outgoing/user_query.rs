@@ -24,6 +24,13 @@ pub struct UserQueryResult {
     pub password_hash: String,
     /// Display name, shown to the user and used to greet them in mail.
     pub full_name: String,
+
+    /// Free-form introduction shown on the author's public pages.
+    ///
+    /// `None` when never set — distinct from an empty string, which the author
+    /// chose. Lives on the user rather than per-CV because a reader's URL names
+    /// a person, not a document.
+    pub bio: Option<String>,
     /// When the account was created.
     pub created_at: DateTime<Utc>,
     /// When the row was last written.

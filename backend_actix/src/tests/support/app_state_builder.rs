@@ -1,6 +1,7 @@
 use crate::auth::application::helpers::UserIdentityResolver;
 use crate::auth::application::orchestrator::user_registration::UserRegistrationOrchestrator;
 use crate::auth::application::use_cases::fetch_profile::FetchUserProfileUseCase;
+use crate::auth::application::use_cases::get_public_profile::GetPublicProfileUseCase;
 use crate::auth::application::use_cases::refresh_token::IRefreshTokenUseCase;
 use crate::auth::application::use_cases::request_password_reset::IRequestPasswordResetUseCase;
 use crate::auth::application::use_cases::resend_verification_email::IResendVerificationEmailUseCase;
@@ -65,6 +66,7 @@ pub struct TestAppStateBuilder {
     soft_delete_user: Option<Arc<dyn ISoftDeleteUserUseCase + Send + Sync>>,
     fetch_user_profile: Option<Arc<dyn FetchUserProfileUseCase + Send + Sync>>,
     update_user_profile: Option<Arc<dyn UpdateUserProfileUseCase + Send + Sync>>,
+    get_public_profile: Option<Arc<dyn GetPublicProfileUseCase + Send + Sync>>,
     hard_delete_cv: Option<Arc<dyn HardDeleteCvUseCase + Send + Sync>>,
     soft_delete_cv: Option<Arc<dyn SoftDeleteCvUseCase + Send + Sync>>,
     restore_cv: Option<Arc<dyn RestoreDeletedCvUseCase + Send + Sync>>,
@@ -109,6 +111,7 @@ impl Default for TestAppStateBuilder {
             soft_delete_user: Some(Arc::new(StubSoftDeleteUserUseCase)),
             fetch_user_profile: Some(Arc::new(StubFetchUserProfileUseCase)),
             update_user_profile: Some(Arc::new(StubUpdateUserProfileUseCase)),
+            get_public_profile: Some(Arc::new(StubGetPublicProfile)),
             hard_delete_cv: Some(Arc::new(StubHardDeleteCvUseCase)),
             soft_delete_cv: Some(Arc::new(StubSoftDeleteCv)),
             restore_cv: Some(Arc::new(StubRestoreDeletedCv)),
@@ -167,6 +170,12 @@ impl Default for TestAppStateBuilder {
 }
 
 impl TestAppStateBuilder {
+    /// Overrides the public-profile read.
+    pub fn with_public_profile(mut self, uc: impl GetPublicProfileUseCase + 'static) -> Self {
+        self.get_public_profile = Some(Arc::new(uc));
+        self
+    }
+
     pub fn with_blog_create(mut self, uc: impl CreateBlogPostUseCase + 'static) -> Self {
         let blog = self
             .blog
@@ -625,6 +634,9 @@ impl TestAppStateBuilder {
             logout_user_use_case: self.logout_user.unwrap(),
             soft_delete_user_use_case: self.soft_delete_user.unwrap(),
             fetch_user_profile_use_case: self.fetch_user_profile.unwrap(),
+            get_public_profile_use_case: self
+                .get_public_profile
+                .expect("Public profile use case must be initialized"),
             update_user_profile_use_case: self.update_user_profile.unwrap(),
             hard_delete_cv_use_case: self.hard_delete_cv.unwrap(),
             soft_delete_cv_use_case: self.soft_delete_cv.unwrap(),

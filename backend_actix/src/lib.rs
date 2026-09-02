@@ -72,8 +72,10 @@ use crate::cv::application::use_cases::update_cv::{IUpdateCVUseCase, UpdateCVUse
 use crate::email::adapter::outgoing::smtp_sender::SmtpEmailSender;
 use crate::email::application::services::UserEmailService;
 use crate::modules::auth::application::helpers::UserIdentityResolver;
+use crate::modules::auth::application::services::GetPublicProfileService;
 use crate::modules::auth::application::services::UpdateUserProfileService;
 use crate::modules::auth::application::use_cases::fetch_profile::FetchUserProfileUseCase;
+use crate::modules::auth::application::use_cases::get_public_profile::GetPublicProfileUseCase;
 use crate::modules::auth::application::use_cases::refresh_token::IRefreshTokenUseCase;
 use crate::modules::auth::application::use_cases::request_password_reset::IRequestPasswordResetUseCase;
 use crate::modules::auth::application::use_cases::resend_verification_email::{
@@ -87,6 +89,7 @@ use crate::modules::cv::application::use_cases::restore_cv::RestoreDeletedCvUseC
 use crate::modules::cv::application::use_cases::soft_delete_cv::SoftDeleteCvUseCase;
 use crate::modules::email::application::ports::outgoing::password_reset_notifier::PasswordResetNotifier;
 use crate::modules::email::application::ports::outgoing::user_email_notifier::UserEmailNotifier;
+use crate::modules::multimedia::adapter::outgoing::db::AvatarLoaderPostgres;
 
 use crate::modules::blog::application::blog_use_cases::BlogUseCases;
 use crate::modules::multimedia::application::domain::policies::upload_policy::UploadPolicy;
@@ -163,6 +166,8 @@ pub struct AppState {
     pub soft_delete_user_use_case: Arc<dyn ISoftDeleteUserUseCase + Send + Sync>,
     /// The `fetch user profile` use case.
     pub fetch_user_profile_use_case: Arc<dyn FetchUserProfileUseCase + Send + Sync>,
+    /// The `get public profile` use case.
+    pub get_public_profile_use_case: Arc<dyn GetPublicProfileUseCase + Send + Sync>,
     /// The `update user profile` use case.
     pub update_user_profile_use_case: Arc<dyn UpdateUserProfileUseCase + Send + Sync>,
     /// The `hard delete cv` use case.
@@ -383,6 +388,10 @@ pub async fn start() -> std::io::Result<()> {
     );
 
     let user_repo = UserRepositoryPostgres::new(Arc::clone(&db_arc));
+    let get_public_profile_service = GetPublicProfileService::new(
+        UserQueryPostgres::new(Arc::clone(&db_arc)),
+        Arc::new(AvatarLoaderPostgres::new(Arc::clone(&db_arc))),
+    );
     let user_query = UserQueryPostgres::new(Arc::clone(&db_arc));
     let redis_token_repo = RedisTokenRepository::new(Arc::clone(&redis_arc));
     let argon2_password_hasher = if std::env::var("RUST_ENV").as_deref() == Ok("production") {
@@ -561,6 +570,7 @@ pub async fn start() -> std::io::Result<()> {
         logout_user_use_case: Arc::new(logout_user_use_case),
         soft_delete_user_use_case: Arc::new(soft_delete_user_use_case),
         fetch_user_profile_use_case: Arc::new(fetch_user_profile_service),
+        get_public_profile_use_case: Arc::new(get_public_profile_service),
         update_user_profile_use_case: Arc::new(update_user_profile_service),
         hard_delete_cv_use_case: Arc::new(hard_delete_cv_use_case),
         soft_delete_cv_use_case: Arc::new(soft_delete_cv_use_case),
@@ -652,6 +662,7 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::auth::adapter::incoming::web::routes::reset_password_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::logout_user_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::soft_delete_user_handler);
+    cfg.service(crate::auth::adapter::incoming::web::routes::get_public_profile_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::get_user_profile_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::update_user_profile_handler);
     // Topic

@@ -209,6 +209,7 @@ mod tests {
             is_deleted,
             created_at: Utc::now(),
             updated_at: Utc::now(),
+            bio: None,
         }
     }
 

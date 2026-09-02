@@ -35,8 +35,8 @@ impl MediaQueryPostgres {
     /// One variant, joined to whatever it is attached to, filtered to things a
     /// reader can already see.
     ///
-    /// Today that means published blog posts and non-deleted projects — the
-    /// two arms of the `OR`. Adding CVs means a third arm here rather than a
+    /// Today that means published blog posts, non-deleted projects, and
+    /// non-deleted users' avatars — the three arms of the `OR`. Adding CVs means a third arm here rather than a
     /// new route: a second place to decide "may a reader see this" is a second
     /// place to get it wrong.
     ///
@@ -101,6 +101,17 @@ impl MediaQueryPostgres {
                         SELECT 1 FROM projects pr
                         WHERE pr.id = a.attachable_id
                           AND pr.is_deleted = false
+                      )
+                    )
+                    -- Or to a user, which is their public avatar. A deleted
+                    -- account stops serving one; there is no draft state for a
+                    -- profile, so that is the whole rule.
+                 OR (
+                      a.attachable_type = 'user'
+                      AND EXISTS (
+                        SELECT 1 FROM users u
+                        WHERE u.id = a.attachable_id
+                          AND u.is_deleted = false
                       )
                     )
               )

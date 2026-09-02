@@ -41,6 +41,7 @@ where
             email: user.email,
             username: user.username,
             full_name: user.full_name,
+            bio: user.bio,
         })
     }
 }
@@ -92,6 +93,7 @@ mod tests {
             updated_at: Utc::now(),
             is_verified: true,
             is_deleted: false,
+            bio: None,
         }
     }
 

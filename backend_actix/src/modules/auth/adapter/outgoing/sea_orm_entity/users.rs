@@ -22,6 +22,7 @@ pub struct Model {
     pub email: String,
     pub password_hash: String,
     pub full_name: String,
+    pub bio: Option<String>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
     pub is_verified: bool,

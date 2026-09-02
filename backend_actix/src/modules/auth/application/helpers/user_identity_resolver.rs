@@ -114,6 +114,7 @@ mod tests {
             updated_at: Utc::now(),
             is_verified: true,
             is_deleted: deleted,
+            bio: None,
         }
     }
 

@@ -232,6 +232,15 @@ mod tests {
 
     #[async_trait]
     impl UserRepository for MockUserRepository {
+        async fn set_profile(
+            &self,
+            user_id: Uuid,
+            full_name: String,
+            _bio: Option<Option<String>>,
+        ) -> Result<UserResult, UserRepositoryError> {
+            self.set_full_name(user_id, full_name).await
+        }
+
         async fn soft_delete_user(&self, user_id: Uuid) -> Result<(), UserRepositoryError> {
             if self.should_fail {
                 return Err(UserRepositoryError::DatabaseError(

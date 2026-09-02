@@ -32,6 +32,7 @@ impl UserRepositoryPostgres {
             email: model.email,
             username: model.username,
             full_name: model.full_name,
+            bio: model.bio,
         }
     }
 }
@@ -41,6 +42,8 @@ impl UserRepository for UserRepositoryPostgres {
     async fn create_user(&self, user: CreateUserData) -> Result<UserResult, UserRepositoryError> {
         let user_id = Uuid::new_v4();
         let active_user = UserActiveModel {
+            // Not settable at registration; edited later via PUT /api/users/me.
+            bio: Set(None),
             id: Set(user_id),
             username: Set(user.username),
             email: Set(user.email),
@@ -159,6 +162,38 @@ impl UserRepository for UserRepositoryPostgres {
             .map(Self::map_to_user_result)
             .ok_or(UserRepositoryError::UserNotFound)
     }
+    async fn set_profile(
+        &self,
+        user_id: Uuid,
+        full_name: String,
+        bio: Option<Option<String>>,
+    ) -> Result<UserResult, UserRepositoryError> {
+        let mut active = UserActiveModel {
+            id: Set(user_id),
+            full_name: Set(full_name),
+            ..Default::default()
+        };
+
+        // Only touched when the caller mentioned it, so an update that omits
+        // `bio` cannot silently erase one.
+        if let Some(bio) = bio {
+            active.bio = Set(bio);
+        }
+
+        let updated = active
+            .update(&*self.db)
+            .await
+            .map_err(|e| UserRepositoryError::DatabaseError(e.to_string()))?;
+
+        Ok(UserResult {
+            id: updated.id,
+            email: updated.email,
+            username: updated.username,
+            full_name: updated.full_name,
+            bio: updated.bio,
+        })
+    }
+
     async fn set_full_name(
         &self,
         user_id: Uuid,
@@ -211,6 +246,7 @@ mod tests {
             updated_at: to_fixed_offset(now),
             is_verified: false,
             is_deleted: false,
+            bio: None,
         }
     }
 
@@ -232,6 +268,7 @@ mod tests {
             updated_at: curr_time.into(),
             is_verified: false,
             is_deleted: false,
+            bio: None,
         };
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)
@@ -604,6 +641,7 @@ mod tests {
             updated_at: to_fixed_offset(now),
             is_verified: false,
             is_deleted: false,
+            bio: None,
         };
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)

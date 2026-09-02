@@ -1,5 +1,7 @@
+mod avatar_loader;
 mod media_query_postgres;
 mod media_repository_postgres;
+pub use avatar_loader::AvatarLoaderPostgres;
 pub mod public_media_loader;
 pub mod sea_orm_entity;
 

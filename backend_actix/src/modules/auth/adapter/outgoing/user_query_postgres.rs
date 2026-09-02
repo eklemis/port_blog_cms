@@ -30,6 +30,7 @@ impl UserQueryPostgres {
             username: model.username,
             password_hash: model.password_hash,
             full_name: model.full_name,
+            bio: model.bio,
             created_at: model.created_at.with_timezone(&chrono::Utc),
             updated_at: model.updated_at.with_timezone(&chrono::Utc),
             is_verified: model.is_verified,
@@ -90,6 +91,7 @@ mod tests {
             updated_at: now.into(),
             is_verified: true,
             is_deleted: false,
+            bio: None,
         }
     }
 
@@ -233,6 +235,7 @@ mod tests {
             updated_at: now.into(),
             is_verified: true,
             is_deleted: false,
+            bio: None,
         };
 
         let query_result = UserQueryPostgres::map_to_query_result(model.clone());

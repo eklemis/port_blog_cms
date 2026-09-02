@@ -158,6 +158,7 @@ mod tests {
             updated_at: Utc::now(),
             is_verified: verified,
             is_deleted: deleted,
+            bio: None,
         }
     }
 

@@ -32,6 +32,9 @@ pub struct UserProfileResponse {
     /// Full name
     #[schema(example = "John Doe")]
     full_name: String,
+    /// Public bio. `null` when the user has not written one.
+    #[schema(example = "Backend engineer, mostly Rust.")]
+    bio: Option<String>,
 }
 
 /// Get current user profile
@@ -53,7 +56,8 @@ pub struct UserProfileResponse {
                     "user_id": "123e4567-e89b-12d3-a456-426614174000",
                     "email": "john@example.com",
                     "username": "johndoe",
-                    "full_name": "John Doe"
+                    "full_name": "John Doe",
+                    "bio": "Backend engineer, mostly Rust."
                 }
             })
         ),
@@ -113,6 +117,7 @@ pub async fn get_user_profile_handler(
             email: output.email,
             username: output.username,
             full_name: output.full_name,
+            bio: output.bio,
         }),
         Err(FetchUserError::UserNotFound(msg)) => {
             ApiResponse::not_found(ErrorCode::UserNotFound, &format!("User not found: {}", msg))
@@ -214,6 +219,7 @@ mod tests {
             email: "test@example.com".to_string(),
             username: "testuser".to_string(),
             full_name: "Test User".to_string(),
+            bio: None,
         }
     }
 

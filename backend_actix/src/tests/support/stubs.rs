@@ -7,6 +7,9 @@ use crate::auth::application::use_cases::resend_verification_email::{
 use crate::auth::application::use_cases::reset_password::{
     IResetPasswordUseCase, ResetPasswordError,
 };
+use crate::modules::auth::application::use_cases::get_public_profile::{
+    GetPublicProfileError, GetPublicProfileUseCase, PublicProfile,
+};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -266,6 +269,17 @@ impl UserEmailNotifier for StubUserEmailNotifier {
 /// The registration orchestrator mints the token itself now, so anything that
 /// builds one needs a token provider. See
 /// `docs/adr/0005-break-the-auth-email-cycle.md`.
+/// Never resolves a public profile.
+#[derive(Default, Clone)]
+pub struct StubGetPublicProfile;
+
+#[async_trait]
+impl GetPublicProfileUseCase for StubGetPublicProfile {
+    async fn execute(&self, _u: &str) -> Result<PublicProfile, GetPublicProfileError> {
+        Err(GetPublicProfileError::NotFound)
+    }
+}
+
 /// Never restores. Tests that exercise the route supply their own.
 #[derive(Default, Clone)]
 pub struct StubRestoreProject;
@@ -463,6 +477,7 @@ impl FetchUserProfileUseCase for StubFetchUserProfileUseCase {
             email: "stub@example.com".to_string(),
             username: "stubuser".to_string(),
             full_name: "Stub User".to_string(),
+            bio: None,
         })
     }
 }
@@ -478,6 +493,7 @@ impl UpdateUserProfileUseCase for StubUpdateUserProfileUseCase {
             email: "stub@example.com".to_string(),
             username: "stubuser".to_string(),
             full_name: data.full_name,
+            bio: None,
         })
     }
 }
