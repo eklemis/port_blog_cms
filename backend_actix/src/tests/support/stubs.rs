@@ -61,11 +61,11 @@ use crate::email::application::ports::outgoing::user_email_notifier::{
 use crate::email::application::ports::outgoing::Recipient;
 use crate::multimedia::application::ports::incoming::use_cases::{
     CreateAttachmentCommand, CreateMediaCommand, CreateMediaResult, CreateUploadMediaUrlUseCase,
-    CreateUrlError, DeleteMediaError, DeleteMediaUseCase, GetMediaError, GetMediaUsageUseCase,
-    GetMediaUseCase, GetPublicVariantUrlError, GetPublicVariantUrlUseCase, GetReadUrlError,
-    GetUrlCommand, GetUrlResult, GetVariantReadUrlUseCase, HardDeleteMediaUseCase,
+    CreateUrlError, DeleteMediaError, DeleteMediaUseCase, GetMediaError, GetMediaStatusesUseCase,
+    GetMediaUsageUseCase, GetMediaUseCase, GetPublicVariantUrlError, GetPublicVariantUrlUseCase,
+    GetReadUrlError, GetUrlCommand, GetUrlResult, GetVariantReadUrlUseCase, HardDeleteMediaUseCase,
     ListMediaCommand, ListMediaError, ListMediaUseCase, MediaDetail, MediaItem,
-    MediaLifecycleError, MediaUsage, PatchMediaUseCase, RestoreMediaUseCase,
+    MediaLifecycleError, MediaStatus, MediaUsage, PatchMediaUseCase, RestoreMediaUseCase,
 };
 
 use crate::project::application::ports::incoming::use_cases::{
@@ -100,7 +100,7 @@ use crate::auth::application::use_cases::{
 
 use crate::modules::blog::application::ports::incoming::use_cases::SlugAvailableUseCase;
 use crate::modules::project::application::ports::incoming::use_cases::{
-    GetProjectsError, ProjectSlugAvailableUseCase,
+    GetProjectsError, ProjectSlugAvailableUseCase, RestoreProjectError, RestoreProjectUseCase,
 };
 use crate::modules::topic::application::ports::incoming::use_cases::{
     CreateTopicCommand, CreateTopicUseCase, GetTopicsUseCase, SoftDeleteTopicUseCase,
@@ -266,6 +266,21 @@ impl UserEmailNotifier for StubUserEmailNotifier {
 /// The registration orchestrator mints the token itself now, so anything that
 /// builds one needs a token provider. See
 /// `docs/adr/0005-break-the-auth-email-cycle.md`.
+/// Never restores. Tests that exercise the route supply their own.
+#[derive(Default, Clone)]
+pub struct StubRestoreProject;
+
+#[async_trait]
+impl RestoreProjectUseCase for StubRestoreProject {
+    async fn execute(
+        &self,
+        _o: crate::auth::application::domain::entities::UserId,
+        _p: uuid::Uuid,
+    ) -> Result<(), RestoreProjectError> {
+        unimplemented!("StubRestoreProject not configured for this test")
+    }
+}
+
 /// Reports every project slug as free.
 #[derive(Default, Clone)]
 pub struct StubProjectSlugAvailable;
@@ -367,6 +382,17 @@ impl HardDeleteMediaUseCase for StubMediaLifecycle {
         _m: uuid::Uuid,
     ) -> Result<(), MediaLifecycleError> {
         unimplemented!("StubMediaLifecycle not configured for this test")
+    }
+}
+
+#[async_trait]
+impl GetMediaStatusesUseCase for StubMediaLifecycle {
+    async fn execute(
+        &self,
+        _o: crate::auth::application::domain::entities::UserId,
+        _ids: Vec<uuid::Uuid>,
+    ) -> Result<Vec<MediaStatus>, MediaLifecycleError> {
+        Ok(Vec::new())
     }
 }
 

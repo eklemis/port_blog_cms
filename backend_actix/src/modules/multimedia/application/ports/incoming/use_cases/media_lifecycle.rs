@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use uuid::Uuid;
 
 use crate::auth::application::domain::entities::UserId;
-use crate::multimedia::application::domain::entities::AttachmentTarget;
+use crate::multimedia::application::domain::entities::{AttachmentTarget, MediaState};
 use crate::multimedia::application::ports::outgoing::db::{
     MediaRepositoryError, PatchAttachmentData,
 };
@@ -96,4 +96,32 @@ pub trait GetMediaUsageUseCase: Send + Sync {
         owner: UserId,
         media_id: Uuid,
     ) -> Result<Vec<MediaUsage>, MediaLifecycleError>;
+}
+
+/// One item's processing state, as returned by a batched poll.
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
+pub struct MediaStatus {
+    /// Which item.
+    pub media_id: Uuid,
+    /// Where it is in processing.
+    pub state: MediaState,
+    /// When the state last changed.
+    pub updated_at: String,
+}
+
+/// Reports the processing state of several items in one call.
+#[async_trait]
+pub trait GetMediaStatusesUseCase: Send + Sync {
+    /// States for the requested ids.
+    ///
+    /// **Ids that do not resolve are absent from the result, not errors.** A
+    /// client polling a set should not lose the whole batch because one item
+    /// was deleted between polls, and it can treat an absent id as "gone".
+    ///
+    /// An empty request is an empty result without touching the database.
+    async fn execute(
+        &self,
+        owner: UserId,
+        media_ids: Vec<Uuid>,
+    ) -> Result<Vec<MediaStatus>, MediaLifecycleError>;
 }

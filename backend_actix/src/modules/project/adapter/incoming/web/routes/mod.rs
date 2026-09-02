@@ -9,6 +9,7 @@ mod get_single_project;
 mod hard_delete_project;
 mod patch_project;
 mod remove_project_topic;
+mod restore_project;
 mod slug_available;
 mod soft_delete_project;
 
@@ -25,5 +26,6 @@ pub use get_single_project::*;
 pub use hard_delete_project::*;
 pub use patch_project::*;
 pub use remove_project_topic::*;
+pub use restore_project::*;
 pub use slug_available::*;
 pub use soft_delete_project::*;

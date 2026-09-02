@@ -89,6 +89,14 @@ mod tests {
 
     #[async_trait]
     impl crate::multimedia::application::ports::outgoing::db::MediaQuery for StubQuery {
+        async fn get_states(
+            &self,
+            _owner: crate::auth::application::domain::entities::UserId,
+            _media_ids: &[uuid::Uuid],
+        ) -> Result<Vec<MediaStateInfo>, MediaQueryError> {
+            Ok(Vec::new())
+        }
+
         async fn find_media_usage(
             &self,
             _owner: crate::auth::application::domain::entities::UserId,

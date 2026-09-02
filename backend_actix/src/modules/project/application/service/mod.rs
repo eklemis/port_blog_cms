@@ -22,3 +22,5 @@ pub use remove_project_topic_service::RemoveProjectTopicService;
 pub use soft_delete_project_service::SoftDeleteProjectService;
 mod slug_available_service;
 pub use slug_available_service::ProjectSlugAvailableService;
+mod restore_project_service;
+pub use restore_project_service::RestoreProjectService;

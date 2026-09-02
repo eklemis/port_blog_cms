@@ -8,7 +8,7 @@ use crate::{
         AddProjectTopicUseCase, ClearProjectTopicsUseCase, GetProjectTopicsUseCase,
         GetPublicSingleProjectUseCase, GetSingleProjectUseCase, HardDeleteProjectUseCase,
         PatchProjectUseCase, ProjectSlugAvailableUseCase, RemoveProjectTopicUseCase,
-        SoftDeleteProjectUseCase,
+        RestoreProjectUseCase, SoftDeleteProjectUseCase,
     },
 };
 
@@ -17,6 +17,8 @@ use crate::{
 pub struct ProjectUseCases {
     /// The [`CreateProjectUseCase`] implementation.
     pub create: Arc<dyn CreateProjectUseCase + Send + Sync>,
+    /// The [`RestoreProjectUseCase`] implementation.
+    pub restore: Arc<dyn RestoreProjectUseCase + Send + Sync>,
     /// The [`ProjectSlugAvailableUseCase`] implementation.
     pub slug_available: Arc<dyn ProjectSlugAvailableUseCase + Send + Sync>,
     /// The [`GetProjectsUseCase`] implementation.

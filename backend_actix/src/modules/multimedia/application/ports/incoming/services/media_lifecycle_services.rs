@@ -9,8 +9,8 @@ use uuid::Uuid;
 use crate::auth::application::domain::entities::UserId;
 use crate::multimedia::application::domain::entities::AttachmentTarget;
 use crate::multimedia::application::ports::incoming::use_cases::{
-    GetMediaUsageUseCase, HardDeleteMediaUseCase, MediaLifecycleError, MediaUsage,
-    PatchMediaUseCase, RestoreMediaUseCase,
+    GetMediaStatusesUseCase, GetMediaUsageUseCase, HardDeleteMediaUseCase, MediaLifecycleError,
+    MediaStatus, MediaUsage, PatchMediaUseCase, RestoreMediaUseCase,
 };
 use crate::multimedia::application::ports::outgoing::db::{
     MediaQuery, MediaRepository, PatchAttachmentData,
@@ -129,6 +129,43 @@ impl<Q: MediaQuery + Send + Sync> GetMediaUsageUseCase for GetMediaUsageService<
     }
 }
 
+/// Reports several items' processing states at once.
+#[derive(Clone)]
+pub struct GetMediaStatusesService<Q> {
+    query: Q,
+}
+
+impl<Q> GetMediaStatusesService<Q> {
+    /// Builds it from the ports it depends on.
+    pub fn new(query: Q) -> Self {
+        Self { query }
+    }
+}
+
+#[async_trait]
+impl<Q: MediaQuery + Send + Sync> GetMediaStatusesUseCase for GetMediaStatusesService<Q> {
+    async fn execute(
+        &self,
+        owner: UserId,
+        media_ids: Vec<Uuid>,
+    ) -> Result<Vec<MediaStatus>, MediaLifecycleError> {
+        let rows = self
+            .query
+            .get_states(owner, &media_ids)
+            .await
+            .map_err(|e| MediaLifecycleError::RepositoryError(e.to_string()))?;
+
+        Ok(rows
+            .into_iter()
+            .map(|s| MediaStatus {
+                media_id: s.media_id,
+                state: s.status,
+                updated_at: s.updated_at,
+            })
+            .collect())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -142,6 +179,14 @@ mod tests {
 
     #[async_trait]
     impl MediaQuery for StubQuery {
+        async fn get_states(
+            &self,
+            _owner: UserId,
+            _media_ids: &[Uuid],
+        ) -> Result<Vec<MediaStateInfo>, MediaQueryError> {
+            Ok(Vec::new())
+        }
+
         async fn find_media_usage(
             &self,
             _o: UserId,

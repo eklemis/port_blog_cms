@@ -67,6 +67,14 @@ mod tests {
 
     #[async_trait]
     impl MediaQuery for MockQuery {
+        async fn get_states(
+            &self,
+            _owner: UserId,
+            _media_ids: &[Uuid],
+        ) -> Result<Vec<MediaStateInfo>, MediaQueryError> {
+            Ok(Vec::new())
+        }
+
         async fn find_media_usage(
             &self,
             _owner: UserId,
