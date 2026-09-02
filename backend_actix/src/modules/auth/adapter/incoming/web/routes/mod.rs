@@ -5,6 +5,7 @@ mod logout_user;
 mod password_reset;
 mod refresh_token;
 mod register_user;
+mod resend_verification;
 mod update_profile;
 mod verify_email;
 
@@ -15,5 +16,6 @@ pub use logout_user::*;
 pub use password_reset::*;
 pub use refresh_token::*;
 pub use register_user::*;
+pub use resend_verification::*;
 pub use update_profile::*;
 pub use verify_email::*;

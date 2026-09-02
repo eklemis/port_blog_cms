@@ -1,6 +1,9 @@
 use crate::auth::application::use_cases::request_password_reset::{
     IRequestPasswordResetUseCase, RequestPasswordResetError,
 };
+use crate::auth::application::use_cases::resend_verification_email::{
+    IResendVerificationEmailUseCase, ResendVerificationEmailError,
+};
 use crate::auth::application::use_cases::reset_password::{
     IResetPasswordUseCase, ResetPasswordError,
 };
@@ -846,6 +849,17 @@ pub struct StubRequestPasswordReset;
 impl IRequestPasswordResetUseCase for StubRequestPasswordReset {
     async fn execute(&self, _email: &str) -> Result<(), RequestPasswordResetError> {
         unimplemented!("StubRequestPasswordReset not configured for this test")
+    }
+}
+
+/// Never resends. Tests that exercise the route supply their own.
+#[derive(Clone, Default)]
+pub struct StubResendVerificationEmail;
+
+#[async_trait]
+impl IResendVerificationEmailUseCase for StubResendVerificationEmail {
+    async fn execute(&self, _email: &str) -> Result<(), ResendVerificationEmailError> {
+        unimplemented!("StubResendVerificationEmail not configured for this test")
     }
 }
 

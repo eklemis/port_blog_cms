@@ -35,6 +35,12 @@ pub fn limit_for(method: &str, path: &str) -> Option<RateLimit> {
             limit: 5,
             window_secs: 3600,
         }),
+        // Same cost profile as password-reset: a token mint and an outbound
+        // mail per call, on an unauthenticated route.
+        "/api/auth/email-verification/resend" => Some(RateLimit {
+            limit: 5,
+            window_secs: 3600,
+        }),
         "/api/auth/refresh" => Some(RateLimit {
             limit: 30,
             window_secs: 300,
@@ -97,6 +103,27 @@ mod tests {
     }
 
     /// Registration is the most expensive: Argon2 plus an outbound email.
+    /// The resend route is unauthenticated and costs a mint plus a mail, so it
+    /// must be limited exactly as hard as password-reset. An unlimited resend
+    /// is a free mail cannon pointed at any address the caller names.
+    #[test]
+    fn verification_resend_is_limited_like_password_reset() {
+        let resend = limit_for("POST", "/api/auth/email-verification/resend")
+            .expect("resend must be rate-limited");
+        let reset =
+            limit_for("POST", "/api/auth/password-reset").expect("reset must be rate-limited");
+
+        assert_eq!(resend.limit, reset.limit);
+        assert_eq!(resend.window_secs, reset.window_secs);
+    }
+
+    /// Redeeming a link is a GET and must not be throttled — a user clicking
+    /// their own verification link twice is not an attack.
+    #[test]
+    fn redeeming_a_verification_link_is_not_limited() {
+        assert!(limit_for("GET", "/api/auth/email-verification/some-token").is_none());
+    }
+
     #[test]
     fn registration_is_limited_harder_than_login() {
         let reg = limit_for("POST", "/api/auth/register").unwrap();

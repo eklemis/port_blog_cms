@@ -154,6 +154,7 @@ The unauthenticated auth endpoints are limited per caller, backed by Redis:
 | `POST /api/auth/login` | 10 / 5 min |
 | `POST /api/auth/register` | 5 / hour |
 | `POST /api/auth/password-reset` | 5 / hour |
+| `POST /api/auth/email-verification/resend` | 5 / hour |
 | `POST /api/auth/password-reset/{token}` | 10 / hour |
 | `POST /api/auth/refresh` | 30 / 5 min |
 

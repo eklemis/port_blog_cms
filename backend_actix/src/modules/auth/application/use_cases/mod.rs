@@ -17,6 +17,8 @@ pub mod logout_user;
 pub mod refresh_token;
 /// Starts a password reset: mints a token and mails the link.
 pub mod request_password_reset;
+/// Re-sends the email-verification link when the first one expired.
+pub mod resend_verification_email;
 /// Completes a password reset by redeeming the token.
 pub mod reset_password;
 /// Soft-deletes the caller's own account.
