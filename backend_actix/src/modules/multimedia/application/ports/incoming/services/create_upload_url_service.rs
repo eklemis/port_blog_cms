@@ -89,6 +89,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::auth::application::domain::entities::UserId;
+    use crate::multimedia::application::ports::outgoing::db::PatchAttachmentData;
     use std::sync::{Arc, Mutex};
     use uuid::Uuid;
 
@@ -133,6 +135,23 @@ mod tests {
 
     #[async_trait::async_trait]
     impl MediaRepository for MockRepo {
+        async fn patch_attachment(
+            &self,
+            _owner: UserId,
+            _media_id: Uuid,
+            _data: PatchAttachmentData,
+        ) -> Result<(), MediaRepositoryError> {
+            unimplemented!()
+        }
+
+        async fn restore(&self, _o: UserId, _m: Uuid) -> Result<(), MediaRepositoryError> {
+            unimplemented!()
+        }
+
+        async fn hard_delete(&self, _o: UserId, _m: Uuid) -> Result<(), MediaRepositoryError> {
+            unimplemented!()
+        }
+
         async fn record_media_tx(
             &self,
             tx: RecordMediaTx,

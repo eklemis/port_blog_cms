@@ -57,6 +57,20 @@ pub struct MediaAttachment {
     pub variants: Vec<StoredVariant>,
 }
 
+/// One attachment of a media item, with the visibility of what it is attached
+/// to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MediaUsageRow {
+    /// What kind of thing it is attached to, as stored.
+    pub attachable_type: String,
+    /// The id of that thing.
+    pub attachable_id: Uuid,
+    /// What the media is for on that target.
+    pub role: String,
+    /// Whether readers can see that target right now.
+    pub is_published: bool,
+}
+
 /// Why a media read failed.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum MediaQueryError {
@@ -106,6 +120,19 @@ pub trait MediaQuery: Send + Sync {
         media_id: Uuid,
         size: MediaSize,
     ) -> Result<Option<StoredVariant>, MediaQueryError>;
+
+    /// Every place a media item is attached, with each target's visibility.
+    ///
+    /// The visibility flag is the point: a delete confirmation that can say
+    /// "this is on a post that is live right now" is a warning, where a bare
+    /// count is a shrug.
+    ///
+    /// Scoped by owner. An unused item is an empty vec, not an error.
+    async fn find_media_usage(
+        &self,
+        owner: UserId,
+        media_id: Uuid,
+    ) -> Result<Vec<MediaUsageRow>, MediaQueryError>;
 
     /// What a media item is attached to, and in what role.
     async fn get_attachment_info(&self, media_id: Uuid)

@@ -26,3 +26,8 @@ pub use get_media::{GetMediaError, GetMediaUseCase, MediaDetail};
 pub use list_media::{ListMediaCommand, ListMediaError, ListMediaUseCase, MediaItem};
 mod get_public_variant_url;
 pub use get_public_variant_url::{GetPublicVariantUrlError, GetPublicVariantUrlUseCase};
+mod media_lifecycle;
+pub use media_lifecycle::{
+    GetMediaUsageUseCase, HardDeleteMediaUseCase, MediaLifecycleError, MediaUsage,
+    PatchMediaUseCase, RestoreMediaUseCase,
+};

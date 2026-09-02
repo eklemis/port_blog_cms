@@ -3,6 +3,7 @@ use sea_orm::{ConnectionTrait, DatabaseBackend, DatabaseConnection, DbErr, State
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::multimedia::application::ports::outgoing::db::MediaUsageRow;
 use crate::{
     auth::application::domain::entities::UserId,
     multimedia::application::{
@@ -315,6 +316,64 @@ impl MediaQuery for MediaQueryPostgres {
             file_size_bytes: file_size_bytes as u64,
             mime_type,
         }))
+    }
+
+    async fn find_media_usage(
+        &self,
+        owner: UserId,
+        media_id: Uuid,
+    ) -> Result<Vec<MediaUsageRow>, MediaQueryError> {
+        // The visibility flag is computed per target type, in SQL, using the
+        // same rules as the public read path: a post must be published, not
+        // scheduled and not deleted; a project only not-deleted, because
+        // projects have no draft state. A target this service does not model
+        // yet is reported as not visible, which is the safe default for a
+        // delete confirmation.
+        let stmt = Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            r#"
+            SELECT
+                a.attachable_type,
+                a.attachable_id,
+                a.role,
+                CASE a.attachable_type
+                    WHEN 'blog_post' THEN EXISTS (
+                        SELECT 1 FROM blog_posts p
+                        WHERE p.id = a.attachable_id
+                          AND p.is_deleted = false
+                          AND p.published_at IS NOT NULL
+                          AND p.published_at <= now()
+                    )
+                    WHEN 'project' THEN EXISTS (
+                        SELECT 1 FROM projects pr
+                        WHERE pr.id = a.attachable_id
+                          AND pr.is_deleted = false
+                    )
+                    ELSE false
+                END AS is_published
+            FROM media_attachments a
+            JOIN media m ON m.id = a.media_id
+            WHERE a.media_id = $1
+              AND m.user_id = $2
+            ORDER BY a.attachable_type, a.position
+            "#,
+            vec![media_id.into(), owner.value().into()],
+        );
+
+        let rows = self.db.query_all(stmt).await.map_err(Self::map_db_err)?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(MediaUsageRow {
+                    attachable_type: row
+                        .try_get("", "attachable_type")
+                        .map_err(Self::map_db_err)?,
+                    attachable_id: row.try_get("", "attachable_id").map_err(Self::map_db_err)?,
+                    role: row.try_get("", "role").map_err(Self::map_db_err)?,
+                    is_published: row.try_get("", "is_published").map_err(Self::map_db_err)?,
+                })
+            })
+            .collect()
     }
 
     async fn get_state(&self, media_id: Uuid) -> Result<MediaStateInfo, MediaQueryError> {

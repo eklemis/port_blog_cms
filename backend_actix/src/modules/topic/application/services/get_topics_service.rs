@@ -74,6 +74,18 @@ mod tests {
 
     #[async_trait]
     impl TopicQuery for MockTopicQuery {
+        async fn get_topic_usage(
+            &self,
+            _owner: UserId,
+            _topic_id: uuid::Uuid,
+        ) -> Result<crate::topic::application::ports::outgoing::TopicUsage, TopicQueryError>
+        {
+            Ok(crate::topic::application::ports::outgoing::TopicUsage {
+                posts: 0,
+                projects: 0,
+            })
+        }
+
         async fn get_topics(
             &self,
             _owner: UserId,

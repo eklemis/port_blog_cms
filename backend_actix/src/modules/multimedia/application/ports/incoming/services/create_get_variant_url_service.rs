@@ -139,6 +139,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::multimedia::application::ports::outgoing::db::MediaUsageRow;
     use async_trait::async_trait;
     use chrono::Utc;
     use uuid::Uuid;
@@ -163,6 +164,14 @@ mod tests {
 
     #[async_trait]
     impl MediaQuery for MockMediaQuery {
+        async fn find_media_usage(
+            &self,
+            _owner: UserId,
+            _media_id: Uuid,
+        ) -> Result<Vec<MediaUsageRow>, MediaQueryError> {
+            Ok(Vec::new())
+        }
+
         async fn find_public_variant(
             &self,
             _media_id: Uuid,

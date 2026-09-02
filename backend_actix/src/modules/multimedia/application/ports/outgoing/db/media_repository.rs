@@ -154,6 +154,36 @@ pub struct MediaVariantRecord {
     pub height_px: Option<u32>,
 }
 
+/// A partial update to an attachment's metadata.
+///
+/// Only the attachment row is mutable. The file, its MIME type and its
+/// dimensions describe bytes that already exist in the bucket and cannot be
+/// edited by changing a database row.
+///
+/// `alt_text` and `caption` are tri-state, matching `PatchField` in `project`
+/// and `BlogPatchField` in `blog`: omitted leaves the value alone, `null`
+/// clears it, a value replaces it. `position` has no null — an attachment
+/// always has an order — so it is a plain `Option`.
+#[derive(Debug, Clone, Default)]
+pub struct PatchAttachmentData {
+    /// New alternative text. `None` leaves it; `Some(None)` clears it.
+    pub alt_text: Option<Option<String>>,
+    /// New caption. `None` leaves it; `Some(None)` clears it.
+    pub caption: Option<Option<String>>,
+    /// New display position. `None` leaves it.
+    pub position: Option<i32>,
+}
+
+impl PatchAttachmentData {
+    /// True when the caller asked for no change at all.
+    ///
+    /// Worth checking before issuing an UPDATE: an empty patch would otherwise
+    /// bump `updated_at` and report success for having done nothing.
+    pub fn is_empty(&self) -> bool {
+        self.alt_text.is_none() && self.caption.is_none() && self.position.is_none()
+    }
+}
+
 /// Writes media rows, their attachments and their variants.
 ///
 /// Reads belong to [`MediaQuery`](super::media_query::MediaQuery).
@@ -192,4 +222,37 @@ pub trait MediaRepository: Send + Sync {
     /// Scoped by owner, so another user's media reports `NotFound` rather than
     /// revealing that it exists.
     async fn soft_delete(&self, owner: UserId, media_id: Uuid) -> Result<(), MediaRepositoryError>;
+
+    /// Applies a partial update to a media item's attachment metadata.
+    ///
+    /// Scoped by owner and skips soft-deleted media, so another user's item and
+    /// a deleted one both report
+    /// [`NotFound`](MediaRepositoryError::NotFound).
+    ///
+    /// # Errors
+    /// [`NotFound`](MediaRepositoryError::NotFound) if no live attachment for
+    /// that media belongs to `owner`.
+    async fn patch_attachment(
+        &self,
+        owner: UserId,
+        media_id: Uuid,
+        data: PatchAttachmentData,
+    ) -> Result<(), MediaRepositoryError>;
+
+    /// Clears the soft-delete flag, returning the item to listings and to the
+    /// public read path.
+    ///
+    /// Idempotent: restoring an item that was never deleted succeeds. Only a
+    /// missing item, or one owned by someone else, is an error.
+    async fn restore(&self, owner: UserId, media_id: Uuid) -> Result<(), MediaRepositoryError>;
+
+    /// Removes the media row, its attachments and its variant rows
+    /// permanently.
+    ///
+    /// **Does not delete the stored objects.** Reclaiming those is the bucket's
+    /// lifecycle policy, not this call's job — which also means a hard delete
+    /// is not a way to make bytes unreachable in a hurry.
+    ///
+    /// Irreversible, unlike [`soft_delete`](Self::soft_delete).
+    async fn hard_delete(&self, owner: UserId, media_id: Uuid) -> Result<(), MediaRepositoryError>;
 }
