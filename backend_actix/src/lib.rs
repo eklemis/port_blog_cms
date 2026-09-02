@@ -99,6 +99,7 @@ use crate::modules::project::application::project_use_cases::ProjectUseCases;
 use crate::modules::topic::application::ports::incoming::use_cases::CreateTopicUseCase;
 use crate::modules::topic::application::ports::incoming::use_cases::GetTopicUsageUseCase;
 use crate::modules::topic::application::ports::incoming::use_cases::GetTopicsUseCase;
+use crate::modules::topic::application::ports::incoming::use_cases::PatchTopicUseCase;
 use crate::modules::topic::application::ports::incoming::use_cases::SoftDeleteTopicUseCase;
 use crate::shared::api::{build_cors, custom_json_config};
 use crate::shared::rate_limit::{RateLimit, RateLimitStore, RedisRateLimitStore};
@@ -176,6 +177,8 @@ pub struct AppState {
     pub get_topics_use_case: Arc<dyn GetTopicsUseCase + Send + Sync>,
     /// The `get topic usage` use case.
     pub get_topic_usage_use_case: Arc<dyn GetTopicUsageUseCase + Send + Sync>,
+    /// The `patch topic` use case.
+    pub patch_topic_use_case: Arc<dyn PatchTopicUseCase + Send + Sync>,
     /// The `soft delete topic` use case.
     pub soft_delete_topic_use_case: Arc<dyn SoftDeleteTopicUseCase + Send + Sync>,
     /// Blog's use cases, grouped.
@@ -220,7 +223,7 @@ pub async fn start() -> std::io::Result<()> {
                 CreateBlogPostService, DetachBlogPostTopicService, GetBlogPostTopicsService,
                 GetBlogPostsService, GetPublicBlogPostService, GetPublicBlogPostsService,
                 GetSingleBlogPostService, HardDeleteBlogPostService, PatchBlogPostService,
-                RestoreBlogPostService,
+                RestoreBlogPostService, SlugAvailableService,
             },
         },
         cv::{
@@ -249,13 +252,14 @@ pub async fn start() -> std::io::Result<()> {
                 AddProjectTopicService, ClearProjectTopicsService, CreateProjectService,
                 GetProjectTopicsService, GetProjectsService, GetPublicSingleProjectService,
                 GetSingleProjectService, HardDeleteProjectService, PatchProjectService,
-                RemoveProjectTopicService, SoftDeleteProjectService,
+                ProjectSlugAvailableService, RemoveProjectTopicService, SoftDeleteProjectService,
             },
         },
         topic::{
             adapter::outgoing::{TopicQueryPostgres, TopicRepositoryPostgres},
             application::services::{
-                CreateTopicService, GetTopicUsageService, GetTopicsService, SoftDeleteTopicService,
+                CreateTopicService, GetTopicUsageService, GetTopicsService, PatchTopicService,
+                SoftDeleteTopicService,
             },
         },
     };
@@ -445,6 +449,7 @@ pub async fn start() -> std::io::Result<()> {
     let create_topic_uc = CreateTopicService::new(topic_repo.clone());
     let get_topics_uc = GetTopicsService::new(topic_query.clone());
     let get_topic_usage_uc = GetTopicUsageService::new(topic_query.clone());
+    let patch_topic_uc = PatchTopicService::new(topic_repo.clone());
     let soft_delete_topic_uc = SoftDeleteTopicService::new(topic_query.clone(), topic_repo.clone());
 
     // Blog use cases, repos and query
@@ -454,6 +459,7 @@ pub async fn start() -> std::io::Result<()> {
     let blog_topic_repo = BlogPostTopicRepositoryPostgres::new(Arc::clone(&db_arc));
 
     let blog_use_cases = BlogUseCases {
+        slug_available: Arc::new(SlugAvailableService::new(blog_query.clone())),
         create: Arc::new(CreateBlogPostService::new(blog_repo.clone())),
         list: Arc::new(GetBlogPostsService::new(blog_query.clone())),
         list_public: Arc::new(GetPublicBlogPostsService::new(blog_query.clone())),
@@ -488,6 +494,7 @@ pub async fn start() -> std::io::Result<()> {
     let soft_delete_project_uc = SoftDeleteProjectService::new(project_archiver.clone());
 
     let project_use_cases = ProjectUseCases {
+        slug_available: Arc::new(ProjectSlugAvailableService::new(project_query.clone())),
         create: Arc::new(create_project_uc),
         hard_delete: Arc::new(hard_delete_project_uc),
         soft_delete: Arc::new(soft_delete_project_uc),
@@ -557,6 +564,7 @@ pub async fn start() -> std::io::Result<()> {
         create_topic_use_case: Arc::new(create_topic_uc),
         get_topics_use_case: Arc::new(get_topics_uc),
         get_topic_usage_use_case: Arc::new(get_topic_usage_uc),
+        patch_topic_use_case: Arc::new(patch_topic_uc),
         soft_delete_topic_use_case: Arc::new(soft_delete_topic_uc),
         blog: blog_use_cases,
         project: project_use_cases,
@@ -643,11 +651,13 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::auth::adapter::incoming::web::routes::get_user_profile_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::update_user_profile_handler);
     // Topic
+    cfg.service(crate::topic::adapter::incoming::web::routes::patch_topic_handler);
     cfg.service(crate::topic::adapter::incoming::web::routes::get_topic_usage_handler);
     cfg.service(crate::topic::adapter::incoming::web::routes::get_topics_handler);
     cfg.service(crate::topic::adapter::incoming::web::routes::create_topic_handler);
     cfg.service(crate::topic::adapter::incoming::web::routes::soft_delete_topic_handler);
     // Project
+    cfg.service(crate::project::adapter::incoming::web::routes::project_slug_available_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::get_projects_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::get_public_projects_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::create_project_handler);
@@ -662,6 +672,7 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::project::adapter::incoming::web::routes::clear_project_topics_handler);
     // Blog
     cfg.service(crate::blog::adapter::incoming::web::routes::create_blog_post_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::blog_slug_available_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::get_blog_posts_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::get_public_blog_posts_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::get_public_blog_post_handler);

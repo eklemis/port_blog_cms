@@ -333,6 +333,16 @@ pub trait ClearBlogPostTopicsUseCase: Send + Sync {
     async fn execute(&self, owner: UserId, post_id: Uuid) -> Result<(), BlogPostTopicError>;
 }
 
+/// Reports whether an author already uses a slug.
+///
+/// Returns the *taken* state rather than the available one, so the name and
+/// the boolean cannot drift apart in a caller's head.
+#[async_trait]
+pub trait SlugAvailableUseCase: Send + Sync {
+    /// True when the author already has a post with this slug.
+    async fn execute(&self, owner: UserId, slug: String) -> Result<bool, GetBlogPostsError>;
+}
+
 /// Lists the topics attached to a post.
 #[async_trait]
 pub trait GetBlogPostTopicsUseCase: Send + Sync {

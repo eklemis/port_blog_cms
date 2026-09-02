@@ -11,3 +11,5 @@ pub use get_topics_use_case::{GetTopicsError, GetTopicsUseCase};
 pub use soft_delete_topic_use_case::{SoftDeleteTopicError, SoftDeleteTopicUseCase};
 mod get_topic_usage;
 pub use get_topic_usage::{GetTopicUsageError, GetTopicUsageUseCase};
+mod patch_topic;
+pub use patch_topic::{PatchTopicError, PatchTopicUseCase};

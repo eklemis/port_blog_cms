@@ -219,5 +219,14 @@ pub trait ProjectQuery: Send + Sync {
     ) -> Result<Vec<ProjectTopicItem>, ProjectQueryError>;
 
     /// Helper to support slug generator later
-    async fn slug_exists(&self, slug: &str) -> Result<bool, ProjectQueryError>;
+    /// Whether this owner already uses a slug.
+    ///
+    /// **Scoped by owner**, because the unique index is `(user_id,
+    /// lower(slug))` — see `m20260830_000003_fix_projects_slug_uniqueness`.
+    /// Checking globally would report a slug as taken when another author
+    /// happens to hold it, which is exactly the behaviour that migration
+    /// removed at the database level.
+    ///
+    /// Soft-deleted projects do not count: their slug is free to reuse.
+    async fn slug_exists(&self, owner: UserId, slug: &str) -> Result<bool, ProjectQueryError>;
 }

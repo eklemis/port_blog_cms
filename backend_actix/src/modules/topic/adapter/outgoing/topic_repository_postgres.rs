@@ -1,14 +1,18 @@
 use async_trait::async_trait;
-use sea_orm::{ActiveModelTrait, DatabaseConnection, Set};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::auth::application::domain::entities::UserId;
 use crate::modules::topic::application::ports::outgoing::{
     CreateTopicData, TopicRepository, TopicRepositoryError, TopicResult,
 };
 
 // SeaORM entity imports
-use super::sea_orm_entity::topics::{ActiveModel as TopicActiveModel, Model as TopicModel};
+use super::sea_orm_entity::topics::{
+    ActiveModel as TopicActiveModel, Column as TopicColumn, Entity as TopicEntity,
+    Model as TopicModel,
+};
 
 /// The SeaORM implementation of the matching outgoing port.
 #[derive(Debug, Clone)]
@@ -44,6 +48,47 @@ impl TopicRepository for TopicRepositoryPostgres {
             .map_err(|e| TopicRepositoryError::DatabaseError(e.to_string()))?;
 
         Ok(inserted.to_repository_result())
+    }
+
+    async fn patch_topic(
+        &self,
+        owner: UserId,
+        topic_id: Uuid,
+        title: Option<String>,
+        description: Option<String>,
+    ) -> Result<TopicResult, TopicRepositoryError> {
+        // Fetched first so ownership is checked before anything is written,
+        // and so an unknown id is a clean TopicNotFound rather than an update
+        // that silently matches nothing.
+        let existing = TopicEntity::find_by_id(topic_id)
+            .filter(TopicColumn::UserId.eq(owner.value()))
+            .filter(TopicColumn::IsDeleted.eq(false))
+            .one(&*self.db)
+            .await
+            .map_err(|e| TopicRepositoryError::DatabaseError(e.to_string()))?
+            .ok_or(TopicRepositoryError::TopicNotFound)?;
+
+        let mut active: TopicActiveModel = existing.into();
+        if let Some(title) = title {
+            active.title = Set(title.trim().to_string());
+        }
+        if let Some(description) = description {
+            active.description = Set(Some(description));
+        }
+
+        let result = active.update(&*self.db).await.map_err(|e| {
+            let msg = e.to_string();
+            // A rename onto a title the owner already holds trips the unique
+            // index. Reported as a conflict rather than a 500, matching how
+            // create_topic maps the same violation.
+            if msg.contains("23505") || msg.to_lowercase().contains("unique constraint") {
+                TopicRepositoryError::TopicAlreadyExists
+            } else {
+                TopicRepositoryError::DatabaseError(msg)
+            }
+        })?;
+
+        Ok(result.to_repository_result())
     }
 
     async fn restore_topic(&self, topic_id: Uuid) -> Result<TopicResult, TopicRepositoryError> {

@@ -101,7 +101,11 @@ mod tests {
             self.result.clone()
         }
 
-        async fn slug_exists(&self, _slug: &str) -> Result<bool, ProjectQueryError> {
+        async fn slug_exists(
+            &self,
+            _owner: UserId,
+            _slug: &str,
+        ) -> Result<bool, ProjectQueryError> {
             unimplemented!("not used")
         }
     }

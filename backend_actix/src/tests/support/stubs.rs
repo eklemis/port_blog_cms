@@ -98,6 +98,10 @@ use crate::auth::application::use_cases::{
     verify_user_email::{IVerifyUserEmailUseCase, VerifyUserEmailError},
 };
 
+use crate::modules::blog::application::ports::incoming::use_cases::SlugAvailableUseCase;
+use crate::modules::project::application::ports::incoming::use_cases::{
+    GetProjectsError, ProjectSlugAvailableUseCase,
+};
 use crate::modules::topic::application::ports::incoming::use_cases::{
     CreateTopicCommand, CreateTopicUseCase, GetTopicsUseCase, SoftDeleteTopicUseCase,
 };
@@ -105,7 +109,7 @@ use crate::modules::topic::application::ports::incoming::use_cases::{
     CreateTopicError, GetTopicsError, SoftDeleteTopicError,
 };
 use crate::modules::topic::application::ports::incoming::use_cases::{
-    GetTopicUsageError, GetTopicUsageUseCase,
+    GetTopicUsageError, GetTopicUsageUseCase, PatchTopicError, PatchTopicUseCase,
 };
 use crate::modules::topic::application::ports::outgoing::TopicQueryResult;
 use crate::modules::topic::application::ports::outgoing::TopicUsage;
@@ -262,6 +266,53 @@ impl UserEmailNotifier for StubUserEmailNotifier {
 /// The registration orchestrator mints the token itself now, so anything that
 /// builds one needs a token provider. See
 /// `docs/adr/0005-break-the-auth-email-cycle.md`.
+/// Reports every project slug as free.
+#[derive(Default, Clone)]
+pub struct StubProjectSlugAvailable;
+
+#[async_trait]
+impl ProjectSlugAvailableUseCase for StubProjectSlugAvailable {
+    async fn execute(
+        &self,
+        _o: crate::auth::application::domain::entities::UserId,
+        _s: String,
+    ) -> Result<bool, GetProjectsError> {
+        Ok(false)
+    }
+}
+
+/// Never patches. Tests that exercise the route supply their own.
+#[derive(Default, Clone)]
+pub struct StubPatchTopic;
+
+#[async_trait]
+impl PatchTopicUseCase for StubPatchTopic {
+    async fn execute(
+        &self,
+        _o: crate::auth::application::domain::entities::UserId,
+        _t: uuid::Uuid,
+        _title: Option<String>,
+        _description: Option<String>,
+    ) -> Result<TopicResult, PatchTopicError> {
+        unimplemented!("StubPatchTopic not configured for this test")
+    }
+}
+
+/// Reports every slug as free.
+#[derive(Default, Clone)]
+pub struct StubSlugAvailable;
+
+#[async_trait]
+impl SlugAvailableUseCase for StubSlugAvailable {
+    async fn execute(
+        &self,
+        _o: crate::auth::application::domain::entities::UserId,
+        _s: String,
+    ) -> Result<bool, GetBlogPostsError> {
+        Ok(false)
+    }
+}
+
 /// Reports no usage. Tests that care supply their own.
 #[derive(Default, Clone)]
 pub struct StubGetTopicUsage;

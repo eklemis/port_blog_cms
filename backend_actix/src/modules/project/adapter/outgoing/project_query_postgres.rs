@@ -253,10 +253,11 @@ impl ProjectQuery for ProjectQueryPostgres {
         Ok(topics)
     }
 
-    async fn slug_exists(&self, slug: &str) -> Result<bool, ProjectQueryError> {
+    async fn slug_exists(&self, owner: UserId, slug: &str) -> Result<bool, ProjectQueryError> {
         let normalized_slug = slug.trim().to_lowercase();
 
         let count = Entity::find()
+            .filter(Column::UserId.eq(owner.value()))
             .filter(Column::Slug.eq(&normalized_slug))
             .filter(Column::IsDeleted.eq(false))
             .count(&*self.db)
@@ -633,7 +634,9 @@ mod tests {
             .into_connection();
 
         let query = ProjectQueryPostgres::new(Arc::new(db));
-        let result = query.slug_exists("any-slug").await;
+        let result = query
+            .slug_exists(UserId::from(Uuid::new_v4()), "any-slug")
+            .await;
 
         assert!(result.is_err());
         assert!(matches!(

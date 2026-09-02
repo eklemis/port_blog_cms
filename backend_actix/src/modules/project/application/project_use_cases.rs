@@ -7,7 +7,8 @@ use crate::{
     project::application::ports::incoming::use_cases::{
         AddProjectTopicUseCase, ClearProjectTopicsUseCase, GetProjectTopicsUseCase,
         GetPublicSingleProjectUseCase, GetSingleProjectUseCase, HardDeleteProjectUseCase,
-        PatchProjectUseCase, RemoveProjectTopicUseCase, SoftDeleteProjectUseCase,
+        PatchProjectUseCase, ProjectSlugAvailableUseCase, RemoveProjectTopicUseCase,
+        SoftDeleteProjectUseCase,
     },
 };
 
@@ -16,6 +17,8 @@ use crate::{
 pub struct ProjectUseCases {
     /// The [`CreateProjectUseCase`] implementation.
     pub create: Arc<dyn CreateProjectUseCase + Send + Sync>,
+    /// The [`ProjectSlugAvailableUseCase`] implementation.
+    pub slug_available: Arc<dyn ProjectSlugAvailableUseCase + Send + Sync>,
     /// The [`GetProjectsUseCase`] implementation.
     pub get_list: Arc<dyn GetProjectsUseCase + Send + Sync>,
     /// The [`GetSingleProjectUseCase`] implementation.

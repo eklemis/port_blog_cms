@@ -12,7 +12,7 @@ use crate::cv::adapter::incoming::web::routes::{
     CreateCVRequest, PatchCVRequest, ReplaceOp, UpdateCVRequest,
 };
 use crate::multimedia::application::domain::entities::PublicMedia;
-use crate::shared::api::ErrorCode;
+use crate::shared::api::{ErrorCode, SlugAvailability};
 use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
 use utoipa::OpenApi;
 
@@ -43,7 +43,9 @@ use crate::project::application::ports::outgoing::project_query::{
     PageResult, ProjectCardView, ProjectSort, ProjectTopicItem, ProjectView,
 };
 use crate::project::application::ports::outgoing::project_repository::ProjectResult;
-use crate::topic::adapter::incoming::web::routes::{CreateTopicRequest, TopicResponse};
+use crate::topic::adapter::incoming::web::routes::{
+    CreateTopicRequest, PatchTopicRequest, TopicResponse,
+};
 use crate::topic::application::ports::outgoing::{TopicResult, TopicUsage};
 
 #[derive(OpenApi)]
@@ -90,6 +92,7 @@ use crate::topic::application::ports::outgoing::{TopicResult, TopicUsage};
 
         // Blog endpoints
         crate::blog::adapter::incoming::web::routes::create_blog_post_handler,
+        crate::blog::adapter::incoming::web::routes::blog_slug_available_handler,
         crate::blog::adapter::incoming::web::routes::get_blog_posts_handler,
         crate::blog::adapter::incoming::web::routes::get_single_blog_post_handler,
         crate::blog::adapter::incoming::web::routes::patch_blog_post_handler,
@@ -105,6 +108,7 @@ use crate::topic::application::ports::outgoing::{TopicResult, TopicUsage};
 
         // Project endpoints
         crate::project::adapter::incoming::web::routes::create_project_handler,
+        crate::project::adapter::incoming::web::routes::project_slug_available_handler,
         crate::project::adapter::incoming::web::routes::get_projects_handler,
         crate::project::adapter::incoming::web::routes::get_public_projects_handler,
         crate::project::adapter::incoming::web::routes::get_project_by_id_handler,
@@ -121,6 +125,7 @@ use crate::topic::application::ports::outgoing::{TopicResult, TopicUsage};
         crate::topic::adapter::incoming::web::routes::create_topic_handler,
         crate::topic::adapter::incoming::web::routes::get_topics_handler,
         crate::topic::adapter::incoming::web::routes::get_topic_usage_handler,
+        crate::topic::adapter::incoming::web::routes::patch_topic_handler,
         crate::topic::adapter::incoming::web::routes::soft_delete_topic_handler,
 
         // Media endpoints
@@ -141,6 +146,7 @@ use crate::topic::application::ports::outgoing::{TopicResult, TopicUsage};
             SuccessResponse<RegisterUserResponse>,
             ErrorResponse,
             ErrorCode,
+            SlugAvailability,
             ErrorDetail,
 
             // Health probes
@@ -194,6 +200,7 @@ use crate::topic::application::ports::outgoing::{TopicResult, TopicUsage};
             TopicResponse,
             TopicResult,
             TopicUsage,
+            PatchTopicRequest,
 
             // Blog DTOs
             BlogPostResponse,

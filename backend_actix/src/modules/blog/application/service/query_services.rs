@@ -11,6 +11,7 @@ use crate::auth::application::domain::entities::UserId;
 use crate::blog::application::ports::incoming::use_cases::{
     GetBlogPostError, GetBlogPostTopicsUseCase, GetBlogPostsError, GetBlogPostsUseCase,
     GetPublicBlogPostUseCase, GetPublicBlogPostsUseCase, GetSingleBlogPostUseCase,
+    SlugAvailableUseCase,
 };
 use crate::blog::application::ports::outgoing::{
     BlogPageRequest, BlogPageResult, BlogPostCard, BlogPostListFilter, BlogPostQuery,
@@ -208,6 +209,14 @@ mod tests {
 
     #[async_trait]
     impl BlogPostQuery for SpyQuery {
+        async fn slug_exists(
+            &self,
+            _owner: UserId,
+            _slug: &str,
+        ) -> Result<bool, BlogPostQueryError> {
+            Ok(false)
+        }
+
         async fn list_by_owner(
             &self,
             _o: UserId,
@@ -410,5 +419,34 @@ mod tests {
             db.execute(owner(), Uuid::new_v4()).await.unwrap_err(),
             GetBlogPostError::QueryFailed(_)
         ));
+    }
+}
+
+/// Reports whether an author already uses a slug.
+#[derive(Clone)]
+pub struct SlugAvailableService<Q>
+where
+    Q: BlogPostQuery,
+{
+    query: Q,
+}
+
+impl<Q: BlogPostQuery> SlugAvailableService<Q> {
+    /// Builds it from the ports it depends on.
+    pub fn new(query: Q) -> Self {
+        Self { query }
+    }
+}
+
+#[async_trait]
+impl<Q> SlugAvailableUseCase for SlugAvailableService<Q>
+where
+    Q: BlogPostQuery + Send + Sync,
+{
+    async fn execute(&self, owner: UserId, slug: String) -> Result<bool, GetBlogPostsError> {
+        self.query
+            .slug_exists(owner, &slug)
+            .await
+            .map_err(|e| GetBlogPostsError::QueryFailed(e.to_string()))
     }
 }
