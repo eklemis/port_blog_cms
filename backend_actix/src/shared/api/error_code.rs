@@ -143,6 +143,10 @@ error_codes! {
         "The request is structurally valid but not a combination the endpoint accepts.";
     "Request validation" | MissingField        => "MISSING_FIELD", BAD_REQUEST,
         "A required field was absent.";
+    "Request validation" | BulkTooLarge        => "BULK_TOO_LARGE", BAD_REQUEST,
+        "A bulk request carried more ids than the endpoint accepts in one call.";
+    "Request validation" | BulkEmpty           => "BULK_EMPTY", BAD_REQUEST,
+        "A bulk request carried no ids. Guard the control rather than calling with an empty selection.";
     "Request validation" | InvalidEmail        => "INVALID_EMAIL", BAD_REQUEST,
         "The email address is not well formed.";
     "Request validation" | InvalidPassword     => "INVALID_PASSWORD", BAD_REQUEST,

@@ -133,8 +133,10 @@ impl Default for TestAppStateBuilder {
                 detach_topic: Arc::new(StubDetachBlogPostTopic),
                 clear_topics: Arc::new(StubClearBlogPostTopics),
                 get_topics: Arc::new(StubGetBlogPostTopics),
+                bulk: Arc::new(StubBulkBlogPosts),
             }),
             project: Some(ProjectUseCases {
+                bulk: Arc::new(StubBulkProjects),
                 slug_available: Arc::new(StubProjectSlugAvailable),
                 restore: Arc::new(StubRestoreProject),
                 create: Arc::new(StubCreateProjectUseCase::repo_error(
@@ -152,6 +154,7 @@ impl Default for TestAppStateBuilder {
                 soft_delete: Arc::new(StubSoftDeleteProjectUseCase),
             }),
             multimedia: Some(MultimediaUseCases {
+                bulk: Arc::new(StubBulkMedia),
                 get_public_variant_url: Arc::new(StubGetPublicVariantUrl),
                 patch_media: Arc::new(StubMediaLifecycle),
                 restore_media: Arc::new(StubMediaLifecycle),

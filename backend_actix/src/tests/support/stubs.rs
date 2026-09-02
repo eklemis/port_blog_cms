@@ -38,12 +38,12 @@ use crate::auth::application::use_cases::update_profile::{
     UpdateUserError, UpdateUserInput, UpdateUserOutput, UpdateUserProfileUseCase,
 };
 use crate::blog::application::ports::incoming::use_cases::{
-    ArchiveBlogPostError, ArchiveBlogPostUseCase, AttachBlogPostTopicUseCase, BlogPostTopicError,
-    ClearBlogPostTopicsUseCase, CreateBlogPostCommand, CreateBlogPostError, CreateBlogPostUseCase,
-    DetachBlogPostTopicUseCase, GetBlogPostError, GetBlogPostTopicsUseCase, GetBlogPostsError,
-    GetBlogPostsUseCase, GetPublicBlogPostUseCase, GetPublicBlogPostsUseCase,
-    GetSingleBlogPostUseCase, HardDeleteBlogPostUseCase, PatchBlogPostError, PatchBlogPostUseCase,
-    RestoreBlogPostUseCase,
+    ArchiveBlogPostError, ArchiveBlogPostUseCase, AttachBlogPostTopicUseCase, BlogBulkOp,
+    BlogPostTopicError, BulkBlogPostsUseCase, ClearBlogPostTopicsUseCase, CreateBlogPostCommand,
+    CreateBlogPostError, CreateBlogPostUseCase, DetachBlogPostTopicUseCase, GetBlogPostError,
+    GetBlogPostTopicsUseCase, GetBlogPostsError, GetBlogPostsUseCase, GetPublicBlogPostUseCase,
+    GetPublicBlogPostsUseCase, GetSingleBlogPostUseCase, HardDeleteBlogPostUseCase,
+    PatchBlogPostError, PatchBlogPostUseCase, RestoreBlogPostUseCase,
 };
 use crate::blog::application::ports::outgoing::{
     BlogPageRequest, BlogPageResult, BlogPostCard, BlogPostListFilter, BlogPostSort, BlogPostView,
@@ -70,6 +70,7 @@ use crate::multimedia::application::ports::incoming::use_cases::{
     ListMediaCommand, ListMediaError, ListMediaUseCase, MediaDetail, MediaItem,
     MediaLifecycleError, MediaStatus, MediaUsage, PatchMediaUseCase, RestoreMediaUseCase,
 };
+use crate::shared::api::{BulkOutcome, BulkRequestError};
 
 use crate::project::application::ports::incoming::use_cases::{
     AddProjectTopicError, AddProjectTopicUseCase, ClearProjectTopicsError,
@@ -278,6 +279,80 @@ impl GetPublicProfileUseCase for StubGetPublicProfile {
     async fn execute(&self, _u: &str) -> Result<PublicProfile, GetPublicProfileError> {
         Err(GetPublicProfileError::NotFound)
     }
+}
+
+/// Reports every id as not found. Tests that exercise the route supply their own.
+#[derive(Default, Clone)]
+pub struct StubBulkBlogPosts;
+
+#[async_trait]
+impl BulkBlogPostsUseCase for StubBulkBlogPosts {
+    async fn execute(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _op: BlogBulkOp,
+        ids: Vec<uuid::Uuid>,
+    ) -> Result<BulkOutcome, BulkRequestError> {
+        let ids = crate::shared::api::prepare_ids(ids)?;
+        let mut outcome = BulkOutcome::default();
+        for id in ids {
+            outcome.fail(
+                id,
+                crate::shared::api::ErrorCode::PostNotFound,
+                "StubBulkBlogPosts not configured for this test",
+            );
+        }
+        Ok(outcome)
+    }
+}
+
+/// Reports every id as not found. Tests that exercise the route supply their own.
+#[derive(Default, Clone)]
+pub struct StubBulkProjects;
+
+#[async_trait]
+impl crate::project::application::ports::incoming::use_cases::BulkProjectsUseCase
+    for StubBulkProjects
+{
+    async fn execute(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _op: crate::project::application::ports::incoming::use_cases::ProjectBulkOp,
+        ids: Vec<uuid::Uuid>,
+    ) -> Result<BulkOutcome, BulkRequestError> {
+        stub_all_missing(ids, crate::shared::api::ErrorCode::ProjectNotFound)
+    }
+}
+
+/// Reports every id as not found. Tests that exercise the route supply their own.
+#[derive(Default, Clone)]
+pub struct StubBulkMedia;
+
+#[async_trait]
+impl crate::multimedia::application::ports::incoming::use_cases::BulkMediaUseCase
+    for StubBulkMedia
+{
+    async fn execute(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _op: crate::multimedia::application::ports::incoming::use_cases::MediaBulkOp,
+        ids: Vec<uuid::Uuid>,
+    ) -> Result<BulkOutcome, BulkRequestError> {
+        stub_all_missing(ids, crate::shared::api::ErrorCode::MediaNotFound)
+    }
+}
+
+/// Shared body for the bulk stubs: validates the batch, then fails every item.
+fn stub_all_missing(
+    ids: Vec<uuid::Uuid>,
+    code: crate::shared::api::ErrorCode,
+) -> Result<BulkOutcome, BulkRequestError> {
+    let ids = crate::shared::api::prepare_ids(ids)?;
+    let mut outcome = BulkOutcome::default();
+    for id in ids {
+        outcome.fail(id, code, "Stub bulk use case not configured for this test");
+    }
+    Ok(outcome)
 }
 
 /// Never restores. Tests that exercise the route supply their own.

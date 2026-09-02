@@ -1,5 +1,6 @@
 mod archive_blog_post;
 mod blog_post_topics;
+mod bulk_blog_posts;
 mod create_blog_post;
 /// Listing blog posts, owner-facing and public.
 pub mod get_blog_posts;
@@ -15,6 +16,7 @@ mod slug_available;
 // `#[utoipa::path]` generates alongside each handler; `ApiDoc` needs them.
 pub use archive_blog_post::*;
 pub use blog_post_topics::*;
+pub use bulk_blog_posts::*;
 pub use create_blog_post::*;
 pub use get_blog_posts::*;
 pub use get_public_blog_post::*;

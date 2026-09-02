@@ -84,6 +84,8 @@ one.
 | `VALIDATION_ERROR` | 400 Bad Request | The request body could not be deserialised. The message carries the parser's detail. |
 | `INVALID_REQUEST` | 400 Bad Request | The request is structurally valid but not a combination the endpoint accepts. |
 | `MISSING_FIELD` | 400 Bad Request | A required field was absent. |
+| `BULK_TOO_LARGE` | 400 Bad Request | A bulk request carried more ids than the endpoint accepts in one call. |
+| `BULK_EMPTY` | 400 Bad Request | A bulk request carried no ids. Guard the control rather than calling with an empty selection. |
 | `INVALID_EMAIL` | 400 Bad Request | The email address is not well formed. |
 | `INVALID_PASSWORD` | 400 Bad Request | The password does not meet the strength policy. |
 | `INVALID_USERNAME` | 400 Bad Request | The username contains disallowed characters or is the wrong length. |
@@ -123,4 +125,4 @@ one.
 
 ---
 
-49 codes in total. This file is generated from `src/shared/api/error_code.rs`; add a variant there and regenerate.
+51 codes in total. This file is generated from `src/shared/api/error_code.rs`; add a variant there and regenerate.

@@ -13,7 +13,7 @@ use crate::cv::adapter::incoming::web::routes::{
     CreateCVRequest, PatchCVRequest, ReplaceOp, UpdateCVRequest,
 };
 use crate::multimedia::application::domain::entities::PublicMedia;
-use crate::shared::api::{ErrorCode, SlugAvailability};
+use crate::shared::api::{BulkFailure, BulkOutcome, ErrorCode, SlugAvailability};
 use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
 use utoipa::OpenApi;
 
@@ -100,6 +100,9 @@ use crate::topic::application::ports::outgoing::{TopicResult, TopicUsage};
         crate::blog::adapter::incoming::web::routes::patch_blog_post_handler,
         crate::blog::adapter::incoming::web::routes::archive_blog_post_handler,
         crate::blog::adapter::incoming::web::routes::restore_blog_post_handler,
+        crate::blog::adapter::incoming::web::routes::bulk_blog_posts_handler,
+        crate::project::adapter::incoming::web::routes::bulk_projects_handler,
+        crate::multimedia::adapter::incoming::web::routes::bulk_media_handler,
         crate::blog::adapter::incoming::web::routes::hard_delete_blog_post_handler,
         crate::blog::adapter::incoming::web::routes::get_public_blog_posts_handler,
         crate::blog::adapter::incoming::web::routes::get_public_blog_post_handler,
@@ -151,6 +154,11 @@ use crate::topic::application::ports::outgoing::{TopicResult, TopicUsage};
             ErrorResponse,
             ErrorCode,
             SlugAvailability,
+            BulkOutcome,
+            BulkFailure,
+            crate::blog::adapter::incoming::web::routes::BulkBlogRequest,
+            crate::project::adapter::incoming::web::routes::BulkProjectRequest,
+            crate::multimedia::adapter::incoming::web::routes::BulkMediaRequest,
             ErrorDetail,
 
             // Health probes

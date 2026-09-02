@@ -16,6 +16,7 @@ use crate::blog::application::ports::outgoing::{
     BlogPostView, PatchBlogPostData,
 };
 use crate::blog::domain::entities::{BlogPost, BlogPostTopic};
+use crate::shared::api::{BulkOutcome, BulkRequestError};
 
 /// Why creating a post failed.
 ///
@@ -443,4 +444,47 @@ mod tests {
             "Topic not found"
         );
     }
+}
+
+/// One operation applied across many posts.
+///
+/// Modelled as a tagged enum rather than an operation string beside an optional
+/// `topic_id`, so "attach, but no topic given" cannot be expressed — the
+/// request fails to deserialise instead of failing halfway through a batch.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, utoipa::ToSchema)]
+#[serde(tag = "op", rename_all = "snake_case")]
+pub enum BlogBulkOp {
+    /// Hide each post. Reversible.
+    Archive,
+    /// Un-hide each post.
+    Restore,
+    /// Remove each post permanently.
+    HardDelete,
+    /// Link one topic to each post.
+    AttachTopic {
+        /// The topic to link.
+        topic_id: Uuid,
+    },
+    /// Remove one topic's link from each post.
+    DetachTopic {
+        /// The topic to unlink.
+        topic_id: Uuid,
+    },
+}
+
+/// Applies one operation to many posts, reporting per item.
+///
+/// Ownership is not re-checked here — each single-item use case this composes
+/// already scopes its write to the owner and answers `NotFound` for a post
+/// belonging to someone else. That is what keeps a bulk endpoint from becoming
+/// a way to delete another author's posts by guessing ids.
+#[async_trait]
+pub trait BulkBlogPostsUseCase: Send + Sync {
+    /// Runs the operation over `ids`, in order.
+    async fn execute(
+        &self,
+        owner: UserId,
+        op: BlogBulkOp,
+        ids: Vec<Uuid>,
+    ) -> Result<BulkOutcome, BulkRequestError>;
 }
