@@ -20,6 +20,7 @@ non-obvious. Routine choices do not need one.
 | [0004](0004-llvm-cov-over-tarpaulin.md) | Coverage is measured with `cargo llvm-cov`, not tarpaulin | Accepted |
 | [0005](0005-break-the-auth-email-cycle.md) | `email` does not depend on `auth` | Accepted |
 | [0006](0006-public-media-urls.md) | Public responses carry unsigned media URLs | Accepted |
+| [0007](0007-screenshot-role-rename.md) | Renaming the `screenshoot` media role takes three deploys | Accepted (step 1 of 3 shipped) |
 
 ## Format
 
