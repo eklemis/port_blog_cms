@@ -92,8 +92,8 @@ use crate::modules::blog::application::blog_use_cases::BlogUseCases;
 use crate::modules::multimedia::application::domain::policies::upload_policy::UploadPolicy;
 use crate::modules::multimedia::application::media_use_cases::MultimediaUseCases;
 use crate::modules::multimedia::application::ports::incoming::services::{
-    GetMediaUsageService, GetPublicVariantUrlService, HardDeleteMediaService, PatchMediaService,
-    RestoreMediaService,
+    GetMediaStatusesService, GetMediaUsageService, GetPublicVariantUrlService,
+    HardDeleteMediaService, PatchMediaService, RestoreMediaService,
 };
 use crate::modules::project::application::project_use_cases::ProjectUseCases;
 use crate::modules::topic::application::ports::incoming::use_cases::CreateTopicUseCase;
@@ -252,7 +252,8 @@ pub async fn start() -> std::io::Result<()> {
                 AddProjectTopicService, ClearProjectTopicsService, CreateProjectService,
                 GetProjectTopicsService, GetProjectsService, GetPublicSingleProjectService,
                 GetSingleProjectService, HardDeleteProjectService, PatchProjectService,
-                ProjectSlugAvailableService, RemoveProjectTopicService, SoftDeleteProjectService,
+                ProjectSlugAvailableService, RemoveProjectTopicService, RestoreProjectService,
+                SoftDeleteProjectService,
             },
         },
         topic::{
@@ -494,6 +495,7 @@ pub async fn start() -> std::io::Result<()> {
     let soft_delete_project_uc = SoftDeleteProjectService::new(project_archiver.clone());
 
     let project_use_cases = ProjectUseCases {
+        restore: Arc::new(RestoreProjectService::new(project_archiver.clone())),
         slug_available: Arc::new(ProjectSlugAvailableService::new(project_query.clone())),
         create: Arc::new(create_project_uc),
         hard_delete: Arc::new(hard_delete_project_uc),
@@ -524,6 +526,7 @@ pub async fn start() -> std::io::Result<()> {
     let restore_media = RestoreMediaService::new(media_repo_for_lifecycle.clone());
     let hard_delete_media = HardDeleteMediaService::new(media_repo_for_lifecycle);
     let get_media_usage = GetMediaUsageService::new(media_query.clone());
+    let get_media_statuses = GetMediaStatusesService::new(media_query.clone());
     let get_media_uc = GetMediaService::new(media_query.clone());
     let list_media = ListMediaService::new(media_query);
     let media_use_cases = MultimediaUseCases {
@@ -534,6 +537,7 @@ pub async fn start() -> std::io::Result<()> {
         restore_media: Arc::new(restore_media),
         hard_delete_media: Arc::new(hard_delete_media),
         get_media_usage: Arc::new(get_media_usage),
+        get_media_statuses: Arc::new(get_media_statuses),
         list_media: Arc::new(list_media),
         delete_media: Arc::new(delete_media_uc),
         get_media: Arc::new(get_media_uc),
@@ -665,6 +669,7 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::project::adapter::incoming::web::routes::get_project_by_id_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::get_public_single_project_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::patch_project_handler);
+    cfg.service(crate::project::adapter::incoming::web::routes::restore_project_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::soft_delete_project_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::add_project_topic_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::get_project_topics_handler);
@@ -694,6 +699,7 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::multimedia::adapter::incoming::web::routes::patch_media_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::restore_media_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::hard_delete_media_handler);
+    cfg.service(crate::multimedia::adapter::incoming::web::routes::get_media_statuses_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::get_media_usage_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::get_public_variant_handler);
 }

@@ -133,6 +133,7 @@ impl Default for TestAppStateBuilder {
             }),
             project: Some(ProjectUseCases {
                 slug_available: Arc::new(StubProjectSlugAvailable),
+                restore: Arc::new(StubRestoreProject),
                 create: Arc::new(StubCreateProjectUseCase::repo_error(
                     "not used in this test",
                 )),
@@ -153,6 +154,7 @@ impl Default for TestAppStateBuilder {
                 restore_media: Arc::new(StubMediaLifecycle),
                 hard_delete_media: Arc::new(StubMediaLifecycle),
                 get_media_usage: Arc::new(StubMediaLifecycle),
+                get_media_statuses: Arc::new(StubMediaLifecycle),
                 create_signed_post_url: Arc::new(StubCreateUploadMediaUrlUseCase),
                 create_signed_get_url: Arc::new(StubGetVariantReadUrlService),
                 list_media: Arc::new(StubListMediaUseCase),

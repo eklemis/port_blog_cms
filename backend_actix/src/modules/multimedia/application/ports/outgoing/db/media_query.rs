@@ -121,6 +121,20 @@ pub trait MediaQuery: Send + Sync {
         size: MediaSize,
     ) -> Result<Option<StoredVariant>, MediaQueryError>;
 
+    /// The processing state of several items at once.
+    ///
+    /// Exists because a grid with twelve uploads in flight otherwise polls
+    /// twelve times every two seconds, per client. One call collapses that.
+    ///
+    /// Scoped by owner, and **ids that do not resolve are simply absent from
+    /// the result** rather than erroring — a caller polling a set does not want
+    /// the whole batch to fail because one item was deleted mid-poll.
+    async fn get_states(
+        &self,
+        owner: UserId,
+        media_ids: &[Uuid],
+    ) -> Result<Vec<MediaStateInfo>, MediaQueryError>;
+
     /// Every place a media item is attached, with each target's visibility.
     ///
     /// The visibility flag is the point: a delete confirmation that can say

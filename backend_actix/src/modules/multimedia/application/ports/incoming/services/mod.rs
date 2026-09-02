@@ -14,5 +14,6 @@ mod get_public_variant_url_service;
 pub use get_public_variant_url_service::GetPublicVariantUrlService;
 mod media_lifecycle_services;
 pub use media_lifecycle_services::{
-    GetMediaUsageService, HardDeleteMediaService, PatchMediaService, RestoreMediaService,
+    GetMediaStatusesService, GetMediaUsageService, HardDeleteMediaService, PatchMediaService,
+    RestoreMediaService,
 };

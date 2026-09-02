@@ -44,6 +44,26 @@ impl MediaQueryPostgres {
     ///
     /// `media.deleted_at IS NULL` is checked too, so soft-deleting a media item
     /// stops it being served even while the post referencing it stays live.
+    /// Decodes one `media` row into a state projection.
+    ///
+    /// Shared by the single and batched reads so the two cannot drift — a
+    /// batched poll returning a differently-shaped answer than the single one
+    /// would be a subtle and annoying bug.
+    fn state_info_from_row(row: &sea_orm::QueryResult) -> Result<MediaStateInfo, MediaQueryError> {
+        let user_id: Uuid = row.try_get("", "user_id").map_err(Self::map_db_err)?;
+        let media_id: Uuid = row.try_get("", "media_id").map_err(Self::map_db_err)?;
+        let updated_at: chrono::DateTime<chrono::FixedOffset> =
+            row.try_get("", "updated_at").map_err(Self::map_db_err)?;
+        let status: String = row.try_get("", "status").map_err(Self::map_db_err)?;
+
+        Ok(MediaStateInfo {
+            owner: UserId::from(user_id),
+            media_id,
+            updated_at: updated_at.to_rfc3339(),
+            status: Self::parse_media_state(&status)?,
+        })
+    }
+
     fn find_public_variant_stmt(media_id: Uuid, size: &str) -> Statement {
         Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
@@ -318,6 +338,41 @@ impl MediaQuery for MediaQueryPostgres {
         }))
     }
 
+    async fn get_states(
+        &self,
+        owner: UserId,
+        media_ids: &[Uuid],
+    ) -> Result<Vec<MediaStateInfo>, MediaQueryError> {
+        if media_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // = ANY($1) rather than a built IN list: one prepared statement shape
+        // regardless of how many ids are asked about, so a twelve-item poll and
+        // a two-item poll do not thrash the plan cache.
+        let stmt = Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            r#"
+            SELECT
+                m.user_id,
+                m.id as media_id,
+                m.updated_at,
+                m.status::text as status
+            FROM media m
+            WHERE m.id = ANY($1)
+              AND m.user_id = $2
+              AND m.deleted_at IS NULL
+            "#,
+            vec![media_ids.to_vec().into(), owner.value().into()],
+        );
+
+        let rows = self.db.query_all(stmt).await.map_err(Self::map_db_err)?;
+
+        rows.into_iter()
+            .map(|row| Self::state_info_from_row(&row))
+            .collect()
+    }
+
     async fn find_media_usage(
         &self,
         owner: UserId,
@@ -383,18 +438,7 @@ impl MediaQuery for MediaQueryPostgres {
 
         let row = result.ok_or(MediaQueryError::MediaNotFound)?;
 
-        let user_id: Uuid = row.try_get("", "user_id").map_err(Self::map_db_err)?;
-        let media_id: Uuid = row.try_get("", "media_id").map_err(Self::map_db_err)?;
-        let updated_at: chrono::DateTime<chrono::FixedOffset> =
-            row.try_get("", "updated_at").map_err(Self::map_db_err)?;
-        let status: String = row.try_get("", "status").map_err(Self::map_db_err)?;
-
-        Ok(MediaStateInfo {
-            owner: UserId::from(user_id),
-            media_id,
-            updated_at: updated_at.to_rfc3339(),
-            status: Self::parse_media_state(&status)?,
-        })
+        Self::state_info_from_row(&row)
     }
 
     async fn list_by_target(

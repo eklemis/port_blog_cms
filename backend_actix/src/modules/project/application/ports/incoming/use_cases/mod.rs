@@ -25,3 +25,5 @@ pub use remove_project_topic::{RemoveProjectTopicError, RemoveProjectTopicUseCas
 pub use soft_delete_project::{SoftDeleteProjectError, SoftDeleteProjectUseCase};
 mod slug_available;
 pub use slug_available::ProjectSlugAvailableUseCase;
+mod restore_project;
+pub use restore_project::{RestoreProjectError, RestoreProjectUseCase};

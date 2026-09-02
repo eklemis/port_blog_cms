@@ -271,11 +271,105 @@ mod tests {
     /// An empty body is a no-op rather than an error — the repository checks
     /// the item exists and returns without writing, so `updated_at` is not
     /// bumped for a request that changed nothing.
+    /// The parsing rule that makes a poll robust: a client whose set contains
+    /// a deleted or malformed id should still get answers for the rest.
+    /// Erroring the whole batch would make one bad id blind the grid.
+    #[test]
+    fn unparseable_ids_are_skipped_rather_than_failing_the_batch() {
+        let good = uuid::Uuid::new_v4();
+        let raw = format!("{good}, not-a-uuid, ,{good}");
+
+        let parsed: Vec<uuid::Uuid> = raw
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .filter_map(|s| s.parse::<uuid::Uuid>().ok())
+            .collect();
+
+        assert_eq!(parsed, vec![good, good], "the valid ids must survive");
+    }
+
+    #[test]
+    fn the_batch_size_is_bounded() {
+        assert_eq!(
+            MAX_STATUS_IDS, 100,
+            "a change here widens how large an IN list one request can build"
+        );
+    }
+
     #[test]
     fn an_empty_patch_is_recognised_as_empty() {
         let req: PatchMediaRequest = serde_json::from_str(r#"{}"#).unwrap();
         let data: PatchAttachmentData = req.into();
 
         assert!(data.is_empty());
+    }
+}
+
+/// The ids to poll.
+#[derive(Debug, Deserialize, utoipa::IntoParams, ToSchema)]
+pub struct MediaStatusQuery {
+    /// Comma-separated media ids.
+    #[param(example = "a1b2…,c3d4…")]
+    pub ids: String,
+}
+
+/// How many ids one call may ask about.
+///
+/// Bounded so a single request cannot turn into an unbounded `IN` list. Well
+/// past a realistic upload grid; a client with more than this to poll should
+/// page rather than widen the request.
+const MAX_STATUS_IDS: usize = 100;
+
+/// Poll several media items' processing state at once
+///
+/// A grid with twelve uploads in flight otherwise polls twelve times every two
+/// seconds, per client. This collapses that into one call.
+///
+/// **Ids that do not resolve are absent from the response rather than an
+/// error** — a client polling a set should not lose the whole batch because
+/// one item was deleted between polls, and can treat an absent id as gone.
+///
+/// Unparseable ids are skipped for the same reason. An empty or all-invalid
+/// list returns an empty array.
+#[utoipa::path(
+    get,
+    path = "/api/media/statuses",
+    tag = "media",
+    params(MediaStatusQuery),
+    responses(
+        (
+            status = 200,
+            description = "States for the ids that resolved",
+            body = inline(SuccessResponse<Vec<crate::multimedia::application::ports::incoming::use_cases::MediaStatus>>)
+        ),
+        (status = 400, description = "Too many ids", body = ErrorResponse),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = []))
+)]
+#[get("/api/media/statuses")]
+pub async fn get_media_statuses_handler(
+    user: VerifiedUser,
+    query: web::Query<MediaStatusQuery>,
+    data: web::Data<AppState>,
+) -> impl Responder {
+    let owner = UserId::from(user.user_id);
+
+    let ids: Vec<Uuid> = query
+        .ids
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .filter_map(|s| s.parse::<Uuid>().ok())
+        .collect();
+
+    if ids.len() > MAX_STATUS_IDS {
+        return ApiResponse::bad_request(ErrorCode::InvalidRequest, "Too many ids in one request");
+    }
+
+    match data.multimedia.get_media_statuses.execute(owner, ids).await {
+        Ok(statuses) => ApiResponse::success(statuses),
+        Err(e) => map_err(e),
     }
 }

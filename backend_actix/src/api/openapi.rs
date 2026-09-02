@@ -115,6 +115,7 @@ use crate::topic::application::ports::outgoing::{TopicResult, TopicUsage};
         crate::project::adapter::incoming::web::routes::get_public_single_project_handler,
         crate::project::adapter::incoming::web::routes::patch_project_handler,
         crate::project::adapter::incoming::web::routes::soft_delete_project_handler,
+        crate::project::adapter::incoming::web::routes::restore_project_handler,
         crate::project::adapter::incoming::web::routes::hard_delete_project_handler,
         crate::project::adapter::incoming::web::routes::add_project_topic_handler,
         crate::project::adapter::incoming::web::routes::remove_project_topic_handler,
@@ -139,6 +140,7 @@ use crate::topic::application::ports::outgoing::{TopicResult, TopicUsage};
         crate::multimedia::adapter::incoming::web::routes::restore_media_handler,
         crate::multimedia::adapter::incoming::web::routes::hard_delete_media_handler,
         crate::multimedia::adapter::incoming::web::routes::get_media_usage_handler,
+        crate::multimedia::adapter::incoming::web::routes::get_media_statuses_handler,
     ),
     components(
         schemas(
@@ -239,6 +241,7 @@ use crate::topic::application::ports::outgoing::{TopicResult, TopicUsage};
             MediaState,
             PatchMediaRequest,
             crate::multimedia::application::ports::incoming::use_cases::MediaUsage,
+            crate::multimedia::application::ports::incoming::use_cases::MediaStatus,
 
         )
     ),
