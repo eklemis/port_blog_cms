@@ -1,4 +1,5 @@
 use crate::api::schemas::{ErrorDetail, ErrorResponse, SuccessResponse};
+use crate::auth::application::use_cases::get_public_profile::PublicProfile;
 use crate::blog::adapter::incoming::web::dto::{
     BlogPostCardResponse, BlogPostDetailResponse, BlogPostResponse, BlogPostTopicRequest,
     BlogPostTopicResponse, CreateBlogPostRequest, PatchBlogPostRequest,
@@ -69,6 +70,7 @@ use crate::topic::application::ports::outgoing::{TopicResult, TopicUsage};
         crate::auth::adapter::incoming::web::routes::login_user_handler,
         crate::auth::adapter::incoming::web::routes::logout_user_handler,
         crate::auth::adapter::incoming::web::routes::get_user_profile_handler,
+        crate::auth::adapter::incoming::web::routes::get_public_profile_handler,
         crate::auth::adapter::incoming::web::routes::refresh_token_handler,
         crate::auth::adapter::incoming::web::routes::verify_user_email_handler,
         crate::auth::adapter::incoming::web::routes::request_password_reset_handler,
@@ -210,6 +212,7 @@ use crate::topic::application::ports::outgoing::{TopicResult, TopicUsage};
             BlogPostCardResponse,
             BlogPostTopicResponse,
             PublicMedia,
+            PublicProfile,
             CreateBlogPostRequest,
             PatchBlogPostRequest,
             BlogPostTopicRequest,

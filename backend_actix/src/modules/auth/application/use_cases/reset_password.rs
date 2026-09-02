@@ -189,6 +189,15 @@ mod tests {
 
     #[async_trait]
     impl UserRepository for SpyRepo {
+        async fn set_profile(
+            &self,
+            user_id: Uuid,
+            full_name: String,
+            _bio: Option<Option<String>>,
+        ) -> Result<UserResult, UserRepositoryError> {
+            self.set_full_name(user_id, full_name).await
+        }
+
         async fn create_user(&self, _d: CreateUserData) -> Result<UserResult, UserRepositoryError> {
             unimplemented!()
         }
@@ -259,6 +268,15 @@ mod tests {
     // to the use case, which takes its collaborators by value.
     #[async_trait]
     impl UserRepository for Arc<SpyRepo> {
+        async fn set_profile(
+            &self,
+            user_id: Uuid,
+            full_name: String,
+            _bio: Option<Option<String>>,
+        ) -> Result<UserResult, UserRepositoryError> {
+            self.set_full_name(user_id, full_name).await
+        }
+
         async fn create_user(&self, d: CreateUserData) -> Result<UserResult, UserRepositoryError> {
             (**self).create_user(d).await
         }

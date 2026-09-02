@@ -458,6 +458,7 @@ mod tests {
             updated_at: chrono::Utc::now(),
             is_verified,
             is_deleted,
+            bio: None,
         }
     }
 

@@ -40,6 +40,8 @@ pub struct User {
     pub email: String,
     /// Argon2 hash. Never a plaintext password.
     pub password_hash: String,
+    /// Free-form public introduction. `None` when never set.
+    pub bio: Option<String>,
     /// When the account was created.
     pub created_at: DateTime<Utc>,
     /// When the row was last written.

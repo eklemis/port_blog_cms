@@ -22,6 +22,24 @@ pub struct UpdateUserRequest {
     /// New full name for the user
     #[schema(example = "John Smith")]
     full_name: String,
+
+    /// New public bio.
+    ///
+    /// Omit to leave it alone, send `null` to clear it. Shown on the author's
+    /// public pages via `GET /api/public/users/{username}`.
+    #[serde(default, deserialize_with = "double_option")]
+    #[schema(example = "Backend engineer, mostly Rust.")]
+    bio: Option<Option<String>>,
+}
+
+/// Distinguishes "key absent" from "key present and null", as in the media
+/// patch DTO. `#[serde(default)]` alone folds both into `None`.
+fn double_option<'de, D, T>(de: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de>,
+{
+    serde::Deserialize::deserialize(de).map(Some)
 }
 
 /// Response body returned by this endpoint.
@@ -42,6 +60,9 @@ pub struct UpdateUserResponse {
     /// Updated full name
     #[schema(example = "John Smith")]
     full_name: String,
+    /// Public bio. `null` when the user has not written one.
+    #[schema(example = "Backend engineer, mostly Rust.")]
+    bio: Option<String>,
 }
 
 /// Update current user profile
@@ -63,7 +84,8 @@ pub struct UpdateUserResponse {
                     "user_id": "123e4567-e89b-12d3-a456-426614174000",
                     "email": "john@example.com",
                     "username": "johndoe",
-                    "full_name": "John Smith"
+                    "full_name": "John Smith",
+                    "bio": "Backend engineer, mostly Rust."
                 }
             })
         ),
@@ -114,9 +136,11 @@ pub async fn update_user_profile_handler(
     req: web::Json<UpdateUserRequest>,
     app_data: web::Data<AppState>,
 ) -> impl Responder {
+    let body = req.into_inner();
     let input = UpdateUserInput {
         user_id: UserId::from(user.user_id),
-        full_name: req.into_inner().full_name,
+        full_name: body.full_name,
+        bio: body.bio,
     };
 
     match app_data.update_user_profile_use_case.execute(input).await {
@@ -125,6 +149,7 @@ pub async fn update_user_profile_handler(
             email: output.email,
             username: output.username,
             full_name: output.full_name,
+            bio: output.bio,
         }),
         Err(UpdateUserError::InvalidFullName(msg)) => {
             ApiResponse::bad_request(ErrorCode::InvalidFullName, &msg)
@@ -235,6 +260,7 @@ mod tests {
             email: "test@example.com".to_string(),
             username: "testuser".to_string(),
             full_name: full_name.to_string(),
+            bio: None,
         }
     }
 
@@ -426,5 +452,37 @@ mod tests {
         assert_eq!(body["error"]["code"], "INTERNAL_ERROR");
         assert_eq!(body["error"]["message"], "An unexpected error occurred");
         assert!(body.get("data").is_none());
+    }
+
+    // ------------------------------------------------------------------
+    // Request deserialization
+    //
+    // `double_option` is the only thing separating "the client did not touch
+    // the bio" from "the client cleared it". A plain `Option` compiles and
+    // reads fine while silently wiping a bio on every name-only edit, so the
+    // three shapes are pinned here.
+    // ------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn an_absent_bio_key_means_leave_it_alone() {
+        let req: UpdateUserRequest = serde_json::from_str(r#"{"full_name":"John Smith"}"#).unwrap();
+
+        assert_eq!(req.bio, None);
+    }
+
+    #[tokio::test]
+    async fn an_explicit_null_bio_means_clear_it() {
+        let req: UpdateUserRequest =
+            serde_json::from_str(r#"{"full_name":"John Smith","bio":null}"#).unwrap();
+
+        assert_eq!(req.bio, Some(None));
+    }
+
+    #[tokio::test]
+    async fn a_string_bio_means_set_it() {
+        let req: UpdateUserRequest =
+            serde_json::from_str(r#"{"full_name":"John Smith","bio":"Rust, mostly."}"#).unwrap();
+
+        assert_eq!(req.bio, Some(Some("Rust, mostly.".to_string())));
     }
 }

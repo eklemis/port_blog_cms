@@ -9,6 +9,8 @@
 pub mod create_user;
 /// Reads the authenticated user's own profile.
 pub mod fetch_profile;
+/// Reads an author's public profile, for the public site's header.
+pub mod get_public_profile;
 /// Exchanges credentials for an access and refresh token pair.
 pub mod login_user;
 /// Blacklists a refresh token so it stops being accepted.

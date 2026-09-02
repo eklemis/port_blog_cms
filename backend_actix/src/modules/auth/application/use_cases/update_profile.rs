@@ -17,6 +17,8 @@ pub struct UpdateUserOutput {
     pub email: String,
     /// Display name.
     pub full_name: String,
+    /// Public bio as stored after the edit.
+    pub bio: Option<String>,
 }
 
 /// A profile edit. Only the display name is editable today.
@@ -26,6 +28,8 @@ pub struct UpdateUserInput {
     pub user_id: UserId,
     /// Display name.
     pub full_name: String,
+    /// New bio. `None` leaves the stored value alone; `Some(None)` clears it.
+    pub bio: Option<Option<String>>,
 }
 
 /// Why the edit failed.

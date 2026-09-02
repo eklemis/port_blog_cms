@@ -54,7 +54,7 @@ where
 
         let user = self
             .user_repository
-            .set_full_name(data.user_id.value(), full_name)
+            .set_profile(data.user_id.value(), full_name, data.bio)
             .await?;
 
         Ok(UpdateUserOutput {
@@ -62,6 +62,7 @@ where
             username: user.username,
             email: user.email,
             full_name: user.full_name,
+            bio: user.bio,
         })
     }
 }
@@ -76,14 +77,27 @@ mod tests {
         use_cases::update_profile::UpdateUserError,
     };
     use async_trait::async_trait;
+    use std::sync::Mutex;
     use uuid::Uuid;
 
     struct MockUserRepository {
         result: Result<UserResult, UserRepositoryError>,
+        /// The tri-state bio the service actually handed to the port.
+        bio_seen: Mutex<Option<Option<Option<String>>>>,
     }
 
     #[async_trait]
     impl UserRepository for MockUserRepository {
+        async fn set_profile(
+            &self,
+            _user_id: Uuid,
+            _full_name: String,
+            bio: Option<Option<String>>,
+        ) -> Result<UserResult, UserRepositoryError> {
+            *self.bio_seen.lock().unwrap() = Some(bio);
+            self.result.clone()
+        }
+
         async fn create_user(
             &self,
             _data: CreateUserData,
@@ -130,6 +144,7 @@ mod tests {
             email: "test@example.com".to_string(),
             username: "testuser".to_string(),
             full_name: full_name.to_string(),
+            bio: None,
         }
     }
 
@@ -137,6 +152,7 @@ mod tests {
         UpdateUserInput {
             user_id: user_id.into(),
             full_name: full_name.to_string(),
+            bio: None,
         }
     }
 
@@ -145,6 +161,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let mock_repo = MockUserRepository {
             result: Ok(create_user_result(user_id, "John Doe")),
+            bio_seen: Mutex::new(None),
         };
 
         let service = UpdateUserProfileService::new(mock_repo);
@@ -165,6 +182,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let mock_repo = MockUserRepository {
             result: Ok(create_user_result(user_id, "John Doe")),
+            bio_seen: Mutex::new(None),
         };
 
         let service = UpdateUserProfileService::new(mock_repo);
@@ -180,6 +198,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let mock_repo = MockUserRepository {
             result: Ok(create_user_result(user_id, "")),
+            bio_seen: Mutex::new(None),
         };
 
         let service = UpdateUserProfileService::new(mock_repo);
@@ -198,6 +217,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let mock_repo = MockUserRepository {
             result: Ok(create_user_result(user_id, "")),
+            bio_seen: Mutex::new(None),
         };
 
         let service = UpdateUserProfileService::new(mock_repo);
@@ -216,6 +236,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let mock_repo = MockUserRepository {
             result: Ok(create_user_result(user_id, "A")),
+            bio_seen: Mutex::new(None),
         };
 
         let service = UpdateUserProfileService::new(mock_repo);
@@ -234,6 +255,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let mock_repo = MockUserRepository {
             result: Ok(create_user_result(user_id, "")),
+            bio_seen: Mutex::new(None),
         };
 
         let service = UpdateUserProfileService::new(mock_repo);
@@ -253,6 +275,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let mock_repo = MockUserRepository {
             result: Ok(create_user_result(user_id, "Jo")),
+            bio_seen: Mutex::new(None),
         };
 
         let service = UpdateUserProfileService::new(mock_repo);
@@ -270,6 +293,7 @@ mod tests {
         let max_name = "A".repeat(100);
         let mock_repo = MockUserRepository {
             result: Ok(create_user_result(user_id, &max_name)),
+            bio_seen: Mutex::new(None),
         };
 
         let service = UpdateUserProfileService::new(mock_repo);
@@ -286,6 +310,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let mock_repo = MockUserRepository {
             result: Err(UserRepositoryError::UserNotFound),
+            bio_seen: Mutex::new(None),
         };
 
         let service = UpdateUserProfileService::new(mock_repo);
@@ -305,6 +330,7 @@ mod tests {
             result: Err(UserRepositoryError::DatabaseError(
                 "Connection failed".to_string(),
             )),
+            bio_seen: Mutex::new(None),
         };
 
         let service = UpdateUserProfileService::new(mock_repo);
@@ -315,5 +341,72 @@ mod tests {
         assert!(result.is_err());
         let error = result.unwrap_err();
         assert!(matches!(error, UpdateUserError::RepositoryError(_)));
+    }
+
+    // ------------------------------------------------------------------
+    // Tri-state bio
+    //
+    // The service is a pass-through here, so what these pin is that it does
+    // not collapse the three states on the way to the port. Folding "absent"
+    // into "null" would silently wipe a bio on every name-only edit.
+    // ------------------------------------------------------------------
+
+    async fn bio_reaching_the_port(bio: Option<Option<String>>) -> Option<Option<Option<String>>> {
+        let user_id = Uuid::new_v4();
+        let service = UpdateUserProfileService::new(MockUserRepository {
+            result: Ok(create_user_result(user_id, "John Doe")),
+            bio_seen: Mutex::new(None),
+        });
+
+        service
+            .execute(UpdateUserInput {
+                user_id: user_id.into(),
+                full_name: "John Doe".to_string(),
+                bio,
+            })
+            .await
+            .unwrap();
+
+        let seen = service.user_repository.bio_seen.lock().unwrap();
+        seen.clone()
+    }
+
+    #[tokio::test]
+    async fn an_omitted_bio_is_passed_through_as_leave_alone() {
+        assert_eq!(bio_reaching_the_port(None).await, Some(None));
+    }
+
+    #[tokio::test]
+    async fn an_explicit_null_bio_is_passed_through_as_clear() {
+        assert_eq!(bio_reaching_the_port(Some(None)).await, Some(Some(None)));
+    }
+
+    #[tokio::test]
+    async fn a_new_bio_is_passed_through_verbatim() {
+        assert_eq!(
+            bio_reaching_the_port(Some(Some("Rust, mostly.".to_string()))).await,
+            Some(Some(Some("Rust, mostly.".to_string())))
+        );
+    }
+
+    /// The edited bio must come back in the response, or a client cannot
+    /// confirm the write without a second request.
+    #[tokio::test]
+    async fn the_response_carries_the_stored_bio() {
+        let user_id = Uuid::new_v4();
+        let mut stored = create_user_result(user_id, "John Doe");
+        stored.bio = Some("Rust, mostly.".to_string());
+
+        let service = UpdateUserProfileService::new(MockUserRepository {
+            result: Ok(stored),
+            bio_seen: Mutex::new(None),
+        });
+
+        let output = service
+            .execute(create_update_input(user_id, "John Doe"))
+            .await
+            .unwrap();
+
+        assert_eq!(output.bio.as_deref(), Some("Rust, mostly."));
     }
 }

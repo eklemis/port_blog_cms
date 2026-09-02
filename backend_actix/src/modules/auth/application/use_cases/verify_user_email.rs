@@ -101,6 +101,15 @@ mod tests {
         pub UserRepositoryMock {}
         #[async_trait]
         impl UserRepository for UserRepositoryMock {
+        async fn set_profile(
+            &self,
+            user_id: Uuid,
+            full_name: String,
+            _bio: Option<Option<String>>,
+        ) -> Result<UserResult, UserRepositoryError> {
+            self.set_full_name(user_id, full_name).await
+        }
+
             async fn create_user(&self, data: CreateUserData) -> Result<UserResult, UserRepositoryError>;
             async fn restore_user(&self, user_id: Uuid) -> Result<UserResult, UserRepositoryError>;
             async fn activate_user(&self, user_id: Uuid) -> Result<UserResult, UserRepositoryError>;
@@ -156,6 +165,7 @@ mod tests {
                     email: "test@example.com".to_string(),
                     username: "testuser".to_string(),
                     full_name: "Test User".to_string(),
+                    bio: None,
                 })
             });
 

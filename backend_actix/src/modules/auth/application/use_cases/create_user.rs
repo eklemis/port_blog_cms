@@ -340,6 +340,7 @@ mod tests {
             updated_at: Utc::now(),
             is_verified: true,
             is_deleted: false,
+            bio: None,
         }
     }
 
@@ -440,6 +441,15 @@ mod tests {
 
     #[async_trait]
     impl UserRepository for MockUserRepository {
+        async fn set_profile(
+            &self,
+            user_id: Uuid,
+            full_name: String,
+            _bio: Option<Option<String>>,
+        ) -> Result<UserResult, UserRepositoryError> {
+            self.set_full_name(user_id, full_name).await
+        }
+
         async fn create_user(&self, _: CreateUserData) -> Result<UserResult, UserRepositoryError> {
             self.create_result
                 .clone()
@@ -522,6 +532,7 @@ mod tests {
             email: "deleted@example.com".into(),
             username: "deleteduser".into(),
             full_name: "Deleted User".into(),
+            bio: None,
         };
 
         let restored_user = deleted_user.clone();
@@ -545,6 +556,7 @@ mod tests {
             email: "active@example.com".into(),
             username: "activeuser".into(),
             full_name: "Active User".into(),
+            bio: None,
         };
 
         let created_user = UserResult {
@@ -552,6 +564,7 @@ mod tests {
             email: "test@example.com".into(),
             username: "testuser".into(),
             full_name: "Test User".into(),
+            bio: None,
         };
 
         let use_case = CreateUserUseCase::new(
@@ -591,6 +604,7 @@ mod tests {
                 email: "x".into(),
                 username: "x".into(),
                 full_name: "x".into(),
+                bio: None,
             }),
             Arc::new(MockPasswordHasher::fail()),
             Arc::new(BasicPasswordPolicy),
@@ -616,6 +630,7 @@ mod tests {
                 email: "test@example.com".into(),
                 username: "testuser".into(),
                 full_name: "Test User".into(),
+                bio: None,
             }),
             Arc::new(MockPasswordHasher::success()),
             Arc::new(BasicPasswordPolicy),

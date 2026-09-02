@@ -39,6 +39,8 @@ pub struct UserResult {
     pub username: String,
     /// The stored display name.
     pub full_name: String,
+    /// The stored public bio, if the user has written one.
+    pub bio: Option<String>,
 }
 
 /// Why a user write failed.
@@ -90,6 +92,18 @@ pub trait UserRepository: Send + Sync {
     /// Called after a verification token is redeemed. Idempotent — verifying an
     /// already-verified account is not an error.
     async fn activate_user(&self, user_id: Uuid) -> Result<UserResult, UserRepositoryError>;
+
+    /// Replaces the user's public profile fields.
+    ///
+    /// `bio` is tri-state: `None` leaves it, `Some(None)` clears it,
+    /// `Some(Some(text))` replaces it. The display name is always written,
+    /// because the endpoint requires it.
+    async fn set_profile(
+        &self,
+        user_id: Uuid,
+        full_name: String,
+        bio: Option<Option<String>>,
+    ) -> Result<UserResult, UserRepositoryError>;
 
     /// Replaces the user's display name.
     async fn set_full_name(
