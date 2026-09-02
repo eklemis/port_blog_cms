@@ -56,6 +56,7 @@ mod tests {
     use crate::multimedia::application::domain::entities::{
         AttachmentTarget, MediaRole, MediaSize, MediaState, MediaStateInfo,
     };
+    use crate::multimedia::application::ports::outgoing::db::MediaUsageRow;
     use crate::multimedia::application::ports::outgoing::db::{
         MediaAttachment, MediaQueryError, StoredVariant,
     };
@@ -66,6 +67,14 @@ mod tests {
 
     #[async_trait]
     impl MediaQuery for MockQuery {
+        async fn find_media_usage(
+            &self,
+            _owner: UserId,
+            _media_id: Uuid,
+        ) -> Result<Vec<MediaUsageRow>, MediaQueryError> {
+            Ok(Vec::new())
+        }
+
         async fn find_public_variant(
             &self,
             _media_id: Uuid,

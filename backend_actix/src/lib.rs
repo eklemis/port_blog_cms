@@ -91,9 +91,13 @@ use crate::modules::email::application::ports::outgoing::user_email_notifier::Us
 use crate::modules::blog::application::blog_use_cases::BlogUseCases;
 use crate::modules::multimedia::application::domain::policies::upload_policy::UploadPolicy;
 use crate::modules::multimedia::application::media_use_cases::MultimediaUseCases;
-use crate::modules::multimedia::application::ports::incoming::services::GetPublicVariantUrlService;
+use crate::modules::multimedia::application::ports::incoming::services::{
+    GetMediaUsageService, GetPublicVariantUrlService, HardDeleteMediaService, PatchMediaService,
+    RestoreMediaService,
+};
 use crate::modules::project::application::project_use_cases::ProjectUseCases;
 use crate::modules::topic::application::ports::incoming::use_cases::CreateTopicUseCase;
+use crate::modules::topic::application::ports::incoming::use_cases::GetTopicUsageUseCase;
 use crate::modules::topic::application::ports::incoming::use_cases::GetTopicsUseCase;
 use crate::modules::topic::application::ports::incoming::use_cases::SoftDeleteTopicUseCase;
 use crate::shared::api::{build_cors, custom_json_config};
@@ -170,6 +174,8 @@ pub struct AppState {
     pub create_topic_use_case: Arc<dyn CreateTopicUseCase + Send + Sync>,
     /// The `get topics` use case.
     pub get_topics_use_case: Arc<dyn GetTopicsUseCase + Send + Sync>,
+    /// The `get topic usage` use case.
+    pub get_topic_usage_use_case: Arc<dyn GetTopicUsageUseCase + Send + Sync>,
     /// The `soft delete topic` use case.
     pub soft_delete_topic_use_case: Arc<dyn SoftDeleteTopicUseCase + Send + Sync>,
     /// Blog's use cases, grouped.
@@ -248,7 +254,9 @@ pub async fn start() -> std::io::Result<()> {
         },
         topic::{
             adapter::outgoing::{TopicQueryPostgres, TopicRepositoryPostgres},
-            application::services::{CreateTopicService, GetTopicsService, SoftDeleteTopicService},
+            application::services::{
+                CreateTopicService, GetTopicUsageService, GetTopicsService, SoftDeleteTopicService,
+            },
         },
     };
 
@@ -436,6 +444,7 @@ pub async fn start() -> std::io::Result<()> {
     let topic_query = TopicQueryPostgres::new(Arc::clone(&db_arc));
     let create_topic_uc = CreateTopicService::new(topic_repo.clone());
     let get_topics_uc = GetTopicsService::new(topic_query.clone());
+    let get_topic_usage_uc = GetTopicUsageService::new(topic_query.clone());
     let soft_delete_topic_uc = SoftDeleteTopicService::new(topic_query.clone(), topic_repo.clone());
 
     // Blog use cases, repos and query
@@ -496,6 +505,7 @@ pub async fn start() -> std::io::Result<()> {
     // Mulitmedia Use Cases
     let storage_query = GcsStorageQuery::new();
     let media_repo = MediaRepositoryPostgres::new(Arc::clone(&db_arc));
+    let media_repo_for_lifecycle = MediaRepositoryPostgres::new(Arc::clone(&db_arc));
     let delete_media_uc = DeleteMediaService::new(media_repo.clone());
     let create_upload_media_signed_url =
         CreateUploadMediaUrlService::new(storage_query.clone(), media_repo);
@@ -503,12 +513,20 @@ pub async fn start() -> std::io::Result<()> {
     let create_variant_get_url =
         GetVariantReadUrlService::new(storage_query.clone(), media_query.clone());
     let public_variant_url = GetPublicVariantUrlService::new(media_query.clone(), storage_query);
+    let patch_media = PatchMediaService::new(media_repo_for_lifecycle.clone());
+    let restore_media = RestoreMediaService::new(media_repo_for_lifecycle.clone());
+    let hard_delete_media = HardDeleteMediaService::new(media_repo_for_lifecycle);
+    let get_media_usage = GetMediaUsageService::new(media_query.clone());
     let get_media_uc = GetMediaService::new(media_query.clone());
     let list_media = ListMediaService::new(media_query);
     let media_use_cases = MultimediaUseCases {
         create_signed_post_url: Arc::new(create_upload_media_signed_url),
         create_signed_get_url: Arc::new(create_variant_get_url),
         get_public_variant_url: Arc::new(public_variant_url),
+        patch_media: Arc::new(patch_media),
+        restore_media: Arc::new(restore_media),
+        hard_delete_media: Arc::new(hard_delete_media),
+        get_media_usage: Arc::new(get_media_usage),
         list_media: Arc::new(list_media),
         delete_media: Arc::new(delete_media_uc),
         get_media: Arc::new(get_media_uc),
@@ -538,6 +556,7 @@ pub async fn start() -> std::io::Result<()> {
         restore_cv_use_case: Arc::new(restore_cv_use_case),
         create_topic_use_case: Arc::new(create_topic_uc),
         get_topics_use_case: Arc::new(get_topics_uc),
+        get_topic_usage_use_case: Arc::new(get_topic_usage_uc),
         soft_delete_topic_use_case: Arc::new(soft_delete_topic_uc),
         blog: blog_use_cases,
         project: project_use_cases,
@@ -624,6 +643,7 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::auth::adapter::incoming::web::routes::get_user_profile_handler);
     cfg.service(crate::auth::adapter::incoming::web::routes::update_user_profile_handler);
     // Topic
+    cfg.service(crate::topic::adapter::incoming::web::routes::get_topic_usage_handler);
     cfg.service(crate::topic::adapter::incoming::web::routes::get_topics_handler);
     cfg.service(crate::topic::adapter::incoming::web::routes::create_topic_handler);
     cfg.service(crate::topic::adapter::incoming::web::routes::soft_delete_topic_handler);
@@ -660,5 +680,9 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::multimedia::adapter::incoming::web::routes::list_media_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::delete_media_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::get_media_handler);
+    cfg.service(crate::multimedia::adapter::incoming::web::routes::patch_media_handler);
+    cfg.service(crate::multimedia::adapter::incoming::web::routes::restore_media_handler);
+    cfg.service(crate::multimedia::adapter::incoming::web::routes::hard_delete_media_handler);
+    cfg.service(crate::multimedia::adapter::incoming::web::routes::get_media_usage_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::get_public_variant_handler);
 }

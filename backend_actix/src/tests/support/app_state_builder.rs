@@ -147,6 +147,10 @@ impl Default for TestAppStateBuilder {
             }),
             multimedia: Some(MultimediaUseCases {
                 get_public_variant_url: Arc::new(StubGetPublicVariantUrl),
+                patch_media: Arc::new(StubMediaLifecycle),
+                restore_media: Arc::new(StubMediaLifecycle),
+                hard_delete_media: Arc::new(StubMediaLifecycle),
+                get_media_usage: Arc::new(StubMediaLifecycle),
                 create_signed_post_url: Arc::new(StubCreateUploadMediaUrlUseCase),
                 create_signed_get_url: Arc::new(StubGetVariantReadUrlService),
                 list_media: Arc::new(StubListMediaUseCase),
@@ -623,6 +627,7 @@ impl TestAppStateBuilder {
             restore_cv_use_case: self.restore_cv.unwrap(),
             create_topic_use_case: self.create_topic.unwrap(),
             get_topics_use_case: self.get_topics.unwrap(),
+            get_topic_usage_use_case: Arc::new(StubGetTopicUsage),
             soft_delete_topic_use_case: self.soft_delete_topic.unwrap(),
             blog: self.blog.unwrap(),
             project: self.project.unwrap(),

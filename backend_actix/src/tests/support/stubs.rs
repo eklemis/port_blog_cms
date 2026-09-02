@@ -61,10 +61,11 @@ use crate::email::application::ports::outgoing::user_email_notifier::{
 use crate::email::application::ports::outgoing::Recipient;
 use crate::multimedia::application::ports::incoming::use_cases::{
     CreateAttachmentCommand, CreateMediaCommand, CreateMediaResult, CreateUploadMediaUrlUseCase,
-    CreateUrlError, DeleteMediaError, DeleteMediaUseCase, GetMediaError, GetMediaUseCase,
-    GetPublicVariantUrlError, GetPublicVariantUrlUseCase, GetReadUrlError, GetUrlCommand,
-    GetUrlResult, GetVariantReadUrlUseCase, ListMediaCommand, ListMediaError, ListMediaUseCase,
-    MediaDetail, MediaItem,
+    CreateUrlError, DeleteMediaError, DeleteMediaUseCase, GetMediaError, GetMediaUsageUseCase,
+    GetMediaUseCase, GetPublicVariantUrlError, GetPublicVariantUrlUseCase, GetReadUrlError,
+    GetUrlCommand, GetUrlResult, GetVariantReadUrlUseCase, HardDeleteMediaUseCase,
+    ListMediaCommand, ListMediaError, ListMediaUseCase, MediaDetail, MediaItem,
+    MediaLifecycleError, MediaUsage, PatchMediaUseCase, RestoreMediaUseCase,
 };
 
 use crate::project::application::ports::incoming::use_cases::{
@@ -103,7 +104,11 @@ use crate::modules::topic::application::ports::incoming::use_cases::{
 use crate::modules::topic::application::ports::incoming::use_cases::{
     CreateTopicError, GetTopicsError, SoftDeleteTopicError,
 };
+use crate::modules::topic::application::ports::incoming::use_cases::{
+    GetTopicUsageError, GetTopicUsageUseCase,
+};
 use crate::modules::topic::application::ports::outgoing::TopicQueryResult;
+use crate::modules::topic::application::ports::outgoing::TopicUsage;
 
 #[derive(Default, Clone)]
 pub struct StubFetchCVUseCase;
@@ -257,6 +262,74 @@ impl UserEmailNotifier for StubUserEmailNotifier {
 /// The registration orchestrator mints the token itself now, so anything that
 /// builds one needs a token provider. See
 /// `docs/adr/0005-break-the-auth-email-cycle.md`.
+/// Reports no usage. Tests that care supply their own.
+#[derive(Default, Clone)]
+pub struct StubGetTopicUsage;
+
+#[async_trait]
+impl GetTopicUsageUseCase for StubGetTopicUsage {
+    async fn execute(
+        &self,
+        _o: crate::auth::application::domain::entities::UserId,
+        _t: uuid::Uuid,
+    ) -> Result<TopicUsage, GetTopicUsageError> {
+        Ok(TopicUsage {
+            posts: 0,
+            projects: 0,
+        })
+    }
+}
+
+/// Media lifecycle stubs: never configured, so a test that reaches one has
+/// wired the wrong thing.
+#[derive(Default, Clone)]
+pub struct StubMediaLifecycle;
+
+#[async_trait]
+impl PatchMediaUseCase for StubMediaLifecycle {
+    async fn execute(
+        &self,
+        _o: crate::auth::application::domain::entities::UserId,
+        _m: uuid::Uuid,
+        _d: crate::multimedia::application::ports::outgoing::db::PatchAttachmentData,
+    ) -> Result<(), MediaLifecycleError> {
+        unimplemented!("StubMediaLifecycle not configured for this test")
+    }
+}
+
+#[async_trait]
+impl RestoreMediaUseCase for StubMediaLifecycle {
+    async fn execute(
+        &self,
+        _o: crate::auth::application::domain::entities::UserId,
+        _m: uuid::Uuid,
+    ) -> Result<(), MediaLifecycleError> {
+        unimplemented!("StubMediaLifecycle not configured for this test")
+    }
+}
+
+#[async_trait]
+impl HardDeleteMediaUseCase for StubMediaLifecycle {
+    async fn execute(
+        &self,
+        _o: crate::auth::application::domain::entities::UserId,
+        _m: uuid::Uuid,
+    ) -> Result<(), MediaLifecycleError> {
+        unimplemented!("StubMediaLifecycle not configured for this test")
+    }
+}
+
+#[async_trait]
+impl GetMediaUsageUseCase for StubMediaLifecycle {
+    async fn execute(
+        &self,
+        _o: crate::auth::application::domain::entities::UserId,
+        _m: uuid::Uuid,
+    ) -> Result<Vec<MediaUsage>, MediaLifecycleError> {
+        unimplemented!("StubMediaLifecycle not configured for this test")
+    }
+}
+
 /// Never resolves a public variant.
 #[derive(Default, Clone)]
 pub struct StubGetPublicVariantUrl;

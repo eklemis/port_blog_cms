@@ -44,6 +44,7 @@ where
 mod tests {
     use super::*;
     use crate::multimedia::application::domain::entities::{MediaStateInfo, MediaVariant};
+    use crate::multimedia::application::ports::outgoing::db::PatchAttachmentData;
     use crate::multimedia::application::ports::outgoing::db::{
         MediaRepositoryError, MediaVariantRecord, RecordMediaError, RecordMediaTx, RecordedMedia,
         UpdateMediaStateData,
@@ -55,6 +56,23 @@ mod tests {
 
     #[async_trait]
     impl MediaRepository for MockRepo {
+        async fn patch_attachment(
+            &self,
+            _owner: UserId,
+            _media_id: Uuid,
+            _data: PatchAttachmentData,
+        ) -> Result<(), MediaRepositoryError> {
+            unimplemented!()
+        }
+
+        async fn restore(&self, _o: UserId, _m: Uuid) -> Result<(), MediaRepositoryError> {
+            unimplemented!()
+        }
+
+        async fn hard_delete(&self, _o: UserId, _m: Uuid) -> Result<(), MediaRepositoryError> {
+            unimplemented!()
+        }
+
         async fn record_media_tx(
             &self,
             _tx: RecordMediaTx,

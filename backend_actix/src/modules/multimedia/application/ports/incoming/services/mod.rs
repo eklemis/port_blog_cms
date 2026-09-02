@@ -12,3 +12,7 @@ pub use get_media_service::GetMediaService;
 pub use list_media_service::ListMediaService;
 mod get_public_variant_url_service;
 pub use get_public_variant_url_service::GetPublicVariantUrlService;
+mod media_lifecycle_services;
+pub use media_lifecycle_services::{
+    GetMediaUsageService, HardDeleteMediaService, PatchMediaService, RestoreMediaService,
+};

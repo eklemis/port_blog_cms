@@ -89,6 +89,17 @@ mod tests {
 
     #[async_trait]
     impl crate::multimedia::application::ports::outgoing::db::MediaQuery for StubQuery {
+        async fn find_media_usage(
+            &self,
+            _owner: crate::auth::application::domain::entities::UserId,
+            _media_id: uuid::Uuid,
+        ) -> Result<
+            Vec<crate::multimedia::application::ports::outgoing::db::MediaUsageRow>,
+            MediaQueryError,
+        > {
+            Ok(Vec::new())
+        }
+
         async fn find_public_variant(
             &self,
             media_id: uuid::Uuid,

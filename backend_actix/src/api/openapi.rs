@@ -30,6 +30,7 @@ use crate::cv::application::ports::outgoing::{
 };
 use crate::multimedia::adapter::incoming::web::routes::{
     GetVariantUrlResponse, InitUploadRequest, InitUploadResponse, ListMediaResponse,
+    PatchMediaRequest,
 };
 use crate::multimedia::application::domain::entities::{
     AttachmentTarget, MediaRole, MediaSize, MediaState,
@@ -43,7 +44,7 @@ use crate::project::application::ports::outgoing::project_query::{
 };
 use crate::project::application::ports::outgoing::project_repository::ProjectResult;
 use crate::topic::adapter::incoming::web::routes::{CreateTopicRequest, TopicResponse};
-use crate::topic::application::ports::outgoing::TopicResult;
+use crate::topic::application::ports::outgoing::{TopicResult, TopicUsage};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -119,6 +120,7 @@ use crate::topic::application::ports::outgoing::TopicResult;
         // Topic endpoints
         crate::topic::adapter::incoming::web::routes::create_topic_handler,
         crate::topic::adapter::incoming::web::routes::get_topics_handler,
+        crate::topic::adapter::incoming::web::routes::get_topic_usage_handler,
         crate::topic::adapter::incoming::web::routes::soft_delete_topic_handler,
 
         // Media endpoints
@@ -128,6 +130,10 @@ use crate::topic::application::ports::outgoing::TopicResult;
         crate::multimedia::adapter::incoming::web::routes::delete_media_handler,
         crate::multimedia::adapter::incoming::web::routes::get_media_handler,
         crate::multimedia::adapter::incoming::web::routes::get_public_variant_handler,
+        crate::multimedia::adapter::incoming::web::routes::patch_media_handler,
+        crate::multimedia::adapter::incoming::web::routes::restore_media_handler,
+        crate::multimedia::adapter::incoming::web::routes::hard_delete_media_handler,
+        crate::multimedia::adapter::incoming::web::routes::get_media_usage_handler,
     ),
     components(
         schemas(
@@ -187,6 +193,7 @@ use crate::topic::application::ports::outgoing::TopicResult;
             CreateTopicRequest,
             TopicResponse,
             TopicResult,
+            TopicUsage,
 
             // Blog DTOs
             BlogPostResponse,
@@ -223,6 +230,8 @@ use crate::topic::application::ports::outgoing::TopicResult;
             MediaRole,
             MediaSize,
             MediaState,
+            PatchMediaRequest,
+            crate::multimedia::application::ports::incoming::use_cases::MediaUsage,
 
         )
     ),

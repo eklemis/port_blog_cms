@@ -4,8 +4,9 @@ use std::sync::Arc;
 
 use crate::auth::application::domain::entities::UserId;
 use crate::modules::topic::application::ports::outgoing::{
-    TopicQuery, TopicQueryError, TopicQueryResult,
+    TopicQuery, TopicQueryError, TopicQueryResult, TopicUsage,
 };
+use uuid::Uuid;
 
 // SeaORM entity
 use super::sea_orm_entity::topics::{
@@ -27,6 +28,57 @@ impl TopicQueryPostgres {
 
 #[async_trait]
 impl TopicQuery for TopicQueryPostgres {
+    async fn get_topic_usage(
+        &self,
+        owner: UserId,
+        topic_id: Uuid,
+    ) -> Result<TopicUsage, TopicQueryError> {
+        // Two counts in one round trip. Both exclude soft-deleted rows: a
+        // deleted post is not a reason to keep a topic alive, and counting it
+        // would make the confirmation overstate the damage.
+        let stmt = sea_orm::Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::Postgres,
+            r#"
+            SELECT
+                (SELECT COUNT(*) FROM blog_post_topics bt
+                   JOIN blog_posts p ON p.id = bt.blog_post_id
+                  WHERE bt.topic_id = $1 AND p.is_deleted = false) AS posts,
+                (SELECT COUNT(*) FROM project_topics pt
+                   JOIN projects pr ON pr.id = pt.project_id
+                  WHERE pt.topic_id = $1 AND pr.is_deleted = false) AS projects
+            FROM topics t
+            WHERE t.id = $1 AND t.user_id = $2
+            "#,
+            vec![topic_id.into(), owner.value().into()],
+        );
+
+        let row = sea_orm::ConnectionTrait::query_one(&*self.db, stmt)
+            .await
+            .map_err(|e| TopicQueryError::DatabaseError(e.to_string()))?;
+
+        // No row means the topic does not exist or belongs to someone else.
+        // Reported as zero usage rather than an error: the caller is about to
+        // be told the topic is not found by the operation it actually wants.
+        let Some(row) = row else {
+            return Ok(TopicUsage {
+                posts: 0,
+                projects: 0,
+            });
+        };
+
+        let posts: i64 = row
+            .try_get("", "posts")
+            .map_err(|e| TopicQueryError::DatabaseError(e.to_string()))?;
+        let projects: i64 = row
+            .try_get("", "projects")
+            .map_err(|e| TopicQueryError::DatabaseError(e.to_string()))?;
+
+        Ok(TopicUsage {
+            posts: posts.max(0) as u64,
+            projects: projects.max(0) as u64,
+        })
+    }
+
     async fn get_topics(&self, owner: UserId) -> Result<Vec<TopicQueryResult>, TopicQueryError> {
         let models: Vec<TopicModel> = TopicEntity::find()
             .filter(TopicColumn::UserId.eq(owner.value()))

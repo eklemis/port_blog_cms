@@ -1,3 +1,4 @@
+use crate::multimedia::application::ports::outgoing::db::PatchAttachmentData;
 use async_trait::async_trait;
 use chrono::Utc;
 use sea_orm::ConnectionTrait;
@@ -308,6 +309,44 @@ impl MediaRepositoryPostgres {
             state: tx.media.state,
         })
     }
+
+    /// Reports whether a live (non-deleted) media item belongs to `owner`.
+    async fn assert_live_media_exists(
+        &self,
+        owner: UserId,
+        media_id: Uuid,
+    ) -> Result<(), MediaRepositoryError> {
+        let row = self
+            .db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                r#"SELECT id FROM media WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL"#,
+                [media_id.into(), owner.value().into()],
+            ))
+            .await
+            .map_err(|e| MediaRepositoryError::DatabaseError(e.to_string()))?;
+
+        row.map(|_| ()).ok_or(MediaRepositoryError::NotFound)
+    }
+
+    /// Reports whether a media item belongs to `owner`, deleted or not.
+    async fn assert_media_exists_any_state(
+        &self,
+        owner: UserId,
+        media_id: Uuid,
+    ) -> Result<(), MediaRepositoryError> {
+        let row = self
+            .db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                r#"SELECT id FROM media WHERE id = $1 AND user_id = $2"#,
+                [media_id.into(), owner.value().into()],
+            ))
+            .await
+            .map_err(|e| MediaRepositoryError::DatabaseError(e.to_string()))?;
+
+        row.map(|_| ()).ok_or(MediaRepositoryError::NotFound)
+    }
 }
 
 #[async_trait]
@@ -366,6 +405,124 @@ impl MediaRepository for MediaRepositoryPostgres {
             updated_at: updated_at.to_rfc3339(),
             status: data.status,
         })
+    }
+
+    async fn patch_attachment(
+        &self,
+        owner: UserId,
+        media_id: Uuid,
+        data: PatchAttachmentData,
+    ) -> Result<(), MediaRepositoryError> {
+        // An empty patch is a no-op, not an UPDATE that touches nothing and
+        // bumps updated_at. Still checks the item exists, so the caller gets a
+        // 404 for an unknown id rather than a misleading success.
+        if data.is_empty() {
+            return self.assert_live_media_exists(owner, media_id).await;
+        }
+
+        // COALESCE with a paired "did the caller mention this?" flag is what
+        // gives three states out of two SQL parameters: not mentioned keeps the
+        // column, mentioned-as-NULL clears it, mentioned-with-a-value sets it.
+        let (set_alt, alt) = match &data.alt_text {
+            None => (false, None),
+            Some(v) => (true, v.clone()),
+        };
+        let (set_caption, caption) = match &data.caption {
+            None => (false, None),
+            Some(v) => (true, v.clone()),
+        };
+
+        let result = self
+            .db
+            .execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                r#"
+                UPDATE media_attachments a
+                SET alt_text = CASE WHEN $3 THEN $4 ELSE a.alt_text END,
+                    caption  = CASE WHEN $5 THEN $6 ELSE a.caption END,
+                    position = COALESCE($7, a.position)
+                FROM media m
+                WHERE a.media_id = m.id
+                  AND a.media_id = $1
+                  AND m.user_id = $2
+                  AND m.deleted_at IS NULL
+                "#,
+                [
+                    media_id.into(),
+                    owner.value().into(),
+                    set_alt.into(),
+                    alt.into(),
+                    set_caption.into(),
+                    caption.into(),
+                    data.position.into(),
+                ],
+            ))
+            .await
+            .map_err(|e| MediaRepositoryError::DatabaseError(e.to_string()))?;
+
+        if result.rows_affected() > 0 {
+            Ok(())
+        } else {
+            Err(MediaRepositoryError::NotFound)
+        }
+    }
+
+    async fn restore(&self, owner: UserId, media_id: Uuid) -> Result<(), MediaRepositoryError> {
+        let result = self
+            .db
+            .execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                r#"UPDATE media SET deleted_at = NULL, updated_at = NOW()
+                   WHERE id = $1 AND user_id = $2 AND deleted_at IS NOT NULL"#,
+                [media_id.into(), owner.value().into()],
+            ))
+            .await
+            .map_err(|e| MediaRepositoryError::DatabaseError(e.to_string()))?;
+
+        if result.rows_affected() > 0 {
+            return Ok(());
+        }
+
+        // Nothing updated: the row is absent, owned by someone else, or was
+        // never deleted. The last of those is success — restore is idempotent.
+        self.assert_media_exists_any_state(owner, media_id).await
+    }
+
+    async fn hard_delete(&self, owner: UserId, media_id: Uuid) -> Result<(), MediaRepositoryError> {
+        // Attachments and variants first: the schema may not cascade, and
+        // leaving them behind would strand rows pointing at a media id that no
+        // longer resolves.
+        for stmt in [
+            r#"DELETE FROM media_variants WHERE media_id = $1
+               AND EXISTS (SELECT 1 FROM media m WHERE m.id = $1 AND m.user_id = $2)"#,
+            r#"DELETE FROM media_attachments WHERE media_id = $1
+               AND EXISTS (SELECT 1 FROM media m WHERE m.id = $1 AND m.user_id = $2)"#,
+        ] {
+            self.db
+                .execute(Statement::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    stmt,
+                    [media_id.into(), owner.value().into()],
+                ))
+                .await
+                .map_err(|e| MediaRepositoryError::DatabaseError(e.to_string()))?;
+        }
+
+        let result = self
+            .db
+            .execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                r#"DELETE FROM media WHERE id = $1 AND user_id = $2"#,
+                [media_id.into(), owner.value().into()],
+            ))
+            .await
+            .map_err(|e| MediaRepositoryError::DatabaseError(e.to_string()))?;
+
+        if result.rows_affected() > 0 {
+            Ok(())
+        } else {
+            Err(MediaRepositoryError::NotFound)
+        }
     }
 
     async fn soft_delete(&self, owner: UserId, media_id: Uuid) -> Result<(), MediaRepositoryError> {
