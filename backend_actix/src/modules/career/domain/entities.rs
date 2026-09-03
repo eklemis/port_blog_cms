@@ -205,3 +205,79 @@ mod tests {
         }
     }
 }
+
+/// Whether a cover letter has gone out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CoverLetterStatus {
+    /// Still being written.
+    #[default]
+    Draft,
+    /// Sent with the application.
+    Sent,
+}
+
+impl fmt::Display for CoverLetterStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Must match the CHECK constraint and the serde form.
+        write!(
+            f,
+            "{}",
+            match self {
+                CoverLetterStatus::Draft => "draft",
+                CoverLetterStatus::Sent => "sent",
+            }
+        )
+    }
+}
+
+impl std::str::FromStr for CoverLetterStatus {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "draft" => Ok(CoverLetterStatus::Draft),
+            "sent" => Ok(CoverLetterStatus::Sent),
+            _ => Err(()),
+        }
+    }
+}
+
+/// One cover letter, for one application.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CoverLetter {
+    /// The application it belongs to. There is at most one per application,
+    /// so this is its identity.
+    pub application_id: Uuid,
+    /// Markdown, like a post body.
+    pub content: String,
+    /// The letter's own language — not the writer's interface language.
+    pub language: String,
+    /// Whether it has gone out.
+    pub status: CoverLetterStatus,
+    /// When it was started.
+    pub created_at: DateTime<Utc>,
+    /// Last edit.
+    pub updated_at: DateTime<Utc>,
+}
+
+/// A private account of how an application went.
+///
+/// The most sensitive data this product holds. What may be done with it is
+/// governed by `docs/adr/0009-reflections-never-feed-generation.md`, and the
+/// short version is: **never in a prompt that writes something for the user.**
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Reflection {
+    /// The application it belongs to.
+    pub application_id: Uuid,
+    /// How far it got, in the person's own words.
+    pub stage_reached: String,
+    /// What happened.
+    pub what_happened: String,
+    /// What they would do differently.
+    pub what_id_change: String,
+    /// When it was written.
+    pub created_at: DateTime<Utc>,
+    /// Last edit.
+    pub updated_at: DateTime<Utc>,
+}

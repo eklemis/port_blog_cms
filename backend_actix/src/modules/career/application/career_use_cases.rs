@@ -3,9 +3,9 @@
 use std::sync::Arc;
 
 use crate::career::application::ports::incoming::use_cases::{
-    AnalyseApplicationUseCase, ArchiveApplicationUseCase, ArchiveJobUseCase,
+    AnalyseApplicationUseCase, ArchiveApplicationUseCase, ArchiveJobUseCase, CoverLetterUseCases,
     CreateApplicationUseCase, CreateJobUseCase, GetApplicationUseCase, GetApplicationsUseCase,
-    GetJobUseCase, GetJobsUseCase, PatchApplicationUseCase, PatchJobUseCase,
+    GetJobUseCase, GetJobsUseCase, PatchApplicationUseCase, PatchJobUseCase, ReflectionUseCases,
 };
 
 /// Bundles the Career Studio's use cases so `AppState` gains one field.
@@ -33,4 +33,8 @@ pub struct CareerUseCases {
     pub archive_application: Arc<dyn ArchiveApplicationUseCase + Send + Sync>,
     /// The [`AnalyseApplicationUseCase`] implementation.
     pub analyse: Arc<dyn AnalyseApplicationUseCase + Send + Sync>,
+    /// The [`CoverLetterUseCases`] implementation.
+    pub cover_letter: Arc<dyn CoverLetterUseCases + Send + Sync>,
+    /// The [`ReflectionUseCases`] implementation.
+    pub reflection: Arc<dyn ReflectionUseCases + Send + Sync>,
 }

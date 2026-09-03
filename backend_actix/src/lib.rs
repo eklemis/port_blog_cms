@@ -250,8 +250,11 @@ pub async fn start() -> std::io::Result<()> {
         career::{
             adapter::outgoing::{
                 ApplicationStorePostgres, CvReaderCv, CvSnapshotterCv, JobStorePostgres,
+                LetterStorePostgres,
             },
-            application::service::{AnalyseApplicationService, ApplicationService, JobService},
+            application::service::{
+                AnalyseApplicationService, ApplicationService, JobService, LetterService,
+            },
         },
         cv::{
             adapter::outgoing::{CVArchiverPostgres, CVQueryPostgres, CvSnapshotStorePostgres},
@@ -577,6 +580,9 @@ pub async fn start() -> std::io::Result<()> {
         Arc::new(CvSnapshotStorePostgres::new(Arc::clone(&db_arc))),
     );
 
+    let letter_service = Arc::new(LetterService::new(LetterStorePostgres::new(Arc::clone(
+        &db_arc,
+    ))));
     let job_service = Arc::new(JobService::new(job_store));
     let application_service = Arc::new(ApplicationService::new(application_store, snapshotter));
 
@@ -591,6 +597,8 @@ pub async fn start() -> std::io::Result<()> {
         get_application: Arc::clone(&application_service) as Arc<_>,
         patch_application: Arc::clone(&application_service) as Arc<_>,
         archive_application: application_service as Arc<_>,
+        cover_letter: Arc::clone(&letter_service) as Arc<_>,
+        reflection: letter_service as Arc<_>,
         analyse: Arc::new(AnalyseApplicationService::new(
             ApplicationStorePostgres::new(Arc::clone(&db_arc)),
             cv_reader,
@@ -857,6 +865,12 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::career::adapter::incoming::web::routes::get_application_handler);
     cfg.service(crate::career::adapter::incoming::web::routes::patch_application_handler);
     cfg.service(crate::career::adapter::incoming::web::routes::archive_application_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::get_cover_letter_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::patch_cover_letter_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::delete_cover_letter_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::get_reflection_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::put_reflection_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::delete_reflection_handler);
     cfg.service(crate::career::adapter::incoming::web::routes::analyse_application_handler);
     cfg.service(crate::cv::adapter::incoming::web::routes::get_cv_snapshot_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::bulk_projects_handler);

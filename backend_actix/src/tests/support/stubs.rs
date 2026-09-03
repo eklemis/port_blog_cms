@@ -1372,3 +1372,71 @@ impl crate::career::application::ports::incoming::use_cases::AnalyseApplicationU
         )
     }
 }
+
+#[async_trait]
+impl crate::career::application::ports::incoming::use_cases::CoverLetterUseCases for StubCareer {
+    async fn get(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _id: uuid::Uuid,
+    ) -> Result<
+        crate::career::domain::entities::CoverLetter,
+        crate::career::application::ports::incoming::use_cases::LetterError,
+    > {
+        Err(crate::career::application::ports::incoming::use_cases::LetterError::NotFound)
+    }
+
+    async fn write(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _id: uuid::Uuid,
+        _data: crate::career::application::ports::outgoing::PatchCoverLetterData,
+    ) -> Result<
+        crate::career::domain::entities::CoverLetter,
+        crate::career::application::ports::incoming::use_cases::LetterError,
+    > {
+        Err(crate::career::application::ports::incoming::use_cases::LetterError::NotFound)
+    }
+
+    async fn delete(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _id: uuid::Uuid,
+    ) -> Result<(), crate::career::application::ports::incoming::use_cases::LetterError> {
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl crate::career::application::ports::incoming::use_cases::ReflectionUseCases for StubCareer {
+    async fn get(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _id: uuid::Uuid,
+    ) -> Result<
+        crate::career::domain::entities::Reflection,
+        crate::career::application::ports::incoming::use_cases::LetterError,
+    > {
+        Err(crate::career::application::ports::incoming::use_cases::LetterError::NotFound)
+    }
+
+    async fn write(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _id: uuid::Uuid,
+        _data: crate::career::application::ports::outgoing::ReflectionData,
+    ) -> Result<
+        crate::career::domain::entities::Reflection,
+        crate::career::application::ports::incoming::use_cases::LetterError,
+    > {
+        Err(crate::career::application::ports::incoming::use_cases::LetterError::NotFound)
+    }
+
+    async fn delete(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _id: uuid::Uuid,
+    ) -> Result<(), crate::career::application::ports::incoming::use_cases::LetterError> {
+        Ok(())
+    }
+}
