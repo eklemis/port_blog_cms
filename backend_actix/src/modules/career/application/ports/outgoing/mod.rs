@@ -2,11 +2,13 @@
 //! applications, and a way to freeze a CV without knowing how CVs work.
 
 mod application_store;
+mod cv_reader;
 mod cv_snapshotter;
 mod job_store;
 
 pub use application_store::{
     ApplicationStore, ApplicationStoreError, CreateApplicationData, PatchApplicationData,
 };
+pub use cv_reader::{CvReader, CvReaderError};
 pub use cv_snapshotter::{CvSnapshotter, CvSnapshotterError};
 pub use job_store::{CreateJobData, JobStore, JobStoreError, PatchJobData};
