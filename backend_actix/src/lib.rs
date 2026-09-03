@@ -248,8 +248,10 @@ pub async fn start() -> std::io::Result<()> {
             },
         },
         career::{
-            adapter::outgoing::{ApplicationStorePostgres, CvSnapshotterCv, JobStorePostgres},
-            application::service::{ApplicationService, JobService},
+            adapter::outgoing::{
+                ApplicationStorePostgres, CvReaderCv, CvSnapshotterCv, JobStorePostgres,
+            },
+            application::service::{AnalyseApplicationService, ApplicationService, JobService},
         },
         cv::{
             adapter::outgoing::{CVArchiverPostgres, CVQueryPostgres, CvSnapshotStorePostgres},
@@ -567,6 +569,11 @@ pub async fn start() -> std::io::Result<()> {
         CvSnapshotterCv::new(Arc::clone(&cv_snapshot_use_cases.create)),
     );
 
+    let cv_reader = CvReaderCv::new(
+        CVQueryPostgres::new(Arc::clone(&db_arc)),
+        Arc::new(CvSnapshotStorePostgres::new(Arc::clone(&db_arc))),
+    );
+
     let job_service = Arc::new(JobService::new(job_store));
     let application_service = Arc::new(ApplicationService::new(application_store, snapshotter));
 
@@ -581,6 +588,10 @@ pub async fn start() -> std::io::Result<()> {
         get_application: Arc::clone(&application_service) as Arc<_>,
         patch_application: Arc::clone(&application_service) as Arc<_>,
         archive_application: application_service as Arc<_>,
+        analyse: Arc::new(AnalyseApplicationService::new(
+            ApplicationStorePostgres::new(Arc::clone(&db_arc)),
+            cv_reader,
+        )),
     };
 
     // Project use cases, repos and query
@@ -843,6 +854,7 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::career::adapter::incoming::web::routes::get_application_handler);
     cfg.service(crate::career::adapter::incoming::web::routes::patch_application_handler);
     cfg.service(crate::career::adapter::incoming::web::routes::archive_application_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::analyse_application_handler);
     cfg.service(crate::cv::adapter::incoming::web::routes::get_cv_snapshot_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::bulk_projects_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::bulk_media_handler);

@@ -1351,3 +1351,22 @@ impl crate::career::application::ports::incoming::use_cases::ArchiveApplicationU
         Err(crate::career::application::ports::incoming::use_cases::ApplicationError::NotFound)
     }
 }
+
+#[async_trait]
+impl crate::career::application::ports::incoming::use_cases::AnalyseApplicationUseCase
+    for StubCareer
+{
+    async fn execute(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _id: uuid::Uuid,
+        _input: crate::career::application::ports::incoming::use_cases::AnalyseApplicationInput,
+    ) -> Result<
+        crate::career::application::ports::incoming::use_cases::MatchAnalysis,
+        crate::career::application::ports::incoming::use_cases::AnalysisError,
+    > {
+        Err(
+            crate::career::application::ports::incoming::use_cases::AnalysisError::ApplicationNotFound,
+        )
+    }
+}

@@ -196,3 +196,65 @@ pub trait ArchiveApplicationUseCase: Send + Sync {
     /// Soft, like every other archive in this API.
     async fn execute(&self, owner: UserId, application_id: Uuid) -> Result<(), ApplicationError>;
 }
+
+/// A match analysis: what can be measured, and what a model estimated.
+///
+/// The two halves are reported separately and **never averaged**. Half of this
+/// is genuinely measurable and half is an estimate; one blended number would
+/// hide which half a person should trust.
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
+pub struct MatchAnalysis {
+    /// The deterministic half. Always present.
+    pub readability: crate::career::domain::readability::ReadabilityReport,
+
+    /// The estimated half.
+    ///
+    /// **`null` means "not computed", never "scored zero".** The model-backed
+    /// half arrives with the AI proxy; until then this endpoint answers with
+    /// the measured half alone, and a client should render one bar rather than
+    /// two — not two with one at the floor.
+    pub relevance: Option<serde_json::Value>,
+}
+
+/// Which CV an analysis should run against.
+#[derive(Debug, Clone, Default)]
+pub struct AnalyseApplicationInput {
+    /// A living CV to analyse — how tailoring works, before anything is sent.
+    ///
+    /// When absent, the application's own snapshot is used. An application
+    /// that has neither cannot be analysed, because there is nothing to read.
+    pub cv_id: Option<Uuid>,
+}
+
+/// Why an analysis could not be produced.
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum AnalysisError {
+    /// No application matched, or it belongs to another user.
+    #[error("Application not found")]
+    ApplicationNotFound,
+
+    /// No CV matched the one asked for.
+    #[error("CV not found")]
+    CvNotFound,
+
+    /// The application is a draft with no CV named and no snapshot to fall
+    /// back on.
+    #[error("Nothing to analyse: send cv_id, or send the application first")]
+    NoCvToAnalyse,
+
+    /// The store could not be reached.
+    #[error("Repository error: {0}")]
+    RepositoryError(String),
+}
+
+/// Analyses a CV against the job an application is for.
+#[async_trait]
+pub trait AnalyseApplicationUseCase: Send + Sync {
+    /// Runs the measurable checks and returns them.
+    async fn execute(
+        &self,
+        owner: UserId,
+        application_id: Uuid,
+        input: AnalyseApplicationInput,
+    ) -> Result<MatchAnalysis, AnalysisError>;
+}
