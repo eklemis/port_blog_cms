@@ -67,6 +67,13 @@ pub struct TestAppStateBuilder {
     fetch_user_profile: Option<Arc<dyn FetchUserProfileUseCase + Send + Sync>>,
     update_user_profile: Option<Arc<dyn UpdateUserProfileUseCase + Send + Sync>>,
     get_public_profile: Option<Arc<dyn GetPublicProfileUseCase + Send + Sync>>,
+    draft_preview_read: Option<
+        Arc<
+            dyn crate::blog::application::ports::incoming::use_cases::ReadDraftPreviewUseCase
+                + Send
+                + Sync,
+        >,
+    >,
     hard_delete_cv: Option<Arc<dyn HardDeleteCvUseCase + Send + Sync>>,
     soft_delete_cv: Option<Arc<dyn SoftDeleteCvUseCase + Send + Sync>>,
     restore_cv: Option<Arc<dyn RestoreDeletedCvUseCase + Send + Sync>>,
@@ -112,6 +119,7 @@ impl Default for TestAppStateBuilder {
             fetch_user_profile: Some(Arc::new(StubFetchUserProfileUseCase)),
             update_user_profile: Some(Arc::new(StubUpdateUserProfileUseCase)),
             get_public_profile: Some(Arc::new(StubGetPublicProfile)),
+            draft_preview_read: Some(Arc::new(StubDraftPreview)),
             hard_delete_cv: Some(Arc::new(StubHardDeleteCvUseCase)),
             soft_delete_cv: Some(Arc::new(StubSoftDeleteCv)),
             restore_cv: Some(Arc::new(StubRestoreDeletedCv)),
@@ -133,8 +141,10 @@ impl Default for TestAppStateBuilder {
                 detach_topic: Arc::new(StubDetachBlogPostTopic),
                 clear_topics: Arc::new(StubClearBlogPostTopics),
                 get_topics: Arc::new(StubGetBlogPostTopics),
+                bulk: Arc::new(StubBulkBlogPosts),
             }),
             project: Some(ProjectUseCases {
+                bulk: Arc::new(StubBulkProjects),
                 slug_available: Arc::new(StubProjectSlugAvailable),
                 restore: Arc::new(StubRestoreProject),
                 create: Arc::new(StubCreateProjectUseCase::repo_error(
@@ -152,6 +162,7 @@ impl Default for TestAppStateBuilder {
                 soft_delete: Arc::new(StubSoftDeleteProjectUseCase),
             }),
             multimedia: Some(MultimediaUseCases {
+                bulk: Arc::new(StubBulkMedia),
                 get_public_variant_url: Arc::new(StubGetPublicVariantUrl),
                 patch_media: Arc::new(StubMediaLifecycle),
                 restore_media: Arc::new(StubMediaLifecycle),
@@ -170,6 +181,15 @@ impl Default for TestAppStateBuilder {
 }
 
 impl TestAppStateBuilder {
+    /// Overrides the draft-preview public read.
+    pub fn with_draft_preview_read(
+        mut self,
+        uc: impl crate::blog::application::ports::incoming::use_cases::ReadDraftPreviewUseCase + 'static,
+    ) -> Self {
+        self.draft_preview_read = Some(Arc::new(uc));
+        self
+    }
+
     /// Overrides the public-profile read.
     pub fn with_public_profile(mut self, uc: impl GetPublicProfileUseCase + 'static) -> Self {
         self.get_public_profile = Some(Arc::new(uc));
@@ -616,6 +636,14 @@ impl TestAppStateBuilder {
     }
     pub fn build(self) -> web::Data<AppState> {
         web::Data::new(AppState {
+            blog_preview: crate::blog::application::blog_preview_use_cases::BlogPreviewUseCases {
+                share: Arc::new(StubDraftPreview),
+                get: Arc::new(StubDraftPreview),
+                revoke: Arc::new(StubDraftPreview),
+                read: self
+                    .draft_preview_read
+                    .expect("Draft preview read must be initialized"),
+            },
             fetch_cv_use_case: self.fetch_cv.unwrap(),
             fetch_cv_by_id_use_case: self.fetch_cv_by_id.unwrap(),
             get_public_single_cv_use_case: self

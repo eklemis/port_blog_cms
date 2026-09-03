@@ -5,16 +5,18 @@ use crate::{
         CreateProjectUseCase, GetProjectsUseCase,
     },
     project::application::ports::incoming::use_cases::{
-        AddProjectTopicUseCase, ClearProjectTopicsUseCase, GetProjectTopicsUseCase,
-        GetPublicSingleProjectUseCase, GetSingleProjectUseCase, HardDeleteProjectUseCase,
-        PatchProjectUseCase, ProjectSlugAvailableUseCase, RemoveProjectTopicUseCase,
-        RestoreProjectUseCase, SoftDeleteProjectUseCase,
+        AddProjectTopicUseCase, BulkProjectsUseCase, ClearProjectTopicsUseCase,
+        GetProjectTopicsUseCase, GetPublicSingleProjectUseCase, GetSingleProjectUseCase,
+        HardDeleteProjectUseCase, PatchProjectUseCase, ProjectSlugAvailableUseCase,
+        RemoveProjectTopicUseCase, RestoreProjectUseCase, SoftDeleteProjectUseCase,
     },
 };
 
 /// This module's use cases, grouped for `AppState`.
 #[derive(Clone)]
 pub struct ProjectUseCases {
+    /// The [`BulkProjectsUseCase`] implementation.
+    pub bulk: Arc<dyn BulkProjectsUseCase + Send + Sync>,
     /// The [`CreateProjectUseCase`] implementation.
     pub create: Arc<dyn CreateProjectUseCase + Send + Sync>,
     /// The [`RestoreProjectUseCase`] implementation.

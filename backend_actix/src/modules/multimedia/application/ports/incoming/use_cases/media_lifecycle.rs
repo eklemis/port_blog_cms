@@ -125,3 +125,32 @@ pub trait GetMediaStatusesUseCase: Send + Sync {
         media_ids: Vec<Uuid>,
     ) -> Result<Vec<MediaStatus>, MediaLifecycleError>;
 }
+
+/// One operation applied across many media items.
+///
+/// No topic operations: media carries no topics. Lifecycle only.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, utoipa::ToSchema)]
+#[serde(tag = "op", rename_all = "snake_case")]
+pub enum MediaBulkOp {
+    /// Hide each item. Reversible.
+    Archive,
+    /// Un-hide each item.
+    Restore,
+    /// Remove each item permanently.
+    HardDelete,
+}
+
+/// Applies one lifecycle operation to many media items, reporting per item.
+///
+/// Ownership is not re-checked here — every media query is owner-scoped in SQL,
+/// so an item belonging to someone else is `NotFound`.
+#[async_trait::async_trait]
+pub trait BulkMediaUseCase: Send + Sync {
+    /// Runs the operation over `ids`, in order.
+    async fn execute(
+        &self,
+        owner: crate::auth::application::domain::entities::UserId,
+        op: MediaBulkOp,
+        ids: Vec<uuid::Uuid>,
+    ) -> Result<crate::shared::api::BulkOutcome, crate::shared::api::BulkRequestError>;
+}

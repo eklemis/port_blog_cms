@@ -28,6 +28,7 @@ mod get_public_variant_url;
 pub use get_public_variant_url::{GetPublicVariantUrlError, GetPublicVariantUrlUseCase};
 mod media_lifecycle;
 pub use media_lifecycle::{
-    GetMediaStatusesUseCase, GetMediaUsageUseCase, HardDeleteMediaUseCase, MediaLifecycleError,
-    MediaStatus, MediaUsage, PatchMediaUseCase, RestoreMediaUseCase,
+    BulkMediaUseCase, GetMediaStatusesUseCase, GetMediaUsageUseCase, HardDeleteMediaUseCase,
+    MediaBulkOp, MediaLifecycleError, MediaStatus, MediaUsage, PatchMediaUseCase,
+    RestoreMediaUseCase,
 };

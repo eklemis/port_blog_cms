@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use crate::blog::application::ports::incoming::use_cases::{
-    ArchiveBlogPostUseCase, AttachBlogPostTopicUseCase, ClearBlogPostTopicsUseCase,
-    CreateBlogPostUseCase, DetachBlogPostTopicUseCase, GetBlogPostTopicsUseCase,
-    GetBlogPostsUseCase, GetPublicBlogPostUseCase, GetPublicBlogPostsUseCase,
-    GetSingleBlogPostUseCase, HardDeleteBlogPostUseCase, PatchBlogPostUseCase,
-    RestoreBlogPostUseCase, SlugAvailableUseCase,
+    ArchiveBlogPostUseCase, AttachBlogPostTopicUseCase, BulkBlogPostsUseCase,
+    ClearBlogPostTopicsUseCase, CreateBlogPostUseCase, DetachBlogPostTopicUseCase,
+    GetBlogPostTopicsUseCase, GetBlogPostsUseCase, GetPublicBlogPostUseCase,
+    GetPublicBlogPostsUseCase, GetSingleBlogPostUseCase, HardDeleteBlogPostUseCase,
+    PatchBlogPostUseCase, RestoreBlogPostUseCase, SlugAvailableUseCase,
 };
 
 /// Bundles the blog use cases so `AppState` gains one field rather than
@@ -40,4 +40,6 @@ pub struct BlogUseCases {
     pub slug_available: Arc<dyn SlugAvailableUseCase + Send + Sync>,
     /// The [`GetBlogPostTopicsUseCase`] implementation.
     pub get_topics: Arc<dyn GetBlogPostTopicsUseCase + Send + Sync>,
+    /// The [`BulkBlogPostsUseCase`] implementation.
+    pub bulk: Arc<dyn BulkBlogPostsUseCase + Send + Sync>,
 }

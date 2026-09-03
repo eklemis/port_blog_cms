@@ -1,14 +1,16 @@
 use std::sync::Arc;
 
 use crate::multimedia::application::ports::incoming::use_cases::{
-    CreateUploadMediaUrlUseCase, DeleteMediaUseCase, GetMediaStatusesUseCase, GetMediaUsageUseCase,
-    GetMediaUseCase, GetPublicVariantUrlUseCase, GetVariantReadUrlUseCase, HardDeleteMediaUseCase,
-    ListMediaUseCase, PatchMediaUseCase, RestoreMediaUseCase,
+    BulkMediaUseCase, CreateUploadMediaUrlUseCase, DeleteMediaUseCase, GetMediaStatusesUseCase,
+    GetMediaUsageUseCase, GetMediaUseCase, GetPublicVariantUrlUseCase, GetVariantReadUrlUseCase,
+    HardDeleteMediaUseCase, ListMediaUseCase, PatchMediaUseCase, RestoreMediaUseCase,
 };
 
 /// This module's use cases, grouped for `AppState`.
 #[derive(Clone)]
 pub struct MultimediaUseCases {
+    /// The [`BulkMediaUseCase`] implementation.
+    pub bulk: Arc<dyn BulkMediaUseCase + Send + Sync>,
     /// The [`CreateUploadMediaUrlUseCase`] implementation.
     pub create_signed_post_url: Arc<dyn CreateUploadMediaUrlUseCase + Send + Sync>,
     /// The [`GetVariantReadUrlUseCase`] implementation.

@@ -4,6 +4,7 @@ mod blog_post_archiver;
 mod blog_post_query;
 mod blog_post_repository;
 mod blog_post_topic_repository;
+mod draft_preview_store;
 
 pub use blog_post_archiver::{BlogPostArchiver, BlogPostArchiverError};
 pub use blog_post_query::{
@@ -15,3 +16,6 @@ pub use blog_post_repository::{
     PatchBlogPostData,
 };
 pub use blog_post_topic_repository::{BlogPostTopicRepository, BlogPostTopicRepositoryError};
+pub use draft_preview_store::{
+    DraftPreview, DraftPreviewStore, DraftPreviewStoreError, LivePreview,
+};

@@ -1,4 +1,5 @@
 mod add_project_topic;
+mod bulk_projects;
 mod clear_project_topics;
 mod create_project;
 mod get_project_topics;
@@ -16,6 +17,7 @@ mod soft_delete_project;
 // Glob re-exports carry the hidden `__path_<handler>` structs that
 // `#[utoipa::path]` generates alongside each handler; `ApiDoc` needs them.
 pub use add_project_topic::*;
+pub use bulk_projects::*;
 pub use clear_project_topics::*;
 pub use create_project::*;
 pub use get_project_topics::*;

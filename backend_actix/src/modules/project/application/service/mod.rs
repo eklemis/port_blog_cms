@@ -1,4 +1,5 @@
 mod add_project_topic_service;
+mod bulk_service;
 mod clear_project_topics_service;
 mod create_project_service;
 mod get_project_topics_service;
@@ -10,6 +11,7 @@ mod patch_project_service;
 mod remove_project_topic_service;
 mod soft_delete_project_service;
 pub use add_project_topic_service::AddProjectTopicService;
+pub use bulk_service::BulkProjectsService;
 pub use clear_project_topics_service::ClearProjectTopicsService;
 pub use create_project_service::CreateProjectService;
 pub use get_project_topics_service::GetProjectTopicsService;

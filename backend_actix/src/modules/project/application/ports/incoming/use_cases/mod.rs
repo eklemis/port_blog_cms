@@ -27,3 +27,44 @@ mod slug_available;
 pub use slug_available::ProjectSlugAvailableUseCase;
 mod restore_project;
 pub use restore_project::{RestoreProjectError, RestoreProjectUseCase};
+
+/// One operation applied across many projects.
+///
+/// Tagged so that "attach, but no topic given" cannot be expressed — the
+/// request fails to deserialise rather than failing halfway through a batch.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, utoipa::ToSchema)]
+#[serde(tag = "op", rename_all = "snake_case")]
+pub enum ProjectBulkOp {
+    /// Hide each project. Reversible.
+    Archive,
+    /// Un-hide each project.
+    Restore,
+    /// Remove each project permanently.
+    HardDelete,
+    /// Link one topic to each project.
+    AttachTopic {
+        /// The topic to link.
+        topic_id: uuid::Uuid,
+    },
+    /// Remove one topic's link from each project.
+    DetachTopic {
+        /// The topic to unlink.
+        topic_id: uuid::Uuid,
+    },
+}
+
+/// Applies one operation to many projects, reporting per item.
+///
+/// Ownership is not re-checked here — each single-item use case this composes
+/// is already owner-scoped and answers `ProjectNotFound` for a project
+/// belonging to someone else.
+#[async_trait::async_trait]
+pub trait BulkProjectsUseCase: Send + Sync {
+    /// Runs the operation over `ids`, in order.
+    async fn execute(
+        &self,
+        owner: crate::auth::application::domain::entities::UserId,
+        op: ProjectBulkOp,
+        ids: Vec<uuid::Uuid>,
+    ) -> Result<crate::shared::api::BulkOutcome, crate::shared::api::BulkRequestError>;
+}

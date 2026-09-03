@@ -91,6 +91,7 @@ use crate::modules::email::application::ports::outgoing::password_reset_notifier
 use crate::modules::email::application::ports::outgoing::user_email_notifier::UserEmailNotifier;
 use crate::modules::multimedia::adapter::outgoing::db::AvatarLoaderPostgres;
 
+use crate::modules::blog::application::blog_preview_use_cases::BlogPreviewUseCases;
 use crate::modules::blog::application::blog_use_cases::BlogUseCases;
 use crate::modules::multimedia::application::domain::policies::upload_policy::UploadPolicy;
 use crate::modules::multimedia::application::media_use_cases::MultimediaUseCases;
@@ -188,6 +189,8 @@ pub struct AppState {
     pub soft_delete_topic_use_case: Arc<dyn SoftDeleteTopicUseCase + Send + Sync>,
     /// Blog's use cases, grouped.
     pub blog: BlogUseCases,
+    /// The draft-preview use cases.
+    pub blog_preview: BlogPreviewUseCases,
     /// Project's use cases, grouped.
     pub project: ProjectUseCases,
     /// Multimedia's use cases, grouped.
@@ -221,14 +224,20 @@ pub async fn start() -> std::io::Result<()> {
         blog::{
             adapter::outgoing::{
                 BlogPostArchiverPostgres, BlogPostQueryPostgres, BlogPostRepositoryPostgres,
-                BlogPostTopicRepositoryPostgres,
+                BlogPostTopicRepositoryPostgres, DraftPreviewStorePostgres,
+            },
+            application::ports::incoming::use_cases::{
+                ArchiveBlogPostUseCase, AttachBlogPostTopicUseCase, DetachBlogPostTopicUseCase,
+                HardDeleteBlogPostUseCase, RestoreBlogPostUseCase,
             },
             application::service::{
-                ArchiveBlogPostService, AttachBlogPostTopicService, ClearBlogPostTopicsService,
-                CreateBlogPostService, DetachBlogPostTopicService, GetBlogPostTopicsService,
-                GetBlogPostsService, GetPublicBlogPostService, GetPublicBlogPostsService,
-                GetSingleBlogPostService, HardDeleteBlogPostService, PatchBlogPostService,
-                RestoreBlogPostService, SlugAvailableService,
+                ArchiveBlogPostService, AttachBlogPostTopicService, BulkBlogPostsService,
+                ClearBlogPostTopicsService, CreateBlogPostService, DetachBlogPostTopicService,
+                GetBlogPostTopicsService, GetBlogPostsService, GetDraftPreviewService,
+                GetPublicBlogPostService, GetPublicBlogPostsService, GetSingleBlogPostService,
+                HardDeleteBlogPostService, PatchBlogPostService, ReadDraftPreviewService,
+                RestoreBlogPostService, RevokeDraftPreviewService, ShareDraftService,
+                SlugAvailableService,
             },
         },
         cv::{
@@ -244,8 +253,11 @@ pub async fn start() -> std::io::Result<()> {
                 db::{MediaQueryPostgres, MediaRepositoryPostgres},
             },
             application::ports::incoming::services::{
-                CreateUploadMediaUrlService, DeleteMediaService, GetMediaService,
+                BulkMediaService, CreateUploadMediaUrlService, DeleteMediaService, GetMediaService,
                 GetVariantReadUrlService, ListMediaService,
+            },
+            application::ports::incoming::use_cases::{
+                DeleteMediaUseCase, HardDeleteMediaUseCase, RestoreMediaUseCase,
             },
         },
         project::{
@@ -253,12 +265,16 @@ pub async fn start() -> std::io::Result<()> {
                 ProjectArchiverPostgres, ProjectQueryPostgres, ProjectRepositoryPostgres,
                 ProjectTopicRepositoryPostgres,
             },
+            application::ports::incoming::use_cases::{
+                AddProjectTopicUseCase, HardDeleteProjectUseCase, RemoveProjectTopicUseCase,
+                RestoreProjectUseCase, SoftDeleteProjectUseCase,
+            },
             application::service::{
-                AddProjectTopicService, ClearProjectTopicsService, CreateProjectService,
-                GetProjectTopicsService, GetProjectsService, GetPublicSingleProjectService,
-                GetSingleProjectService, HardDeleteProjectService, PatchProjectService,
-                ProjectSlugAvailableService, RemoveProjectTopicService, RestoreProjectService,
-                SoftDeleteProjectService,
+                AddProjectTopicService, BulkProjectsService, ClearProjectTopicsService,
+                CreateProjectService, GetProjectTopicsService, GetProjectsService,
+                GetPublicSingleProjectService, GetSingleProjectService, HardDeleteProjectService,
+                PatchProjectService, ProjectSlugAvailableService, RemoveProjectTopicService,
+                RestoreProjectService, SoftDeleteProjectService,
             },
         },
         topic::{
@@ -468,6 +484,20 @@ pub async fn start() -> std::io::Result<()> {
     let blog_archiver = BlogPostArchiverPostgres::new(Arc::clone(&db_arc));
     let blog_topic_repo = BlogPostTopicRepositoryPostgres::new(Arc::clone(&db_arc));
 
+    // Built as named Arcs because the bulk use case fans out to these same
+    // instances rather than constructing its own — one implementation of the
+    // ownership rules, exercised by both the single and the batch routes.
+    let blog_archive: Arc<dyn ArchiveBlogPostUseCase + Send + Sync> =
+        Arc::new(ArchiveBlogPostService::new(blog_archiver.clone()));
+    let blog_restore: Arc<dyn RestoreBlogPostUseCase + Send + Sync> =
+        Arc::new(RestoreBlogPostService::new(blog_archiver.clone()));
+    let blog_hard_delete: Arc<dyn HardDeleteBlogPostUseCase + Send + Sync> =
+        Arc::new(HardDeleteBlogPostService::new(blog_archiver));
+    let blog_attach_topic: Arc<dyn AttachBlogPostTopicUseCase + Send + Sync> =
+        Arc::new(AttachBlogPostTopicService::new(blog_topic_repo.clone()));
+    let blog_detach_topic: Arc<dyn DetachBlogPostTopicUseCase + Send + Sync> =
+        Arc::new(DetachBlogPostTopicService::new(blog_topic_repo.clone()));
+
     let blog_use_cases = BlogUseCases {
         slug_available: Arc::new(SlugAvailableService::new(blog_query.clone())),
         create: Arc::new(CreateBlogPostService::new(blog_repo.clone())),
@@ -476,13 +506,32 @@ pub async fn start() -> std::io::Result<()> {
         get_single: Arc::new(GetSingleBlogPostService::new(blog_query.clone())),
         get_public: Arc::new(GetPublicBlogPostService::new(blog_query.clone())),
         patch: Arc::new(PatchBlogPostService::new(blog_repo)),
-        archive: Arc::new(ArchiveBlogPostService::new(blog_archiver.clone())),
-        restore: Arc::new(RestoreBlogPostService::new(blog_archiver.clone())),
-        hard_delete: Arc::new(HardDeleteBlogPostService::new(blog_archiver)),
-        attach_topic: Arc::new(AttachBlogPostTopicService::new(blog_topic_repo.clone())),
-        detach_topic: Arc::new(DetachBlogPostTopicService::new(blog_topic_repo.clone())),
+        bulk: Arc::new(BulkBlogPostsService::new(
+            Arc::clone(&blog_archive),
+            Arc::clone(&blog_restore),
+            Arc::clone(&blog_hard_delete),
+            Arc::clone(&blog_attach_topic),
+            Arc::clone(&blog_detach_topic),
+        )),
+        archive: blog_archive,
+        restore: blog_restore,
+        hard_delete: blog_hard_delete,
+        attach_topic: blog_attach_topic,
+        detach_topic: blog_detach_topic,
         clear_topics: Arc::new(ClearBlogPostTopicsService::new(blog_topic_repo)),
         get_topics: Arc::new(GetBlogPostTopicsService::new(blog_query)),
+    };
+
+    let preview_store = DraftPreviewStorePostgres::new(Arc::clone(&db_arc));
+    let blog_preview_use_cases = BlogPreviewUseCases {
+        share: Arc::new(ShareDraftService::new(preview_store.clone())),
+        get: Arc::new(GetDraftPreviewService::new(preview_store.clone())),
+        revoke: Arc::new(RevokeDraftPreviewService::new(preview_store.clone())),
+        read: Arc::new(ReadDraftPreviewService::new(
+            preview_store,
+            BlogPostQueryPostgres::new(Arc::clone(&db_arc)),
+            UserQueryPostgres::new(Arc::clone(&db_arc)),
+        )),
     };
 
     // Project use cases, repos and query
@@ -503,20 +552,39 @@ pub async fn start() -> std::io::Result<()> {
     let hard_delete_project_uc = HardDeleteProjectService::new(project_archiver.clone());
     let soft_delete_project_uc = SoftDeleteProjectService::new(project_archiver.clone());
 
+    // Named Arcs so the bulk use case fans out to these same instances — one
+    // implementation of the ownership rules, exercised by both routes.
+    let project_restore: Arc<dyn RestoreProjectUseCase + Send + Sync> =
+        Arc::new(RestoreProjectService::new(project_archiver.clone()));
+    let project_hard_delete: Arc<dyn HardDeleteProjectUseCase + Send + Sync> =
+        Arc::new(hard_delete_project_uc);
+    let project_soft_delete: Arc<dyn SoftDeleteProjectUseCase + Send + Sync> =
+        Arc::new(soft_delete_project_uc);
+    let project_add_topic: Arc<dyn AddProjectTopicUseCase + Send + Sync> = Arc::new(add_topic_uc);
+    let project_remove_topic: Arc<dyn RemoveProjectTopicUseCase + Send + Sync> =
+        Arc::new(remove_topic_uc);
+
     let project_use_cases = ProjectUseCases {
-        restore: Arc::new(RestoreProjectService::new(project_archiver.clone())),
+        bulk: Arc::new(BulkProjectsService::new(
+            Arc::clone(&project_soft_delete),
+            Arc::clone(&project_restore),
+            Arc::clone(&project_hard_delete),
+            Arc::clone(&project_add_topic),
+            Arc::clone(&project_remove_topic),
+        )),
+        restore: project_restore,
         slug_available: Arc::new(ProjectSlugAvailableService::new(project_query.clone())),
         create: Arc::new(create_project_uc),
-        hard_delete: Arc::new(hard_delete_project_uc),
-        soft_delete: Arc::new(soft_delete_project_uc),
+        hard_delete: project_hard_delete,
+        soft_delete: project_soft_delete,
         patch: Arc::new(patch_project_uc),
         get_list: Arc::new(get_project_uc),
         get_single: Arc::new(get_single_project_uc),
         get_public_single: Arc::new(get_public_single_project_uc),
 
-        add_topic: Arc::new(add_topic_uc),
+        add_topic: project_add_topic,
         get_topics: Arc::new(get_project_topics_uc),
-        remove_topic: Arc::new(remove_topic_uc),
+        remove_topic: project_remove_topic,
         clear_topics: Arc::new(clear_topics_uc),
     };
 
@@ -538,17 +606,27 @@ pub async fn start() -> std::io::Result<()> {
     let get_media_statuses = GetMediaStatusesService::new(media_query.clone());
     let get_media_uc = GetMediaService::new(media_query.clone());
     let list_media = ListMediaService::new(media_query);
+    let media_archive: Arc<dyn DeleteMediaUseCase + Send + Sync> = Arc::new(delete_media_uc);
+    let media_restore: Arc<dyn RestoreMediaUseCase + Send + Sync> = Arc::new(restore_media);
+    let media_hard_delete: Arc<dyn HardDeleteMediaUseCase + Send + Sync> =
+        Arc::new(hard_delete_media);
+
     let media_use_cases = MultimediaUseCases {
+        bulk: Arc::new(BulkMediaService::new(
+            Arc::clone(&media_archive),
+            Arc::clone(&media_restore),
+            Arc::clone(&media_hard_delete),
+        )),
         create_signed_post_url: Arc::new(create_upload_media_signed_url),
         create_signed_get_url: Arc::new(create_variant_get_url),
         get_public_variant_url: Arc::new(public_variant_url),
         patch_media: Arc::new(patch_media),
-        restore_media: Arc::new(restore_media),
-        hard_delete_media: Arc::new(hard_delete_media),
+        restore_media: media_restore,
+        hard_delete_media: media_hard_delete,
         get_media_usage: Arc::new(get_media_usage),
         get_media_statuses: Arc::new(get_media_statuses),
         list_media: Arc::new(list_media),
-        delete_media: Arc::new(delete_media_uc),
+        delete_media: media_archive,
         get_media: Arc::new(get_media_uc),
     };
     let image_upload_policy = UploadPolicy::from_env();
@@ -581,6 +659,7 @@ pub async fn start() -> std::io::Result<()> {
         patch_topic_use_case: Arc::new(patch_topic_uc),
         soft_delete_topic_use_case: Arc::new(soft_delete_topic_uc),
         blog: blog_use_cases,
+        blog_preview: blog_preview_use_cases,
         project: project_use_cases,
         multimedia: media_use_cases,
         user_identity_resolver: identity_resolver,
@@ -696,6 +775,13 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::blog::adapter::incoming::web::routes::patch_blog_post_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::archive_blog_post_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::restore_blog_post_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::bulk_blog_posts_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::share_draft_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::get_draft_preview_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::revoke_draft_preview_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::read_draft_preview_handler);
+    cfg.service(crate::project::adapter::incoming::web::routes::bulk_projects_handler);
+    cfg.service(crate::multimedia::adapter::incoming::web::routes::bulk_media_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::hard_delete_blog_post_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::attach_blog_post_topic_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::detach_blog_post_topic_handler);
