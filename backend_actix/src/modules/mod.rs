@@ -3,6 +3,8 @@
 pub mod auth;
 /// Blog posts, their publication lifecycle and their topic links.
 pub mod blog;
+/// Job postings, applications, and what happened to them.
+pub mod career;
 /// CVs, including the public read views.
 pub mod cv;
 /// Verification and password-reset mail. A support module: no routes.

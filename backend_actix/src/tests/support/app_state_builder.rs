@@ -644,6 +644,18 @@ impl TestAppStateBuilder {
     }
     pub fn build(self) -> web::Data<AppState> {
         web::Data::new(AppState {
+            career: crate::career::application::career_use_cases::CareerUseCases {
+                create_job: Arc::new(StubCareer),
+                list_jobs: Arc::new(StubCareer),
+                get_job: Arc::new(StubCareer),
+                patch_job: Arc::new(StubCareer),
+                archive_job: Arc::new(StubCareer),
+                create_application: Arc::new(StubCareer),
+                list_applications: Arc::new(StubCareer),
+                get_application: Arc::new(StubCareer),
+                patch_application: Arc::new(StubCareer),
+                archive_application: Arc::new(StubCareer),
+            },
             cv_snapshot: crate::cv::application::cv_snapshot_use_cases::CvSnapshotUseCases {
                 create: Arc::new(StubCvSnapshot),
                 get: Arc::new(StubCvSnapshot),

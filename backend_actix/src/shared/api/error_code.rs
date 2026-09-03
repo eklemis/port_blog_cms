@@ -123,6 +123,10 @@ error_codes! {
         "No topic matches the given id.";
     "Not found" | MediaNotFound       => "MEDIA_NOT_FOUND", NOT_FOUND,
         "No media item matches the given id.";
+    "Not found" | JobNotFound         => "JOB_NOT_FOUND", NOT_FOUND,
+        "No job posting matched the id, or it belongs to another user.";
+    "Not found" | ApplicationNotFound => "APPLICATION_NOT_FOUND", NOT_FOUND,
+        "No application matched the id, or it belongs to another user.";
     "Not found" | VariantNotFound     => "VARIANT_NOT_FOUND", NOT_FOUND,
         "The media item exists but not in the requested size.";
     "Not found" | TargetNotFound      => "TARGET_NOT_FOUND", BAD_REQUEST,
@@ -147,6 +151,8 @@ error_codes! {
         "A bulk request carried more ids than the endpoint accepts in one call.";
     "Request validation" | BulkEmpty           => "BULK_EMPTY", BAD_REQUEST,
         "A bulk request carried no ids. Guard the control rather than calling with an empty selection.";
+    "Request validation" | SnapshotRequired    => "SNAPSHOT_REQUIRED", BAD_REQUEST,
+        "An application cannot leave draft without a CV snapshot. Send cv_id so one can be taken.";
     "Request validation" | InvalidEmail        => "INVALID_EMAIL", BAD_REQUEST,
         "The email address is not well formed.";
     "Request validation" | InvalidPassword     => "INVALID_PASSWORD", BAD_REQUEST,
