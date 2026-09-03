@@ -14,6 +14,7 @@ pub use draft_preview_services::{
 };
 pub use lifecycle_services::{
     ArchiveBlogPostService, HardDeleteBlogPostService, RestoreBlogPostService,
+    UnpublishBlogPostService,
 };
 pub use patch_blog_post_service::PatchBlogPostService;
 pub use query_services::{

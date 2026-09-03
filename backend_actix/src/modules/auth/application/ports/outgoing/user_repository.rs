@@ -41,6 +41,8 @@ pub struct UserResult {
     pub full_name: String,
     /// The stored public bio, if the user has written one.
     pub bio: Option<String>,
+    /// The stored interface language.
+    pub locale: String,
 }
 
 /// Why a user write failed.
@@ -103,6 +105,7 @@ pub trait UserRepository: Send + Sync {
         user_id: Uuid,
         full_name: String,
         bio: Option<Option<String>>,
+        locale: Option<String>,
     ) -> Result<UserResult, UserRepositoryError>;
 
     /// Replaces the user's display name.

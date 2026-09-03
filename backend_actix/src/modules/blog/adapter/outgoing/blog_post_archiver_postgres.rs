@@ -47,6 +47,19 @@ impl BlogPostArchiverPostgres {
 
 #[async_trait]
 impl BlogPostArchiver for BlogPostArchiverPostgres {
+    async fn unpublish(&self, owner: UserId, post_id: Uuid) -> Result<(), BlogPostArchiverError> {
+        // No `AND published_at IS NOT NULL`: unpublishing a draft is a
+        // success, not a miss, so the only reason to touch no rows is that the
+        // post does not exist or is not the caller's.
+        self.exec_scoped(
+            r#"UPDATE blog_posts SET published_at = NULL, updated_at = NOW()
+               WHERE id = $1 AND user_id = $2 AND is_deleted = false"#,
+            owner,
+            post_id,
+        )
+        .await
+    }
+
     async fn soft_delete(&self, owner: UserId, post_id: Uuid) -> Result<(), BlogPostArchiverError> {
         self.exec_scoped(
             r#"UPDATE blog_posts SET is_deleted = true, updated_at = NOW()

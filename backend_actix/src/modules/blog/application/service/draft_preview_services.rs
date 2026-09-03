@@ -427,6 +427,7 @@ mod tests {
                 updated_at: Utc::now(),
                 is_verified: true,
                 is_deleted: false,
+                locale: "en".to_string(),
             }))
         }
         async fn find_by_email(&self, _e: &str) -> Result<Option<UserQueryResult>, UserQueryError> {

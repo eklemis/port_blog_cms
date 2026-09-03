@@ -194,6 +194,7 @@ mod tests {
             user_id: Uuid,
             full_name: String,
             _bio: Option<Option<String>>,
+            _locale: Option<String>,
         ) -> Result<UserResult, UserRepositoryError> {
             self.set_full_name(user_id, full_name).await
         }
@@ -273,6 +274,7 @@ mod tests {
             user_id: Uuid,
             full_name: String,
             _bio: Option<Option<String>>,
+            _locale: Option<String>,
         ) -> Result<UserResult, UserRepositoryError> {
             self.set_full_name(user_id, full_name).await
         }

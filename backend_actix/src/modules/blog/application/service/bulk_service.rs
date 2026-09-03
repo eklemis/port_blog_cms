@@ -14,7 +14,7 @@ use crate::auth::application::domain::entities::UserId;
 use crate::blog::application::ports::incoming::use_cases::{
     ArchiveBlogPostError, ArchiveBlogPostUseCase, AttachBlogPostTopicUseCase, BlogBulkOp,
     BlogPostTopicError, BulkBlogPostsUseCase, DetachBlogPostTopicUseCase,
-    HardDeleteBlogPostUseCase, RestoreBlogPostUseCase,
+    HardDeleteBlogPostUseCase, RestoreBlogPostUseCase, UnpublishBlogPostUseCase,
 };
 use crate::shared::api::{prepare_ids, BulkOutcome, BulkRequestError, ErrorCode};
 
@@ -23,6 +23,7 @@ pub struct BulkBlogPostsService {
     archive: Arc<dyn ArchiveBlogPostUseCase + Send + Sync>,
     restore: Arc<dyn RestoreBlogPostUseCase + Send + Sync>,
     hard_delete: Arc<dyn HardDeleteBlogPostUseCase + Send + Sync>,
+    unpublish: Arc<dyn UnpublishBlogPostUseCase + Send + Sync>,
     attach_topic: Arc<dyn AttachBlogPostTopicUseCase + Send + Sync>,
     detach_topic: Arc<dyn DetachBlogPostTopicUseCase + Send + Sync>,
 }
@@ -33,6 +34,7 @@ impl BulkBlogPostsService {
         archive: Arc<dyn ArchiveBlogPostUseCase + Send + Sync>,
         restore: Arc<dyn RestoreBlogPostUseCase + Send + Sync>,
         hard_delete: Arc<dyn HardDeleteBlogPostUseCase + Send + Sync>,
+        unpublish: Arc<dyn UnpublishBlogPostUseCase + Send + Sync>,
         attach_topic: Arc<dyn AttachBlogPostTopicUseCase + Send + Sync>,
         detach_topic: Arc<dyn DetachBlogPostTopicUseCase + Send + Sync>,
     ) -> Self {
@@ -40,6 +42,7 @@ impl BulkBlogPostsService {
             archive,
             restore,
             hard_delete,
+            unpublish,
             attach_topic,
             detach_topic,
         }
@@ -90,6 +93,11 @@ impl BulkBlogPostsUseCase for BulkBlogPostsService {
                     .map_err(lifecycle_failure),
                 BlogBulkOp::HardDelete => self
                     .hard_delete
+                    .execute(owner, id)
+                    .await
+                    .map_err(lifecycle_failure),
+                BlogBulkOp::Unpublish => self
+                    .unpublish
                     .execute(owner, id)
                     .await
                     .map_err(lifecycle_failure),
@@ -168,6 +176,12 @@ mod tests {
         }
     }
     #[async_trait]
+    impl UnpublishBlogPostUseCase for SpyOp {
+        async fn execute(&self, _o: UserId, id: Uuid) -> Result<(), ArchiveBlogPostError> {
+            self.lifecycle(id)
+        }
+    }
+    #[async_trait]
     impl AttachBlogPostTopicUseCase for SpyOp {
         async fn execute(
             &self,
@@ -195,6 +209,7 @@ mod tests {
             Arc::clone(&spy) as Arc<dyn ArchiveBlogPostUseCase + Send + Sync>,
             Arc::clone(&spy) as Arc<dyn RestoreBlogPostUseCase + Send + Sync>,
             Arc::clone(&spy) as Arc<dyn HardDeleteBlogPostUseCase + Send + Sync>,
+            Arc::clone(&spy) as Arc<dyn UnpublishBlogPostUseCase + Send + Sync>,
             Arc::clone(&spy) as Arc<dyn AttachBlogPostTopicUseCase + Send + Sync>,
             spy as Arc<dyn DetachBlogPostTopicUseCase + Send + Sync>,
         )
@@ -336,5 +351,19 @@ mod tests {
 
         assert_eq!(outcome.succeeded, vec![id]);
         assert_eq!(spy.seen.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn unpublish_is_applied_per_post_and_reported() {
+        let ids: Vec<Uuid> = (0..2).map(|_| Uuid::new_v4()).collect();
+        let spy = Arc::new(SpyOp::default());
+
+        let outcome = service(Arc::clone(&spy))
+            .execute(owner(), BlogBulkOp::Unpublish, ids.clone())
+            .await
+            .unwrap();
+
+        assert_eq!(outcome.succeeded, ids);
+        assert_eq!(spy.seen.lock().unwrap().len(), 2);
     }
 }

@@ -241,7 +241,7 @@ pub async fn start() -> std::io::Result<()> {
             },
             application::ports::incoming::use_cases::{
                 ArchiveBlogPostUseCase, AttachBlogPostTopicUseCase, DetachBlogPostTopicUseCase,
-                HardDeleteBlogPostUseCase, RestoreBlogPostUseCase,
+                HardDeleteBlogPostUseCase, RestoreBlogPostUseCase, UnpublishBlogPostUseCase,
             },
             application::service::{
                 ArchiveBlogPostService, AttachBlogPostTopicService, BulkBlogPostsService,
@@ -250,7 +250,7 @@ pub async fn start() -> std::io::Result<()> {
                 GetPublicBlogPostService, GetPublicBlogPostsService, GetSingleBlogPostService,
                 HardDeleteBlogPostService, PatchBlogPostService, ReadDraftPreviewService,
                 ReadPreviewMediaService, RestoreBlogPostService, RevokeDraftPreviewService,
-                ShareDraftService, SlugAvailableService,
+                ShareDraftService, SlugAvailableService, UnpublishBlogPostService,
             },
         },
         career::{
@@ -511,7 +511,9 @@ pub async fn start() -> std::io::Result<()> {
     let blog_restore: Arc<dyn RestoreBlogPostUseCase + Send + Sync> =
         Arc::new(RestoreBlogPostService::new(blog_archiver.clone()));
     let blog_hard_delete: Arc<dyn HardDeleteBlogPostUseCase + Send + Sync> =
-        Arc::new(HardDeleteBlogPostService::new(blog_archiver));
+        Arc::new(HardDeleteBlogPostService::new(blog_archiver.clone()));
+    let blog_unpublish: Arc<dyn UnpublishBlogPostUseCase + Send + Sync> =
+        Arc::new(UnpublishBlogPostService::new(blog_archiver));
     let blog_attach_topic: Arc<dyn AttachBlogPostTopicUseCase + Send + Sync> =
         Arc::new(AttachBlogPostTopicService::new(blog_topic_repo.clone()));
     let blog_detach_topic: Arc<dyn DetachBlogPostTopicUseCase + Send + Sync> =
@@ -529,6 +531,7 @@ pub async fn start() -> std::io::Result<()> {
             Arc::clone(&blog_archive),
             Arc::clone(&blog_restore),
             Arc::clone(&blog_hard_delete),
+            Arc::clone(&blog_unpublish),
             Arc::clone(&blog_attach_topic),
             Arc::clone(&blog_detach_topic),
         )),

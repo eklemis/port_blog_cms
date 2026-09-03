@@ -613,6 +613,7 @@ impl FetchUserProfileUseCase for StubFetchUserProfileUseCase {
             username: "stubuser".to_string(),
             full_name: "Stub User".to_string(),
             bio: None,
+            locale: "en".to_string(),
         })
     }
 }
@@ -629,6 +630,7 @@ impl UpdateUserProfileUseCase for StubUpdateUserProfileUseCase {
             username: "stubuser".to_string(),
             full_name: data.full_name,
             bio: None,
+            locale: "en".to_string(),
         })
     }
 }
