@@ -64,6 +64,48 @@ impl MediaQueryPostgres {
         })
     }
 
+    /// Same columns as [`find_public_variant_stmt`](Self::find_public_variant_stmt),
+    /// but keyed on the attachment instead of on publication state.
+    ///
+    /// The caller has already proved it may read `attachable_id` — for the
+    /// draft preview, by holding a live token for that post. What this clause
+    /// adds is that the capability reaches **only that post's own media**: a
+    /// token for one draft cannot be pointed at an arbitrary media id.
+    fn find_variant_attached_to_stmt(
+        media_id: Uuid,
+        size: &str,
+        attachable_type: &str,
+        attachable_id: Uuid,
+    ) -> Statement {
+        Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            r#"
+            SELECT
+                v.bucket_name,
+                v.object_key,
+                v.mime_type,
+                v.file_size_bytes,
+                v.width,
+                v.height
+            FROM media_variants v
+            JOIN media m             ON m.id = v.media_id
+            JOIN media_attachments a ON a.media_id = v.media_id
+            WHERE v.media_id = $1
+              AND v.variant_type = $2
+              AND m.deleted_at IS NULL
+              AND a.attachable_type = $3
+              AND a.attachable_id = $4
+            LIMIT 1
+            "#,
+            vec![
+                media_id.into(),
+                size.into(),
+                attachable_type.into(),
+                attachable_id.into(),
+            ],
+        )
+    }
+
     fn find_public_variant_stmt(media_id: Uuid, size: &str) -> Statement {
         Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
@@ -329,6 +371,44 @@ impl MediaQuery for MediaQueryPostgres {
         size: MediaSize,
     ) -> Result<Option<StoredVariant>, MediaQueryError> {
         let stmt = Self::find_public_variant_stmt(media_id, &size.to_string());
+
+        let Some(row) = self.db.query_one(stmt).await.map_err(Self::map_db_err)? else {
+            return Ok(None);
+        };
+
+        let bucket_name: String = row.try_get("", "bucket_name").map_err(Self::map_db_err)?;
+        let object_key: String = row.try_get("", "object_key").map_err(Self::map_db_err)?;
+        let mime_type: String = row.try_get("", "mime_type").map_err(Self::map_db_err)?;
+        let file_size_bytes: i64 = row
+            .try_get("", "file_size_bytes")
+            .map_err(Self::map_db_err)?;
+        let width: i32 = row.try_get("", "width").map_err(Self::map_db_err)?;
+        let height: i32 = row.try_get("", "height").map_err(Self::map_db_err)?;
+
+        Ok(Some(StoredVariant {
+            size,
+            bucket_name,
+            object_name: object_key,
+            width: width as u32,
+            height: height as u32,
+            file_size_bytes: file_size_bytes as u64,
+            mime_type,
+        }))
+    }
+
+    async fn find_variant_attached_to(
+        &self,
+        media_id: Uuid,
+        size: MediaSize,
+        attachable_type: AttachmentTarget,
+        attachable_id: Uuid,
+    ) -> Result<Option<StoredVariant>, MediaQueryError> {
+        let stmt = Self::find_variant_attached_to_stmt(
+            media_id,
+            &size.to_string(),
+            &attachable_type.to_string(),
+            attachable_id,
+        );
 
         let Some(row) = self.db.query_one(stmt).await.map_err(Self::map_db_err)? else {
             return Ok(None);

@@ -89,6 +89,18 @@ mod tests {
 
     #[async_trait]
     impl crate::multimedia::application::ports::outgoing::db::MediaQuery for StubQuery {
+        async fn find_variant_attached_to(
+            &self,
+            _media_id: uuid::Uuid,
+            _size: crate::multimedia::application::domain::entities::MediaSize,
+            _attachable_type: crate::multimedia::application::domain::entities::AttachmentTarget,
+            _attachable_id: uuid::Uuid,
+        ) -> Result<
+            Option<crate::multimedia::application::ports::outgoing::db::StoredVariant>,
+            crate::multimedia::application::ports::outgoing::db::MediaQueryError,
+        > {
+            unimplemented!("not used in this test")
+        }
         async fn get_states(
             &self,
             _owner: crate::auth::application::domain::entities::UserId,

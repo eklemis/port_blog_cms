@@ -20,6 +20,7 @@ use crate::{
     blog::application::ports::incoming::use_cases::{
         DraftPreviewError, DraftPreviewState, PreviewResolution,
     },
+    multimedia::application::domain::entities::PublicMedia,
     shared::api::{ApiResponse, ErrorCode},
     AppState,
 };
@@ -42,6 +43,32 @@ pub struct DraftPreviewResponse {
     /// A client renders a draft with the component it already has.
     #[serde(flatten)]
     pub post: BlogPostDetailResponse,
+}
+
+/// Points a draft's images at the preview-scoped route.
+///
+/// The shared loader builds `/api/public/media/{id}/{size}`, which is correct
+/// everywhere else and wrong here: that route requires the post to be
+/// published, so on a draft every one of those paths 404s. Rewriting them to
+/// carry the token is what makes a preview's images load — and it keeps the
+/// token as the single thing authorising the draft, so revoking the link stops
+/// the images with it.
+fn rewrite_media_for_preview(media: Vec<PublicMedia>, token: &str) -> Vec<PublicMedia> {
+    media
+        .into_iter()
+        .map(|mut item| {
+            let media_id = item.media_id;
+            item.variants = item
+                .variants
+                .into_keys()
+                .map(|size| {
+                    let url = format!("/api/public/blog/preview/{token}/media/{media_id}/{size}");
+                    (size, url)
+                })
+                .collect();
+            item
+        })
+        .collect()
 }
 
 fn map_error(e: DraftPreviewError) -> HttpResponse {
@@ -223,14 +250,17 @@ pub async fn read_draft_preview_handler(
     path: web::Path<String>,
     data: web::Data<AppState>,
 ) -> impl Responder {
-    match data.blog_preview.read.execute(&path.into_inner()).await {
+    let token = path.into_inner();
+
+    match data.blog_preview.read.execute(&token).await {
         Ok(PreviewResolution::Draft(view)) => {
+            let view = *view;
             let body = DraftPreviewResponse {
                 preview: true,
                 post: BlogPostDetailResponse::public(
                     view.post.into(),
                     view.topics.into_iter().map(Into::into).collect(),
-                    view.media,
+                    rewrite_media_for_preview(view.media, &token),
                 ),
             };
 
@@ -246,6 +276,63 @@ pub async fn read_draft_preview_handler(
             // Not cached: the post could be unpublished again, and a cached
             // redirect would strand the reviewer on a 404.
             .insert_header((header::CACHE_CONTROL, "no-store"))
+            .finish(),
+        Err(e) => map_error(e),
+    }
+}
+
+/// Read an image on a previewed draft
+///
+/// Public: the token authorises it, exactly as it authorises the post itself.
+/// Redirects to a freshly signed URL, like the ordinary public media route.
+///
+/// This route exists because the public one deliberately refuses media on an
+/// unpublished post — which is right for the public, and would leave every
+/// image in a preview broken. The token is checked per image, so revoking the
+/// link stops the pictures as well as the prose.
+///
+/// A media id that belongs to a different post is a 404, the same as a dead
+/// token: a preview link opens one draft, not the media table.
+#[utoipa::path(
+    get,
+    path = "/api/public/blog/preview/{token}/media/{media_id}/{size}",
+    tag = "blog",
+    params(
+        ("token" = String, Path, description = "The preview token from the shared link"),
+        ("media_id" = Uuid, Path, description = "Media item on that draft"),
+        ("size" = String, Path, description = "thumbnail | small | medium | large")
+    ),
+    responses(
+        (status = 302, description = "Location carries a freshly signed URL"),
+        (
+            status = 404,
+            description = "Dead token, media on another post, or a variant that does not exist yet",
+            body = ErrorResponse
+        ),
+    )
+)]
+#[get("/api/public/blog/preview/{token}/media/{media_id}/{size}")]
+pub async fn read_preview_media_handler(
+    path: web::Path<(String, Uuid, String)>,
+    data: web::Data<AppState>,
+) -> impl Responder {
+    let (token, media_id, size) = path.into_inner();
+
+    match data
+        .blog_preview
+        .read_media
+        .execute(&token, media_id, &size)
+        .await
+    {
+        Ok(url) => HttpResponse::Found()
+            .insert_header((header::LOCATION, url))
+            // The signature is short-lived and the draft is still changing, so
+            // this must not be cached the way a published post's redirect is.
+            .insert_header((header::CACHE_CONTROL, "no-store"))
+            .insert_header((
+                header::HeaderName::from_static("x-robots-tag"),
+                header::HeaderValue::from_static("noindex, nofollow"),
+            ))
             .finish(),
         Err(e) => map_error(e),
     }
@@ -364,5 +451,91 @@ mod tests {
         let resp = call(Err(DraftPreviewError::PostNotFound)).await;
 
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+
+    // ------------------------------------------------------------------
+    // The defect this route exists for
+    // ------------------------------------------------------------------
+
+    fn a_draft_with_a_cover(media_id: Uuid) -> PreviewResolution {
+        PreviewResolution::Draft(Box::new(BlogPostView {
+            post: BlogPost {
+                id: Uuid::new_v4(),
+                user_id: Uuid::new_v4(),
+                title: "Work in progress".into(),
+                slug: "wip".into(),
+                excerpt: None,
+                content: "body".into(),
+                published_at: None,
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
+            },
+            topics: vec![],
+            media: vec![PublicMedia {
+                media_id,
+                alt_text: "A hen".into(),
+                caption: String::new(),
+                role: "cover".into(),
+                position: 0,
+                variants: [
+                    (
+                        "thumbnail".to_string(),
+                        format!("/api/public/media/{media_id}/thumbnail"),
+                    ),
+                    (
+                        "large".to_string(),
+                        format!("/api/public/media/{media_id}/large"),
+                    ),
+                ]
+                .into_iter()
+                .collect(),
+            }],
+        }))
+    }
+
+    /// The bug: the shared loader builds `/api/public/media/...`, and that
+    /// route refuses media on an unpublished post — so a preview used to serve
+    /// a cover that 404s for the person holding the link. Pinning the prefix
+    /// is what stops it regressing the next time the payload is rebuilt.
+    #[actix_web::test]
+    async fn a_previewed_draft_points_its_images_at_the_preview_route() {
+        let media_id = Uuid::new_v4();
+        let (_, body) = {
+            let resp = call(Ok(a_draft_with_a_cover(media_id))).await;
+            let status = resp.status();
+            (
+                status,
+                test::read_body_json::<serde_json::Value, _>(resp).await,
+            )
+        };
+
+        let thumb = body["data"]["cover"]["variants"]["thumbnail"]
+            .as_str()
+            .expect("the cover must carry a thumbnail URL");
+
+        assert_eq!(
+            thumb,
+            format!("/api/public/blog/preview/sometoken/media/{media_id}/thumbnail")
+        );
+        assert!(
+            !thumb.starts_with("/api/public/media/"),
+            "the public path 404s on a draft — that was the bug: {thumb}"
+        );
+    }
+
+    #[actix_web::test]
+    async fn every_size_is_rewritten_not_just_the_first() {
+        let media_id = Uuid::new_v4();
+        let resp = call(Ok(a_draft_with_a_cover(media_id))).await;
+        let body: serde_json::Value = test::read_body_json(resp).await;
+
+        let variants = body["data"]["cover"]["variants"].as_object().unwrap();
+        assert_eq!(variants.len(), 2);
+        for (size, url) in variants {
+            assert_eq!(
+                url.as_str().unwrap(),
+                format!("/api/public/blog/preview/sometoken/media/{media_id}/{size}")
+            );
+        }
     }
 }

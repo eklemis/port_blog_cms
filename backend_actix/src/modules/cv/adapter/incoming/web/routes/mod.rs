@@ -1,4 +1,5 @@
 mod create_single_cv;
+mod cv_snapshots;
 mod get_cvs;
 mod get_public_single_cv;
 mod get_single_cv;
@@ -16,6 +17,7 @@ mod update_single_cv;
 // The request DTOs these modules used to duplicate now live in
 // `cv::adapter::incoming::web::dto`, so globbing no longer creates ambiguity.
 pub use create_single_cv::*;
+pub use cv_snapshots::*;
 pub use get_cvs::*;
 pub use get_public_single_cv::*;
 pub use get_single_cv::*;

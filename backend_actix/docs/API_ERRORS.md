@@ -66,6 +66,8 @@ one.
 | `PROJECT_NOT_FOUND` | 404 Not Found | No project matches the given id or slug. |
 | `TOPIC_NOT_FOUND` | 404 Not Found | No topic matches the given id. |
 | `MEDIA_NOT_FOUND` | 404 Not Found | No media item matches the given id. |
+| `JOB_NOT_FOUND` | 404 Not Found | No job posting matched the id, or it belongs to another user. |
+| `APPLICATION_NOT_FOUND` | 404 Not Found | No application matched the id, or it belongs to another user. |
 | `VARIANT_NOT_FOUND` | 404 Not Found | The media item exists but not in the requested size. |
 | `TARGET_NOT_FOUND` | 400 Bad Request | The attachment target named in the request does not exist. |
 
@@ -86,6 +88,7 @@ one.
 | `MISSING_FIELD` | 400 Bad Request | A required field was absent. |
 | `BULK_TOO_LARGE` | 400 Bad Request | A bulk request carried more ids than the endpoint accepts in one call. |
 | `BULK_EMPTY` | 400 Bad Request | A bulk request carried no ids. Guard the control rather than calling with an empty selection. |
+| `SNAPSHOT_REQUIRED` | 400 Bad Request | An application cannot leave draft without a CV snapshot. Send cv_id so one can be taken. |
 | `INVALID_EMAIL` | 400 Bad Request | The email address is not well formed. |
 | `INVALID_PASSWORD` | 400 Bad Request | The password does not meet the strength policy. |
 | `INVALID_USERNAME` | 400 Bad Request | The username contains disallowed characters or is the wrong length. |
@@ -125,4 +128,4 @@ one.
 
 ---
 
-51 codes in total. This file is generated from `src/shared/api/error_code.rs`; add a variant there and regenerate.
+54 codes in total. This file is generated from `src/shared/api/error_code.rs`; add a variant there and regenerate.

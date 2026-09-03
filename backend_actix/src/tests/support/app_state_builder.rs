@@ -74,6 +74,13 @@ pub struct TestAppStateBuilder {
                 + Sync,
         >,
     >,
+    draft_preview_media: Option<
+        Arc<
+            dyn crate::blog::application::ports::incoming::use_cases::ReadPreviewMediaUseCase
+                + Send
+                + Sync,
+        >,
+    >,
     hard_delete_cv: Option<Arc<dyn HardDeleteCvUseCase + Send + Sync>>,
     soft_delete_cv: Option<Arc<dyn SoftDeleteCvUseCase + Send + Sync>>,
     restore_cv: Option<Arc<dyn RestoreDeletedCvUseCase + Send + Sync>>,
@@ -120,6 +127,7 @@ impl Default for TestAppStateBuilder {
             update_user_profile: Some(Arc::new(StubUpdateUserProfileUseCase)),
             get_public_profile: Some(Arc::new(StubGetPublicProfile)),
             draft_preview_read: Some(Arc::new(StubDraftPreview)),
+            draft_preview_media: Some(Arc::new(StubDraftPreview)),
             hard_delete_cv: Some(Arc::new(StubHardDeleteCvUseCase)),
             soft_delete_cv: Some(Arc::new(StubSoftDeleteCv)),
             restore_cv: Some(Arc::new(StubRestoreDeletedCv)),
@@ -636,6 +644,22 @@ impl TestAppStateBuilder {
     }
     pub fn build(self) -> web::Data<AppState> {
         web::Data::new(AppState {
+            career: crate::career::application::career_use_cases::CareerUseCases {
+                create_job: Arc::new(StubCareer),
+                list_jobs: Arc::new(StubCareer),
+                get_job: Arc::new(StubCareer),
+                patch_job: Arc::new(StubCareer),
+                archive_job: Arc::new(StubCareer),
+                create_application: Arc::new(StubCareer),
+                list_applications: Arc::new(StubCareer),
+                get_application: Arc::new(StubCareer),
+                patch_application: Arc::new(StubCareer),
+                archive_application: Arc::new(StubCareer),
+            },
+            cv_snapshot: crate::cv::application::cv_snapshot_use_cases::CvSnapshotUseCases {
+                create: Arc::new(StubCvSnapshot),
+                get: Arc::new(StubCvSnapshot),
+            },
             blog_preview: crate::blog::application::blog_preview_use_cases::BlogPreviewUseCases {
                 share: Arc::new(StubDraftPreview),
                 get: Arc::new(StubDraftPreview),
@@ -643,6 +667,9 @@ impl TestAppStateBuilder {
                 read: self
                     .draft_preview_read
                     .expect("Draft preview read must be initialized"),
+                read_media: self
+                    .draft_preview_media
+                    .unwrap_or_else(|| Arc::new(StubDraftPreview)),
             },
             fetch_cv_use_case: self.fetch_cv.unwrap(),
             fetch_cv_by_id_use_case: self.fetch_cv_by_id.unwrap(),

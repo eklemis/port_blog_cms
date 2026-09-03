@@ -32,6 +32,7 @@
 pub mod modules;
 pub use modules::auth;
 pub use modules::blog;
+pub use modules::career;
 pub use modules::cv;
 pub use modules::email;
 pub use modules::multimedia;
@@ -93,6 +94,8 @@ use crate::modules::multimedia::adapter::outgoing::db::AvatarLoaderPostgres;
 
 use crate::modules::blog::application::blog_preview_use_cases::BlogPreviewUseCases;
 use crate::modules::blog::application::blog_use_cases::BlogUseCases;
+use crate::modules::career::application::career_use_cases::CareerUseCases;
+use crate::modules::cv::application::cv_snapshot_use_cases::CvSnapshotUseCases;
 use crate::modules::multimedia::application::domain::policies::upload_policy::UploadPolicy;
 use crate::modules::multimedia::application::media_use_cases::MultimediaUseCases;
 use crate::modules::multimedia::application::ports::incoming::services::{
@@ -191,6 +194,10 @@ pub struct AppState {
     pub blog: BlogUseCases,
     /// The draft-preview use cases.
     pub blog_preview: BlogPreviewUseCases,
+    /// The CV-snapshot use cases.
+    pub cv_snapshot: CvSnapshotUseCases,
+    /// The Career Studio use cases.
+    pub career: CareerUseCases,
     /// Project's use cases, grouped.
     pub project: ProjectUseCases,
     /// Multimedia's use cases, grouped.
@@ -236,21 +243,25 @@ pub async fn start() -> std::io::Result<()> {
                 GetBlogPostTopicsService, GetBlogPostsService, GetDraftPreviewService,
                 GetPublicBlogPostService, GetPublicBlogPostsService, GetSingleBlogPostService,
                 HardDeleteBlogPostService, PatchBlogPostService, ReadDraftPreviewService,
-                RestoreBlogPostService, RevokeDraftPreviewService, ShareDraftService,
-                SlugAvailableService,
+                ReadPreviewMediaService, RestoreBlogPostService, RevokeDraftPreviewService,
+                ShareDraftService, SlugAvailableService,
             },
         },
+        career::{
+            adapter::outgoing::{ApplicationStorePostgres, CvSnapshotterCv, JobStorePostgres},
+            application::service::{ApplicationService, JobService},
+        },
         cv::{
-            adapter::outgoing::{CVArchiverPostgres, CVQueryPostgres},
+            adapter::outgoing::{CVArchiverPostgres, CVQueryPostgres, CvSnapshotStorePostgres},
             application::services::{
-                GetPublicSingleCvService, HardDeleteCvService, RestoreCvService,
-                SoftDeleteCvService,
+                CreateCvSnapshotService, GetCvSnapshotService, GetPublicSingleCvService,
+                HardDeleteCvService, RestoreCvService, SoftDeleteCvService,
             },
         },
         multimedia::{
             adapter::outgoing::{
                 cloud_storage::GcsStorageQuery,
-                db::{MediaQueryPostgres, MediaRepositoryPostgres},
+                db::{preview_media_resolver, MediaQueryPostgres, MediaRepositoryPostgres},
             },
             application::ports::incoming::services::{
                 BulkMediaService, CreateUploadMediaUrlService, DeleteMediaService, GetMediaService,
@@ -528,10 +539,48 @@ pub async fn start() -> std::io::Result<()> {
         get: Arc::new(GetDraftPreviewService::new(preview_store.clone())),
         revoke: Arc::new(RevokeDraftPreviewService::new(preview_store.clone())),
         read: Arc::new(ReadDraftPreviewService::new(
-            preview_store,
+            preview_store.clone(),
             BlogPostQueryPostgres::new(Arc::clone(&db_arc)),
             UserQueryPostgres::new(Arc::clone(&db_arc)),
         )),
+        read_media: Arc::new(ReadPreviewMediaService::new(
+            preview_store,
+            preview_media_resolver(
+                MediaQueryPostgres::new(Arc::clone(&db_arc)),
+                GcsStorageQuery::new(),
+            ),
+        )),
+    };
+
+    let snapshot_store = CvSnapshotStorePostgres::new(Arc::clone(&db_arc));
+    let cv_snapshot_use_cases = CvSnapshotUseCases {
+        create: Arc::new(CreateCvSnapshotService::new(snapshot_store.clone())),
+        get: Arc::new(GetCvSnapshotService::new(snapshot_store)),
+    };
+
+    // Career Studio. The snapshotter is the cv module's own use case behind a
+    // port, so freezing a CV means the same thing whether an application does
+    // it or the author asks for it directly.
+    let job_store = JobStorePostgres::new(Arc::clone(&db_arc));
+    let application_store = ApplicationStorePostgres::new(Arc::clone(&db_arc));
+    let snapshotter: Arc<dyn crate::career::application::ports::outgoing::CvSnapshotter> = Arc::new(
+        CvSnapshotterCv::new(Arc::clone(&cv_snapshot_use_cases.create)),
+    );
+
+    let job_service = Arc::new(JobService::new(job_store));
+    let application_service = Arc::new(ApplicationService::new(application_store, snapshotter));
+
+    let career_use_cases = CareerUseCases {
+        create_job: Arc::clone(&job_service) as Arc<_>,
+        list_jobs: Arc::clone(&job_service) as Arc<_>,
+        get_job: Arc::clone(&job_service) as Arc<_>,
+        patch_job: Arc::clone(&job_service) as Arc<_>,
+        archive_job: job_service as Arc<_>,
+        create_application: Arc::clone(&application_service) as Arc<_>,
+        list_applications: Arc::clone(&application_service) as Arc<_>,
+        get_application: Arc::clone(&application_service) as Arc<_>,
+        patch_application: Arc::clone(&application_service) as Arc<_>,
+        archive_application: application_service as Arc<_>,
     };
 
     // Project use cases, repos and query
@@ -660,6 +709,8 @@ pub async fn start() -> std::io::Result<()> {
         soft_delete_topic_use_case: Arc::new(soft_delete_topic_uc),
         blog: blog_use_cases,
         blog_preview: blog_preview_use_cases,
+        cv_snapshot: cv_snapshot_use_cases,
+        career: career_use_cases,
         project: project_use_cases,
         multimedia: media_use_cases,
         user_identity_resolver: identity_resolver,
@@ -780,6 +831,19 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::blog::adapter::incoming::web::routes::get_draft_preview_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::revoke_draft_preview_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::read_draft_preview_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::read_preview_media_handler);
+    cfg.service(crate::cv::adapter::incoming::web::routes::create_cv_snapshot_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::create_job_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::get_jobs_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::get_job_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::patch_job_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::archive_job_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::create_application_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::get_applications_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::get_application_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::patch_application_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::archive_application_handler);
+    cfg.service(crate::cv::adapter::incoming::web::routes::get_cv_snapshot_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::bulk_projects_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::bulk_media_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::hard_delete_blog_post_handler);

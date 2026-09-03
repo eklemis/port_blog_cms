@@ -9,3 +9,6 @@ pub use cv_query::*;
 
 mod cv_archiver;
 pub use cv_archiver::{CVArchiver, CVArchiverError};
+
+mod cv_snapshot_store;
+pub use cv_snapshot_store::{CvSnapshot, CvSnapshotStore, CvSnapshotStoreError};

@@ -6,6 +6,8 @@
 
 /// Creates a CV for the authenticated user.
 pub mod create_cv;
+/// Freezes a CV at the moment of applying, and reads one back.
+pub mod cv_snapshots;
 /// Fetches one of the caller's own CVs by id.
 pub mod fetch_cv_by_id;
 /// Lists the caller's CVs.
