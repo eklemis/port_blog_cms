@@ -17,5 +17,5 @@ pub use blog_post_repository::{
 };
 pub use blog_post_topic_repository::{BlogPostTopicRepository, BlogPostTopicRepositoryError};
 pub use draft_preview_store::{
-    DraftPreview, DraftPreviewStore, DraftPreviewStoreError, LivePreview,
+    DraftPreview, DraftPreviewStore, DraftPreviewStoreError, LivePreview, PreviewMediaResolver,
 };

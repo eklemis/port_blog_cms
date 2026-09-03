@@ -401,6 +401,20 @@ impl ReadDraftPreviewUseCase for StubDraftPreview {
     }
 }
 
+#[async_trait]
+impl crate::blog::application::ports::incoming::use_cases::ReadPreviewMediaUseCase
+    for StubDraftPreview
+{
+    async fn execute(
+        &self,
+        _token: &str,
+        _media_id: uuid::Uuid,
+        _size: &str,
+    ) -> Result<String, DraftPreviewError> {
+        Err(DraftPreviewError::PostNotFound)
+    }
+}
+
 /// Never restores. Tests that exercise the route supply their own.
 #[derive(Default, Clone)]
 pub struct StubRestoreProject;

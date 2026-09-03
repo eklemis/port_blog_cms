@@ -9,7 +9,8 @@ mod topic_link_services;
 pub use bulk_service::BulkBlogPostsService;
 pub use create_blog_post_service::CreateBlogPostService;
 pub use draft_preview_services::{
-    GetDraftPreviewService, ReadDraftPreviewService, RevokeDraftPreviewService, ShareDraftService,
+    GetDraftPreviewService, ReadDraftPreviewService, ReadPreviewMediaService,
+    RevokeDraftPreviewService, ShareDraftService,
 };
 pub use lifecycle_services::{
     ArchiveBlogPostService, HardDeleteBlogPostService, RestoreBlogPostService,

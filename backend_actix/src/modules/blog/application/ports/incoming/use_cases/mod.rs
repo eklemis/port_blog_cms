@@ -597,3 +597,23 @@ pub trait ReadDraftPreviewUseCase: Send + Sync {
     /// be indistinguishable, or the endpoint confirms which drafts exist.
     async fn execute(&self, token: &str) -> Result<PreviewResolution, DraftPreviewError>;
 }
+
+/// Resolves one image on a previewed draft.
+///
+/// Separate from [`ReadDraftPreviewUseCase`] because it answers a different
+/// question — not "what is this post" but "may the holder of this token see
+/// this one image, and where is it". Both are authorised by the same token.
+#[async_trait]
+pub trait ReadPreviewMediaUseCase: Send + Sync {
+    /// A signed URL to redirect the reader to.
+    ///
+    /// Every failure — dead token, media that belongs to a different post,
+    /// a variant that has not been generated yet — is `PostNotFound`. A
+    /// reader holding a link should not be able to probe what exists.
+    async fn execute(
+        &self,
+        token: &str,
+        media_id: Uuid,
+        size: &str,
+    ) -> Result<String, DraftPreviewError>;
+}

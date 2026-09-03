@@ -3,15 +3,19 @@
 use async_trait::async_trait;
 use chrono::{Duration, Utc};
 use rand::RngCore;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::auth::application::domain::entities::UserId;
 use crate::auth::application::ports::outgoing::UserQuery;
 use crate::blog::application::ports::incoming::use_cases::{
     DraftPreviewError, DraftPreviewState, GetDraftPreviewUseCase, PreviewResolution,
-    ReadDraftPreviewUseCase, RevokeDraftPreviewUseCase, ShareDraftUseCase, DRAFT_PREVIEW_TTL_DAYS,
+    ReadDraftPreviewUseCase, ReadPreviewMediaUseCase, RevokeDraftPreviewUseCase, ShareDraftUseCase,
+    DRAFT_PREVIEW_TTL_DAYS,
 };
-use crate::blog::application::ports::outgoing::{BlogPostQuery, DraftPreview, DraftPreviewStore};
+use crate::blog::application::ports::outgoing::{
+    BlogPostQuery, DraftPreview, DraftPreviewStore, PreviewMediaResolver,
+};
 
 /// Length of the shareable secret, in bytes before encoding.
 ///
@@ -210,6 +214,51 @@ where
             .await
             .map_err(|e| DraftPreviewError::RepositoryError(e.to_string()))?
             .map(|u| u.username)
+            .ok_or(DraftPreviewError::PostNotFound)
+    }
+}
+
+/// Resolves one image on a previewed draft.
+///
+/// The token is checked on every image, not once per page. A preview page
+/// fetches its images as separate requests, so each one has to carry the
+/// capability itself — and revoking the link has to stop the images too, not
+/// just the text.
+pub struct ReadPreviewMediaService<S> {
+    previews: S,
+    media: Arc<dyn PreviewMediaResolver>,
+}
+
+impl<S> ReadPreviewMediaService<S> {
+    /// Builds it from the ports it depends on.
+    pub fn new(previews: S, media: Arc<dyn PreviewMediaResolver>) -> Self {
+        Self { previews, media }
+    }
+}
+
+#[async_trait]
+impl<S> ReadPreviewMediaUseCase for ReadPreviewMediaService<S>
+where
+    S: DraftPreviewStore + Send + Sync,
+{
+    async fn execute(
+        &self,
+        token: &str,
+        media_id: Uuid,
+        size: &str,
+    ) -> Result<String, DraftPreviewError> {
+        let live = self
+            .previews
+            .find_live_by_token(token, Utc::now())
+            .await?
+            .ok_or(DraftPreviewError::PostNotFound)?;
+
+        // Scoped to the post the token opens. Without this the token would be
+        // a key to every image in the system rather than to one draft's.
+        self.media
+            .resolve(live.preview.post_id, media_id, size)
+            .await
+            .map_err(DraftPreviewError::RepositoryError)?
             .ok_or(DraftPreviewError::PostNotFound)
     }
 }
@@ -616,5 +665,101 @@ mod tests {
         for _ in 0..100 {
             assert!(seen.insert(mint_token()), "minted a duplicate token");
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Preview images
+    // ------------------------------------------------------------------
+
+    /// Answers only for the post it was told about; anything else is `None`,
+    /// standing in for the attachment join the real adapter performs.
+    struct FakeMedia {
+        post_id: Uuid,
+    }
+
+    #[async_trait]
+    impl PreviewMediaResolver for FakeMedia {
+        async fn resolve(
+            &self,
+            post_id: Uuid,
+            media_id: Uuid,
+            size: &str,
+        ) -> Result<Option<String>, String> {
+            if post_id != self.post_id {
+                return Ok(None);
+            }
+            Ok(Some(format!("https://signed.example/{media_id}/{size}")))
+        }
+    }
+
+    fn media_reader(
+        store: Arc<FakeStore>,
+        attached_to: Uuid,
+    ) -> ReadPreviewMediaService<Arc<FakeStore>> {
+        ReadPreviewMediaService::new(
+            store,
+            Arc::new(FakeMedia {
+                post_id: attached_to,
+            }),
+        )
+    }
+
+    #[tokio::test]
+    async fn a_live_token_resolves_its_own_images() {
+        let post_id = Uuid::new_v4();
+        let store = Arc::new(FakeStore::default());
+        *store.row.lock().unwrap() = Some(a_preview(post_id, Utc::now() + Duration::days(3)));
+
+        let url = media_reader(store, post_id)
+            .execute("tok", Uuid::new_v4(), "thumbnail")
+            .await
+            .unwrap();
+
+        assert!(url.starts_with("https://signed.example/"));
+    }
+
+    /// The scoping that matters: a token opens one draft, not the media table.
+    /// Without the post_id check it would resolve any media id in the system.
+    #[tokio::test]
+    async fn a_token_cannot_reach_another_posts_media() {
+        let this_post = Uuid::new_v4();
+        let some_other_post = Uuid::new_v4();
+        let store = Arc::new(FakeStore::default());
+        *store.row.lock().unwrap() = Some(a_preview(this_post, Utc::now() + Duration::days(3)));
+
+        let err = media_reader(store, some_other_post)
+            .execute("tok", Uuid::new_v4(), "thumbnail")
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, DraftPreviewError::PostNotFound));
+    }
+
+    /// Revoking has to stop the pictures, not just the prose.
+    #[tokio::test]
+    async fn a_revoked_token_stops_resolving_images() {
+        let post_id = Uuid::new_v4();
+        let store = Arc::new(FakeStore::default());
+
+        let err = media_reader(store, post_id)
+            .execute("tok", Uuid::new_v4(), "thumbnail")
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, DraftPreviewError::PostNotFound));
+    }
+
+    #[tokio::test]
+    async fn an_expired_token_stops_resolving_images() {
+        let post_id = Uuid::new_v4();
+        let store = Arc::new(FakeStore::default());
+        *store.row.lock().unwrap() = Some(a_preview(post_id, Utc::now() - Duration::minutes(1)));
+
+        let err = media_reader(store, post_id)
+            .execute("tok", Uuid::new_v4(), "thumbnail")
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, DraftPreviewError::PostNotFound));
     }
 }

@@ -236,8 +236,8 @@ pub async fn start() -> std::io::Result<()> {
                 GetBlogPostTopicsService, GetBlogPostsService, GetDraftPreviewService,
                 GetPublicBlogPostService, GetPublicBlogPostsService, GetSingleBlogPostService,
                 HardDeleteBlogPostService, PatchBlogPostService, ReadDraftPreviewService,
-                RestoreBlogPostService, RevokeDraftPreviewService, ShareDraftService,
-                SlugAvailableService,
+                ReadPreviewMediaService, RestoreBlogPostService, RevokeDraftPreviewService,
+                ShareDraftService, SlugAvailableService,
             },
         },
         cv::{
@@ -250,7 +250,7 @@ pub async fn start() -> std::io::Result<()> {
         multimedia::{
             adapter::outgoing::{
                 cloud_storage::GcsStorageQuery,
-                db::{MediaQueryPostgres, MediaRepositoryPostgres},
+                db::{preview_media_resolver, MediaQueryPostgres, MediaRepositoryPostgres},
             },
             application::ports::incoming::services::{
                 BulkMediaService, CreateUploadMediaUrlService, DeleteMediaService, GetMediaService,
@@ -528,9 +528,16 @@ pub async fn start() -> std::io::Result<()> {
         get: Arc::new(GetDraftPreviewService::new(preview_store.clone())),
         revoke: Arc::new(RevokeDraftPreviewService::new(preview_store.clone())),
         read: Arc::new(ReadDraftPreviewService::new(
-            preview_store,
+            preview_store.clone(),
             BlogPostQueryPostgres::new(Arc::clone(&db_arc)),
             UserQueryPostgres::new(Arc::clone(&db_arc)),
+        )),
+        read_media: Arc::new(ReadPreviewMediaService::new(
+            preview_store,
+            preview_media_resolver(
+                MediaQueryPostgres::new(Arc::clone(&db_arc)),
+                GcsStorageQuery::new(),
+            ),
         )),
     };
 
@@ -780,6 +787,7 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::blog::adapter::incoming::web::routes::get_draft_preview_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::revoke_draft_preview_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::read_draft_preview_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::read_preview_media_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::bulk_projects_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::bulk_media_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::hard_delete_blog_post_handler);

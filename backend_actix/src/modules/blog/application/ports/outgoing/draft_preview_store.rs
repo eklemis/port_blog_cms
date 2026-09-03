@@ -94,3 +94,23 @@ pub trait DraftPreviewStore: Send + Sync {
         now: DateTime<Utc>,
     ) -> Result<Option<LivePreview>, DraftPreviewStoreError>;
 }
+
+/// Signs a read URL for an image on a previewed draft.
+///
+/// A port rather than a direct call so `blog` does not reach into the media
+/// schema — it says what it needs and the composition root supplies it, the
+/// same arrangement `auth` uses for avatars.
+///
+/// The implementation must scope the lookup to `post_id`. That is what stops a
+/// token for one draft from being pointed at any media id in the system.
+#[async_trait]
+pub trait PreviewMediaResolver: Send + Sync {
+    /// A signed URL for `media_id` at `size`, if that media is attached to
+    /// `post_id`. `None` when it is not, or the variant does not exist yet.
+    async fn resolve(
+        &self,
+        post_id: Uuid,
+        media_id: Uuid,
+        size: &str,
+    ) -> Result<Option<String>, String>;
+}

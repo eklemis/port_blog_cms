@@ -74,6 +74,13 @@ pub struct TestAppStateBuilder {
                 + Sync,
         >,
     >,
+    draft_preview_media: Option<
+        Arc<
+            dyn crate::blog::application::ports::incoming::use_cases::ReadPreviewMediaUseCase
+                + Send
+                + Sync,
+        >,
+    >,
     hard_delete_cv: Option<Arc<dyn HardDeleteCvUseCase + Send + Sync>>,
     soft_delete_cv: Option<Arc<dyn SoftDeleteCvUseCase + Send + Sync>>,
     restore_cv: Option<Arc<dyn RestoreDeletedCvUseCase + Send + Sync>>,
@@ -120,6 +127,7 @@ impl Default for TestAppStateBuilder {
             update_user_profile: Some(Arc::new(StubUpdateUserProfileUseCase)),
             get_public_profile: Some(Arc::new(StubGetPublicProfile)),
             draft_preview_read: Some(Arc::new(StubDraftPreview)),
+            draft_preview_media: Some(Arc::new(StubDraftPreview)),
             hard_delete_cv: Some(Arc::new(StubHardDeleteCvUseCase)),
             soft_delete_cv: Some(Arc::new(StubSoftDeleteCv)),
             restore_cv: Some(Arc::new(StubRestoreDeletedCv)),
@@ -643,6 +651,9 @@ impl TestAppStateBuilder {
                 read: self
                     .draft_preview_read
                     .expect("Draft preview read must be initialized"),
+                read_media: self
+                    .draft_preview_media
+                    .unwrap_or_else(|| Arc::new(StubDraftPreview)),
             },
             fetch_cv_use_case: self.fetch_cv.unwrap(),
             fetch_cv_by_id_use_case: self.fetch_cv_by_id.unwrap(),

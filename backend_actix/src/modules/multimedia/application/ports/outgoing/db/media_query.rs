@@ -121,6 +121,26 @@ pub trait MediaQuery: Send + Sync {
         size: MediaSize,
     ) -> Result<Option<StoredVariant>, MediaQueryError>;
 
+    /// A variant of media attached to one specific thing, **without** the
+    /// publication check [`find_public_variant`](Self::find_public_variant)
+    /// applies.
+    ///
+    /// This exists for the draft preview, where the reader holds a capability
+    /// for one unpublished post and the ordinary public rule would — correctly
+    /// — refuse every image on it. Authorisation has already happened by the
+    /// time this is called; the attachment match is what stops that capability
+    /// reaching any media except the post's own.
+    ///
+    /// Callers must therefore never reach this from a path that has not
+    /// already established the caller may read `attachable_id`.
+    async fn find_variant_attached_to(
+        &self,
+        media_id: Uuid,
+        size: MediaSize,
+        attachable_type: AttachmentTarget,
+        attachable_id: Uuid,
+    ) -> Result<Option<StoredVariant>, MediaQueryError>;
+
     /// The processing state of several items at once.
     ///
     /// Exists because a grid with twelve uploads in flight otherwise polls
