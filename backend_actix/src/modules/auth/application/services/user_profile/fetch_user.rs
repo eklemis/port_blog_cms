@@ -42,6 +42,7 @@ where
             username: user.username,
             full_name: user.full_name,
             bio: user.bio,
+            locale: user.locale,
         })
     }
 }
@@ -94,6 +95,7 @@ mod tests {
             is_verified: true,
             is_deleted: false,
             bio: None,
+            locale: "en".to_string(),
         }
     }
 

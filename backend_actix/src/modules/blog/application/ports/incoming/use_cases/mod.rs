@@ -296,6 +296,13 @@ pub trait RestoreBlogPostUseCase: Send + Sync {
     async fn execute(&self, owner: UserId, post_id: Uuid) -> Result<(), ArchiveBlogPostError>;
 }
 
+/// Takes a post down, back to draft. Reversible by publishing again.
+#[async_trait]
+pub trait UnpublishBlogPostUseCase: Send + Sync {
+    /// Idempotent: unpublishing a draft succeeds.
+    async fn execute(&self, owner: UserId, post_id: Uuid) -> Result<(), ArchiveBlogPostError>;
+}
+
 /// Removes a post and its topic links permanently. Irreversible.
 #[async_trait]
 pub trait HardDeleteBlogPostUseCase: Send + Sync {
@@ -460,6 +467,15 @@ pub enum BlogBulkOp {
     Restore,
     /// Remove each post permanently.
     HardDelete,
+    /// Take each post down, back to draft.
+    ///
+    /// There is no bulk `publish`, and that is deliberate rather than an
+    /// omission. Publishing is per-post considered work — the slug, the cover,
+    /// the topics — and it carries an ambiguity this operation does not: does
+    /// "publish these" mean now, or at each post's scheduled time? Taking
+    /// several down at once has no such question, is reversible, and is
+    /// exactly the moment you do not want to click six times.
+    Unpublish,
     /// Link one topic to each post.
     AttachTopic {
         /// The topic to link.

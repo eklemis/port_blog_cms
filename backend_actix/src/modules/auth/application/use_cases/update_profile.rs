@@ -19,6 +19,8 @@ pub struct UpdateUserOutput {
     pub full_name: String,
     /// Public bio as stored after the edit.
     pub bio: Option<String>,
+    /// Interface language as stored after the edit.
+    pub locale: String,
 }
 
 /// A profile edit. Only the display name is editable today.
@@ -30,6 +32,11 @@ pub struct UpdateUserInput {
     pub full_name: String,
     /// New bio. `None` leaves the stored value alone; `Some(None)` clears it.
     pub bio: Option<Option<String>>,
+    /// New interface language. `None` leaves it alone.
+    ///
+    /// Plain `Option` rather than tri-state: there is no such thing as an
+    /// absent locale, so "clear it" is not an operation.
+    pub locale: Option<String>,
 }
 
 /// Why the edit failed.

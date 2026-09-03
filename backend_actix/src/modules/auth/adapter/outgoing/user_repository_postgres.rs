@@ -33,6 +33,7 @@ impl UserRepositoryPostgres {
             username: model.username,
             full_name: model.full_name,
             bio: model.bio,
+            locale: model.locale,
         }
     }
 }
@@ -42,6 +43,9 @@ impl UserRepository for UserRepositoryPostgres {
     async fn create_user(&self, user: CreateUserData) -> Result<UserResult, UserRepositoryError> {
         let user_id = Uuid::new_v4();
         let active_user = UserActiveModel {
+            // Defaulted, not chosen at sign-up: the interface picks a language
+            // before anyone has had a chance to say otherwise.
+            locale: Set("en".to_string()),
             // Not settable at registration; edited later via PUT /api/users/me.
             bio: Set(None),
             id: Set(user_id),
@@ -167,6 +171,7 @@ impl UserRepository for UserRepositoryPostgres {
         user_id: Uuid,
         full_name: String,
         bio: Option<Option<String>>,
+        locale: Option<String>,
     ) -> Result<UserResult, UserRepositoryError> {
         let mut active = UserActiveModel {
             id: Set(user_id),
@@ -178,6 +183,9 @@ impl UserRepository for UserRepositoryPostgres {
         // `bio` cannot silently erase one.
         if let Some(bio) = bio {
             active.bio = Set(bio);
+        }
+        if let Some(locale) = locale {
+            active.locale = Set(locale);
         }
 
         let updated = active
@@ -191,6 +199,7 @@ impl UserRepository for UserRepositoryPostgres {
             username: updated.username,
             full_name: updated.full_name,
             bio: updated.bio,
+            locale: updated.locale,
         })
     }
 
@@ -247,6 +256,7 @@ mod tests {
             is_verified: false,
             is_deleted: false,
             bio: None,
+            locale: "en".to_string(),
         }
     }
 
@@ -269,6 +279,7 @@ mod tests {
             is_verified: false,
             is_deleted: false,
             bio: None,
+            locale: "en".to_string(),
         };
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)
@@ -642,6 +653,7 @@ mod tests {
             is_verified: false,
             is_deleted: false,
             bio: None,
+            locale: "en".to_string(),
         };
 
         let db = MockDatabase::new(DatabaseBackend::Postgres)
