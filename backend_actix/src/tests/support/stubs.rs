@@ -1173,3 +1173,36 @@ impl IResetPasswordUseCase for StubResetPassword {
         unimplemented!("StubResetPassword not configured for this test")
     }
 }
+
+/// Reports every CV and snapshot as missing. Tests that exercise the routes
+/// supply their own.
+#[derive(Default, Clone)]
+pub struct StubCvSnapshot;
+
+#[async_trait]
+impl crate::cv::application::use_cases::cv_snapshots::CreateCvSnapshotUseCase for StubCvSnapshot {
+    async fn execute(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _cv_id: uuid::Uuid,
+    ) -> Result<
+        crate::cv::application::ports::outgoing::CvSnapshot,
+        crate::cv::application::use_cases::cv_snapshots::CvSnapshotError,
+    > {
+        Err(crate::cv::application::use_cases::cv_snapshots::CvSnapshotError::CvNotFound)
+    }
+}
+
+#[async_trait]
+impl crate::cv::application::use_cases::cv_snapshots::GetCvSnapshotUseCase for StubCvSnapshot {
+    async fn execute(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _snapshot_id: uuid::Uuid,
+    ) -> Result<
+        crate::cv::application::ports::outgoing::CvSnapshot,
+        crate::cv::application::use_cases::cv_snapshots::CvSnapshotError,
+    > {
+        Err(crate::cv::application::use_cases::cv_snapshots::CvSnapshotError::SnapshotNotFound)
+    }
+}

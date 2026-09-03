@@ -644,6 +644,10 @@ impl TestAppStateBuilder {
     }
     pub fn build(self) -> web::Data<AppState> {
         web::Data::new(AppState {
+            cv_snapshot: crate::cv::application::cv_snapshot_use_cases::CvSnapshotUseCases {
+                create: Arc::new(StubCvSnapshot),
+                get: Arc::new(StubCvSnapshot),
+            },
             blog_preview: crate::blog::application::blog_preview_use_cases::BlogPreviewUseCases {
                 share: Arc::new(StubDraftPreview),
                 get: Arc::new(StubDraftPreview),

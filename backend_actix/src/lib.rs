@@ -93,6 +93,7 @@ use crate::modules::multimedia::adapter::outgoing::db::AvatarLoaderPostgres;
 
 use crate::modules::blog::application::blog_preview_use_cases::BlogPreviewUseCases;
 use crate::modules::blog::application::blog_use_cases::BlogUseCases;
+use crate::modules::cv::application::cv_snapshot_use_cases::CvSnapshotUseCases;
 use crate::modules::multimedia::application::domain::policies::upload_policy::UploadPolicy;
 use crate::modules::multimedia::application::media_use_cases::MultimediaUseCases;
 use crate::modules::multimedia::application::ports::incoming::services::{
@@ -191,6 +192,8 @@ pub struct AppState {
     pub blog: BlogUseCases,
     /// The draft-preview use cases.
     pub blog_preview: BlogPreviewUseCases,
+    /// The CV-snapshot use cases.
+    pub cv_snapshot: CvSnapshotUseCases,
     /// Project's use cases, grouped.
     pub project: ProjectUseCases,
     /// Multimedia's use cases, grouped.
@@ -241,10 +244,10 @@ pub async fn start() -> std::io::Result<()> {
             },
         },
         cv::{
-            adapter::outgoing::{CVArchiverPostgres, CVQueryPostgres},
+            adapter::outgoing::{CVArchiverPostgres, CVQueryPostgres, CvSnapshotStorePostgres},
             application::services::{
-                GetPublicSingleCvService, HardDeleteCvService, RestoreCvService,
-                SoftDeleteCvService,
+                CreateCvSnapshotService, GetCvSnapshotService, GetPublicSingleCvService,
+                HardDeleteCvService, RestoreCvService, SoftDeleteCvService,
             },
         },
         multimedia::{
@@ -541,6 +544,12 @@ pub async fn start() -> std::io::Result<()> {
         )),
     };
 
+    let snapshot_store = CvSnapshotStorePostgres::new(Arc::clone(&db_arc));
+    let cv_snapshot_use_cases = CvSnapshotUseCases {
+        create: Arc::new(CreateCvSnapshotService::new(snapshot_store.clone())),
+        get: Arc::new(GetCvSnapshotService::new(snapshot_store)),
+    };
+
     // Project use cases, repos and query
     let project_repo = ProjectRepositoryPostgres::new(Arc::clone(&db_arc));
     let project_topic_repo = ProjectTopicRepositoryPostgres::new(Arc::clone(&db_arc));
@@ -667,6 +676,7 @@ pub async fn start() -> std::io::Result<()> {
         soft_delete_topic_use_case: Arc::new(soft_delete_topic_uc),
         blog: blog_use_cases,
         blog_preview: blog_preview_use_cases,
+        cv_snapshot: cv_snapshot_use_cases,
         project: project_use_cases,
         multimedia: media_use_cases,
         user_identity_resolver: identity_resolver,
@@ -788,6 +798,8 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::blog::adapter::incoming::web::routes::revoke_draft_preview_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::read_draft_preview_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::read_preview_media_handler);
+    cfg.service(crate::cv::adapter::incoming::web::routes::create_cv_snapshot_handler);
+    cfg.service(crate::cv::adapter::incoming::web::routes::get_cv_snapshot_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::bulk_projects_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::bulk_media_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::hard_delete_blog_post_handler);
