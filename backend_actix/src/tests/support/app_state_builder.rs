@@ -661,6 +661,8 @@ impl TestAppStateBuilder {
                 patch_application: Arc::new(StubCareer),
                 archive_application: Arc::new(StubCareer),
                 analyse: Arc::new(StubCareer),
+                cover_letter: Arc::new(StubCareer),
+                reflection: Arc::new(StubCareer),
             },
             cv_snapshot: crate::cv::application::cv_snapshot_use_cases::CvSnapshotUseCases {
                 create: Arc::new(StubCvSnapshot),

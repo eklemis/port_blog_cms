@@ -16,6 +16,7 @@ mod m20260902_000002_rename_screenshot_role;
 mod m20260902_000003_create_blog_post_previews;
 mod m20260903_000001_create_career_tables;
 mod m20260903_000002_add_language_settings;
+mod m20260903_000003_create_letters_and_reflections;
 
 pub struct Migrator;
 
@@ -39,6 +40,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260902_000003_create_blog_post_previews::Migration),
             Box::new(m20260903_000001_create_career_tables::Migration),
             Box::new(m20260903_000002_add_language_settings::Migration),
+            Box::new(m20260903_000003_create_letters_and_reflections::Migration),
         ]
     }
 }

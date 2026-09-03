@@ -22,6 +22,7 @@ non-obvious. Routine choices do not need one.
 | [0006](0006-public-media-urls.md) | Public responses carry unsigned media URLs | Accepted |
 | [0007](0007-screenshot-role-rename.md) | Renaming the `screenshoot` media role takes three deploys | Superseded by 0008 |
 | [0008](0008-collapse-the-screenshot-rename.md) | The rename shipped in one step, with the role wire format | Accepted |
+| [0009](0009-reflections-never-feed-generation.md) | A reflection never reaches a prompt that writes for the user | Accepted |
 
 ## Format
 
