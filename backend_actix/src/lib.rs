@@ -95,6 +95,7 @@ use crate::modules::multimedia::adapter::outgoing::db::AvatarLoaderPostgres;
 
 use crate::modules::ai::adapter::outgoing::{
     self as ai_provider, DraftingContextCareer, HttpPostingFetcher, RedisUsageCounter,
+    RelevanceEstimatorAi,
 };
 use crate::modules::ai::application::ai_use_cases::AiUseCases;
 use crate::modules::ai::application::ports::incoming::use_cases::ConsumeAiQuotaUseCase;
@@ -263,6 +264,7 @@ pub async fn start() -> std::io::Result<()> {
                 ApplicationStorePostgres, CvReaderCv, CvSnapshotterCv, JobStorePostgres,
                 LetterStorePostgres,
             },
+            application::ports::outgoing::RelevanceEstimator,
             application::service::{
                 AnalyseApplicationService, ApplicationService, JobService, LetterService,
             },
@@ -590,6 +592,15 @@ pub async fn start() -> std::io::Result<()> {
     let consume_quota: Arc<dyn ConsumeAiQuotaUseCase + Send + Sync> =
         Arc::clone(&quota_service) as Arc<_>;
 
+    // career owns the analysis; ai only supplies the judgement, behind a
+    // port. Built before AiUseCases takes ownership of these handles.
+    let relevance_estimator: Option<Arc<dyn RelevanceEstimator>> = generator.as_ref().map(|g| {
+        Arc::new(RelevanceEstimatorAi::new(
+            Arc::clone(&consume_quota),
+            Arc::clone(g),
+        )) as Arc<dyn RelevanceEstimator>
+    });
+
     let drafting = DraftingService::new(
         Arc::clone(&consume_quota),
         generator.clone(),
@@ -651,7 +662,12 @@ pub async fn start() -> std::io::Result<()> {
         reflection: letter_service as Arc<_>,
         analyse: Arc::new(AnalyseApplicationService::new(
             ApplicationStorePostgres::new(Arc::clone(&db_arc)),
+            JobStorePostgres::new(Arc::clone(&db_arc)),
             cv_reader,
+            // Present only when a provider is configured. Without one the
+            // endpoint still serves the measured half and says why the other
+            // is missing.
+            relevance_estimator,
         )),
     };
 

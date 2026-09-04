@@ -209,11 +209,19 @@ pub struct MatchAnalysis {
 
     /// The estimated half.
     ///
-    /// **`null` means "not computed", never "scored zero".** The model-backed
-    /// half arrives with the AI proxy; until then this endpoint answers with
-    /// the measured half alone, and a client should render one bar rather than
-    /// two — not two with one at the floor.
-    pub relevance: Option<serde_json::Value>,
+    /// **`null` means "not computed", never "scored zero".** Render one bar
+    /// rather than two with one at the floor. When it is null,
+    /// [`relevance_unavailable`](Self::relevance_unavailable) says why.
+    pub relevance: Option<crate::career::domain::relevance::RelevanceReport>,
+
+    /// Why [`relevance`](Self::relevance) is absent, when it is.
+    ///
+    /// One of the generation error codes — `AI_DISABLED`,
+    /// `AI_QUOTA_EXCEEDED`, `AI_REFUSED`, `AI_UPSTREAM_ERROR`. The measured
+    /// half is still worth showing when the estimate fails, so this endpoint
+    /// degrades rather than erroring; without a reason a client could only say
+    /// "unavailable", which tells a person nothing about whether to retry.
+    pub relevance_unavailable: Option<String>,
 }
 
 /// Which CV an analysis should run against.
