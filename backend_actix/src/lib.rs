@@ -93,9 +93,14 @@ use crate::modules::email::application::ports::outgoing::password_reset_notifier
 use crate::modules::email::application::ports::outgoing::user_email_notifier::UserEmailNotifier;
 use crate::modules::multimedia::adapter::outgoing::db::AvatarLoaderPostgres;
 
-use crate::modules::ai::adapter::outgoing::{self as ai_provider, RedisUsageCounter};
+use crate::modules::ai::adapter::outgoing::{
+    self as ai_provider, DraftingContextCareer, HttpPostingFetcher, RedisUsageCounter,
+};
 use crate::modules::ai::application::ai_use_cases::AiUseCases;
-use crate::modules::ai::application::service::{QuotaPolicy, QuotaService};
+use crate::modules::ai::application::ports::incoming::use_cases::ConsumeAiQuotaUseCase;
+use crate::modules::ai::application::service::{
+    DraftingService, ExtractJobService, QuotaPolicy, QuotaService,
+};
 use crate::modules::blog::application::blog_preview_use_cases::BlogPreviewUseCases;
 use crate::modules::blog::application::blog_use_cases::BlogUseCases;
 use crate::modules::career::application::career_use_cases::CareerUseCases;
@@ -582,9 +587,32 @@ pub async fn start() -> std::io::Result<()> {
     let generator = ai_provider::from_env(reqwest::Client::new())
         .unwrap_or_else(|e| panic!("AI provider is misconfigured: {e}"));
 
+    let consume_quota: Arc<dyn ConsumeAiQuotaUseCase + Send + Sync> =
+        Arc::clone(&quota_service) as Arc<_>;
+
+    let drafting = DraftingService::new(
+        Arc::clone(&consume_quota),
+        generator.clone(),
+        DraftingContextCareer::new(
+            ApplicationStorePostgres::new(Arc::clone(&db_arc)),
+            JobStorePostgres::new(Arc::clone(&db_arc)),
+            LetterStorePostgres::new(Arc::clone(&db_arc)),
+            CVQueryPostgres::new(Arc::clone(&db_arc)),
+            Arc::new(CvSnapshotStorePostgres::new(Arc::clone(&db_arc))),
+        ),
+    );
+    let drafting = Arc::new(drafting);
+
     let ai_use_cases = AiUseCases {
         get_quota: Arc::clone(&quota_service) as Arc<_>,
-        consume_quota: quota_service as Arc<_>,
+        extract_job: Arc::new(ExtractJobService::new(
+            Arc::clone(&consume_quota),
+            generator.clone(),
+            HttpPostingFetcher::new(reqwest::Client::new()),
+        )),
+        tailor: Arc::clone(&drafting) as Arc<_>,
+        cover_letter: drafting as Arc<_>,
+        consume_quota,
         generator,
     };
 
@@ -895,6 +923,9 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::career::adapter::incoming::web::routes::put_reflection_handler);
     cfg.service(crate::career::adapter::incoming::web::routes::delete_reflection_handler);
     cfg.service(crate::career::adapter::incoming::web::routes::analyse_application_handler);
+    cfg.service(crate::ai::adapter::incoming::web::routes::extract_job_handler);
+    cfg.service(crate::ai::adapter::incoming::web::routes::tailor_handler);
+    cfg.service(crate::ai::adapter::incoming::web::routes::cover_letter_handler);
     cfg.service(crate::ai::adapter::incoming::web::routes::get_ai_quota_handler);
     cfg.service(crate::cv::adapter::incoming::web::routes::get_cv_snapshot_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::bulk_projects_handler);

@@ -3,7 +3,8 @@
 use std::sync::Arc;
 
 use crate::ai::application::ports::incoming::use_cases::{
-    ConsumeAiQuotaUseCase, GetAiQuotaUseCase,
+    ConsumeAiQuotaUseCase, CoverLetterDraftUseCase, ExtractJobUseCase, GetAiQuotaUseCase,
+    TailorUseCase,
 };
 use crate::ai::application::ports::outgoing::TextGenerator;
 
@@ -24,4 +25,11 @@ pub struct AiUseCases {
     /// broken one: an optional feature without credentials must not stop the
     /// rest of the API from starting.
     pub generator: Option<Arc<dyn TextGenerator>>,
+
+    /// The [`ExtractJobUseCase`] implementation.
+    pub extract_job: Arc<dyn ExtractJobUseCase + Send + Sync>,
+    /// The [`TailorUseCase`] implementation.
+    pub tailor: Arc<dyn TailorUseCase + Send + Sync>,
+    /// The [`CoverLetterDraftUseCase`] implementation.
+    pub cover_letter: Arc<dyn CoverLetterDraftUseCase + Send + Sync>,
 }

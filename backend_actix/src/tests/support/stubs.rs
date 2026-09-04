@@ -1479,3 +1479,52 @@ impl crate::career::application::ports::incoming::use_cases::ReflectionUseCases 
         Ok(())
     }
 }
+
+/// Reports generation as switched off. Route tests that exercise a surface
+/// supply their own.
+#[derive(Default, Clone)]
+pub struct StubAiGeneration;
+
+#[async_trait]
+impl crate::ai::application::ports::incoming::use_cases::ExtractJobUseCase for StubAiGeneration {
+    async fn execute(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _input: crate::ai::application::ports::incoming::use_cases::ExtractJobInput,
+    ) -> Result<
+        crate::ai::application::ports::incoming::use_cases::ExtractedJob,
+        crate::ai::application::ports::incoming::use_cases::AiError,
+    > {
+        Err(crate::ai::application::ports::incoming::use_cases::AiError::Disabled)
+    }
+}
+
+#[async_trait]
+impl crate::ai::application::ports::incoming::use_cases::TailorUseCase for StubAiGeneration {
+    async fn execute(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _input: crate::ai::application::ports::incoming::use_cases::DraftingInput,
+    ) -> Result<
+        crate::ai::application::ports::outgoing::GenerationStream,
+        crate::ai::application::ports::incoming::use_cases::AiError,
+    > {
+        Err(crate::ai::application::ports::incoming::use_cases::AiError::Disabled)
+    }
+}
+
+#[async_trait]
+impl crate::ai::application::ports::incoming::use_cases::CoverLetterDraftUseCase
+    for StubAiGeneration
+{
+    async fn execute(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _input: crate::ai::application::ports::incoming::use_cases::DraftingInput,
+    ) -> Result<
+        crate::ai::application::ports::outgoing::GenerationStream,
+        crate::ai::application::ports::incoming::use_cases::AiError,
+    > {
+        Err(crate::ai::application::ports::incoming::use_cases::AiError::Disabled)
+    }
+}

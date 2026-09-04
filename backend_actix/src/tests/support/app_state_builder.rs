@@ -74,6 +74,14 @@ pub struct TestAppStateBuilder {
                 + Sync,
         >,
     >,
+    ai_extract_job: Option<
+        Arc<
+            dyn crate::ai::application::ports::incoming::use_cases::ExtractJobUseCase + Send + Sync,
+        >,
+    >,
+    ai_tailor: Option<
+        Arc<dyn crate::ai::application::ports::incoming::use_cases::TailorUseCase + Send + Sync>,
+    >,
     draft_preview_media: Option<
         Arc<
             dyn crate::blog::application::ports::incoming::use_cases::ReadPreviewMediaUseCase
@@ -127,6 +135,8 @@ impl Default for TestAppStateBuilder {
             update_user_profile: Some(Arc::new(StubUpdateUserProfileUseCase)),
             get_public_profile: Some(Arc::new(StubGetPublicProfile)),
             draft_preview_read: Some(Arc::new(StubDraftPreview)),
+            ai_extract_job: None,
+            ai_tailor: None,
             draft_preview_media: Some(Arc::new(StubDraftPreview)),
             hard_delete_cv: Some(Arc::new(StubHardDeleteCvUseCase)),
             soft_delete_cv: Some(Arc::new(StubSoftDeleteCv)),
@@ -195,6 +205,24 @@ impl TestAppStateBuilder {
         uc: impl crate::blog::application::ports::incoming::use_cases::ReadDraftPreviewUseCase + 'static,
     ) -> Self {
         self.draft_preview_read = Some(Arc::new(uc));
+        self
+    }
+
+    /// Overrides the job-extraction surface.
+    pub fn with_extract_job(
+        mut self,
+        uc: impl crate::ai::application::ports::incoming::use_cases::ExtractJobUseCase + 'static,
+    ) -> Self {
+        self.ai_extract_job = Some(Arc::new(uc));
+        self
+    }
+
+    /// Overrides the tailoring surface.
+    pub fn with_tailor(
+        mut self,
+        uc: impl crate::ai::application::ports::incoming::use_cases::TailorUseCase + 'static,
+    ) -> Self {
+        self.ai_tailor = Some(Arc::new(uc));
         self
     }
 
@@ -648,6 +676,11 @@ impl TestAppStateBuilder {
                 get_quota: Arc::new(StubAiQuota),
                 consume_quota: Arc::new(StubAiQuota),
                 generator: None,
+                extract_job: self
+                    .ai_extract_job
+                    .unwrap_or_else(|| Arc::new(StubAiGeneration)),
+                tailor: self.ai_tailor.unwrap_or_else(|| Arc::new(StubAiGeneration)),
+                cover_letter: Arc::new(StubAiGeneration),
             },
             career: crate::career::application::career_use_cases::CareerUseCases {
                 create_job: Arc::new(StubCareer),
