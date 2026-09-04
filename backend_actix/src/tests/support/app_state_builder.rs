@@ -644,6 +644,11 @@ impl TestAppStateBuilder {
     }
     pub fn build(self) -> web::Data<AppState> {
         web::Data::new(AppState {
+            ai: crate::ai::application::ai_use_cases::AiUseCases {
+                get_quota: Arc::new(StubAiQuota),
+                consume_quota: Arc::new(StubAiQuota),
+                generator: None,
+            },
             career: crate::career::application::career_use_cases::CareerUseCases {
                 create_job: Arc::new(StubCareer),
                 list_jobs: Arc::new(StubCareer),

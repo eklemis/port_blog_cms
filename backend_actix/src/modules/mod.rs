@@ -1,3 +1,5 @@
+/// Model-backed surfaces and the generation allowance that governs them.
+pub mod ai;
 /// Users, tokens, password hashing and sessions. Owns `UserId`, which every
 /// other module uses.
 pub mod auth;

@@ -30,6 +30,7 @@
 /// The seven feature modules. Each is a vertical slice; see
 /// `docs/ARCHITECTURE.md`.
 pub mod modules;
+pub use modules::ai;
 pub use modules::auth;
 pub use modules::blog;
 pub use modules::career;
@@ -92,6 +93,9 @@ use crate::modules::email::application::ports::outgoing::password_reset_notifier
 use crate::modules::email::application::ports::outgoing::user_email_notifier::UserEmailNotifier;
 use crate::modules::multimedia::adapter::outgoing::db::AvatarLoaderPostgres;
 
+use crate::modules::ai::adapter::outgoing::{self as ai_provider, RedisUsageCounter};
+use crate::modules::ai::application::ai_use_cases::AiUseCases;
+use crate::modules::ai::application::service::{QuotaPolicy, QuotaService};
 use crate::modules::blog::application::blog_preview_use_cases::BlogPreviewUseCases;
 use crate::modules::blog::application::blog_use_cases::BlogUseCases;
 use crate::modules::career::application::career_use_cases::CareerUseCases;
@@ -198,6 +202,8 @@ pub struct AppState {
     pub cv_snapshot: CvSnapshotUseCases,
     /// The Career Studio use cases.
     pub career: CareerUseCases,
+    /// The AI surfaces' use cases.
+    pub ai: AiUseCases,
     /// Project's use cases, grouped.
     pub project: ProjectUseCases,
     /// Multimedia's use cases, grouped.
@@ -560,6 +566,22 @@ pub async fn start() -> std::io::Result<()> {
         get: Arc::new(GetCvSnapshotService::new(snapshot_store)),
     };
 
+    // AI surfaces. Only the allowance so far — see modules/ai.
+    let quota_service = Arc::new(QuotaService::new(
+        RedisUsageCounter::new(Arc::clone(&redis_arc)),
+        QuotaPolicy::from_env(),
+    ));
+    // The vendor is a deployment decision. Nothing above the TextGenerator
+    // port knows which of them was built.
+    let generator = ai_provider::from_env(reqwest::Client::new())
+        .unwrap_or_else(|e| panic!("AI provider is misconfigured: {e}"));
+
+    let ai_use_cases = AiUseCases {
+        get_quota: Arc::clone(&quota_service) as Arc<_>,
+        consume_quota: quota_service as Arc<_>,
+        generator,
+    };
+
     // Career Studio. The snapshotter is the cv module's own use case behind a
     // port, so freezing a CV means the same thing whether an application does
     // it or the author asks for it directly.
@@ -722,6 +744,7 @@ pub async fn start() -> std::io::Result<()> {
         blog_preview: blog_preview_use_cases,
         cv_snapshot: cv_snapshot_use_cases,
         career: career_use_cases,
+        ai: ai_use_cases,
         project: project_use_cases,
         multimedia: media_use_cases,
         user_identity_resolver: identity_resolver,
@@ -855,6 +878,7 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::career::adapter::incoming::web::routes::patch_application_handler);
     cfg.service(crate::career::adapter::incoming::web::routes::archive_application_handler);
     cfg.service(crate::career::adapter::incoming::web::routes::analyse_application_handler);
+    cfg.service(crate::ai::adapter::incoming::web::routes::get_ai_quota_handler);
     cfg.service(crate::cv::adapter::incoming::web::routes::get_cv_snapshot_handler);
     cfg.service(crate::project::adapter::incoming::web::routes::bulk_projects_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::bulk_media_handler);
