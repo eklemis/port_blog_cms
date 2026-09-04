@@ -119,6 +119,7 @@ use crate::topic::application::ports::outgoing::{TopicResult, TopicUsage};
         crate::career::adapter::incoming::web::routes::patch_application_handler,
         crate::career::adapter::incoming::web::routes::archive_application_handler,
         crate::career::adapter::incoming::web::routes::analyse_application_handler,
+        crate::ai::adapter::incoming::web::routes::get_ai_quota_handler,
         crate::project::adapter::incoming::web::routes::bulk_projects_handler,
         crate::multimedia::adapter::incoming::web::routes::bulk_media_handler,
         crate::blog::adapter::incoming::web::routes::hard_delete_blog_post_handler,

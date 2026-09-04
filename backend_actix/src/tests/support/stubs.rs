@@ -1370,3 +1370,42 @@ impl crate::career::application::ports::incoming::use_cases::AnalyseApplicationU
         )
     }
 }
+
+/// Reports an unmetered quota with nothing used. Tests that care supply their
+/// own.
+#[derive(Default, Clone)]
+pub struct StubAiQuota;
+
+fn stub_quota_state() -> crate::ai::domain::quota::QuotaState {
+    crate::ai::domain::quota::QuotaState {
+        used: 0,
+        limit: None,
+        resets_at: chrono::Utc::now(),
+    }
+}
+
+#[async_trait]
+impl crate::ai::application::ports::incoming::use_cases::GetAiQuotaUseCase for StubAiQuota {
+    async fn execute(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+    ) -> Result<
+        crate::ai::domain::quota::QuotaState,
+        crate::ai::application::ports::incoming::use_cases::QuotaError,
+    > {
+        Ok(stub_quota_state())
+    }
+}
+
+#[async_trait]
+impl crate::ai::application::ports::incoming::use_cases::ConsumeAiQuotaUseCase for StubAiQuota {
+    async fn execute(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+    ) -> Result<
+        crate::ai::domain::quota::QuotaState,
+        crate::ai::application::ports::incoming::use_cases::QuotaError,
+    > {
+        Ok(stub_quota_state())
+    }
+}
