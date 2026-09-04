@@ -93,7 +93,7 @@ use crate::modules::email::application::ports::outgoing::password_reset_notifier
 use crate::modules::email::application::ports::outgoing::user_email_notifier::UserEmailNotifier;
 use crate::modules::multimedia::adapter::outgoing::db::AvatarLoaderPostgres;
 
-use crate::modules::ai::adapter::outgoing::RedisUsageCounter;
+use crate::modules::ai::adapter::outgoing::{self as ai_provider, RedisUsageCounter};
 use crate::modules::ai::application::ai_use_cases::AiUseCases;
 use crate::modules::ai::application::service::{QuotaPolicy, QuotaService};
 use crate::modules::blog::application::blog_preview_use_cases::BlogPreviewUseCases;
@@ -571,9 +571,15 @@ pub async fn start() -> std::io::Result<()> {
         RedisUsageCounter::new(Arc::clone(&redis_arc)),
         QuotaPolicy::from_env(),
     ));
+    // The vendor is a deployment decision. Nothing above the TextGenerator
+    // port knows which of them was built.
+    let generator = ai_provider::from_env(reqwest::Client::new())
+        .unwrap_or_else(|e| panic!("AI provider is misconfigured: {e}"));
+
     let ai_use_cases = AiUseCases {
         get_quota: Arc::clone(&quota_service) as Arc<_>,
         consume_quota: quota_service as Arc<_>,
+        generator,
     };
 
     // Career Studio. The snapshotter is the cv module's own use case behind a
