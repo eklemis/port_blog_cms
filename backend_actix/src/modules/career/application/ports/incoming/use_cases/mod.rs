@@ -258,3 +258,74 @@ pub trait AnalyseApplicationUseCase: Send + Sync {
         input: AnalyseApplicationInput,
     ) -> Result<MatchAnalysis, AnalysisError>;
 }
+
+/// Why a cover letter or reflection operation failed.
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum LetterError {
+    /// No application matched, or it belongs to another user. Also what an
+    /// application with no letter or no reflection reports on a read.
+    #[error("Not found")]
+    NotFound,
+
+    /// The store could not be reached.
+    #[error("Repository error: {0}")]
+    RepositoryError(String),
+}
+
+impl From<crate::career::application::ports::outgoing::LetterStoreError> for LetterError {
+    fn from(e: crate::career::application::ports::outgoing::LetterStoreError) -> Self {
+        use crate::career::application::ports::outgoing::LetterStoreError as E;
+        match e {
+            E::ApplicationNotFound => LetterError::NotFound,
+            E::DatabaseError(m) => LetterError::RepositoryError(m),
+        }
+    }
+}
+
+/// Reads, writes and removes an application's cover letter.
+#[async_trait]
+pub trait CoverLetterUseCases: Send + Sync {
+    /// The letter, or `NotFound`.
+    async fn get(
+        &self,
+        owner: UserId,
+        application_id: Uuid,
+    ) -> Result<crate::career::domain::entities::CoverLetter, LetterError>;
+
+    /// Writes it, creating it on first write.
+    async fn write(
+        &self,
+        owner: UserId,
+        application_id: Uuid,
+        data: crate::career::application::ports::outgoing::PatchCoverLetterData,
+    ) -> Result<crate::career::domain::entities::CoverLetter, LetterError>;
+
+    /// Removes it. Removing one that is not there succeeds.
+    async fn delete(&self, owner: UserId, application_id: Uuid) -> Result<(), LetterError>;
+}
+
+/// Reads, writes and removes an application's reflection.
+///
+/// **What may be done with the contents is not a judgement call at the call
+/// site.** See [ADR 0009](../../../../../../docs/adr/0009-reflections-never-feed-generation.md):
+/// a reflection never enters a prompt that produces user-facing content.
+#[async_trait]
+pub trait ReflectionUseCases: Send + Sync {
+    /// The reflection, or `NotFound`.
+    async fn get(
+        &self,
+        owner: UserId,
+        application_id: Uuid,
+    ) -> Result<crate::career::domain::entities::Reflection, LetterError>;
+
+    /// Writes it, creating it on first write.
+    async fn write(
+        &self,
+        owner: UserId,
+        application_id: Uuid,
+        data: crate::career::application::ports::outgoing::ReflectionData,
+    ) -> Result<crate::career::domain::entities::Reflection, LetterError>;
+
+    /// Removes it permanently.
+    async fn delete(&self, owner: UserId, application_id: Uuid) -> Result<(), LetterError>;
+}

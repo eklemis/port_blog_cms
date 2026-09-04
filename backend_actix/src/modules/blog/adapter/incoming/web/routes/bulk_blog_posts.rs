@@ -154,4 +154,23 @@ mod tests {
 
         assert_eq!(req.op, BlogBulkOp::HardDelete);
     }
+
+    /// C1: unpublish is a bulk op; publish deliberately is not.
+    #[tokio::test]
+    async fn unpublish_is_an_accepted_op() {
+        let req: BulkBlogRequest = serde_json::from_str(r#"{"op":"unpublish","ids":[]}"#).unwrap();
+
+        assert_eq!(req.op, BlogBulkOp::Unpublish);
+    }
+
+    /// Not an oversight. Publishing is per-post considered work, and "publish
+    /// these" is ambiguous about whether it means now or at each post's
+    /// scheduled time — so the operation does not exist rather than picking an
+    /// answer for the author.
+    #[tokio::test]
+    async fn publish_is_deliberately_not_an_op() {
+        let err = serde_json::from_str::<BulkBlogRequest>(r#"{"op":"publish","ids":[]}"#);
+
+        assert!(err.is_err(), "bulk publish must stay unavailable");
+    }
 }

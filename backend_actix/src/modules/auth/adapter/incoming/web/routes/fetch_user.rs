@@ -35,6 +35,10 @@ pub struct UserProfileResponse {
     /// Public bio. `null` when the user has not written one.
     #[schema(example = "Backend engineer, mostly Rust.")]
     bio: Option<String>,
+
+    /// Interface language.
+    #[schema(example = "en")]
+    locale: String,
 }
 
 /// Get current user profile
@@ -118,6 +122,7 @@ pub async fn get_user_profile_handler(
             username: output.username,
             full_name: output.full_name,
             bio: output.bio,
+            locale: output.locale,
         }),
         Err(FetchUserError::UserNotFound(msg)) => {
             ApiResponse::not_found(ErrorCode::UserNotFound, &format!("User not found: {}", msg))
@@ -220,6 +225,7 @@ mod tests {
             username: "testuser".to_string(),
             full_name: "Test User".to_string(),
             bio: None,
+            locale: "en".to_string(),
         }
     }
 

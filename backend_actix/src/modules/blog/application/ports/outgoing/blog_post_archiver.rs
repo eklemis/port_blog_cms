@@ -30,6 +30,12 @@ pub enum BlogPostArchiverError {
 /// collapsing them avoids confirming that a post exists.
 #[async_trait]
 pub trait BlogPostArchiver: Send + Sync {
+    /// Clears `published_at`, returning a post to draft.
+    ///
+    /// Owner-scoped, and idempotent: unpublishing a draft succeeds. A post
+    /// that is already down is where the caller wanted it.
+    async fn unpublish(&self, owner: UserId, post_id: Uuid) -> Result<(), BlogPostArchiverError>;
+
     /// Flags the post as deleted, hiding it from queries while keeping the
     /// row. Reversible with [`restore`](Self::restore).
     async fn soft_delete(&self, owner: UserId, post_id: Uuid) -> Result<(), BlogPostArchiverError>;

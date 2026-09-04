@@ -8,7 +8,8 @@ use uuid::Uuid;
 
 use crate::auth::application::domain::entities::UserId;
 use crate::blog::application::ports::incoming::use_cases::{
-    ArchiveBlogPostError, ArchiveBlogPostUseCase, HardDeleteBlogPostUseCase, RestoreBlogPostUseCase,
+    ArchiveBlogPostError, ArchiveBlogPostUseCase, HardDeleteBlogPostUseCase,
+    RestoreBlogPostUseCase, UnpublishBlogPostUseCase,
 };
 use crate::blog::application::ports::outgoing::BlogPostArchiver;
 
@@ -38,6 +39,20 @@ macro_rules! archiver_service {
 archiver_service!(ArchiveBlogPostService);
 archiver_service!(RestoreBlogPostService);
 archiver_service!(HardDeleteBlogPostService);
+archiver_service!(UnpublishBlogPostService);
+
+#[async_trait]
+impl<A> UnpublishBlogPostUseCase for UnpublishBlogPostService<A>
+where
+    A: BlogPostArchiver + Send + Sync,
+{
+    async fn execute(&self, owner: UserId, post_id: Uuid) -> Result<(), ArchiveBlogPostError> {
+        self.archiver
+            .unpublish(owner, post_id)
+            .await
+            .map_err(Into::into)
+    }
+}
 
 #[async_trait]
 impl<A> ArchiveBlogPostUseCase for ArchiveBlogPostService<A>
@@ -111,6 +126,14 @@ mod tests {
 
     #[async_trait]
     impl BlogPostArchiver for SpyArchiver {
+        async fn unpublish(
+            &self,
+            owner: UserId,
+            post_id: Uuid,
+        ) -> Result<(), BlogPostArchiverError> {
+            self.soft_delete(owner, post_id).await
+        }
+
         async fn soft_delete(&self, _o: UserId, _p: Uuid) -> Result<(), BlogPostArchiverError> {
             self.out("soft_delete")
         }

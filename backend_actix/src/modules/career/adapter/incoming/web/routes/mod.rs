@@ -3,9 +3,11 @@
 mod analysis;
 mod applications;
 mod jobs;
+mod letters;
 
 // Glob re-exports carry the hidden `__path_<handler>` structs that
 // `#[utoipa::path]` generates alongside each handler; `ApiDoc` needs them.
 pub use analysis::*;
 pub use applications::*;
 pub use jobs::*;
+pub use letters::*;

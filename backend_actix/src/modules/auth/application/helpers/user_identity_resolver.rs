@@ -115,6 +115,7 @@ mod tests {
             is_verified: true,
             is_deleted: deleted,
             bio: None,
+            locale: "en".to_string(),
         }
     }
 

@@ -54,7 +54,7 @@ where
 
         let user = self
             .user_repository
-            .set_profile(data.user_id.value(), full_name, data.bio)
+            .set_profile(data.user_id.value(), full_name, data.bio, data.locale)
             .await?;
 
         Ok(UpdateUserOutput {
@@ -63,6 +63,7 @@ where
             email: user.email,
             full_name: user.full_name,
             bio: user.bio,
+            locale: user.locale,
         })
     }
 }
@@ -93,6 +94,7 @@ mod tests {
             _user_id: Uuid,
             _full_name: String,
             bio: Option<Option<String>>,
+            _locale: Option<String>,
         ) -> Result<UserResult, UserRepositoryError> {
             *self.bio_seen.lock().unwrap() = Some(bio);
             self.result.clone()
@@ -145,6 +147,7 @@ mod tests {
             username: "testuser".to_string(),
             full_name: full_name.to_string(),
             bio: None,
+            locale: "en".to_string(),
         }
     }
 
@@ -153,6 +156,7 @@ mod tests {
             user_id: user_id.into(),
             full_name: full_name.to_string(),
             bio: None,
+            locale: None,
         }
     }
 
@@ -363,6 +367,7 @@ mod tests {
                 user_id: user_id.into(),
                 full_name: "John Doe".to_string(),
                 bio,
+                locale: None,
             })
             .await
             .unwrap();

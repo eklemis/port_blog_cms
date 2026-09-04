@@ -30,6 +30,15 @@ pub struct UpdateUserRequest {
     #[serde(default, deserialize_with = "double_option")]
     #[schema(example = "Backend engineer, mostly Rust.")]
     bio: Option<Option<String>>,
+
+    /// New interface language.
+    ///
+    /// This is the language of the **UI**, not of anything you write. A CV or
+    /// cover letter carries its own — someone reading the interface in
+    /// Indonesian while writing an English CV is the ordinary case, not a
+    /// mistake to reconcile.
+    #[schema(example = "id")]
+    locale: Option<String>,
 }
 
 /// Distinguishes "key absent" from "key present and null", as in the media
@@ -63,6 +72,10 @@ pub struct UpdateUserResponse {
     /// Public bio. `null` when the user has not written one.
     #[schema(example = "Backend engineer, mostly Rust.")]
     bio: Option<String>,
+
+    /// Interface language.
+    #[schema(example = "en")]
+    locale: String,
 }
 
 /// Update current user profile
@@ -141,6 +154,7 @@ pub async fn update_user_profile_handler(
         user_id: UserId::from(user.user_id),
         full_name: body.full_name,
         bio: body.bio,
+        locale: body.locale,
     };
 
     match app_data.update_user_profile_use_case.execute(input).await {
@@ -150,6 +164,7 @@ pub async fn update_user_profile_handler(
             username: output.username,
             full_name: output.full_name,
             bio: output.bio,
+            locale: output.locale,
         }),
         Err(UpdateUserError::InvalidFullName(msg)) => {
             ApiResponse::bad_request(ErrorCode::InvalidFullName, &msg)
@@ -261,6 +276,7 @@ mod tests {
             username: "testuser".to_string(),
             full_name: full_name.to_string(),
             bio: None,
+            locale: "en".to_string(),
         }
     }
 
@@ -484,5 +500,31 @@ mod tests {
             serde_json::from_str(r#"{"full_name":"John Smith","bio":"Rust, mostly."}"#).unwrap();
 
         assert_eq!(req.bio, Some(Some("Rust, mostly.".to_string())));
+    }
+
+    // ------------------------------------------------------------------
+    // Locale (R20)
+    // ------------------------------------------------------------------
+
+    /// `locale` is the interface language and a property of the person.
+    /// A document's language lives on the document — the two must not be
+    /// conflated, or someone reading the UI in Indonesian cannot write an
+    /// English CV.
+    #[tokio::test]
+    async fn locale_is_accepted_on_its_own() {
+        let req: UpdateUserRequest =
+            serde_json::from_str(r#"{"full_name":"John Smith","locale":"id"}"#).unwrap();
+
+        assert_eq!(req.locale.as_deref(), Some("id"));
+        assert_eq!(req.bio, None, "a locale edit must not touch the bio");
+    }
+
+    /// Unlike `bio`, `locale` is a plain option: there is no such thing as an
+    /// absent interface language, so "clear it" is not an operation.
+    #[tokio::test]
+    async fn an_omitted_locale_leaves_it_alone() {
+        let req: UpdateUserRequest = serde_json::from_str(r#"{"full_name":"John Smith"}"#).unwrap();
+
+        assert_eq!(req.locale, None);
     }
 }

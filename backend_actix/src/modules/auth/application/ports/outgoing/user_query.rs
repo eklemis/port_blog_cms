@@ -31,6 +31,10 @@ pub struct UserQueryResult {
     /// chose. Lives on the user rather than per-CV because a reader's URL names
     /// a person, not a document.
     pub bio: Option<String>,
+
+    /// The language the interface is shown in. A property of the person, not
+    /// of anything they write — see the migration for why those are separate.
+    pub locale: String,
     /// When the account was created.
     pub created_at: DateTime<Utc>,
     /// When the row was last written.

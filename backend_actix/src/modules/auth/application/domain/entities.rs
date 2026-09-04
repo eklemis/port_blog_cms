@@ -42,6 +42,8 @@ pub struct User {
     pub password_hash: String,
     /// Free-form public introduction. `None` when never set.
     pub bio: Option<String>,
+    /// Interface language.
+    pub locale: String,
     /// When the account was created.
     pub created_at: DateTime<Utc>,
     /// When the row was last written.

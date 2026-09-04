@@ -17,6 +17,8 @@ pub struct FetchUserOutput {
     pub full_name: String,
     /// Public bio. `None` when the user has not written one.
     pub bio: Option<String>,
+    /// Interface language.
+    pub locale: String,
 }
 
 /// Why a profile read failed.

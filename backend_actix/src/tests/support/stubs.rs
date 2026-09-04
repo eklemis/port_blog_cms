@@ -613,6 +613,7 @@ impl FetchUserProfileUseCase for StubFetchUserProfileUseCase {
             username: "stubuser".to_string(),
             full_name: "Stub User".to_string(),
             bio: None,
+            locale: "en".to_string(),
         })
     }
 }
@@ -629,6 +630,7 @@ impl UpdateUserProfileUseCase for StubUpdateUserProfileUseCase {
             username: "stubuser".to_string(),
             full_name: data.full_name,
             bio: None,
+            locale: "en".to_string(),
         })
     }
 }
@@ -1407,5 +1409,73 @@ impl crate::ai::application::ports::incoming::use_cases::ConsumeAiQuotaUseCase f
         crate::ai::application::ports::incoming::use_cases::QuotaError,
     > {
         Ok(stub_quota_state())
+    }
+}
+
+#[async_trait]
+impl crate::career::application::ports::incoming::use_cases::CoverLetterUseCases for StubCareer {
+    async fn get(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _id: uuid::Uuid,
+    ) -> Result<
+        crate::career::domain::entities::CoverLetter,
+        crate::career::application::ports::incoming::use_cases::LetterError,
+    > {
+        Err(crate::career::application::ports::incoming::use_cases::LetterError::NotFound)
+    }
+
+    async fn write(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _id: uuid::Uuid,
+        _data: crate::career::application::ports::outgoing::PatchCoverLetterData,
+    ) -> Result<
+        crate::career::domain::entities::CoverLetter,
+        crate::career::application::ports::incoming::use_cases::LetterError,
+    > {
+        Err(crate::career::application::ports::incoming::use_cases::LetterError::NotFound)
+    }
+
+    async fn delete(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _id: uuid::Uuid,
+    ) -> Result<(), crate::career::application::ports::incoming::use_cases::LetterError> {
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl crate::career::application::ports::incoming::use_cases::ReflectionUseCases for StubCareer {
+    async fn get(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _id: uuid::Uuid,
+    ) -> Result<
+        crate::career::domain::entities::Reflection,
+        crate::career::application::ports::incoming::use_cases::LetterError,
+    > {
+        Err(crate::career::application::ports::incoming::use_cases::LetterError::NotFound)
+    }
+
+    async fn write(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _id: uuid::Uuid,
+        _data: crate::career::application::ports::outgoing::ReflectionData,
+    ) -> Result<
+        crate::career::domain::entities::Reflection,
+        crate::career::application::ports::incoming::use_cases::LetterError,
+    > {
+        Err(crate::career::application::ports::incoming::use_cases::LetterError::NotFound)
+    }
+
+    async fn delete(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+        _id: uuid::Uuid,
+    ) -> Result<(), crate::career::application::ports::incoming::use_cases::LetterError> {
+        Ok(())
     }
 }

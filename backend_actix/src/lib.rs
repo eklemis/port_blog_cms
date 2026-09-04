@@ -241,7 +241,7 @@ pub async fn start() -> std::io::Result<()> {
             },
             application::ports::incoming::use_cases::{
                 ArchiveBlogPostUseCase, AttachBlogPostTopicUseCase, DetachBlogPostTopicUseCase,
-                HardDeleteBlogPostUseCase, RestoreBlogPostUseCase,
+                HardDeleteBlogPostUseCase, RestoreBlogPostUseCase, UnpublishBlogPostUseCase,
             },
             application::service::{
                 ArchiveBlogPostService, AttachBlogPostTopicService, BulkBlogPostsService,
@@ -250,14 +250,17 @@ pub async fn start() -> std::io::Result<()> {
                 GetPublicBlogPostService, GetPublicBlogPostsService, GetSingleBlogPostService,
                 HardDeleteBlogPostService, PatchBlogPostService, ReadDraftPreviewService,
                 ReadPreviewMediaService, RestoreBlogPostService, RevokeDraftPreviewService,
-                ShareDraftService, SlugAvailableService,
+                ShareDraftService, SlugAvailableService, UnpublishBlogPostService,
             },
         },
         career::{
             adapter::outgoing::{
                 ApplicationStorePostgres, CvReaderCv, CvSnapshotterCv, JobStorePostgres,
+                LetterStorePostgres,
             },
-            application::service::{AnalyseApplicationService, ApplicationService, JobService},
+            application::service::{
+                AnalyseApplicationService, ApplicationService, JobService, LetterService,
+            },
         },
         cv::{
             adapter::outgoing::{CVArchiverPostgres, CVQueryPostgres, CvSnapshotStorePostgres},
@@ -511,7 +514,9 @@ pub async fn start() -> std::io::Result<()> {
     let blog_restore: Arc<dyn RestoreBlogPostUseCase + Send + Sync> =
         Arc::new(RestoreBlogPostService::new(blog_archiver.clone()));
     let blog_hard_delete: Arc<dyn HardDeleteBlogPostUseCase + Send + Sync> =
-        Arc::new(HardDeleteBlogPostService::new(blog_archiver));
+        Arc::new(HardDeleteBlogPostService::new(blog_archiver.clone()));
+    let blog_unpublish: Arc<dyn UnpublishBlogPostUseCase + Send + Sync> =
+        Arc::new(UnpublishBlogPostService::new(blog_archiver));
     let blog_attach_topic: Arc<dyn AttachBlogPostTopicUseCase + Send + Sync> =
         Arc::new(AttachBlogPostTopicService::new(blog_topic_repo.clone()));
     let blog_detach_topic: Arc<dyn DetachBlogPostTopicUseCase + Send + Sync> =
@@ -529,6 +534,7 @@ pub async fn start() -> std::io::Result<()> {
             Arc::clone(&blog_archive),
             Arc::clone(&blog_restore),
             Arc::clone(&blog_hard_delete),
+            Arc::clone(&blog_unpublish),
             Arc::clone(&blog_attach_topic),
             Arc::clone(&blog_detach_topic),
         )),
@@ -596,6 +602,9 @@ pub async fn start() -> std::io::Result<()> {
         Arc::new(CvSnapshotStorePostgres::new(Arc::clone(&db_arc))),
     );
 
+    let letter_service = Arc::new(LetterService::new(LetterStorePostgres::new(Arc::clone(
+        &db_arc,
+    ))));
     let job_service = Arc::new(JobService::new(job_store));
     let application_service = Arc::new(ApplicationService::new(application_store, snapshotter));
 
@@ -610,6 +619,8 @@ pub async fn start() -> std::io::Result<()> {
         get_application: Arc::clone(&application_service) as Arc<_>,
         patch_application: Arc::clone(&application_service) as Arc<_>,
         archive_application: application_service as Arc<_>,
+        cover_letter: Arc::clone(&letter_service) as Arc<_>,
+        reflection: letter_service as Arc<_>,
         analyse: Arc::new(AnalyseApplicationService::new(
             ApplicationStorePostgres::new(Arc::clone(&db_arc)),
             cv_reader,
@@ -877,6 +888,12 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::career::adapter::incoming::web::routes::get_application_handler);
     cfg.service(crate::career::adapter::incoming::web::routes::patch_application_handler);
     cfg.service(crate::career::adapter::incoming::web::routes::archive_application_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::get_cover_letter_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::patch_cover_letter_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::delete_cover_letter_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::get_reflection_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::put_reflection_handler);
+    cfg.service(crate::career::adapter::incoming::web::routes::delete_reflection_handler);
     cfg.service(crate::career::adapter::incoming::web::routes::analyse_application_handler);
     cfg.service(crate::ai::adapter::incoming::web::routes::get_ai_quota_handler);
     cfg.service(crate::cv::adapter::incoming::web::routes::get_cv_snapshot_handler);

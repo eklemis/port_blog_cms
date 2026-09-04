@@ -341,6 +341,7 @@ mod tests {
             is_verified: true,
             is_deleted: false,
             bio: None,
+            locale: "en".to_string(),
         }
     }
 
@@ -446,6 +447,7 @@ mod tests {
             user_id: Uuid,
             full_name: String,
             _bio: Option<Option<String>>,
+            _locale: Option<String>,
         ) -> Result<UserResult, UserRepositoryError> {
             self.set_full_name(user_id, full_name).await
         }
@@ -533,6 +535,7 @@ mod tests {
             username: "deleteduser".into(),
             full_name: "Deleted User".into(),
             bio: None,
+            locale: "en".to_string(),
         };
 
         let restored_user = deleted_user.clone();
@@ -557,6 +560,7 @@ mod tests {
             username: "activeuser".into(),
             full_name: "Active User".into(),
             bio: None,
+            locale: "en".to_string(),
         };
 
         let created_user = UserResult {
@@ -565,6 +569,7 @@ mod tests {
             username: "testuser".into(),
             full_name: "Test User".into(),
             bio: None,
+            locale: "en".to_string(),
         };
 
         let use_case = CreateUserUseCase::new(
@@ -605,6 +610,7 @@ mod tests {
                 username: "x".into(),
                 full_name: "x".into(),
                 bio: None,
+                locale: "en".to_string(),
             }),
             Arc::new(MockPasswordHasher::fail()),
             Arc::new(BasicPasswordPolicy),
@@ -631,6 +637,7 @@ mod tests {
                 username: "testuser".into(),
                 full_name: "Test User".into(),
                 bio: None,
+                locale: "en".to_string(),
             }),
             Arc::new(MockPasswordHasher::success()),
             Arc::new(BasicPasswordPolicy),
