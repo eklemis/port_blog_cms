@@ -151,6 +151,20 @@ error_codes! {
         "A bulk request carried more ids than the endpoint accepts in one call.";
     "Request validation" | BulkEmpty           => "BULK_EMPTY", BAD_REQUEST,
         "A bulk request carried no ids. Guard the control rather than calling with an empty selection.";
+
+    // ── Generation ───────────────────────────────────────────────────────
+    "Generation" | AiQuotaExceeded     => "AI_QUOTA_EXCEEDED", TOO_MANY_REQUESTS,
+        "The caller has used their generation allowance for this period. `GET /api/ai/quota` reports when it resets.";
+    "Generation" | AiRefused           => "AI_REFUSED", UNPROCESSABLE_ENTITY,
+        "The model declined to answer. Not a fault: the request reached it and was understood.";
+    "Generation" | AiUpstreamError     => "AI_UPSTREAM_ERROR", BAD_GATEWAY,
+        "The model provider failed or was unreachable. Worth retrying.";
+    "Generation" | AiTimeout           => "AI_TIMEOUT", GATEWAY_TIMEOUT,
+        "The model took too long to answer.";
+    "Generation" | AiDisabled          => "AI_DISABLED", SERVICE_UNAVAILABLE,
+        "No model provider is configured on this deployment, so generation is switched off.";
+    "Generation" | AiFetchFailed       => "AI_FETCH_FAILED", UNPROCESSABLE_ENTITY,
+        "The job posting could not be fetched from its URL. Most boards block automated fetches; paste the text instead.";
     "Request validation" | SnapshotRequired    => "SNAPSHOT_REQUIRED", BAD_REQUEST,
         "An application cannot leave draft without a CV snapshot. Send cv_id so one can be taken.";
     "Request validation" | InvalidEmail        => "INVALID_EMAIL", BAD_REQUEST,

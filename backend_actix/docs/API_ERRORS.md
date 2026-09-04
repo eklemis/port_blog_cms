@@ -88,6 +88,22 @@ one.
 | `MISSING_FIELD` | 400 Bad Request | A required field was absent. |
 | `BULK_TOO_LARGE` | 400 Bad Request | A bulk request carried more ids than the endpoint accepts in one call. |
 | `BULK_EMPTY` | 400 Bad Request | A bulk request carried no ids. Guard the control rather than calling with an empty selection. |
+
+## Generation
+
+| Code | Typical status | Meaning |
+| --- | --- | --- |
+| `AI_QUOTA_EXCEEDED` | 429 Too Many Requests | The caller has used their generation allowance for this period. `GET /api/ai/quota` reports when it resets. |
+| `AI_REFUSED` | 422 Unprocessable Entity | The model declined to answer. Not a fault: the request reached it and was understood. |
+| `AI_UPSTREAM_ERROR` | 502 Bad Gateway | The model provider failed or was unreachable. Worth retrying. |
+| `AI_TIMEOUT` | 504 Gateway Timeout | The model took too long to answer. |
+| `AI_DISABLED` | 503 Service Unavailable | No model provider is configured on this deployment, so generation is switched off. |
+| `AI_FETCH_FAILED` | 422 Unprocessable Entity | The job posting could not be fetched from its URL. Most boards block automated fetches; paste the text instead. |
+
+## Request validation
+
+| Code | Typical status | Meaning |
+| --- | --- | --- |
 | `SNAPSHOT_REQUIRED` | 400 Bad Request | An application cannot leave draft without a CV snapshot. Send cv_id so one can be taken. |
 | `INVALID_EMAIL` | 400 Bad Request | The email address is not well formed. |
 | `INVALID_PASSWORD` | 400 Bad Request | The password does not meet the strength policy. |
@@ -128,4 +144,4 @@ one.
 
 ---
 
-54 codes in total. This file is generated from `src/shared/api/error_code.rs`; add a variant there and regenerate.
+60 codes in total. This file is generated from `src/shared/api/error_code.rs`; add a variant there and regenerate.
