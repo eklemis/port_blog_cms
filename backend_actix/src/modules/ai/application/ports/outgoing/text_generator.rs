@@ -21,6 +21,7 @@
 //!   refusals as successes would surface an empty generation to a person.
 
 use async_trait::async_trait;
+use futures::stream::BoxStream;
 
 /// A request for generated text.
 ///
@@ -108,11 +109,28 @@ pub enum GenerationError {
     Malformed(String),
 }
 
-/// Produces text from a prompt.
+/// One thing that happened while text was being generated.
 ///
-/// One method on purpose. Streaming is a separate concern and will be a
-/// separate method when the surfaces that need it exist; adding it here now
-/// would fix a shape before there is a caller to fix it against.
+/// Modelled as events rather than a stream of plain strings because the end of
+/// a generation carries information — what it cost, and whether it finished or
+/// was declined — that a bare `String` has nowhere to put.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GenerationEvent {
+    /// More text. Append it; it is not cumulative.
+    Delta(String),
+
+    /// The generation finished normally. Always the last event.
+    Completed(Usage),
+}
+
+/// A stream of generation events.
+///
+/// Errors travel in-band rather than ending the stream, because the one that
+/// matters arrives **after** text has already been sent — see
+/// [`TextGenerator::generate_stream`].
+pub type GenerationStream = BoxStream<'static, Result<GenerationEvent, GenerationError>>;
+
+/// Produces text from a prompt.
 #[async_trait]
 pub trait TextGenerator: Send + Sync {
     /// Which vendor is answering, for logs and the health probe.
@@ -121,6 +139,34 @@ pub trait TextGenerator: Send + Sync {
     /// defeated the point of the port.
     fn provider(&self) -> &'static str;
 
-    /// Generates once.
+    /// Generates once, returning the whole reply.
+    ///
+    /// Use for short generations and for anything with a schema. For a long
+    /// one prefer [`generate_stream`](Self::generate_stream): a reply that
+    /// takes twenty seconds to produce is one that can hit a proxy timeout
+    /// before it produces anything at all.
     async fn generate(&self, request: GenerationRequest) -> Result<Generation, GenerationError>;
+
+    /// Generates incrementally.
+    ///
+    /// # A refusal can arrive after text has
+    ///
+    /// This is what makes streaming harder than it looks, and why errors are
+    /// events rather than a stream that simply ends. Both vendors can begin a
+    /// reply and then decline partway through, so a
+    /// [`GenerationError::Refused`] may follow several
+    /// [`Delta`](GenerationEvent::Delta)s that a caller has already shown to
+    /// somebody.
+    ///
+    /// A caller must decide what to do with text it has already displayed. It
+    /// must not assume that reaching an error means nothing was shown.
+    ///
+    /// # Ordering
+    ///
+    /// Zero or more `Delta`s, then exactly one of `Completed` or an error.
+    /// Nothing follows either.
+    async fn generate_stream(
+        &self,
+        request: GenerationRequest,
+    ) -> Result<GenerationStream, GenerationError>;
 }

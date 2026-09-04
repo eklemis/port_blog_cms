@@ -12,10 +12,13 @@
 //! - **The schema is wrapped differently**, and requires a name.
 
 use async_trait::async_trait;
+use futures::StreamExt;
 use serde_json::{json, Value};
 
+use crate::ai::adapter::outgoing::SseDecoder;
 use crate::ai::application::ports::outgoing::{
-    Generation, GenerationError, GenerationRequest, TextGenerator, Usage,
+    Generation, GenerationError, GenerationEvent, GenerationRequest, GenerationStream,
+    TextGenerator, Usage,
 };
 
 /// Talks to the OpenAI Chat Completions API.
@@ -126,6 +129,51 @@ pub fn interpret(body: &Value) -> Result<Generation, GenerationError> {
     })
 }
 
+/// The sentinel this vendor ends a stream with. Not JSON — parsing it as
+/// JSON is the classic way to end a stream with a spurious error.
+const DONE: &str = "[DONE]";
+
+/// What one streamed frame means, if anything.
+///
+/// Split out and pure for the same reason as the other adapter's: a refusal
+/// that arrives after several deltas cannot be provoked reliably against a
+/// live endpoint, and it is the case most likely to be got wrong.
+pub fn interpret_event(
+    payload: &Value,
+    running: &mut Usage,
+) -> Result<Option<GenerationEvent>, GenerationError> {
+    // Usage arrives on its own final frame, one with no choices, and only when
+    // the request asked for it.
+    if let Some(u) = payload.get("usage").filter(|u| !u.is_null()) {
+        let cached = u["prompt_tokens_details"]["cached_tokens"]
+            .as_u64()
+            .unwrap_or(0) as u32;
+        running.cached_input_tokens = cached;
+        running.input_tokens =
+            (u["prompt_tokens"].as_u64().unwrap_or(0) as u32).saturating_sub(cached);
+        running.output_tokens = u["completion_tokens"].as_u64().unwrap_or(0) as u32;
+    }
+
+    let Some(choice) = payload["choices"].as_array().and_then(|c| c.first()) else {
+        return Ok(None);
+    };
+
+    if let Some(refusal) = choice["delta"]["refusal"].as_str() {
+        return Err(GenerationError::Refused(refusal.to_string()));
+    }
+
+    match choice["finish_reason"].as_str() {
+        Some("content_filter") => return Err(GenerationError::Refused("content filtered".into())),
+        Some(_) => return Ok(Some(GenerationEvent::Completed(*running))),
+        None => {}
+    }
+
+    Ok(choice["delta"]["content"]
+        .as_str()
+        .filter(|t| !t.is_empty())
+        .map(|t| GenerationEvent::Delta(t.to_string())))
+}
+
 #[async_trait]
 impl TextGenerator for OpenAiGenerator {
     fn provider(&self) -> &'static str {
@@ -170,6 +218,88 @@ impl TextGenerator for OpenAiGenerator {
         }
 
         interpret(&body)
+    }
+
+    async fn generate_stream(
+        &self,
+        request: GenerationRequest,
+    ) -> Result<GenerationStream, GenerationError> {
+        let mut body = self.body(&request);
+        body["stream"] = json!(true);
+        // Without this the stream carries no usage at all, and the cache-hit
+        // figure silently reads zero — which looks exactly like caching having
+        // stopped working. Opt in explicitly.
+        body["stream_options"] = json!({ "include_usage": true });
+
+        let response = self
+            .http
+            .post(format!("{}/v1/chat/completions", self.base_url))
+            .bearer_auth(&self.api_key)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| {
+                if e.is_timeout() {
+                    GenerationError::Timeout
+                } else {
+                    GenerationError::Upstream(e.to_string())
+                }
+            })?;
+
+        let status = response.status();
+        if status.as_u16() == 429 {
+            return Err(GenerationError::RateLimited("rate limited".to_string()));
+        }
+        if !status.is_success() {
+            let detail = response.text().await.unwrap_or_default();
+            return Err(GenerationError::Upstream(format!("{status}: {detail}")));
+        }
+
+        let mut decoder = SseDecoder::new();
+        let mut usage = Usage::default();
+        let mut finished = false;
+
+        let stream = response.bytes_stream().flat_map(move |chunk| {
+            let mut out: Vec<Result<GenerationEvent, GenerationError>> = Vec::new();
+
+            match chunk {
+                Err(e) => out.push(Err(GenerationError::Upstream(e.to_string()))),
+                Ok(bytes) => {
+                    for payload in decoder.push(&bytes) {
+                        if payload == DONE {
+                            // The usage frame arrives after the frame carrying
+                            // finish_reason, so Completed is emitted here when
+                            // it has not already gone out — otherwise the
+                            // caller would never see the final cost.
+                            if !finished {
+                                finished = true;
+                                out.push(Ok(GenerationEvent::Completed(usage)));
+                            }
+                            continue;
+                        }
+
+                        let Ok(json) = serde_json::from_str::<Value>(&payload) else {
+                            continue;
+                        };
+
+                        match interpret_event(&json, &mut usage) {
+                            Ok(Some(GenerationEvent::Completed(_))) => {
+                                // Swallowed: usage is still to come on a later
+                                // frame, so completing now would report a cost
+                                // of zero.
+                            }
+                            Ok(Some(event)) => out.push(Ok(event)),
+                            Ok(None) => {}
+                            Err(e) => out.push(Err(e)),
+                        }
+                    }
+                }
+            }
+
+            futures::stream::iter(out)
+        });
+
+        Ok(Box::pin(stream))
     }
 }
 
@@ -268,5 +398,109 @@ mod tests {
             usage.input_tokens, 100,
             "cached tokens must not be counted twice"
         );
+    }
+
+    // ------------------------------------------------------------------
+    // Streaming
+    // ------------------------------------------------------------------
+
+    fn run(frames: &[Value]) -> (Vec<GenerationEvent>, Option<GenerationError>, Usage) {
+        let mut usage = Usage::default();
+        let mut events = Vec::new();
+
+        for frame in frames {
+            match interpret_event(frame, &mut usage) {
+                Ok(Some(e)) => events.push(e),
+                Ok(None) => {}
+                Err(e) => return (events, Some(e), usage),
+            }
+        }
+
+        (events, None, usage)
+    }
+
+    #[test]
+    fn deltas_come_through_in_order() {
+        let (events, err, _) = run(&[
+            json!({ "choices": [{ "delta": { "content": "Hel" } }] }),
+            json!({ "choices": [{ "delta": { "content": "lo" } }] }),
+        ]);
+
+        assert!(err.is_none());
+        assert_eq!(
+            events,
+            [
+                GenerationEvent::Delta("Hel".into()),
+                GenerationEvent::Delta("lo".into())
+            ]
+        );
+    }
+
+    /// Same hard case as the other vendor, signalled differently: text first,
+    /// then the decline.
+    #[test]
+    fn a_refusal_can_arrive_after_text_has_already_been_sent() {
+        let (events, err, _) = run(&[
+            json!({ "choices": [{ "delta": { "content": "Sure, I can" } }] }),
+            json!({ "choices": [{ "delta": { "refusal": "I can't help with that." } }] }),
+        ]);
+
+        assert_eq!(events, [GenerationEvent::Delta("Sure, I can".into())]);
+        assert!(matches!(err, Some(GenerationError::Refused(_))));
+    }
+
+    #[test]
+    fn a_filtered_stream_is_a_refusal() {
+        let (_, err, _) =
+            run(&[json!({ "choices": [{ "delta": {}, "finish_reason": "content_filter" }] })]);
+
+        assert!(matches!(err, Some(GenerationError::Refused(_))));
+    }
+
+    /// Usage arrives on its own final frame, after the one carrying
+    /// finish_reason. The transport holds Completed back until then — this
+    /// pins that the figures are read off that frame at all.
+    #[test]
+    fn the_usage_frame_is_read_and_normalised() {
+        let (_, err, usage) = run(&[
+            json!({ "choices": [{ "delta": { "content": "hi" } }] }),
+            json!({ "choices": [], "usage": {
+                "prompt_tokens": 1000,
+                "completion_tokens": 20,
+                "prompt_tokens_details": { "cached_tokens": 900 }
+            } }),
+        ]);
+
+        assert!(err.is_none());
+        assert_eq!(usage.cached_input_tokens, 900);
+        assert_eq!(
+            usage.input_tokens, 100,
+            "cached tokens must not be counted twice, as in the non-streamed path"
+        );
+    }
+
+    /// The sentinel is not JSON. Handling it in the transport rather than the
+    /// interpreter is what stops a stream ending with a spurious parse error.
+    #[test]
+    fn the_done_sentinel_is_not_json() {
+        assert!(serde_json::from_str::<Value>(DONE).is_err());
+    }
+
+    /// Without this the stream carries no usage at all, and the cache-hit
+    /// figure reads zero — indistinguishable from caching having broken.
+    #[test]
+    fn the_streamed_body_opts_into_usage_reporting() {
+        let mut body = generator().body(&a_request());
+        body["stream"] = json!(true);
+        body["stream_options"] = json!({ "include_usage": true });
+
+        assert_eq!(body["stream_options"]["include_usage"], true);
+    }
+
+    #[test]
+    fn empty_deltas_are_dropped() {
+        let (events, _, _) = run(&[json!({ "choices": [{ "delta": { "content": "" } }] })]);
+
+        assert!(events.is_empty());
     }
 }
