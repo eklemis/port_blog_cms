@@ -4,3 +4,5 @@
 pub mod entities;
 /// The deterministic half of match analysis.
 pub mod readability;
+/// The estimated half of match analysis.
+pub mod relevance;
