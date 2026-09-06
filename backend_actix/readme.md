@@ -145,6 +145,23 @@ The four `ARGON2_*` / `USE_BLOCKING_HASH` variables appear in `.env.test` but
 are currently inert — `main.rs` picks a hardcoded Argon2 profile from
 `RUST_ENV` rather than calling `Argon2Hasher::from_env()`.
 
+## For the frontend
+
+Four documents plus the spec, enough to build against without reading Rust:
+
+| Document | Answers |
+| --- | --- |
+| [`docs/openapi.json`](docs/openapi.json) | Every endpoint, method, request and response schema. Generated from the handlers, so it cannot drift from what runs. Import it into Swagger, Postman, or a client generator. |
+| [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md) | Login, refresh, logout, and why an unverified account can reach three endpoints and no others. |
+| [`docs/VALIDATION.md`](docs/VALIDATION.md) | What the server rejects and with which code — including the rules the spec does **not** declare. |
+| [`docs/PAGINATION.md`](docs/PAGINATION.md) | Which five endpoints page, the query parameters, and the sort values that are spelled inconsistently. |
+| [`docs/API_ERRORS.md`](docs/API_ERRORS.md) | Every error code and its status. Generated. |
+
+The spec is also served live at `/swagger-ui/` and `/api-docs/openapi.json` when
+the server is running.
+
+---
+
 ## Rate limiting
 
 The unauthenticated auth endpoints are limited per caller, backed by Redis:

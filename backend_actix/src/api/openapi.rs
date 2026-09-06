@@ -388,6 +388,37 @@ mod tests {
 
     /// `ErrorDetail.code` must point at the enum, not fall back to a bare
     /// string — otherwise generated clients lose exhaustive matching.
+    /// Writes the spec to `docs/openapi.json` so the frontend has it as a file.
+    ///
+    /// The spec is generated from the handlers, so the only other way to read it
+    /// is to run the server and fetch `/api-docs/openapi.json`. That is fine for
+    /// someone with the service running and useless for someone who wants to
+    /// generate a client, diff two versions, or read it in a review. Committing
+    /// it makes the contract reviewable in the same pull request as the change
+    /// that alters it.
+    ///
+    /// Regenerate: `UPDATE_DOCS=1 cargo test -p backend_actix openapi_spec_is_up_to_date`
+    #[test]
+    fn openapi_spec_is_up_to_date() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/docs/openapi.json");
+        let generated = format!(
+            "{}\n",
+            serde_json::to_string_pretty(&ApiDoc::openapi()).expect("spec must serialize")
+        );
+
+        if std::env::var("UPDATE_DOCS").is_ok() {
+            std::fs::write(path, &generated).expect("could not write docs/openapi.json");
+            return;
+        }
+
+        let committed = std::fs::read_to_string(path).unwrap_or_default();
+        assert_eq!(
+            committed, generated,
+            "docs/openapi.json is out of date. Regenerate: \
+             UPDATE_DOCS=1 cargo test -p backend_actix openapi_spec_is_up_to_date"
+        );
+    }
+
     #[test]
     fn error_detail_code_references_the_error_code_schema() {
         let doc = doc();
