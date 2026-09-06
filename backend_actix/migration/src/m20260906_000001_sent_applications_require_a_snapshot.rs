@@ -10,6 +10,14 @@
 //! A CHECK constraint binds every path and every race, permanently. The service
 //! keeps the readable error; this makes the state unreachable even if it stops.
 //!
+//! This migration is the case study behind
+//! [ADR 0010](../../docs/adr/0010-migrations-must-be-backward-compatible.md).
+//! It is additive in DDL terms and still not safe on its own: a constraint is
+//! enforced against whatever build is running, including the old one during a
+//! deploy. It was safe here only because the service check it backstops had
+//! shipped weeks earlier, so the running build had already stopped producing
+//! rows that violate it.
+//!
 //! Existing rows are repaired first: an already-sent application with no
 //! snapshot is returned to `draft`, because a sent application pointing at a
 //! living CV is exactly the misreport the rule exists to prevent, and there is

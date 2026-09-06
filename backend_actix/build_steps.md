@@ -42,9 +42,13 @@ chmod +x deploy.sh
 Migrations run *before* the Cloud Run update, and a failure aborts the deploy.
 The container does not migrate on startup.
 
-The reasoning, and the constraint it puts on migrations — they must stay
-additive — is in [ADR 0003](docs/adr/0003-migrate-before-deploy.md). Read it
-before writing a migration that drops or renames anything.
+The reasoning is in [ADR 0003](docs/adr/0003-migrate-before-deploy.md), and the
+constraint it puts on migrations is refined by
+[ADR 0010](docs/adr/0010-migrations-must-be-backward-compatible.md): a migration
+must be backward-compatible with the build still running when it applies, which
+is a stricter test than "additive". Read both before writing a migration that
+drops or renames anything — or that adds a constraint, which is additive and
+still not safe on its own.
 
 `deploy.sh` shows `migration status` and asks for confirmation before applying.
 

@@ -16,13 +16,14 @@ non-obvious. Routine choices do not need one.
 | --- | --- | --- |
 | [0001](0001-rate-limiter-fails-open.md) | The rate limiter fails open when Redis is unreachable | Accepted |
 | [0002](0002-rate-limit-keying-on-forwarded-for.md) | Rate-limit callers are keyed on `X-Forwarded-For` | Accepted |
-| [0003](0003-migrate-before-deploy.md) | Migrations run before the Cloud Run update, not on startup | Accepted |
+| [0003](0003-migrate-before-deploy.md) | Migrations run before the Cloud Run update, not on startup | Accepted, amended by 0010 |
 | [0004](0004-llvm-cov-over-tarpaulin.md) | Coverage is measured with `cargo llvm-cov`, not tarpaulin | Accepted |
 | [0005](0005-break-the-auth-email-cycle.md) | `email` does not depend on `auth` | Accepted |
 | [0006](0006-public-media-urls.md) | Public responses carry unsigned media URLs | Accepted |
 | [0007](0007-screenshot-role-rename.md) | Renaming the `screenshoot` media role takes three deploys | Superseded by 0008 |
 | [0008](0008-collapse-the-screenshot-rename.md) | The rename shipped in one step, with the role wire format | Accepted |
 | [0009](0009-reflections-never-feed-generation.md) | A reflection never reaches a prompt that writes for the user | Accepted |
+| [0010](0010-migrations-must-be-backward-compatible.md) | Migrations must be backward-compatible with the running build, not merely additive | Accepted |
 
 ## Format
 
