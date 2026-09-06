@@ -88,6 +88,15 @@ RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
 - [`docs/adr/`](docs/adr/) — decisions that would otherwise be re-litigated
 - [`docs/API_ERRORS.md`](docs/API_ERRORS.md) — the error-code contract
   (generated; do not hand-edit)
+- [`docs/openapi.json`](docs/openapi.json) — the full API spec and every data
+  model (generated; regenerate with
+  `UPDATE_DOCS=1 cargo test -p backend_actix openapi_spec_is_up_to_date`)
+- [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md) — tokens, refresh, logout,
+  and the verified/unverified split
+- [`docs/VALIDATION.md`](docs/VALIDATION.md) — every input constraint the server
+  enforces, including the ones the spec does not declare
+- [`docs/PAGINATION.md`](docs/PAGINATION.md) — which endpoints page, and the
+  filter and sort parameters
 - [`readme.md`](readme.md) — setup, configuration, tests, coverage
 - [`build_steps.md`](build_steps.md) — build and deploy
 - [`docs/incidents/`](docs/incidents/) — post-mortems
