@@ -37,7 +37,7 @@ pub struct BlogPostListFilter {
     pub published: Option<bool>,
 }
 
-/// Listing order. Defaults to [`RecentlyPublished`](Self::RecentlyPublished),
+/// Listing order. Defaults to [`PublishedNewest`](Self::PublishedNewest),
 /// which is what a blog index wants.
 #[derive(Debug, Clone, Deserialize, utoipa::ToSchema, Default)]
 #[serde(rename_all = "snake_case")]
@@ -49,9 +49,9 @@ pub enum BlogPostSort {
     /// Most recently published first. Drafts, having no publication date,
     /// sort last.
     #[default]
-    RecentlyPublished,
+    PublishedNewest,
     /// Most recently edited first.
-    RecentlyUpdated,
+    UpdatedNewest,
 }
 
 /// Which page to return. Pages are 1-based; defaults to 10 per page.

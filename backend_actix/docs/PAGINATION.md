@@ -80,21 +80,25 @@ reflects the filtered set.
 
 ## Sorting
 
-All three endpoints take the same casing — **`snake_case`**, matching the bulk
-operations and attachment targets elsewhere in this API:
+All three endpoints use one scheme. `newest` and `oldest` order by **creation
+date**; anything else names the field it orders by, then the direction:
 
-| Endpoint | `sort` values |
-| --- | --- |
-| `GET /api/blog` | `newest`, `oldest`, `recently_published`, `recently_updated` |
-| `GET /api/projects` | `newest`, `oldest`, `updated_newest`, `updated_oldest` |
-| `GET /api/cvs` | `newest`, `oldest`, `updated_newest`, `updated_oldest` |
+| Endpoint | `sort` values | Default |
+| --- | --- | --- |
+| `GET /api/blog` | `newest`, `oldest`, `published_newest`, `updated_newest` | `published_newest` |
+| `GET /api/projects` | `newest`, `oldest`, `updated_newest`, `updated_oldest` | `updated_newest` |
+| `GET /api/cvs` | `newest`, `oldest`, `updated_newest`, `updated_oldest` | `updated_newest` |
 
-Omitting `sort` gives each endpoint's default, which is newest-first everywhere.
+**The default is not `newest` on any of them.** A blog index defaults to most
+recently *published*, and projects and CVs to most recently *updated* — which is
+usually what you want, but it means an unsorted list is not in creation order.
+Pass `sort=newest` explicitly if that is what you need.
 
-One naming difference remains, and it is a difference in wording rather than
-style: "most recently updated first" is `recently_updated` on blog and
-`updated_newest` on projects and CVs. Blog also offers `recently_published`,
-which the other two have no equivalent for.
+On blog, `published_newest` sorts drafts last: they have no publication date.
+
+Two values exist only where they make sense — `published_newest` on blog, since
+projects and CVs have no publication date, and `updated_oldest` on projects and
+CVs, which blog does not offer.
 
 These values are generated into [`openapi.json`](openapi.json) as enums, so a
 generated client will have them right. Hand-written calls are where this bites.

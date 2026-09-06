@@ -12400,12 +12400,12 @@
       },
       "BlogPostSort": {
         "type": "string",
-        "description": "Listing order. Defaults to [`RecentlyPublished`](Self::RecentlyPublished),\nwhich is what a blog index wants.",
+        "description": "Listing order. Defaults to [`PublishedNewest`](Self::PublishedNewest),\nwhich is what a blog index wants.",
         "enum": [
           "newest",
           "oldest",
-          "recently_published",
-          "recently_updated"
+          "published_newest",
+          "updated_newest"
         ]
       },
       "BlogPostTopicRequest": {

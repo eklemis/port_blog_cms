@@ -132,8 +132,8 @@ impl BlogPostQueryPostgres {
         query = match sort {
             BlogPostSort::Newest => query.order_by_desc(PostColumn::CreatedAt),
             BlogPostSort::Oldest => query.order_by_asc(PostColumn::CreatedAt),
-            BlogPostSort::RecentlyPublished => query.order_by_desc(PostColumn::PublishedAt),
-            BlogPostSort::RecentlyUpdated => query.order_by_desc(PostColumn::UpdatedAt),
+            BlogPostSort::PublishedNewest => query.order_by_desc(PostColumn::PublishedAt),
+            BlogPostSort::UpdatedNewest => query.order_by_desc(PostColumn::UpdatedAt),
         };
 
         let per_page = page.per_page.clamp(1, 100) as u64;
@@ -499,7 +499,7 @@ mod tests {
                 published: Some(false), // caller asks for drafts
                 ..Default::default()
             },
-            BlogPostSort::RecentlyPublished,
+            BlogPostSort::PublishedNewest,
             BlogPageRequest::default(),
         )
         .await
@@ -919,8 +919,8 @@ mod tests {
         for (sort, col, dir) in [
             (BlogPostSort::Newest, "created_at", "DESC"),
             (BlogPostSort::Oldest, "created_at", "ASC"),
-            (BlogPostSort::RecentlyPublished, "published_at", "DESC"),
-            (BlogPostSort::RecentlyUpdated, "updated_at", "DESC"),
+            (BlogPostSort::PublishedNewest, "published_at", "DESC"),
+            (BlogPostSort::UpdatedNewest, "updated_at", "DESC"),
         ] {
             let conn = Arc::new(
                 MockDatabase::new(DatabaseBackend::Postgres)
