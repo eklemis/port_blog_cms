@@ -310,7 +310,7 @@ mod tests {
         assert_eq!(body["data"]["bio"], "Updated bio");
         assert_eq!(body["data"]["role"], "Engineer");
         assert_eq!(body["data"]["display_name"], "Berto Fang");
-        assert_eq!(body["data"]["contact_info"][0]["contact_type"], "WebPage");
+        assert_eq!(body["data"]["contact_info"][0]["contact_type"], "web_page");
         assert_eq!(body["data"]["contact_info"][0]["title"], "Blog");
         assert_eq!(
             body["data"]["contact_info"][0]["content"],

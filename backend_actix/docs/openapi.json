@@ -12736,8 +12736,8 @@
         "type": "string",
         "description": "See the module documentation.",
         "enum": [
-          "PhoneNumber",
-          "WebPage"
+          "phone_number",
+          "web_page"
         ]
       },
       "CoreSkillDto": {

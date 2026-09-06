@@ -104,6 +104,7 @@ pub struct HighlightedProjectDto {
 
 /// See the module documentation.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, ToSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum ContactTypeDto {
     /// A telephone number.
     PhoneNumber,

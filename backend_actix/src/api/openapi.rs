@@ -388,6 +388,52 @@ mod tests {
 
     /// `ErrorDetail.code` must point at the enum, not fall back to a bare
     /// string — otherwise generated clients lose exhaustive matching.
+    /// Every enum a client sends or reads is snake_case.
+    ///
+    /// The three sort parameters drifted apart precisely because nothing
+    /// checked them: two carried no serde attribute and serialised as their
+    /// Rust variant names, one was `lowercase`, so `?sort=Newest` worked on two
+    /// endpoints and failed on the third. `ContactTypeDto` had the same defect
+    /// and was found by this test rather than by reading.
+    ///
+    /// `ErrorCode` is the one exception, and a deliberate one: its values are
+    /// SCREAMING_SNAKE_CASE by contract, published in `docs/API_ERRORS.md` and
+    /// matched by clients as constants.
+    #[test]
+    fn every_enum_value_on_the_wire_is_snake_case() {
+        let spec = serde_json::to_value(ApiDoc::openapi()).expect("spec must serialize");
+        let schemas = &spec["components"]["schemas"];
+
+        let is_snake = |v: &str| {
+            !v.is_empty()
+                && v.chars()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+                && !v.starts_with('_')
+                && !v.ends_with('_')
+        };
+
+        let mut offenders = Vec::new();
+        for (name, schema) in schemas.as_object().expect("schemas is an object") {
+            // Published as constants, in SCREAMING_SNAKE_CASE, by contract.
+            if name == "ErrorCode" {
+                continue;
+            }
+            for value in schema["enum"].as_array().unwrap_or(&Vec::new()) {
+                if let Some(v) = value.as_str() {
+                    if !is_snake(v) {
+                        offenders.push(format!("{name}: {v:?}"));
+                    }
+                }
+            }
+        }
+
+        assert!(
+            offenders.is_empty(),
+            "these enum values are not snake_case, so a client has to remember \
+             which spelling each endpoint wants: {offenders:?}"
+        );
+    }
+
     /// Writes the spec to `docs/openapi.json` so the frontend has it as a file.
     ///
     /// The spec is generated from the handlers, so the only other way to read it

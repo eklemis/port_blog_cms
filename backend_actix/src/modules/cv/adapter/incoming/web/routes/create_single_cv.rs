@@ -330,13 +330,22 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::CREATED);
 
-        // 🔽 minimal & safe
         let body: Value = test::read_body_json(resp).await;
-        let cv: CVInfo = serde_json::from_value(body["data"].clone()).unwrap();
+
+        // Read back as the response DTO, not the domain type. The two spell
+        // `contact_type` differently on purpose — the wire is snake_case, the
+        // stored document keeps the PascalCase the database already holds —
+        // and deserialising a response into the domain type only ever worked
+        // because those spellings used to coincide.
+        let cv: CvResponse = serde_json::from_value(body["data"].clone()).unwrap();
 
         assert_eq!(cv.user_id, user_id);
         assert_eq!(cv.core_skills.len(), 2);
         assert_eq!(cv.contact_info.len(), 2);
+        assert_eq!(
+            body["data"]["contact_info"][0]["contact_type"],
+            "phone_number"
+        );
     }
 
     /* --------------------------------------------------
