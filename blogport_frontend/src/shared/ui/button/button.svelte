@@ -13,6 +13,7 @@
 	let {
 		label,
 		kind = 'primary',
+		type = 'button',
 		disabled = false,
 		loading = false,
 		disabledReason,
@@ -21,6 +22,8 @@
 	}: {
 		label: string;
 		kind?: Kind;
+		/** `submit` for the one control that submits its form; everything else stays a button. */
+		type?: 'button' | 'submit';
 		disabled?: boolean;
 		loading?: boolean;
 		/** Why it is disabled. A disabled control with no reason is a dead end. */
@@ -45,7 +48,7 @@
 </script>
 
 <button
-	type="button"
+	{type}
 	class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border
 	       px-4 py-2 text-sm font-semibold transition-colors
 	       disabled:cursor-not-allowed disabled:opacity-55 {KIND[kind]}"
