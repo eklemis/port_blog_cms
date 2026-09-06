@@ -16,7 +16,7 @@ pub struct CVListFilter {
 
 /// Listing order. Defaults to [`UpdatedNewest`](Self::UpdatedNewest).
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 #[derive(Default)]
 pub enum CVSort {
     /// Sort by creation date (newest first)

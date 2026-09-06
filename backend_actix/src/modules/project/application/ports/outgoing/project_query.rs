@@ -107,6 +107,7 @@ pub struct ProjectListFilter {
 
 /// Listing order.
 #[derive(Debug, Clone, Deserialize, utoipa::ToSchema, Default)]
+#[serde(rename_all = "snake_case")]
 pub enum ProjectSort {
     /// Newest by creation date first
     Newest,

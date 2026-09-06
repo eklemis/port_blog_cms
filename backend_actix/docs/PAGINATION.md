@@ -80,22 +80,21 @@ reflects the filtered set.
 
 ## Sorting
 
-**The accepted values are not spelled consistently across the three endpoints.**
-This is the single most likely thing on this page to cost you an afternoon:
+All three endpoints take the same casing — **`snake_case`**, matching the bulk
+operations and attachment targets elsewhere in this API:
 
 | Endpoint | `sort` values |
 | --- | --- |
-| `GET /api/blog` | `Newest`, `Oldest`, `RecentlyPublished`, `RecentlyUpdated` |
-| `GET /api/projects` | `Newest`, `Oldest`, `UpdatedNewest`, `UpdatedOldest` |
-| `GET /api/cvs` | `newest`, `oldest`, `updatednewest`, `updatedoldest` |
-
-Blog and projects take **PascalCase**. CVs take **lowercase**. So `?sort=Newest`
-works on blog and projects and fails on CVs, where you need `?sort=newest`.
-
-Note also that "most recently updated" is `RecentlyUpdated` on blog and
-`UpdatedNewest` on projects — same idea, different word.
+| `GET /api/blog` | `newest`, `oldest`, `recently_published`, `recently_updated` |
+| `GET /api/projects` | `newest`, `oldest`, `updated_newest`, `updated_oldest` |
+| `GET /api/cvs` | `newest`, `oldest`, `updated_newest`, `updated_oldest` |
 
 Omitting `sort` gives each endpoint's default, which is newest-first everywhere.
+
+One naming difference remains, and it is a difference in wording rather than
+style: "most recently updated first" is `recently_updated` on blog and
+`updated_newest` on projects and CVs. Blog also offers `recently_published`,
+which the other two have no equivalent for.
 
 These values are generated into [`openapi.json`](openapi.json) as enums, so a
 generated client will have them right. Hand-written calls are where this bites.

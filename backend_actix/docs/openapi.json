@@ -12402,10 +12402,10 @@
         "type": "string",
         "description": "Listing order. Defaults to [`RecentlyPublished`](Self::RecentlyPublished),\nwhich is what a blog index wants.",
         "enum": [
-          "Newest",
-          "Oldest",
-          "RecentlyPublished",
-          "RecentlyUpdated"
+          "newest",
+          "oldest",
+          "recently_published",
+          "recently_updated"
         ]
       },
       "BlogPostTopicRequest": {
@@ -12703,8 +12703,8 @@
         "enum": [
           "newest",
           "oldest",
-          "updatednewest",
-          "updatedoldest"
+          "updated_newest",
+          "updated_oldest"
         ]
       },
       "ContactDetailDto": {
@@ -14813,10 +14813,10 @@
         "type": "string",
         "description": "Listing order.",
         "enum": [
-          "Newest",
-          "Oldest",
-          "UpdatedNewest",
-          "UpdatedOldest"
+          "newest",
+          "oldest",
+          "updated_newest",
+          "updated_oldest"
         ]
       },
       "ProjectTopicItem": {

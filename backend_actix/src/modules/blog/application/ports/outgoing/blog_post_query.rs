@@ -40,6 +40,7 @@ pub struct BlogPostListFilter {
 /// Listing order. Defaults to [`RecentlyPublished`](Self::RecentlyPublished),
 /// which is what a blog index wants.
 #[derive(Debug, Clone, Deserialize, utoipa::ToSchema, Default)]
+#[serde(rename_all = "snake_case")]
 pub enum BlogPostSort {
     /// Newest by creation date.
     Newest,
