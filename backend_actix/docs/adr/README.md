@@ -24,6 +24,7 @@ non-obvious. Routine choices do not need one.
 | [0008](0008-collapse-the-screenshot-rename.md) | The rename shipped in one step, with the role wire format | Accepted |
 | [0009](0009-reflections-never-feed-generation.md) | A reflection never reaches a prompt that writes for the user | Accepted |
 | [0010](0010-migrations-must-be-backward-compatible.md) | Migrations must be backward-compatible with the running build, not merely additive | Accepted |
+| [0011](0011-writes-are-atomic-by-default.md) | A write is atomic by default; bulk and cross-system paths are deliberate exceptions | Accepted |
 
 ## Format
 

@@ -58,6 +58,21 @@ RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
   a CHECK constraint, a NOT NULL, or a unique index — all additive, all enforced
   by the database against code that does not know about them. Split those across
   two deploys, narrowing what is legal second.
+- **A write is atomic by default** — see
+  [ADR 0011](docs/adr/0011-writes-are-atomic-by-default.md). More than one
+  statement changing data goes in one transaction; a read whose value decides a
+  later write happens in that same transaction under `lock_exclusive()`, because
+  a row read a round trip ago may already have changed. An invariant worth
+  enforcing is a `CHECK` constraint as well as a service check, with the
+  violation mapped back **by constraint name**. Uniqueness is a unique index
+  plus a 23505 mapping, never check-then-insert.
+  **Two deliberate exceptions**: bulk endpoints are partial-success by contract
+  (`success: true` means the batch ran, not that every item did), and anything
+  spanning two systems — Redis and a vendor's HTTP API, a database row and a
+  later upload to object storage — cannot be a transaction at all, and uses
+  idempotency, state machines and reconciliation instead. Do not "fix" either
+  into a transaction.
+
 - **Every public item needs a doc comment.** `#![deny(missing_docs)]` is on at
   the crate root, so an undocumented struct field or enum variant fails the
   build. `cargo check` names each one it wants. The only exemption is the
