@@ -69,6 +69,10 @@ impl From<ApplicationStoreError> for ApplicationError {
         match e {
             ApplicationStoreError::NotFound => ApplicationError::NotFound,
             ApplicationStoreError::JobNotFound => ApplicationError::JobNotFound,
+            // The constraint caught what the service's check could not: a
+            // concurrent transition. Same error the caller would have got had
+            // it lost the race a moment earlier.
+            ApplicationStoreError::SnapshotRequired => ApplicationError::SnapshotRequired,
             ApplicationStoreError::DatabaseError(m) => ApplicationError::RepositoryError(m),
         }
     }

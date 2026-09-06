@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-    QueryOrder,
+    QueryOrder, QuerySelect, TransactionTrait,
 };
 use std::sync::Arc;
 use uuid::Uuid;
@@ -126,10 +126,20 @@ impl JobStore for JobStorePostgres {
         job_id: Uuid,
         data: PatchJobData,
     ) -> Result<Job, JobStoreError> {
+        // Read and write commit together.
+        //
+        // The row is read and written in one transaction, and the read
+        // takes an exclusive lock: without it two concurrent writers both
+        // read the same row and the second silently overwrites the first.
+        // A transaction that is neither committed nor rolled back is undone
+        // when it drops, so every `?` below leaves the row untouched.
+        let txn = self.db.begin().await.map_err(db_err)?;
+
         let row = JobEntity::find_by_id(job_id)
             .filter(JobColumn::UserId.eq(owner))
             .filter(JobColumn::IsDeleted.eq(false))
-            .one(self.db.as_ref())
+            .lock_exclusive()
+            .one(&txn)
             .await
             .map_err(db_err)?
             .ok_or(JobStoreError::NotFound)?;
@@ -162,15 +172,26 @@ impl JobStore for JobStorePostgres {
         }
         active.updated_at = Set(now().into());
 
-        let stored = active.update(self.db.as_ref()).await.map_err(db_err)?;
+        let stored = active.update(&txn).await.map_err(db_err)?;
+        txn.commit().await.map_err(db_err)?;
         Ok(to_domain(stored))
     }
 
     async fn archive(&self, owner: Uuid, job_id: Uuid) -> Result<(), JobStoreError> {
+        // Read and write commit together.
+        //
+        // The row is read and written in one transaction, and the read
+        // takes an exclusive lock: without it two concurrent writers both
+        // read the same row and the second silently overwrites the first.
+        // A transaction that is neither committed nor rolled back is undone
+        // when it drops, so every `?` below leaves the row untouched.
+        let txn = self.db.begin().await.map_err(db_err)?;
+
         let row = JobEntity::find_by_id(job_id)
             .filter(JobColumn::UserId.eq(owner))
             .filter(JobColumn::IsDeleted.eq(false))
-            .one(self.db.as_ref())
+            .lock_exclusive()
+            .one(&txn)
             .await
             .map_err(db_err)?
             .ok_or(JobStoreError::NotFound)?;
@@ -178,7 +199,8 @@ impl JobStore for JobStorePostgres {
         let mut active: JobActive = row.into();
         active.is_deleted = Set(true);
         active.updated_at = Set(now().into());
-        active.update(self.db.as_ref()).await.map_err(db_err)?;
+        active.update(&txn).await.map_err(db_err)?;
+        txn.commit().await.map_err(db_err)?;
 
         Ok(())
     }

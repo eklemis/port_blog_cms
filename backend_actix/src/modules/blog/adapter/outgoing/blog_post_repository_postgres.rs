@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
-    QueryFilter, RuntimeErr,
+    QueryFilter, QuerySelect, RuntimeErr, TransactionTrait,
 };
 use std::sync::Arc;
 use uuid::Uuid;
@@ -84,9 +84,19 @@ impl BlogPostRepository for BlogPostRepositoryPostgres {
         post_id: Uuid,
         data: PatchBlogPostData,
     ) -> Result<BlogPost, BlogPostRepositoryError> {
+        // Read and write commit together.
+        //
+        // The read takes an exclusive lock so a concurrent writer cannot
+        // slip between it and the update below, where the second write
+        // would silently overwrite the first. A transaction that is
+        // neither committed nor rolled back is undone when it drops, so
+        // every `?` below leaves the row untouched.
+        let txn = self.db.begin().await.map_err(Self::map_err)?;
+
         let existing = PostEntity::find_by_id(post_id)
             .filter(PostColumn::IsDeleted.eq(false))
-            .one(&*self.db)
+            .lock_exclusive()
+            .one(&txn)
             .await
             .map_err(Self::map_err)?
             .ok_or(BlogPostRepositoryError::NotFound)?;
@@ -118,7 +128,8 @@ impl BlogPostRepository for BlogPostRepositoryPostgres {
             BlogPatchField::Value(t) => active.published_at = Set(Some((*t).into())),
         }
 
-        let updated = active.update(&*self.db).await.map_err(Self::map_err)?;
+        let updated = active.update(&txn).await.map_err(Self::map_err)?;
+        txn.commit().await.map_err(Self::map_err)?;
         Ok(updated.to_domain())
     }
 }
