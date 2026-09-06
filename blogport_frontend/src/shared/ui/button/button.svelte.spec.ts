@@ -83,3 +83,19 @@ test('a disabled button is still accessible', async () => {
 
 	await expectNoA11yViolations();
 });
+
+test('is not a submit control unless asked', async () => {
+	const screen = render(Button, { label: 'Publish' });
+
+	// The default matters: a bare <button> inside a form submits it, which is
+	// how an icon toggle becomes an accidental save.
+	await expect.element(screen.getByRole('button')).toHaveAttribute('type', 'button');
+});
+
+test('can be the submit control of a form', async () => {
+	// A form with two inputs has no implicit submission without one, so Enter
+	// from a single-line input would stop working. Forms Spec §06.
+	const screen = render(Button, { label: 'Sign in', type: 'submit' });
+
+	await expect.element(screen.getByRole('button')).toHaveAttribute('type', 'submit');
+});
