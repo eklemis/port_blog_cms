@@ -43,6 +43,7 @@ where
             full_name: user.full_name,
             bio: user.bio,
             locale: user.locale,
+            is_verified: user.is_verified,
         })
     }
 }

@@ -19,6 +19,14 @@ pub struct FetchUserOutput {
     pub bio: Option<String>,
     /// Interface language.
     pub locale: String,
+
+    /// Whether this account's email has been verified.
+    ///
+    /// Read from the row, not from the caller's token. The token's claim is
+    /// whatever was true when it was minted, so an account verified after the
+    /// token was issued still carries `false` there until the next refresh —
+    /// which is exactly the question a client is asking when it calls this.
+    pub is_verified: bool,
 }
 
 /// Why a profile read failed.

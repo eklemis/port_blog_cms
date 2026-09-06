@@ -36,6 +36,16 @@ pub struct UserProfileResponse {
     #[schema(example = "Backend engineer, mostly Rust.")]
     bio: Option<String>,
 
+    /// Whether this account's email has been verified.
+    ///
+    /// Fresh from the database on every call. An unverified account can reach
+    /// this endpoint, `PUT /api/users/me` and `DELETE /api/users/me`, and
+    /// nothing else — every other authenticated route answers `403`
+    /// `EMAIL_NOT_VERIFIED` — so this is the field that decides whether to
+    /// show a workspace or a "check your email" prompt.
+    #[schema(example = true)]
+    is_verified: bool,
+
     /// Interface language.
     #[schema(example = "en")]
     locale: String,
@@ -123,6 +133,7 @@ pub async fn get_user_profile_handler(
             full_name: output.full_name,
             bio: output.bio,
             locale: output.locale,
+            is_verified: output.is_verified,
         }),
         Err(FetchUserError::UserNotFound(msg)) => {
             ApiResponse::not_found(ErrorCode::UserNotFound, &format!("User not found: {}", msg))
@@ -219,6 +230,10 @@ mod tests {
     }
 
     fn create_fetch_user_output(user_id: Uuid) -> FetchUserOutput {
+        create_fetch_user_output_verified(user_id, true)
+    }
+
+    fn create_fetch_user_output_verified(user_id: Uuid, is_verified: bool) -> FetchUserOutput {
         FetchUserOutput {
             user_id: user_id.into(),
             email: "test@example.com".to_string(),
@@ -226,6 +241,7 @@ mod tests {
             full_name: "Test User".to_string(),
             bio: None,
             locale: "en".to_string(),
+            is_verified,
         }
     }
 
@@ -312,6 +328,82 @@ mod tests {
         assert_eq!(body["success"], true);
         assert_eq!(body["data"]["user_id"], user_id.to_string());
         assert!(body.get("error").is_none());
+    }
+
+    /// The field a client cannot get anywhere else.
+    ///
+    /// The access token carries an `is_verified` claim, but it is whatever was
+    /// true when the token was minted — somebody who verifies their email in
+    /// another tab still holds a token saying `false` until it is refreshed.
+    /// This endpoint reads the row, so the token here says one thing and the
+    /// response must say the other.
+    #[actix_web::test]
+    async fn the_profile_reports_the_rows_verification_not_the_tokens() {
+        let user_id = Uuid::new_v4();
+
+        let app_state = TestAppStateBuilder::default()
+            .with_fetch_user_profile(MockFetchUserProfileUseCase {
+                // The row says verified.
+                result: Ok(create_fetch_user_output_verified(user_id, true)),
+            })
+            .build();
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state)
+                // The token says it is not.
+                .app_data(create_token_provider(user_id, false))
+                .service(get_user_profile_handler),
+        )
+        .await;
+
+        let resp = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri("/api/users/me")
+                .insert_header(("Authorization", "Bearer test_token"))
+                .to_request(),
+        )
+        .await;
+
+        assert_eq!(resp.status(), 200);
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(
+            body["data"]["is_verified"], true,
+            "the row is the source of truth, not the token's stale claim"
+        );
+    }
+
+    /// And the other direction, so the test above cannot pass by hard-coding.
+    #[actix_web::test]
+    async fn an_unverified_row_is_reported_as_unverified() {
+        let user_id = Uuid::new_v4();
+
+        let app_state = TestAppStateBuilder::default()
+            .with_fetch_user_profile(MockFetchUserProfileUseCase {
+                result: Ok(create_fetch_user_output_verified(user_id, false)),
+            })
+            .build();
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state)
+                .app_data(create_token_provider(user_id, true))
+                .service(get_user_profile_handler),
+        )
+        .await;
+
+        let resp = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri("/api/users/me")
+                .insert_header(("Authorization", "Bearer test_token"))
+                .to_request(),
+        )
+        .await;
+
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["data"]["is_verified"], false);
     }
 
     #[actix_web::test]

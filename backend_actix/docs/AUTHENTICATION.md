@@ -85,8 +85,14 @@ read and edit its own profile, and delete itself — and nothing else. Every oth
 authenticated route answers `403`.
 
 **Build for this state.** It is not an edge case; it is where every new user
-starts. `GET /api/users/me` returns `is_verified`, and
-`POST /api/auth/email-verification/resend` re-sends the link.
+starts. `GET /api/users/me` returns `is_verified`, read from the row on every
+call, and `POST /api/auth/email-verification/resend` re-sends the link.
+
+Use that field, not the `is_verified` claim inside the access token. The claim
+records whatever was true when the token was minted, so somebody who verifies
+their email in another tab still carries `false` until the token is refreshed —
+and the login response's copy is a snapshot of the same moment. The profile
+endpoint is the only fresh answer.
 
 ## Which failure means what
 
