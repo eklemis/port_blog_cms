@@ -303,6 +303,67 @@ previous release:
 curl -s http://localhost:8080/api-docs/openapi.json | jq . > openapi.json
 ```
 
+## Scheduled maintenance
+
+One background sweep exists, and it is driven from outside the process rather
+than by a timer inside it: several instances run at once on Cloud Run, and each
+would otherwise sweep on its own clock.
+
+```
+POST /api/maintenance/reap-uploads
+X-Maintenance-Token: <MAINTENANCE_TOKEN>
+```
+
+It deletes media registrations whose bytes never arrived. A row is written when
+an upload URL is issued and only the bucket can move it past `pending`; if the
+client never uploads, the row stays that way forever and an attachment pointing
+at it serves an empty `variants` map — which a client cannot tell apart from
+one still being generated, so it polls something that will never arrive.
+
+Idempotent: a second call finds nothing and reports zero, which matters because
+schedulers retry.
+
+### Why a shared secret and not IAM
+
+Cloud Run's own IAM cannot gate this path, because the service is publicly
+invokable — it serves a public API — so an OIDC identity on the request would
+be checked by nothing. The token is compared against `MAINTENANCE_TOKEN`, and
+two properties make that sound rather than merely convenient:
+
+- **Unset means gone.** With no `MAINTENANCE_TOKEN` configured the route answers
+  404 and does nothing, so a deployment that never sets one has no destructive
+  endpoint at all rather than an unprotected one.
+- **A wrong token is also 404**, never 401 — a 401 confirms the endpoint is real
+  and that guessing is worth continuing.
+
+Both cases are logged, so an operator can tell "the token is unset" from "the
+scheduler sent the wrong one" without either being visible to the caller.
+
+### Setting it up
+
+```bash
+gcloud scheduler jobs create http reap-stale-uploads   --location=asia-southeast1   --schedule="0 * * * *"   --uri="https://<service-url>/api/maintenance/reap-uploads"   --http-method=POST   --headers="X-Maintenance-Token=$MAINTENANCE_TOKEN"   --attempt-deadline=60s
+```
+
+Hourly is ample — nothing degrades while a stale row waits, and the point is
+that it does not wait forever.
+
+### Its two settings
+
+| Variable | Meaning |
+|---|---|
+| `MAINTENANCE_TOKEN` | Enables the route and is the secret it checks. Unset disables it. |
+| `MEDIA_STALE_UPLOAD_SECS` | How old a `pending` row must be before it is swept. Defaults to 3600. |
+
+`MEDIA_STALE_UPLOAD_SECS` has a floor of 900 seconds, the signed upload URL's
+own lifetime, and a shorter value is raised to it rather than obeyed. Below that
+the sweep would race uploads that are still valid and may be in flight — the two
+mistakes are not symmetric, since sweeping late leaves a row nobody sees while
+sweeping early deletes a file somebody successfully uploaded. The response
+reports the window that actually ran.
+
+---
+
 ## Deploying
 
 See [`build_steps.md`](build_steps.md). Short version, from this directory:

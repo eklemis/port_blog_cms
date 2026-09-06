@@ -3,7 +3,8 @@ use std::sync::Arc;
 use crate::multimedia::application::ports::incoming::use_cases::{
     BulkMediaUseCase, CreateUploadMediaUrlUseCase, DeleteMediaUseCase, GetMediaStatusesUseCase,
     GetMediaUsageUseCase, GetMediaUseCase, GetPublicVariantUrlUseCase, GetVariantReadUrlUseCase,
-    HardDeleteMediaUseCase, ListMediaUseCase, PatchMediaUseCase, RestoreMediaUseCase,
+    HardDeleteMediaUseCase, ListMediaUseCase, PatchMediaUseCase, ReapStaleUploadsUseCase,
+    RestoreMediaUseCase,
 };
 
 /// This module's use cases, grouped for `AppState`.
@@ -23,6 +24,8 @@ pub struct MultimediaUseCases {
     pub patch_media: Arc<dyn PatchMediaUseCase + Send + Sync>,
     /// The [`RestoreMediaUseCase`] implementation.
     pub restore_media: Arc<dyn RestoreMediaUseCase + Send + Sync>,
+    /// The [`ReapStaleUploadsUseCase`] implementation.
+    pub reap_stale_uploads: Arc<dyn ReapStaleUploadsUseCase>,
     /// The [`HardDeleteMediaUseCase`] implementation.
     pub hard_delete_media: Arc<dyn HardDeleteMediaUseCase + Send + Sync>,
     /// The [`GetMediaUsageUseCase`] implementation.

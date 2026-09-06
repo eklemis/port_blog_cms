@@ -180,6 +180,7 @@ impl Default for TestAppStateBuilder {
                 soft_delete: Arc::new(StubSoftDeleteProjectUseCase),
             }),
             multimedia: Some(MultimediaUseCases {
+                reap_stale_uploads: Arc::new(StubReapStaleUploads),
                 bulk: Arc::new(StubBulkMedia),
                 get_public_variant_url: Arc::new(StubGetPublicVariantUrl),
                 patch_media: Arc::new(StubMediaLifecycle),

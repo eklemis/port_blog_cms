@@ -328,6 +328,10 @@ mod tests {
 
     #[async_trait]
     impl MediaRepository for StubRepo {
+        async fn delete_stale_pending(&self, _s: u64) -> Result<u64, MediaRepositoryError> {
+            unimplemented!()
+        }
+
         async fn patch_attachment(
             &self,
             _o: UserId,

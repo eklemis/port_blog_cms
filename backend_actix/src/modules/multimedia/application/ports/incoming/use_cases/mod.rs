@@ -5,6 +5,7 @@ mod create_upload_url;
 mod delete_media;
 mod get_media;
 mod list_media;
+mod reap_stale_uploads;
 // The two `*Builder` types are re-exported because `CreateMediaCommand::builder`
 // and `CreateAttachmentCommand::builder` are public and return them. Without
 // this, a caller outside the module can call `builder()` but cannot name what
@@ -24,6 +25,9 @@ pub use delete_media::{DeleteMediaError, DeleteMediaUseCase};
 pub use get_media::{GetMediaError, GetMediaUseCase, MediaDetail};
 
 pub use list_media::{ListMediaCommand, ListMediaError, ListMediaUseCase, MediaItem};
+pub use reap_stale_uploads::{
+    ReapError, ReapOutcome, ReapStaleUploadsUseCase, DEFAULT_STALE_AFTER_SECS, MIN_STALE_AFTER_SECS,
+};
 mod get_public_variant_url;
 pub use get_public_variant_url::{GetPublicVariantUrlError, GetPublicVariantUrlUseCase};
 mod media_lifecycle;
