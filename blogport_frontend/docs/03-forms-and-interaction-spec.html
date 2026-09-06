@@ -1,0 +1,2146 @@
+<title>Forms and Interaction Spec</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+	rel="stylesheet"
+	href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sen:wght@400;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+/>
+
+<style>
+	:root {
+		--bg: #eeeff0;
+		--surface: #ffffff;
+		--surface-2: #f6f7f8;
+		--headline: #1e2224;
+		--muted: #5e6469;
+		--accent: #f4a43d;
+		--accent-on: #1e2224;
+		--accent-ink: #8f5000;
+		--accent-2: #83671d;
+		--line: rgb(30 34 36 / 0.12);
+		--line-strong: rgb(30 34 36 / 0.26);
+		--st-neutral: #5e6469;
+		--st-inflight: #8a5a0b;
+		--st-live: #2e6b45;
+		--st-danger: #b3453a;
+		--st-dormant: #666b70;
+		--shadow: 0 1px 2px rgb(30 34 36 / 0.05), 0 1px 3px rgb(30 34 36 / 0.04);
+		--font-display: Sen, Inter, ui-sans-serif, system-ui, sans-serif;
+		--font-sans:
+			Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+		--font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		--shell: 1140px;
+		--prose: 68ch;
+	}
+	@media (prefers-color-scheme: dark) {
+		:root:not([data-theme='light']) {
+			--bg: #2f3133;
+			--surface: #3a3c3e;
+			--surface-2: #434547;
+			--headline: #f4e4c9;
+			--muted: #b1b4b7;
+			--accent: #f4a43d;
+			--accent-on: #1e2224;
+			--accent-ink: #f4a43d;
+			--accent-2: #e8c76b;
+			--line: rgb(244 228 201 / 0.1);
+			--line-strong: rgb(244 228 201 / 0.22);
+			--st-neutral: #b1b4b7;
+			--st-inflight: #e8c76b;
+			--st-live: #8fbf9a;
+			--st-danger: #e7a399;
+			--st-dormant: #b2b4b7;
+			--shadow: none;
+		}
+	}
+	:root[data-theme='dark'] {
+		--bg: #2f3133;
+		--surface: #3a3c3e;
+		--surface-2: #434547;
+		--headline: #f4e4c9;
+		--muted: #b1b4b7;
+		--accent: #f4a43d;
+		--accent-on: #1e2224;
+		--accent-ink: #f4a43d;
+		--accent-2: #e8c76b;
+		--line: rgb(244 228 201 / 0.1);
+		--line-strong: rgb(244 228 201 / 0.22);
+		--st-neutral: #b1b4b7;
+		--st-inflight: #e8c76b;
+		--st-live: #8fbf9a;
+		--st-danger: #e7a399;
+		--st-dormant: #b2b4b7;
+		--shadow: none;
+	}
+	* {
+		box-sizing: border-box;
+	}
+	body {
+		margin: 0;
+		background: var(--bg);
+		color: var(--headline);
+		font-family: var(--font-sans);
+		font-size: 16px;
+		line-height: 1.65;
+		-webkit-font-smoothing: antialiased;
+	}
+	h1,
+	h2,
+	h3,
+	h4 {
+		font-family: var(--font-display);
+		text-wrap: balance;
+		margin: 0;
+	}
+	p {
+		margin: 0;
+	}
+	a {
+		color: var(--accent-ink);
+		text-underline-offset: 3px;
+	}
+	a:focus-visible {
+		outline: 2px solid var(--accent-ink);
+		outline-offset: 3px;
+		border-radius: 4px;
+	}
+	code,
+	.mono {
+		font-family: var(--font-mono);
+		font-size: 0.86em;
+	}
+	kbd {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		border: 1px solid var(--line-strong);
+		border-bottom-width: 2px;
+		border-radius: 5px;
+		padding: 1px 6px;
+		background: var(--surface-2);
+		white-space: nowrap;
+	}
+	.shell {
+		max-width: var(--shell);
+		margin: 0 auto;
+		padding: 0 24px;
+	}
+	.prose {
+		max-width: var(--prose);
+	}
+	.masthead {
+		padding: 70px 0 42px;
+		border-bottom: 1px solid var(--line);
+	}
+	.eyebrow {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: var(--accent-ink);
+		margin-bottom: 18px;
+	}
+	.masthead h1 {
+		font-size: clamp(2.2rem, 5vw, 3.2rem);
+		font-weight: 800;
+		line-height: 1.05;
+		letter-spacing: -0.02em;
+	}
+	.masthead .standfirst {
+		margin-top: 18px;
+		font-size: 1.06rem;
+		color: var(--muted);
+		max-width: 64ch;
+	}
+	.tocbar {
+		position: sticky;
+		top: 0;
+		z-index: 40;
+		background: color-mix(in srgb, var(--bg) 94%, transparent);
+		backdrop-filter: blur(10px);
+		border-bottom: 1px solid var(--line);
+	}
+	.tocbar .inner {
+		display: flex;
+		gap: 4px;
+		overflow-x: auto;
+		padding: 10px 24px;
+		max-width: var(--shell);
+		margin: 0 auto;
+	}
+	.tocbar a {
+		flex: 0 0 auto;
+		font-size: 0.78125rem;
+		color: var(--muted);
+		text-decoration: none;
+		padding: 6px 12px;
+		border-radius: 999px;
+		white-space: nowrap;
+	}
+	.tocbar a:hover {
+		color: var(--headline);
+		background: color-mix(in srgb, var(--headline) 7%, transparent);
+	}
+	section {
+		padding: 60px 0;
+		border-bottom: 1px solid var(--line);
+		scroll-margin-top: 62px;
+	}
+	section:last-of-type {
+		border-bottom: none;
+	}
+	.sec-head {
+		display: flex;
+		align-items: baseline;
+		gap: 14px;
+		margin-bottom: 10px;
+		flex-wrap: wrap;
+	}
+	.sec-num {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		color: var(--accent-ink);
+		letter-spacing: 0.08em;
+	}
+	section h2 {
+		font-size: clamp(1.55rem, 3vw, 2.05rem);
+		font-weight: 800;
+		letter-spacing: -0.015em;
+	}
+	.sec-lede {
+		color: var(--muted);
+		margin-bottom: 32px;
+		max-width: var(--prose);
+	}
+	h3.block {
+		font-size: 1.0625rem;
+		font-weight: 700;
+		margin: 38px 0 14px;
+	}
+	h3.block:first-of-type {
+		margin-top: 0;
+	}
+	.scroller {
+		overflow-x: auto;
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		background: var(--surface);
+		box-shadow: var(--shadow);
+		margin-bottom: 8px;
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 0.84375rem;
+		min-width: 660px;
+		font-variant-numeric: tabular-nums;
+	}
+	thead th {
+		text-align: left;
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		font-weight: 500;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--muted);
+		padding: 12px 15px;
+		border-bottom: 1px solid var(--line-strong);
+		white-space: nowrap;
+	}
+	tbody td {
+		padding: 11px 15px;
+		border-bottom: 1px solid var(--line);
+		vertical-align: top;
+	}
+	tbody tr:last-child td {
+		border-bottom: none;
+	}
+	td.dim {
+		color: var(--muted);
+	}
+	td .mono {
+		color: var(--accent-2);
+	}
+	.req {
+		font-family: var(--font-mono);
+		font-size: 0.625rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		padding: 2px 6px;
+		border-radius: 4px;
+		border: 1px solid currentColor;
+		white-space: nowrap;
+	}
+	.r-yes {
+		color: var(--st-danger);
+	}
+	.r-no {
+		color: var(--muted);
+	}
+	.pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 3px 9px;
+		border-radius: 999px;
+		border: 1px solid currentColor;
+		white-space: nowrap;
+	}
+	.pill::before {
+		content: '';
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: currentColor;
+	}
+	.p-neutral {
+		color: var(--st-neutral);
+	}
+	.p-inflight {
+		color: var(--st-inflight);
+	}
+	.p-live {
+		color: var(--st-live);
+	}
+	.p-danger {
+		color: var(--st-danger);
+	}
+	.p-dormant {
+		color: var(--st-dormant);
+	}
+	.callout {
+		border: 1px solid var(--line-strong);
+		border-radius: 12px;
+		padding: 20px 22px;
+		background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+		margin: 26px 0;
+	}
+	.callout h4 {
+		font-size: 0.9375rem;
+		margin-bottom: 8px;
+		color: var(--accent-ink);
+	}
+	.callout p {
+		font-size: 0.875rem;
+	}
+	.callout p + p {
+		margin-top: 10px;
+	}
+	.alert {
+		border: 1px solid color-mix(in srgb, var(--st-danger) 45%, transparent);
+		border-radius: 12px;
+		padding: 20px 22px;
+		background: color-mix(in srgb, var(--st-danger) 8%, var(--surface));
+		margin: 26px 0;
+	}
+	.alert h4 {
+		font-size: 0.9375rem;
+		margin-bottom: 8px;
+		color: var(--st-danger);
+	}
+	.alert p {
+		font-size: 0.875rem;
+	}
+	.alert p + p {
+		margin-top: 10px;
+	}
+	.laws {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		gap: 16px;
+	}
+	.law {
+		border: 1px solid var(--line);
+		border-left: 2px solid var(--accent);
+		border-radius: 0 12px 12px 0;
+		background: var(--surface);
+		padding: 19px 21px;
+		box-shadow: var(--shadow);
+	}
+	.law h4 {
+		font-size: 0.9375rem;
+		margin-bottom: 8px;
+	}
+	.law p {
+		font-size: 0.84375rem;
+		color: var(--muted);
+	}
+	.law p + p {
+		margin-top: 9px;
+	}
+	footer {
+		padding: 46px 0 70px;
+		color: var(--muted);
+		font-size: 0.84375rem;
+	}
+	@media (max-width: 720px) {
+		.masthead {
+			padding: 46px 0 32px;
+		}
+		section {
+			padding: 46px 0;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		* {
+			transition: none !important;
+			animation: none !important;
+		}
+	}
+</style>
+
+<div class="tocbar">
+	<nav class="inner" aria-label="Sections">
+		<a href="#types">Field types</a>
+		<a href="#forms">Form inventory</a>
+		<a href="#detail">Form detail</a>
+		<a href="#states">Component states</a>
+		<a href="#timing">Validation timing</a>
+		<a href="#keyboard">Keyboard</a>
+		<a href="#exports">Export PDF</a>
+		<a href="#companion">The companion</a>
+		<a href="#responsive">Responsive</a>
+		<a href="#split">Figma vs here</a>
+	</nav>
+</div>
+
+<header class="masthead">
+	<div class="shell">
+		<div class="eyebrow">Fifth paper · the missing half</div>
+		<h1>Forms and Interaction Spec</h1>
+		<p class="standfirst">
+			The Console Blueprint says which components exist and the Frontend Handoff says what the API
+			will accept. Neither says what a form contains, what a component does when you touch it, or
+			when an error is allowed to appear. That is this document.
+		</p>
+		<p class="standfirst" style="margin-top: 14px">
+			<b>Updated after backend round one.</b> Media metadata became patchable, so alt text is no
+			longer permanent and the ordering rule is now conditional — both are marked at the point of
+			change rather than quietly rewritten.
+		</p>
+	</div>
+</header>
+
+<!-- ===================================================== 1 -->
+<section id="types">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">01</span>
+			<h2>Field types, defined once</h2>
+		</div>
+		<p class="sec-lede">
+			Twenty-two forms share nine input types. Specify behaviour here and every form below is a
+			field list rather than a fresh design problem.
+		</p>
+
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Type</th>
+						<th>Behaviour</th>
+						<th>Validates</th>
+						<th>Used by</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>text</b></td>
+						<td class="dim">
+							Single line. Trims on blur. Character counter appears at 80% of any max length.
+						</td>
+						<td class="dim">on blur</td>
+						<td class="dim">title, full_name, company</td>
+					</tr>
+					<tr>
+						<td><b>slug</b></td>
+						<td class="dim">
+							Normalises as you type — lowercase, spaces to hyphens, strips anything outside
+							<code>[a-z0-9-]</code>. Auto-derives from title while the record is a draft; the link
+							breaks on first manual edit and never re-derives.
+						</td>
+						<td class="dim">on blur + availability check debounced 400ms</td>
+						<td class="dim">post, project</td>
+					</tr>
+					<tr>
+						<td><b>email</b></td>
+						<td class="dim">
+							<code>inputmode="email"</code>, no autocapitalise. Never validated per keystroke —
+							half a typed address is not an error.
+						</td>
+						<td class="dim">on blur</td>
+						<td class="dim">register, login, reset</td>
+					</tr>
+					<tr>
+						<td><b>password</b></td>
+						<td class="dim">
+							Single field with a reveal toggle. Never a confirm-password twin. Requirement text
+							visible from focus, not after rejection.
+						</td>
+						<td class="dim">on blur</td>
+						<td class="dim">register, reset</td>
+					</tr>
+					<tr>
+						<td><b>textarea</b></td>
+						<td class="dim">
+							Auto-grows to a max height then scrolls. <kbd>Enter</kbd> inserts a newline; it never
+							submits.
+						</td>
+						<td class="dim">on blur</td>
+						<td class="dim">excerpt, bio, description, reflection</td>
+					</tr>
+					<tr>
+						<td><b>markdown</b></td>
+						<td class="dim">
+							Source-first editor with a live preview pane — <b>not</b> a WYSIWYG. GitHub-Flavoured
+							Markdown: fenced code blocks, tables, strikethrough, task lists. Autosaves on a 2s
+							idle debounce and blocks navigation while unsaved. <kbd>Tab</kbd> indents inside a
+							code fence, moves focus outside one.
+						</td>
+						<td class="dim">never blocks</td>
+						<td class="dim">post content, cover letter</td>
+					</tr>
+					<tr>
+						<td><b>chips</b></td>
+						<td class="dim">
+							An array as removable tokens. <kbd>Enter</kbd> or <kbd>,</kbd> commits;
+							<kbd>Backspace</kbd> on an empty input removes the last. Never a comma-separated text
+							field.
+						</td>
+						<td class="dim">per chip, on commit</td>
+						<td class="dim">tech_stack, required_skills</td>
+					</tr>
+					<tr>
+						<td><b>combobox</b></td>
+						<td class="dim">
+							Search + multi-select + inline create. Offers “Create «Rust»” when nothing matches.
+						</td>
+						<td class="dim">on commit</td>
+						<td class="dim">topics</td>
+					</tr>
+					<tr>
+						<td><b>datetime</b></td>
+						<td class="dim">
+							Locale-formatted via <code>Intl</code>. Shows the resolved absolute time and the
+							relative one — “14 Mar 2027, 09:00 — in 3 days”.
+						</td>
+						<td class="dim">on change</td>
+						<td class="dim">published_at, applied date</td>
+					</tr>
+					<tr>
+						<td><b>file</b></td>
+						<td class="dim">
+							Drop zone plus a picker. Validates size, dimensions and MIME <b>before</b> requesting
+							an upload URL. Alt text is collected in the same step and is required.
+						</td>
+						<td class="dim">on select</td>
+						<td class="dim">media upload</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="callout">
+			<h4>Two of these carry a rule the API cannot enforce</h4>
+			<p>
+				<b>Alt text is required by this spec, not by the backend.</b>
+				<code>POST /api/media/upload-url</code> accepts a null <code>alt_text</code>. Backend round
+				one added <code>PATCH /api/media/{id}</code>, so it is correctable now — but the picker is
+				the moment someone is actually looking at the image, and a field they will never revisit is
+				how images ship without alt text at all.
+			</p>
+			<p>
+				<b>Password is one field, not two.</b> The confirm-password twin exists to catch typos in a
+				masked field — a reveal toggle solves the same problem without doubling the typing and
+				without a second error state that means nothing to the person reading it.
+			</p>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 2 -->
+<section id="forms">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">02</span>
+			<h2>Every form in the product</h2>
+		</div>
+		<p class="sec-lede">
+			Twenty-two, across both the console and the Career Studio. The primary action column is the
+			one amber button on that screen — there is never a second.
+		</p>
+
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Form</th>
+						<th>Fields</th>
+						<th>Primary action</th>
+						<th>On success</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td
+							colspan="4"
+							style="
+								background: color-mix(in srgb, var(--headline) 4%, transparent);
+								font-family: var(--font-mono);
+								font-size: 0.6875rem;
+								letter-spacing: 0.1em;
+								text-transform: uppercase;
+								color: var(--muted);
+							"
+						>
+							Authentication
+						</td>
+					</tr>
+					<tr>
+						<td><b>Register</b></td>
+						<td class="dim">username, email, full_name, password</td>
+						<td class="dim">Create account</td>
+						<td class="dim">Route to <code>/verify</code> — not the dashboard</td>
+					</tr>
+					<tr>
+						<td><b>Sign in</b></td>
+						<td class="dim">email, password</td>
+						<td class="dim">Sign in</td>
+						<td class="dim">Saved destination, or <code>/studio</code></td>
+					</tr>
+					<tr>
+						<td><b>Forgot password</b></td>
+						<td class="dim">email</td>
+						<td class="dim">Send reset link</td>
+						<td class="dim">Identical confirmation whether or not the account exists</td>
+					</tr>
+					<tr>
+						<td><b>Reset password</b></td>
+						<td class="dim">password <span class="dim">(token from URL)</span></td>
+						<td class="dim">Set new password</td>
+						<td class="dim">Login, email prefilled, focus on password</td>
+					</tr>
+
+					<tr>
+						<td
+							colspan="4"
+							style="
+								background: color-mix(in srgb, var(--headline) 4%, transparent);
+								font-family: var(--font-mono);
+								font-size: 0.6875rem;
+								letter-spacing: 0.1em;
+								text-transform: uppercase;
+								color: var(--muted);
+							"
+						>
+							Account &amp; settings
+						</td>
+					</tr>
+					<tr>
+						<td><b>Profile</b></td>
+						<td class="dim">
+							full_name <span style="color: var(--st-danger)">— the only editable field</span>
+						</td>
+						<td class="dim">Save</td>
+						<td class="dim">Optimistic, rollback on failure</td>
+					</tr>
+					<tr>
+						<td><b>Preferences</b></td>
+						<td class="dim">theme (light/dark/system), UI language</td>
+						<td class="dim">— applies instantly</td>
+						<td class="dim">No save button; no server call until R20</td>
+					</tr>
+					<tr>
+						<td><b>Close account</b></td>
+						<td class="dim">type-to-confirm username</td>
+						<td class="dim">Close my account</td>
+						<td class="dim">Clear session, plain confirmation page</td>
+					</tr>
+
+					<tr>
+						<td
+							colspan="4"
+							style="
+								background: color-mix(in srgb, var(--headline) 4%, transparent);
+								font-family: var(--font-mono);
+								font-size: 0.6875rem;
+								letter-spacing: 0.1em;
+								text-transform: uppercase;
+								color: var(--muted);
+							"
+						>
+							Content
+						</td>
+					</tr>
+					<tr>
+						<td><b>New post</b></td>
+						<td class="dim">title, slug, excerpt, content</td>
+						<td class="dim">Create draft</td>
+						<td class="dim">Editor, focus in title</td>
+					</tr>
+					<tr>
+						<td><b>Post editor</b></td>
+						<td class="dim">title, slug, excerpt, content, topics, cover</td>
+						<td class="dim">Publish</td>
+						<td class="dim">Toast with the public link</td>
+					</tr>
+					<tr>
+						<td><b>Schedule post</b></td>
+						<td class="dim">published_at</td>
+						<td class="dim">Schedule</td>
+						<td class="dim">
+							<span class="pill p-inflight">scheduled</span> + “goes live in 3 days”
+						</td>
+					</tr>
+					<tr>
+						<td><b>Create topic</b> <span class="dim">(inline)</span></td>
+						<td class="dim">title, description</td>
+						<td class="dim">Create &amp; attach</td>
+						<td class="dim">Chip attaches, popover closes</td>
+					</tr>
+					<tr>
+						<td><b>Project editor</b></td>
+						<td class="dim">
+							title, slug, description, tech_stack, repo_url, live_demo_url, topics
+						</td>
+						<td class="dim">Add project</td>
+						<td class="dim">Live immediately — say so on the button helper</td>
+					</tr>
+					<tr>
+						<td><b>CV identity</b></td>
+						<td class="dim">role, display_name, bio, photo_url, content language</td>
+						<td class="dim">Save</td>
+						<td class="dim">Stays on page, save indicator only</td>
+					</tr>
+					<tr>
+						<td><b>CV section</b> <span class="dim">(×5)</span></td>
+						<td class="dim">repeatable rows — skills, education, experience, projects, contact</td>
+						<td class="dim">Save</td>
+						<td class="dim">Row collapses to summary</td>
+					</tr>
+					<tr>
+						<td><b>Upload media</b></td>
+						<td class="dim">
+							file, alt_text <span style="color: var(--st-danger)">(required)</span>, caption, role,
+							position
+						</td>
+						<td class="dim">Upload</td>
+						<td class="dim">Pending tile appears immediately</td>
+					</tr>
+
+					<tr>
+						<td
+							colspan="4"
+							style="
+								background: color-mix(in srgb, var(--headline) 4%, transparent);
+								font-family: var(--font-mono);
+								font-size: 0.6875rem;
+								letter-spacing: 0.1em;
+								text-transform: uppercase;
+								color: var(--muted);
+							"
+						>
+							Career Studio
+						</td>
+					</tr>
+					<tr>
+						<td><b>Capture job</b></td>
+						<td class="dim">paste-or-link (one field, detects which)</td>
+						<td class="dim">Read this posting</td>
+						<td class="dim">Extracted fields, as an editable form</td>
+					</tr>
+					<tr>
+						<td><b>Confirm job</b></td>
+						<td class="dim">title, company, location, seniority, required_skills, nice_to_have</td>
+						<td class="dim">Save job</td>
+						<td class="dim">Application row in <span class="pill p-neutral">draft</span></td>
+					</tr>
+					<tr>
+						<td><b>Application row</b></td>
+						<td class="dim">status, applied date, next action, CV choice</td>
+						<td class="dim">— inline, per cell</td>
+						<td class="dim">Saves per field, no form submit</td>
+					</tr>
+					<tr>
+						<td><b>Tailoring question</b></td>
+						<td class="dim">one free-text answer per gap</td>
+						<td class="dim">Use this</td>
+						<td class="dim">Inserts into the CV as a reviewable diff</td>
+					</tr>
+					<tr>
+						<td><b>Cover letter angle</b></td>
+						<td class="dim">“why this company” — 2 sentences</td>
+						<td class="dim">Draft the letter</td>
+						<td class="dim">Streams into the editor</td>
+					</tr>
+					<tr>
+						<td><b>Revise letter</b></td>
+						<td class="dim">instruction (free text or preset chip)</td>
+						<td class="dim">Apply</td>
+						<td class="dim">Rewrites current text, undoable</td>
+					</tr>
+					<tr>
+						<td><b>Reflection</b></td>
+						<td class="dim">stage reached, what happened, what you would change</td>
+						<td class="dim">Save privately</td>
+						<td class="dim">Row marked, prompt never returns</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 3 -->
+<section id="detail">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">03</span>
+			<h2>The three forms worth specifying in full</h2>
+		</div>
+		<p class="sec-lede">
+			Register, the post editor and media upload. The rest follow from the field-type table; these
+			three each carry a rule that would otherwise be guessed.
+		</p>
+
+		<h3 class="block">Register</h3>
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Field</th>
+						<th>Type</th>
+						<th>Required</th>
+						<th>Rule</th>
+						<th>Error copy</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><code>username</code></td>
+						<td class="dim">text</td>
+						<td><span class="req r-yes">yes</span></td>
+						<td class="dim">3–50, <code>[A-Za-z0-9_]</code>, lowercased server-side</td>
+						<td class="dim">“Letters, numbers and underscores only.”</td>
+					</tr>
+					<tr>
+						<td><code>email</code></td>
+						<td class="dim">email</td>
+						<td><span class="req r-yes">yes</span></td>
+						<td class="dim">RFC-valid</td>
+						<td class="dim">“That doesn’t look like an email address.”</td>
+					</tr>
+					<tr>
+						<td><code>full_name</code></td>
+						<td class="dim">text</td>
+						<td><span class="req r-yes">yes</span></td>
+						<td class="dim">non-empty, ≤ 100</td>
+						<td class="dim">“Please add your name.”</td>
+					</tr>
+					<tr>
+						<td><code>password</code></td>
+						<td class="dim">password</td>
+						<td><span class="req r-yes">yes</span></td>
+						<td class="dim"><b>12–128 characters. Length only.</b></td>
+						<td class="dim">“At least 12 characters.”</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<p class="prose" style="color: var(--muted); font-size: 0.84375rem; margin-top: 12px">
+			Username is permanent — it becomes the public URL. Say so under the field before submission,
+			not in a confirmation dialog after. Do not add uppercase/digit/symbol rules: the server does
+			not enforce them, and a client-side rule the API disagrees with rejects passwords the backend
+			would have accepted.
+		</p>
+
+		<h3 class="block">Post editor</h3>
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Field</th>
+						<th>Type</th>
+						<th>Required</th>
+						<th>Rule</th>
+						<th>Behaviour</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><code>title</code></td>
+						<td class="dim">text</td>
+						<td><span class="req r-yes">yes</span></td>
+						<td class="dim">non-empty, ≤ 200</td>
+						<td class="dim">Counter from 160. Autosaves.</td>
+					</tr>
+					<tr>
+						<td><code>slug</code></td>
+						<td class="dim">slug</td>
+						<td><span class="req r-yes">yes</span></td>
+						<td class="dim">≤ 200, <code>[a-z0-9-]</code>, unique per author</td>
+						<td class="dim">
+							Auto-derives while draft. Once published, moves behind a “Change address” disclosure
+							that states the consequence.
+						</td>
+					</tr>
+					<tr>
+						<td><code>excerpt</code></td>
+						<td class="dim">textarea</td>
+						<td><span class="req r-no">no</span></td>
+						<td class="dim">plain text</td>
+						<td class="dim"><code>null</code> clears it — tri-state PATCH</td>
+					</tr>
+					<tr>
+						<td><code>content</code></td>
+						<td class="dim">markdown</td>
+						<td><span class="req r-yes">yes</span></td>
+						<td class="dim">GFM. Raw HTML disabled.</td>
+						<td class="dim">
+							2s idle autosave; stored as the markdown source, never as rendered HTML
+						</td>
+					</tr>
+					<tr>
+						<td><code>topics</code></td>
+						<td class="dim">combobox</td>
+						<td><span class="req r-no">no</span></td>
+						<td class="dim">own topics only</td>
+						<td class="dim">
+							Each chip is its own request; one failure doesn’t roll back the others
+						</td>
+					</tr>
+					<tr>
+						<td><code>published_at</code></td>
+						<td class="dim">datetime</td>
+						<td><span class="req r-no">no</span></td>
+						<td class="dim">null = draft, future = scheduled</td>
+						<td class="dim">Set by Publish / Schedule, never typed directly</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="alert">
+			<h4>Markdown breaks one thing: you cannot put an image URL in the source</h4>
+			<p>
+				Media read URLs are <b>signed and expiring</b> —
+				<code>GET /api/media/{id}/{size}</code> returns a URL with an <code>expires_at</code>.
+				Writing that URL into <code>![alt](https://storage.googleapis.com/…)</code> bakes a dead
+				link into the stored document. The post would render correctly for an hour and be broken
+				forever after.
+			</p>
+			<p>
+				<b>Store a stable reference and resolve it at render time.</b> The editor's Insert image
+				action opens the media picker and writes <code>![alt](media:8f1b2c3d)</code>; the renderer
+				rewrites the <code>media:</code> scheme into a real URL on the way out — a signed one in the
+				console preview, a public one on the public page. This is also the only shape that survives
+				the public-media work in R1, since the two surfaces need different URLs for the same image.
+			</p>
+			<p>
+				Consequence for the editor: <b>Insert image is a real control</b>, not something people type
+				by hand. Typing a raw external URL still works and is left alone — only the
+				<code>media:</code> scheme is rewritten.
+			</p>
+		</div>
+
+		<div class="callout">
+			<h4>What else the Markdown decision settles</h4>
+			<p>
+				<b>Render on the server.</b> Markdown → HTML happens in SvelteKit's
+				<code>+page.server.ts</code>, not in the browser. Public pages stay server-rendered with
+				real metadata (J9), and no parser ships to the reader.
+			</p>
+			<p>
+				<b>Raw HTML off, and sanitize anyway.</b> GFM permits inline HTML; disable it. The author is
+				the only writer today, so this is defence in depth rather than an XSS fix — but it becomes
+				load-bearing the moment anything else can write a post.
+			</p>
+			<p>
+				<b>Code blocks need highlighting, and this audience will notice.</b> Highlight at render
+				time on the server rather than shipping a client-side highlighter.
+				<code>excerpt</code> stays <b>plain text</b> — it goes into the meta description, where
+				markdown syntax would leak as literal characters.
+			</p>
+			<p>
+				<b>The cover letter uses the same editor</b> for consistency, but exports differ: PDF
+				renders the markdown, and “Copy as text” must strip the syntax — a great many application
+				forms are a plain <code>&lt;textarea&gt;</code>, and pasting <code>**bold**</code> into one
+				looks careless.
+			</p>
+		</div>
+
+		<h3 class="block">Inserting an image into a post</h3>
+		<p class="prose" style="color: var(--muted); font-size: 0.875rem; margin-bottom: 16px">
+			Three entry points, one flow. All of them converge on the same dialog, because the alt text
+			moment is the one that cannot be repeated.
+		</p>
+
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Step</th>
+						<th>What happens</th>
+						<th>Why it is this way</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>1 · Trigger</b></td>
+						<td class="dim">
+							Toolbar <b>Insert image</b>, <b>paste</b> from the clipboard, or <b>drag-drop</b> a
+							file onto the editor.
+						</td>
+						<td class="dim">
+							Paste is the one that matters most — a developer blogging about their own work
+							screenshots constantly. Making it work is worth more than the toolbar button.
+						</td>
+					</tr>
+					<tr>
+						<td><b>2 · Validate locally</b></td>
+						<td class="dim">
+							≤&nbsp;5&nbsp;MB, ≤&nbsp;6000&nbsp;px per side, JPEG/PNG/WebP — checked in the browser
+							before any request.
+						</td>
+						<td class="dim">
+							All three limits are knowable client-side. Rejecting a 12&nbsp;MB file instantly beats
+							a round trip that fails.
+						</td>
+					</tr>
+					<tr>
+						<td><b>3 · Ask for alt text</b></td>
+						<td class="dim">
+							A small dialog: thumbnail preview, <b>alt text (required)</b>, caption (optional).
+							Confirm is disabled until alt text is non-empty.
+						</td>
+						<td class="dim">
+							<b>The best chance, no longer the only one.</b> <code>PATCH /api/media/{id}</code> can
+							correct it later, but nobody goes back. Showing the image beside the field is what
+							makes writing it easy rather than a tax.
+						</td>
+					</tr>
+					<tr>
+						<td><b>4 · Request the upload URL</b></td>
+						<td class="dim">
+							<code>POST /api/media/upload-url</code> with <code>attachment_target: BlogPost</code>,
+							the post id, and <code>role: Inline</code>.
+						</td>
+						<td class="dim">
+							<code>Inline</code> is a distinct role from <code>Cover</code> — the same post has
+							both, and they render differently.
+						</td>
+					</tr>
+					<tr>
+						<td><b>5 · Insert the reference immediately</b></td>
+						<td class="dim">
+							At the cursor, on its own line with blank lines around it:<br /><code
+								>![Hexagonal layout of the API](media:8f1b2c3d)</code
+							>
+						</td>
+						<td class="dim">
+							The <code>media_id</code> comes back with the upload URL,
+							<b>before the bytes finish uploading</b>. So the document is correct instantly and the
+							writer keeps typing.
+						</td>
+					</tr>
+					<tr>
+						<td><b>6 · Upload in the background</b></td>
+						<td class="dim">
+							PUT to the signed URL. The preview pane shows a pending tile where the image will
+							land; the source pane shows the markdown line.
+						</td>
+						<td class="dim">
+							This is the only progress that can be measured honestly, so the determinate bar lives
+							on the tile — not on the editor.
+						</td>
+					</tr>
+					<tr>
+						<td><b>7 · Resolve on ready</b></td>
+						<td class="dim">
+							Poll <code>GET /api/media/{id}</code>; on <code>ready</code> the preview swaps the
+							tile for the real image.
+						</td>
+						<td class="dim">
+							The source never changes. Only the preview resolves — which is exactly the split the
+							<code>media:</code> scheme buys.
+						</td>
+					</tr>
+					<tr>
+						<td><b>8 · On failure</b></td>
+						<td class="dim">
+							The markdown line <b>stays</b>. The preview tile turns
+							<span class="pill p-danger">failed</span> with Retry and Remove.
+						</td>
+						<td class="dim">
+							Never silently delete a line the writer put in their document. A visible broken image
+							is recoverable; a vanished paragraph is not.
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="callout">
+			<h4>Five decisions inside that flow</h4>
+			<p>
+				<b>The alt text is the readable half of the line.</b> <code>media:8f1b2c3d</code> is an
+				address, not a word — so the alt text is what makes
+				<code>![Hexagonal layout of the API](media:8f1b2c3d)</code> mean something when you reread
+				your own source six months later. Another reason to require it.
+			</p>
+			<p>
+				<b>Deleting the line does not delete the asset.</b> Removing text is instant, local and
+				undoable; deleting an upload is none of those. Orphaned media is a job for the media
+				library, not a side effect of pressing Backspace.
+			</p>
+			<p>
+				<b>Typed external URLs are left alone.</b> Only the <code>media:</code> scheme is rewritten.
+				<code>![chart](https://example.com/x.png)</code> passes through untouched.
+			</p>
+			<p>
+				<b>Reuse is a second tab in the same dialog</b> — “Upload new” and “Already uploaded”, the
+				latter from <code>GET /api/media/by-target/blog_post</code>. Note that route takes the
+				target <em>type</em>, not an id, so the list is every image across all your posts. That is
+				fine for reuse and impossible to scope tighter until the API offers it.
+			</p>
+			<p>
+				<b>Ordering is upload order, for now.</b> Whether <code>position</code> is patchable
+				alongside <code>alt_text</code> is unconfirmed (filed as C2). In a post it barely matters
+				either way — the markdown line position decides where the image appears. It matters for
+				project galleries, which is where drag-to-reorder would land if the answer is yes.
+			</p>
+		</div>
+
+		<div class="alert">
+			<h4>Until R1 ships, inline images do not appear on the public page</h4>
+			<p>
+				The public blog response carries no media and the variant route needs a verified session. So
+				an image inserted today renders in the editor preview and is <b>invisible to readers</b>.
+			</p>
+			<p>
+				The editor must say so at the point of insertion — a one-line note in the dialog, not a
+				banner somewhere else. Writers will otherwise publish posts with holes in them and have no
+				way to find out. Remove the note when R1 lands.
+			</p>
+		</div>
+
+		<h3 class="block">Media upload</h3>
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Field</th>
+						<th>Type</th>
+						<th>Required</th>
+						<th>Rule</th>
+						<th>Behaviour</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><code>file</code></td>
+						<td class="dim">file</td>
+						<td><span class="req r-yes">yes</span></td>
+						<td class="dim">≤ 5 MB, ≤ 6000px/side, JPEG/PNG/WebP</td>
+						<td class="dim">All three checked in the browser first</td>
+					</tr>
+					<tr>
+						<td><code>alt_text</code></td>
+						<td class="dim">text</td>
+						<td><span class="req r-yes">yes</span></td>
+						<td class="dim">
+							non-empty <span style="color: var(--st-danger)">(spec rule, not API)</span>
+						</td>
+						<td class="dim">
+							Blocks upload. Editable afterwards via PATCH, but treat the picker as the real moment.
+						</td>
+					</tr>
+					<tr>
+						<td><code>caption</code></td>
+						<td class="dim">text</td>
+						<td><span class="req r-no">no</span></td>
+						<td class="dim">—</td>
+						<td class="dim">Also editable via PATCH</td>
+					</tr>
+					<tr>
+						<td><code>role</code></td>
+						<td class="dim">select</td>
+						<td><span class="req r-yes">yes</span></td>
+						<td class="dim">cover · gallery · inline · avatar</td>
+						<td class="dim">Preset by the calling surface</td>
+					</tr>
+					<tr>
+						<td><code>position</code></td>
+						<td class="dim">implicit</td>
+						<td><span class="req r-no">no</span></td>
+						<td class="dim">—</td>
+						<td class="dim">
+							<b>Upload order is display order</b> until C2 confirms <code>position</code> is
+							patchable
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 4 -->
+<section id="states">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">04</span>
+			<h2>Component state matrices</h2>
+		</div>
+		<p class="sec-lede">
+			What each state looks like, what triggers it, and what the component does while in it. The
+			first four exist as variant sets in Figma; the rest are specified here only.
+		</p>
+
+		<h3 class="block">Button — 4 kinds × 4 states</h3>
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>State</th>
+						<th>Trigger</th>
+						<th>Visual</th>
+						<th>Behaviour</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>default</b></td>
+						<td class="dim">resting</td>
+						<td class="dim">Kind's base treatment</td>
+						<td class="dim">Interactive</td>
+					</tr>
+					<tr>
+						<td><b>hover</b></td>
+						<td class="dim">pointer over</td>
+						<td class="dim">
+							primary/danger dim to 90%; secondary/ghost gain a <code>surface-2</code> fill
+						</td>
+						<td class="dim">Interactive. Never appears on touch.</td>
+					</tr>
+					<tr>
+						<td><b>focus</b></td>
+						<td class="dim">keyboard</td>
+						<td class="dim">2px <code>accent-ink</code> ring, 2px offset</td>
+						<td class="dim">Always visible — never suppressed</td>
+					</tr>
+					<tr>
+						<td><b>disabled</b></td>
+						<td class="dim">action unavailable</td>
+						<td class="dim">40% opacity</td>
+						<td class="dim">
+							Not focusable. <b>Requires a reason nearby</b> — a disabled button with no explanation
+							is a dead end
+						</td>
+					</tr>
+					<tr>
+						<td><b>loading</b></td>
+						<td class="dim">request in flight</td>
+						<td class="dim">85% opacity, spinner before the label, <b>label unchanged</b></td>
+						<td class="dim">
+							Non-interactive. Blocks double-submit. Minimum 400ms so it doesn't flash.
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<h3 class="block">Field — 5 states</h3>
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>State</th>
+						<th>Trigger</th>
+						<th>Visual</th>
+						<th>Behaviour</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>default</b></td>
+						<td class="dim">empty, untouched</td>
+						<td class="dim"><code>line</code> border, placeholder in <code>muted</code></td>
+						<td class="dim">Placeholder is an example, never the label</td>
+					</tr>
+					<tr>
+						<td><b>focus</b></td>
+						<td class="dim">focused</td>
+						<td class="dim">2px <code>accent-ink</code> border</td>
+						<td class="dim">Help text appears here if the field has rules</td>
+					</tr>
+					<tr>
+						<td><b>filled</b></td>
+						<td class="dim">has a value</td>
+						<td class="dim">Value in <code>headline</code></td>
+						<td class="dim">—</td>
+					</tr>
+					<tr>
+						<td><b>error</b></td>
+						<td class="dim">failed validation</td>
+						<td class="dim">
+							1.5px <code>danger</code> border, message below in <code>danger</code>
+						</td>
+						<td class="dim">
+							<b>Error replaces help text</b>, never stacks with it. Clears on the next successful
+							blur.
+						</td>
+					</tr>
+					<tr>
+						<td><b>disabled</b></td>
+						<td class="dim">not accepted by the API</td>
+						<td class="dim"><code>surface-2</code> fill, 55% opacity</td>
+						<td class="dim">
+							Read-only <em>facts</em> (username, email) render as text, not disabled inputs
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<h3 class="block">CollectionState — the four every list ships</h3>
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>State</th>
+						<th>When</th>
+						<th>Contains</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>loading</b></td>
+						<td class="dim">first fetch</td>
+						<td class="dim">Skeleton rows shaped like real rows — never a centred spinner</td>
+					</tr>
+					<tr>
+						<td><b>empty</b></td>
+						<td class="dim">zero records, no filters</td>
+						<td class="dim">Why it's empty + the one action that fixes it (primary)</td>
+					</tr>
+					<tr>
+						<td><b>filtered-empty</b></td>
+						<td class="dim">zero results, filters active</td>
+						<td class="dim">
+							The count that <em>does</em> exist + “Clear filters” (secondary).
+							<b>Distinct from empty</b> — conflating them tells someone with 24 posts that they
+							have none.
+						</td>
+					</tr>
+					<tr>
+						<td><b>error</b></td>
+						<td class="dim">fetch failed</td>
+						<td class="dim">
+							What failed + Retry. Never blames the user; always says their data is safe.
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<h3 class="block">Specified here only — not yet in Figma</h3>
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Component</th>
+						<th>States</th>
+						<th>The rule that matters</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>ConfirmDialog</b></td>
+						<td class="dim">idle · typing · armed · working</td>
+						<td class="dim">
+							Opens with focus on <b>Cancel</b>. Confirm stays disabled until the typed string
+							matches exactly. <kbd>Esc</kbd> cancels; <kbd>Enter</kbd> never confirms.
+						</td>
+					</tr>
+					<tr>
+						<td><b>Toast</b></td>
+						<td class="dim">success · undoable · error</td>
+						<td class="dim">
+							Undoable variant holds 8 seconds with a visible countdown. Hovering pauses it. Only
+							for things the user cannot see happen.
+						</td>
+					</tr>
+					<tr>
+						<td><b>SaveIndicator</b></td>
+						<td class="dim">idle · saving · saved · unsaved · retrying</td>
+						<td class="dim">
+							One fixed slot near the title. It is the <b>only</b> place save state is reported — no
+							toast per keystroke.
+						</td>
+					</tr>
+					<tr>
+						<td><b>Combobox</b></td>
+						<td class="dim">closed · open · searching · no-match · creating</td>
+						<td class="dim">
+							no-match offers “Create «Rust»”. Selected items are removable chips above the input,
+							not ticks in a list.
+						</td>
+					</tr>
+					<tr>
+						<td><b>MediaTile</b></td>
+						<td class="dim">uploading · pending · processing · ready · failed · archived</td>
+						<td class="dim">
+							uploading shows determinate progress (the only honest bar); pending and processing are
+							indeterminate. failed persists until dismissed — a silently vanishing upload is worse
+							than a visible failure.
+						</td>
+					</tr>
+					<tr>
+						<td><b>SuggestionCard</b></td>
+						<td class="dim">proposed · applied · skipped · question</td>
+						<td class="dim">
+							question renders an <b>input</b>, not prose. Applied changes remain undoable for the
+							session.
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 5 -->
+<section id="timing">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">05</span>
+			<h2>When errors are allowed to appear</h2>
+		</div>
+		<p class="sec-lede">
+			The most common form-design mistake in this product would be validating too early. A rule that
+			fires while someone is still typing calls them wrong for being halfway through a word.
+		</p>
+
+		<div class="laws">
+			<div class="law">
+				<h4>Never on keystroke</h4>
+				<p>
+					No field validates per character. <code>j</code> is not an invalid email; it is the first
+					letter of one. The only per-keystroke feedback allowed is <em>positive</em> — a slug
+					normalising, a counter counting.
+				</p>
+			</div>
+			<div class="law">
+				<h4>On blur, once touched</h4>
+				<p>
+					A field validates when it loses focus and only if the person has typed in it. An untouched
+					empty required field is not an error until submit.
+				</p>
+			</div>
+			<div class="law">
+				<h4>On submit, everything</h4>
+				<p>
+					Submit validates all fields, focuses the first invalid one, and scrolls it into view. If
+					the server rejects, the form keeps every value — losing a filled form to one bad field is
+					the worst outcome available.
+				</p>
+			</div>
+			<div class="law">
+				<h4>Debounced for anything remote</h4>
+				<p>
+					Slug availability at 400ms idle. Search at 300ms. Never on every keystroke — that is a
+					request per character and a rate limit waiting to happen.
+				</p>
+			</div>
+			<div class="law">
+				<h4>Clear on the next success</h4>
+				<p>
+					An error clears when the field next blurs valid — not on focus, which would hide the
+					message the moment someone returns to read it.
+				</p>
+			</div>
+			<div class="law">
+				<h4>One message per field</h4>
+				<p>
+					Server and client errors occupy the same slot. If both exist, the server's wins — it is
+					the one that actually blocked the write.
+				</p>
+			</div>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 6 -->
+<section id="keyboard">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">06</span>
+			<h2>Keyboard and focus</h2>
+		</div>
+		<p class="sec-lede">
+			The Console Blueprint asserts that keyboard support is not a phase two, then doesn't say what
+			the keys do. Here they are.
+		</p>
+
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Context</th>
+						<th>Key</th>
+						<th>Does</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td rowspan="2"><b>Any form</b></td>
+						<td><kbd>Enter</kbd></td>
+						<td class="dim">
+							Submits from a single-line input. Never from a textarea or richtext.
+						</td>
+					</tr>
+					<tr>
+						<td><kbd>Esc</kbd></td>
+						<td class="dim">
+							Blurs the field; a second press closes the surrounding dialog if there is one
+						</td>
+					</tr>
+					<tr>
+						<td rowspan="3"><b>Dialog</b></td>
+						<td><kbd>Tab</kbd></td>
+						<td class="dim">Cycles within the dialog only — focus is trapped</td>
+					</tr>
+					<tr>
+						<td><kbd>Esc</kbd></td>
+						<td class="dim">Cancels and restores focus to the control that opened it</td>
+					</tr>
+					<tr>
+						<td><kbd>Enter</kbd></td>
+						<td class="dim">
+							Nothing on a destructive dialog. Confirm is reached by Tab, deliberately.
+						</td>
+					</tr>
+					<tr>
+						<td rowspan="4"><b>Combobox</b></td>
+						<td><kbd>↓</kbd> <kbd>↑</kbd></td>
+						<td class="dim">Moves through options; opens the list if closed</td>
+					</tr>
+					<tr>
+						<td><kbd>Enter</kbd></td>
+						<td class="dim">Selects the highlighted option, or creates when on “Create «…»”</td>
+					</tr>
+					<tr>
+						<td><kbd>Backspace</kbd></td>
+						<td class="dim">On an empty input, removes the last chip</td>
+					</tr>
+					<tr>
+						<td><kbd>Esc</kbd></td>
+						<td class="dim">Closes the list, keeps the selection</td>
+					</tr>
+					<tr>
+						<td rowspan="2"><b>Editor</b></td>
+						<td><kbd>⌘S</kbd></td>
+						<td class="dim">Forces a save. Intercepted — never the browser's save dialog.</td>
+					</tr>
+					<tr>
+						<td><kbd>⌘Z</kbd></td>
+						<td class="dim">
+							Undoes the last applied AI suggestion as one unit, not character by character
+						</td>
+					</tr>
+					<tr>
+						<td rowspan="2"><b>Table</b></td>
+						<td><kbd>Tab</kbd></td>
+						<td class="dim">Moves between the row's interactive controls, not every cell</td>
+					</tr>
+					<tr>
+						<td><kbd>Enter</kbd></td>
+						<td class="dim">Opens the focused row's detail</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="callout">
+			<h4>Focus order follows reading order, always</h4>
+			<p>
+				In the CV builder, that means a repeatable row's fields come before its Remove button, and
+				Remove comes before the next row's fields. Any place where a floating action or a sidebar
+				breaks that order is a bug, not a layout choice.
+			</p>
+			<p>
+				Every focusable element shows the 2px <code>accent-ink</code> ring. It is defined once in
+				<code>theme.css</code> under <code>:focus-visible</code> — do not override it per component,
+				and never set <code>outline: none</code> without an equivalent replacement.
+			</p>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 6b -->
+<section id="exports">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">07</span>
+			<h2>What happens after “Export PDF”</h2>
+		</div>
+		<p class="sec-lede">
+			A button that fires a silent browser download is the most common way a good editor ends badly:
+			the file lands somewhere the person didn't choose, styled in a way they never saw. Export is a
+			three-state sequence, not a click.
+		</p>
+
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>State</th>
+						<th>Shows</th>
+						<th>Why</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>1 · Options</b></td>
+						<td class="dim">
+							A modal: paginated <b>preview</b> on the left, options on the right — paper size (A4 /
+							US&nbsp;Letter), file name, page count. Primary action <b>Download</b>.
+						</td>
+						<td class="dim">
+							The preview is the point. Pagination is the thing people cannot predict, and a cover
+							letter that silently runs onto a second page is a bad outcome they'd want to catch
+							first.
+						</td>
+					</tr>
+					<tr>
+						<td><b>2 · Building</b></td>
+						<td class="dim">
+							Download disabled with a spinner and “Building your PDF…”.
+							<b>Suppressed entirely under 400ms</b> so fast exports don't flash.
+						</td>
+						<td class="dim">
+							Rendering is real work. An unresponsive button with no explanation reads as broken.
+						</td>
+					</tr>
+					<tr>
+						<td><b>3 · Saved</b></td>
+						<td class="dim">
+							The modal stays open: “Saved to your downloads”, the file name, and <b>Open</b> /
+							<b>Done</b>.
+						</td>
+						<td class="dim">
+							Browser downloads are easy to miss. Naming the file is how someone finds it.
+							<b>The modal never closes itself</b> — auto-dismiss removes the only confirmation that
+							anything happened.
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="callout">
+			<h4>Three rules for this modal</h4>
+			<p>
+				<b>Say where the file is built.</b> “Nothing leaves your account — the file is built in your
+				browser.” People exporting a CV or a cover letter are handling their employment history; one
+				sentence is worth more than a privacy page.
+			</p>
+			<p>
+				<b>Copy as text is a sibling, not a lesser option.</b> Most application forms are a plain
+				<code>&lt;textarea&gt;</code>. That path strips the Markdown syntax and confirms with a
+				toast — it needs no modal at all.
+			</p>
+			<p>
+				<b>Failure keeps the document.</b> If rendering fails, the modal shows the error and a
+				Retry. It never closes and discards the state the person configured.
+			</p>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 6c -->
+<section id="companion">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">08</span>
+			<h2>Where the companion appears</h2>
+		</div>
+		<p class="sec-lede">
+			The AI assists in three different documents — posts, CVs and cover letters — and it is the
+			same component in all three. One rail, one suggestion shape, one accept/skip gesture. What
+			changes is the action list, not the interaction.
+		</p>
+
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Surface</th>
+						<th>Document</th>
+						<th>Acts on</th>
+						<th>Offers</th>
+						<th>Screen</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>Selection toolbar</b></td>
+						<td class="dim">Post</td>
+						<td class="dim">Highlighted text</td>
+						<td class="dim">Tighten · Strengthen · Explain · Ask…</td>
+						<td class="dim">AI assist — post editor</td>
+					</tr>
+					<tr>
+						<td><b>Suggestion card</b></td>
+						<td class="dim">Post · CV</td>
+						<td class="dim">One passage</td>
+						<td class="dim">Before / after, Apply · Skip</td>
+						<td class="dim">AI assist · Tailor CV</td>
+					</tr>
+					<tr>
+						<td><b>Question card</b></td>
+						<td class="dim">CV</td>
+						<td class="dim">A gap needing a fact</td>
+						<td class="dim">An <b>input</b>, never invented text</td>
+						<td class="dim">Tailor CV</td>
+					</tr>
+					<tr>
+						<td><b>Match panel</b></td>
+						<td class="dim">CV</td>
+						<td class="dim">CV × job description</td>
+						<td class="dim">Two bars + ranked fixes</td>
+						<td class="dim">Tailor CV</td>
+					</tr>
+					<tr>
+						<td><b>Streaming draft</b></td>
+						<td class="dim">Cover letter</td>
+						<td class="dim">Whole document</td>
+						<td class="dim">Live text, Stop, editable from token one</td>
+						<td class="dim">Cover letter</td>
+					</tr>
+					<tr>
+						<td><b>Unsupported-claim flag</b></td>
+						<td class="dim">Cover letter</td>
+						<td class="dim">One sentence</td>
+						<td class="dim">Confirm or remove</td>
+						<td class="dim">Cover letter</td>
+					</tr>
+					<tr>
+						<td><b>Extraction form</b></td>
+						<td class="dim">Job posting</td>
+						<td class="dim">Pasted text or link</td>
+						<td class="dim">Editable fields, never auto-saved</td>
+						<td class="dim">Add a job</td>
+					</tr>
+					<tr>
+						<td><b>Reflection prompt</b></td>
+						<td class="dim">Application</td>
+						<td class="dim">A closed application</td>
+						<td class="dim">Three optional questions</td>
+						<td class="dim">— not yet drawn</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="alert">
+			<h4>The rail is the same component everywhere — deliberately</h4>
+			<p>
+				A person who learns Apply / Skip while tightening a blog sentence already knows how to work
+				a CV tailoring pass. If the post editor got a chat box and the CV editor got a diff panel,
+				that transfer is lost and each surface has to be learned separately.
+			</p>
+			<p>
+				So the rule holds across all three documents:
+				<b>the companion proposes into a reviewable change, never overwrites</b>; a gap that needs a
+				fact renders as <b>an input, not a sentence</b>; and every applied change is one undo away
+				for the whole session.
+			</p>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== responsive -->
+<section id="responsive">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">09</span>
+			<h2>Responsive</h2>
+		</div>
+		<p class="sec-lede">
+			Both widths are drawn: <b>35 screens at 1180px and the same 35 at 390px</b>. One width is not
+			drawn — all three widths now are. The six transformations below are still what an
+			implementation follows, and what a new screen should be designed against.
+		</p>
+
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Width</th>
+						<th>Status</th>
+						<th>Behaviour</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>&lt; 768px</b></td>
+						<td><span class="pill p-live">drawn</span></td>
+						<td class="dim">
+							35 screens at 390&nbsp;×&nbsp;844, light and dark. Tab bar, cards, bottom sheet.
+						</td>
+					</tr>
+					<tr>
+						<td><b>768 – 1023px</b></td>
+						<td><span class="pill p-live">drawn</span></td>
+						<td class="dim">
+							Tablet. 35 screens at 834&nbsp;×&nbsp;1112, light and dark. Sidebar collapses to a
+							64px icon rail; tables keep the three load-bearing columns and drop the middle; the
+							right rail stays a rail rather than becoming a sheet.
+							<b
+								>These were a rule with no frames behind them until the deliverables audit; they are
+								now drawn.</b
+							>
+						</td>
+					</tr>
+					<tr>
+						<td><b>≥ 1024px</b></td>
+						<td><span class="pill p-live">drawn</span></td>
+						<td class="dim">35 screens at 1180&nbsp;wide, light and dark.</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="alert">
+			<h4>No width may be answered with a wall</h4>
+			<p>
+				Nothing in this product may respond to a viewport with &ldquo;please use a larger
+				screen&rdquo;. That applied when fifteen screens were undrawn and it still applies at
+				tablet, and to any screen added after this document.
+			</p>
+			<p>
+				Where no frame exists, apply the transformations below. The result will be tighter than a
+				drawn design, and it will work &mdash; that is the bar.
+			</p>
+		</div>
+
+		<h3 class="block">The six transformations</h3>
+		<p class="prose" style="color: var(--muted); font-size: 0.875rem; margin-bottom: 16px">
+			Every mobile frame in the file is these six rules applied. A screen designed later should be
+			reflowed the same way rather than invented from scratch.
+		</p>
+		<div class="laws">
+			<div class="law">
+				<h4>Tables become cards</h4>
+				<p>
+					Five columns cannot survive 390px. Each row becomes a card: the identifying field and the
+					status on one line, the secondary identifier beneath, the action and date in a footer.
+					Columns that were only useful in aggregate are dropped, not shrunk.
+				</p>
+			</div>
+			<div class="law">
+				<h4>The right rail becomes a tabbed bottom sheet</h4>
+				<p>
+					Tabbed, not stacked. Three cards below the editor would bury the thing being edited; a
+					sheet keeps the document in view and the tabs keep the rail's sections reachable.
+				</p>
+			</div>
+			<div class="law">
+				<h4>The sidebar becomes a five-item tab bar</h4>
+				<p>
+					Everything else goes behind <b>More</b>. Account and settings live there rather than
+					competing for a slot with what people open daily.
+				</p>
+			</div>
+			<div class="law">
+				<h4>Body type goes up, not down</h4>
+				<p>
+					15.5px on a post, 14px on cards. Shrinking text to fit a small screen is the reflex and it
+					is wrong &mdash; at a 350px measure, larger type is what holds the line near sixty
+					characters.
+				</p>
+			</div>
+			<div class="law">
+				<h4>Primary actions go full width</h4>
+				<p>
+					Secondary actions pair up beside each other. Thumb reach beats visual balance on the one
+					control someone opened the screen to press.
+				</p>
+			</div>
+			<div class="law">
+				<h4>Filter chips scroll, never wrap</h4>
+				<p>
+					A wrapped filter row pushes the first result below the fold, which defeats the purpose of
+					an index. Horizontal scroll keeps the content visible.
+				</p>
+			</div>
+		</div>
+
+		<h3 class="block">Five things drawing the hard screens changed</h3>
+		<p class="prose" style="color: var(--muted); font-size: 0.875rem; margin-bottom: 16px">
+			An earlier version of this section argued fifteen screens should stay undrawn because a phone
+			version would be &ldquo;an invention rather than an adaptation&rdquo;. Drawing them disproved
+			that in four places and confirmed it in one.
+		</p>
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Screen</th>
+						<th>What changed</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>Tailor CV</b></td>
+						<td class="dim">
+							<b>The hierarchy inverts.</b> On desktop the CV is primary and the match panel is the
+							rail. At 390px that is backwards &mdash; you open the screen
+							<em>to see the match</em> &mdash; so the two bars go to the top, suggestions become
+							cards, and the CV moves behind a tab. The desktop layout implied a priority the phone
+							does not share.
+						</td>
+					</tr>
+					<tr>
+						<td><b>AI assist</b></td>
+						<td class="dim">
+							<b>The floating toolbar has nowhere to go.</b> There is no room to hover a bar above a
+							text selection at this width, so it becomes the sheet header instead. The selection
+							highlight stays; the toolbar migrates.
+						</td>
+					</tr>
+					<tr>
+						<td><b>Export PDF</b></td>
+						<td class="dim">
+							<b>The preview survives the reflow.</b> It was the obvious thing to drop for space. It
+							is also the entire reason the modal exists &mdash; pagination is what nobody can
+							predict &mdash; so the sheet keeps it and sheds the options instead.
+						</td>
+					</tr>
+					<tr>
+						<td><b>Topics</b></td>
+						<td class="dim">
+							<b>Usage counts move onto the name line.</b> There is no fourth column at 390px, and
+							the count could not simply be dropped: it is what makes <em>Retire</em> safe to press.
+						</td>
+					</tr>
+					<tr>
+						<td><b>CV builder</b></td>
+						<td class="dim">
+							<b>The one where the original worry held.</b> Five sections reflow to an accordion,
+							one open at a time, and it works. It is also plainly a compromise &mdash; a stepped
+							wizard would serve this form better. The accordion is drawn so the fallback is
+							concrete, but treat it as a placeholder for a product decision, not as the answer.
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="callout">
+			<h4>Why the frames exist rather than just the rules</h4>
+			<p>
+				Six rules and a paragraph of reasoning is a specification a developer has to interpret. A
+				drawn frame is one they can implement. The four findings above were all invisible until the
+				screens were drawn &mdash; which is the argument for drawing them, and against trusting a
+				rationale that explains why something need not be.
+			</p>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 10 -->
+<section id="split">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">10</span>
+			<h2>What&rsquo;s in Figma, what&rsquo;s here</h2>
+		</div>
+		<p class="sec-lede">
+			The two halves answer different questions. Figma shows what a state looks like; this document
+			says when it happens and what the component does while it lasts.
+		</p>
+
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Component</th>
+						<th>In Figma</th>
+						<th>In this document</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>Button</b></td>
+						<td class="dim">
+							16 variants &mdash; Kind &times; State. Properties: <code>Label</code>,
+							<code>Icon</code> (instance swap), <code>Show icon</code>
+						</td>
+						<td class="dim">
+							Triggers, the 400ms minimum on loading, the disabled-needs-a-reason rule
+						</td>
+					</tr>
+					<tr>
+						<td><b>Field</b></td>
+						<td class="dim">
+							5 state variants. Properties: <code>Label</code>, <code>Value</code>,
+							<code>Help</code>, <code>Show help</code>, <code>Error</code>
+						</td>
+						<td class="dim">Validation timing, error-replaces-help, read-only versus disabled</td>
+					</tr>
+					<tr>
+						<td><b>StatusPill</b></td>
+						<td class="dim">
+							5 status variants with a <code>Label</code> property, so any status word rides the
+							right semantic colour
+						</td>
+						<td class="dim">Which resource states map to which of the five values</td>
+					</tr>
+					<tr>
+						<td><b>CollectionState</b></td>
+						<td class="dim">4 state variants</td>
+						<td class="dim">Copy rules, and the empty versus filtered-empty distinction</td>
+					</tr>
+					<tr>
+						<td><b>Icons</b></td>
+						<td class="dim">
+							18 Lucide components at 20px, strokes bound to a theme token, each carrying its
+							<code>lucide-svelte</code> import line in its description
+						</td>
+						<td class="dim">&mdash; the import line is the contract</td>
+					</tr>
+					<tr>
+						<td><b>Screens</b></td>
+						<td class="dim">
+							<b>35 each at 1180px, 834px and 390px</b> &mdash; 210 frames, every one in light and
+							dark. Built from instances, not raw frames
+						</td>
+						<td class="dim">
+							Form fields (&sect;02&ndash;03), states (&sect;04), timing (&sect;05), keyboard
+							(&sect;06), responsive rules (&sect;09)
+						</td>
+					</tr>
+					<tr>
+						<td><b>SaveIndicator</b></td>
+						<td class="dim">5 variants &mdash; idle · saving · saved · unsaved · retrying</td>
+						<td class="dim">
+							When each state is entered, and the rule that <b>saved</b> never appears without a
+							preceding <b>saving</b>
+						</td>
+					</tr>
+					<tr>
+						<td><b>Toast</b></td>
+						<td class="dim">3 variants &mdash; success · undoable · error</td>
+						<td class="dim">
+							Dwell times, and which actions must offer Undo rather than a confirm
+						</td>
+					</tr>
+					<tr>
+						<td><b>MediaTile</b></td>
+						<td class="dim">
+							6 variants &mdash; uploading · pending · processing · ready · failed · archived
+						</td>
+						<td class="dim">Which states are terminal, and that archived is always reversible</td>
+					</tr>
+					<tr>
+						<td><b>ConfirmDialog</b></td>
+						<td class="dim">4 variants &mdash; idle · typing · armed · working</td>
+						<td class="dim">
+							Focus order, the typed-match gate, and <kbd>Enter</kbd> never confirming
+						</td>
+					</tr>
+					<tr>
+						<td><b>Combobox</b></td>
+						<td class="dim">5 variants &mdash; closed · open · searching · no-match · creating</td>
+						<td class="dim">Debounce, and when create-on-the-fly is offered</td>
+					</tr>
+					<tr>
+						<td><b>SuggestionCard</b></td>
+						<td class="dim">4 variants &mdash; proposed · applied · skipped · question</td>
+						<td class="dim">
+							That <b>question</b> renders an input, and applied stays undoable for the session
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="callout">
+			<h4>State of the Figma file</h4>
+			<p>
+				<b>One <code>Theme</code> collection, two modes</b>, 17 variables including the modal scrim.
+				Every fill and stroke in the file resolves through it, and every variable carries WEB code
+				syntax &mdash; so Dev Mode emits <code>var(--color-arch-bg)</code> rather than a hex. The
+				unbound-colour count is <b>zero</b>, and it is worth re-running after any bulk change:
+				adding the icons silently introduced 386 unbound paints, and nothing else would have caught
+				it. The count excludes <code>IMAGE</code> paints, which are photographs and bind to nothing.
+			</p>
+			<p>
+				<b>216 frames, none detached, no overlaps.</b> Auto layout throughout, so padding and gap
+				are real and there are no redline annotations to maintain. The tablet set was produced by
+				transforming the desktop frames rather than redrawing them, so every instance and variable
+				binding survived intact.
+			</p>
+			<p>
+				<b>Placeholder imagery is real photography</b> &mdash; 88 fills across 44 positions, seeded
+				by each node’s structural address so a light frame and its dark twin always carry the same
+				picture. Media tiles are filled only in <b>ready</b>; uploading, processing, failed and
+				archived stay grey, because a thumbnail is exactly what those states do not have yet. The
+				photographs are Unsplash-licensed placeholders for the mockup, not shipping assets.
+			</p>
+			<p>
+				<b>The prototype is wired.</b> 376 links on 376 distinct nodes, grouped into six named
+				flows, in both themes &mdash; sidebar, public header, the auth chain and the Career Studio
+				hub. Four connections are deliberately absent; the Prototype Map says which and why.
+			</p>
+			<p>
+				<b>Six colour tokens changed.</b> The palette was audited pair by pair against WCAG 2.2 AA
+				and 21 of 62 pairs failed. All six failing values were corrected in the
+				<code>Theme</code> collection and a new <code>arch/line-control</code> token now carries
+				control boundaries at 3:1.
+				<b>Any <code>theme.css</code> pulled before that audit is stale.</b>
+			</p>
+			<p>
+				Two deliberate deviations. The component sets share one <b>Component Library</b> page rather
+				than one page each &mdash; splitting them would separate each set from its dark preview. And
+				the dark frames are clones with a mode override rather than instances, so an edit to a light
+				frame does not propagate; that keeps them independently editable, which is what a mockup
+				wants.
+			</p>
+		</div>
+
+		<div class="alert">
+			<h4>One thing Figma cannot show, and it is not a design gap</h4>
+			<p>
+				A swapped icon inside a Button reverts to the muted stroke rather than inheriting the
+				button&rsquo;s text colour &mdash; an instance-swap brings its own styling. Each
+				variant&rsquo;s placeholder is tinted per kind so the default state is right.
+			</p>
+			<p>
+				In the implementation this disappears entirely:
+				<b>Lucide renders with <code>currentColor</code></b
+				>, so an icon inside a button inherits the button&rsquo;s colour for free. That is why there
+				is no per-kind icon variant, and why building sixteen would be solving a problem that does
+				not exist in code.
+			</p>
+		</div>
+	</div>
+</section>
+
+<footer>
+	<div class="shell prose">
+		<p>
+			Fifth of five, with the Console Blueprint, Frontend Handoff, API Requests and Career Studio
+			paper. Field rules are read from <code>backend_actix</code>'s use cases and services;
+			component states correspond to the variant sets on the Component Library page of the Figma
+			file. Where this document and the API disagree on whether a field is required, this document
+			is stricter on purpose — and says so at the point of difference.
+		</p>
+	</div>
+</footer>

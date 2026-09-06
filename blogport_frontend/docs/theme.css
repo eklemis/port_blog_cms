@@ -1,0 +1,183 @@
+/* ============================================================================
+   Blogport — theme.css  ·  v3, post-accessibility-audit
+   ----------------------------------------------------------------------------
+   Tailwind 4. `@theme inline` is load-bearing: it maps the runtime custom
+   properties onto Tailwind's colour namespace so `bg-arch-surface` resolves
+   through var(--arch-surface) and therefore re-resolves when .dark is toggled.
+   Drop `inline` and the theme freezes at build time.
+
+   CHANGED IN v3 — six values corrected and one token added so every
+   foreground/ground pair clears WCAG 2.2 AA. Do not revert these to "look
+   right"; each one was failing a measured threshold. Ratios are against the
+   worst of the three grounds (bg, surface, surface-2) in that mode.
+
+     --arch-accent-2   light  #8a6d1f -> #83671d   4.25 -> 4.65
+     --arch-muted      dark   #9fa3a6 -> #b1b4b7   3.79 -> 4.62
+     --st-neutral      dark   #9fa3a6 -> #b1b4b7   3.79 -> 4.62
+     --st-danger       dark   #e08a7d -> #e7a399   3.71 -> 4.63
+     --st-dormant      light  #8a9095 -> #666b70   2.80 -> 4.67
+     --st-dormant      dark   #6f7276 -> #b2b4b7   1.99 -> 4.63
+     --arch-line-control  NEW  #81888c / #919396   1.17 -> 3.13
+
+   THE ONE RULE PEOPLE GET WRONG
+   --arch-line is a decorative hairline (dividers, card edges) and measures
+   about 1.2:1 on purpose — WCAG exempts boundaries that identify nothing.
+   --arch-line-control is the boundary of an actual control (input, secondary
+   button, combobox) and must stay at 3:1. Do not collapse the two.
+   ============================================================================ */
+
+:root {
+	/* ---- surfaces: cool paper grey, not cream ---- */
+	--arch-bg: #eeeff0;
+	--arch-surface: #ffffff;
+	--arch-surface-2: #f6f7f8;
+
+	/* ---- text ---- */
+	--arch-headline: #1e2224;
+	--arch-muted: #5e6469;
+
+	/* ---- accent: amber. three tokens because one is not enough ---- */
+	--arch-accent: #f4a43d; /* FILLS only — never text on a light ground */
+	--arch-accent-on: #1e2224; /* text ON the accent fill        7.81:1     */
+	--arch-accent-ink: #8f5000; /* accent AS text                 5.50:1 min */
+	--arch-accent-2: #83671d; /* code, metadata                 4.65:1 min */
+
+	/* ---- lines: decorative vs control. see the rule above ---- */
+	--arch-line: rgb(30 34 36 / 0.12);
+	--arch-line-strong: rgb(30 34 36 / 0.26);
+	--arch-line-control: #81888c;
+
+	/* ---- status: the word carries the meaning, colour reinforces ---- */
+	--st-neutral: #5e6469;
+	--st-inflight: #8a5a0b;
+	--st-live: #2e6b45;
+	--st-danger: #b3453a;
+	--st-dormant: #666b70;
+
+	--arch-scrim: rgb(15 18 20 / 0.5);
+	--shadow: 0 1px 2px rgb(30 34 36 / 0.05), 0 1px 3px rgb(30 34 36 / 0.04);
+
+	--font-display: Sen, Inter, ui-sans-serif, system-ui, sans-serif;
+	--font-sans:
+		Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+	--font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+	color-scheme: light;
+}
+
+.dark {
+	--arch-bg: #2f3133;
+	--arch-surface: #3a3c3e;
+	--arch-surface-2: #434547;
+
+	--arch-headline: #f4e4c9;
+	--arch-muted: #b1b4b7;
+
+	--arch-accent: #f4a43d;
+	--arch-accent-on: #1e2224;
+	--arch-accent-ink: #f4a43d; /* the accent becomes legible as text in dark */
+	--arch-accent-2: #e8c76b;
+
+	--arch-line: rgb(244 228 201 / 0.1);
+	--arch-line-strong: rgb(244 228 201 / 0.22);
+	--arch-line-control: #919396;
+
+	--st-neutral: #b1b4b7;
+	--st-inflight: #e8c76b;
+	--st-live: #8fbf9a;
+	--st-danger: #e7a399;
+	--st-dormant: #b2b4b7;
+
+	--arch-scrim: rgb(5 8 8 / 0.62);
+	--shadow: none; /* dark surfaces separate by value, not by shadow */
+
+	color-scheme: dark;
+}
+
+/* ---- Tailwind 4 mapping. `inline` keeps these referencing the vars above ---- */
+@theme inline {
+	--color-arch-bg: var(--arch-bg);
+	--color-arch-surface: var(--arch-surface);
+	--color-arch-surface-2: var(--arch-surface-2);
+	--color-arch-headline: var(--arch-headline);
+	--color-arch-muted: var(--arch-muted);
+	--color-arch-accent: var(--arch-accent);
+	--color-arch-accent-on: var(--arch-accent-on);
+	--color-arch-accent-ink: var(--arch-accent-ink);
+	--color-arch-accent-2: var(--arch-accent-2);
+	--color-arch-line: var(--arch-line);
+	--color-arch-line-strong: var(--arch-line-strong);
+	--color-arch-line-control: var(--arch-line-control);
+	--color-st-neutral: var(--st-neutral);
+	--color-st-inflight: var(--st-inflight);
+	--color-st-live: var(--st-live);
+	--color-st-danger: var(--st-danger);
+	--color-st-dormant: var(--st-dormant);
+	--color-arch-scrim: var(--arch-scrim);
+
+	--font-display: var(--font-display);
+	--font-sans: var(--font-sans);
+	--font-mono: var(--font-mono);
+}
+
+/* ============================================================================
+   Base
+   ============================================================================ */
+body {
+	background: var(--arch-bg);
+	color: var(--arch-headline);
+	font-family: var(--font-sans);
+}
+
+/* One focus ring, everywhere. Never remove without replacing.
+   Offset so the ring reads against both the control and the ground behind it. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+	outline: 2px solid var(--arch-accent-ink);
+	outline-offset: 2px;
+	border-radius: 4px;
+}
+
+/* Control boundaries — the 3:1 ones. Inputs, secondary buttons, comboboxes. */
+.control-border {
+	border-color: var(--arch-line-control);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
+
+/* ============================================================================
+   No-flash theme stamping — paste into app.html, in <head>, BEFORE any CSS.
+   Three states: 'light', 'dark', 'system'. System follows the OS and is default.
+   ----------------------------------------------------------------------------
+   <script>
+     (function () {
+       try {
+         var t = localStorage.getItem('theme') || 'system';
+         var dark = t === 'dark' ||
+           (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+         document.documentElement.classList.toggle('dark', dark);
+         document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+       } catch (e) {}
+     })();
+   </script>
+
+   Then, so 'system' keeps tracking the OS after load:
+
+     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+       if ((localStorage.getItem('theme') || 'system') !== 'system') return;
+       document.documentElement.classList.toggle('dark', e.matches);
+       document.documentElement.style.colorScheme = e.matches ? 'dark' : 'light';
+     });
+
+   The toggle writes 'light' | 'dark' | 'system' to localStorage and applies the
+   same two lines. Do not store a boolean — you cannot represent 'system' with
+   one, and 'system' is the default the majority of people never change.
+   ============================================================================ */

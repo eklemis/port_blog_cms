@@ -1,0 +1,1909 @@
+<title>Accessibility Specification</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+	rel="stylesheet"
+	href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sen:wght@400;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+/>
+
+<style>
+	:root {
+		--bg: #eeeff0;
+		--surface: #ffffff;
+		--surface-2: #f6f7f8;
+		--headline: #1e2224;
+		--muted: #5e6469;
+		--accent: #f4a43d;
+		--accent-on: #1e2224;
+		--accent-ink: #8f5000;
+		--accent-2: #83671d;
+		--line: rgb(30 34 36 / 0.12);
+		--line-strong: rgb(30 34 36 / 0.26);
+		--line-control: #81888c;
+		--st-neutral: #5e6469;
+		--st-inflight: #8a5a0b;
+		--st-live: #2e6b45;
+		--st-danger: #b3453a;
+		--st-dormant: #666b70;
+		--ground-bg: #eeeff0;
+		--ground-surface: #ffffff;
+		--ground-s2: #f6f7f8;
+		--shadow: 0 1px 2px rgb(30 34 36 / 0.05), 0 1px 3px rgb(30 34 36 / 0.04);
+		--font-display: Sen, Inter, ui-sans-serif, system-ui, sans-serif;
+		--font-sans:
+			Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+		--font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		--shell: 1140px;
+		--prose: 68ch;
+	}
+	@media (prefers-color-scheme: dark) {
+		:root:not([data-theme='light']) {
+			--bg: #2f3133;
+			--surface: #3a3c3e;
+			--surface-2: #434547;
+			--headline: #f4e4c9;
+			--muted: #b1b4b7;
+			--accent: #f4a43d;
+			--accent-on: #1e2224;
+			--accent-ink: #f4a43d;
+			--accent-2: #e8c76b;
+			--line: rgb(244 228 201 / 0.1);
+			--line-strong: rgb(244 228 201 / 0.22);
+			--line-control: #919396;
+			--st-neutral: #b1b4b7;
+			--st-inflight: #e8c76b;
+			--st-live: #8fbf9a;
+			--st-danger: #e7a399;
+			--st-dormant: #b2b4b7;
+			--ground-bg: #2f3133;
+			--ground-surface: #3a3c3e;
+			--ground-s2: #434547;
+			--shadow: none;
+		}
+	}
+	:root[data-theme='dark'] {
+		--bg: #2f3133;
+		--surface: #3a3c3e;
+		--surface-2: #434547;
+		--headline: #f4e4c9;
+		--muted: #b1b4b7;
+		--accent: #f4a43d;
+		--accent-on: #1e2224;
+		--accent-ink: #f4a43d;
+		--accent-2: #e8c76b;
+		--line: rgb(244 228 201 / 0.1);
+		--line-strong: rgb(244 228 201 / 0.22);
+		--line-control: #919396;
+		--st-neutral: #b1b4b7;
+		--st-inflight: #e8c76b;
+		--st-live: #8fbf9a;
+		--st-danger: #e7a399;
+		--st-dormant: #b2b4b7;
+		--ground-bg: #2f3133;
+		--ground-surface: #3a3c3e;
+		--ground-s2: #434547;
+		--shadow: none;
+	}
+	* {
+		box-sizing: border-box;
+	}
+	body {
+		margin: 0;
+		background: var(--bg);
+		color: var(--headline);
+		font-family: var(--font-sans);
+		font-size: 16px;
+		line-height: 1.65;
+		-webkit-font-smoothing: antialiased;
+	}
+	h1,
+	h2,
+	h3,
+	h4 {
+		font-family: var(--font-display);
+		text-wrap: balance;
+		margin: 0;
+	}
+	p {
+		margin: 0;
+	}
+	a {
+		color: var(--accent-ink);
+		text-underline-offset: 3px;
+	}
+	a:focus-visible {
+		outline: 2px solid var(--accent-ink);
+		outline-offset: 3px;
+		border-radius: 4px;
+	}
+	code,
+	.mono {
+		font-family: var(--font-mono);
+		font-size: 0.86em;
+	}
+	kbd {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		border: 1px solid var(--line-strong);
+		border-bottom-width: 2px;
+		border-radius: 5px;
+		padding: 1px 6px;
+		background: var(--surface-2);
+		white-space: nowrap;
+	}
+	.shell {
+		max-width: var(--shell);
+		margin: 0 auto;
+		padding: 0 24px;
+	}
+	.prose {
+		max-width: var(--prose);
+	}
+	.masthead {
+		padding: 70px 0 42px;
+		border-bottom: 1px solid var(--line);
+	}
+	.eyebrow {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: var(--accent-ink);
+		margin-bottom: 18px;
+	}
+	.masthead h1 {
+		font-size: clamp(2.2rem, 5vw, 3.2rem);
+		font-weight: 800;
+		line-height: 1.05;
+		letter-spacing: -0.02em;
+	}
+	.masthead .standfirst {
+		margin-top: 18px;
+		font-size: 1.06rem;
+		color: var(--muted);
+		max-width: 64ch;
+	}
+	.tocbar {
+		position: sticky;
+		top: 0;
+		z-index: 40;
+		background: color-mix(in srgb, var(--bg) 94%, transparent);
+		backdrop-filter: blur(10px);
+		border-bottom: 1px solid var(--line);
+	}
+	.tocbar .inner {
+		display: flex;
+		gap: 4px;
+		overflow-x: auto;
+		padding: 10px 24px;
+		max-width: var(--shell);
+		margin: 0 auto;
+	}
+	.tocbar a {
+		flex: 0 0 auto;
+		font-size: 0.78125rem;
+		color: var(--muted);
+		text-decoration: none;
+		padding: 6px 12px;
+		border-radius: 999px;
+		white-space: nowrap;
+	}
+	.tocbar a:hover {
+		color: var(--headline);
+		background: color-mix(in srgb, var(--headline) 7%, transparent);
+	}
+	section {
+		padding: 60px 0;
+		border-bottom: 1px solid var(--line);
+		scroll-margin-top: 62px;
+	}
+	section:last-of-type {
+		border-bottom: none;
+	}
+	.sec-head {
+		display: flex;
+		align-items: baseline;
+		gap: 14px;
+		margin-bottom: 10px;
+		flex-wrap: wrap;
+	}
+	.sec-num {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		color: var(--accent-ink);
+		letter-spacing: 0.08em;
+	}
+	section h2 {
+		font-size: clamp(1.55rem, 3vw, 2.05rem);
+		font-weight: 800;
+		letter-spacing: -0.015em;
+	}
+	.sec-lede {
+		color: var(--muted);
+		margin-bottom: 32px;
+		max-width: var(--prose);
+	}
+	h3.block {
+		font-size: 1.0625rem;
+		font-weight: 700;
+		margin: 38px 0 14px;
+	}
+	h3.block:first-of-type {
+		margin-top: 0;
+	}
+	.scroller {
+		overflow-x: auto;
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		background: var(--surface);
+		box-shadow: var(--shadow);
+		margin-bottom: 8px;
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 0.84375rem;
+		min-width: 660px;
+		font-variant-numeric: tabular-nums;
+	}
+	thead th {
+		text-align: left;
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		font-weight: 500;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--muted);
+		padding: 12px 15px;
+		border-bottom: 1px solid var(--line-strong);
+		white-space: nowrap;
+	}
+	tbody td {
+		padding: 11px 15px;
+		border-bottom: 1px solid var(--line);
+		vertical-align: top;
+	}
+	tbody tr:last-child td {
+		border-bottom: none;
+	}
+	td.dim {
+		color: var(--muted);
+	}
+	td .mono {
+		color: var(--accent-2);
+	}
+	.caption {
+		font-size: 0.78125rem;
+		color: var(--muted);
+		margin-top: 10px;
+	}
+
+	/* the contrast ledger: every ratio in this document is rendered in the colour it measures */
+	.ledger {
+		overflow-x: auto;
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		background: var(--surface);
+		box-shadow: var(--shadow);
+	}
+	.ledger table {
+		min-width: 720px;
+	}
+	.chip {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 10px;
+		padding: 7px 11px;
+		border-radius: 7px;
+		font-size: 0.8125rem;
+		white-space: nowrap;
+	}
+	.chip b {
+		font-weight: 600;
+	}
+	.chip .r {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		opacity: 0.9;
+	}
+	.g-bg {
+		background: var(--ground-bg);
+	}
+	.g-su {
+		background: var(--ground-surface);
+	}
+	.g-s2 {
+		background: var(--ground-s2);
+	}
+	.ledger td {
+		padding: 7px 8px;
+	}
+	.ledger td:first-child {
+		padding-left: 15px;
+	}
+	.tokname {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		color: var(--headline);
+	}
+	.hexes {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		color: var(--muted);
+	}
+
+	.fixgrid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(268px, 1fr));
+		gap: 14px;
+		margin-top: 6px;
+	}
+	.fix {
+		border: 1px solid var(--line);
+		border-radius: 11px;
+		background: var(--surface);
+		padding: 16px 18px;
+		box-shadow: var(--shadow);
+	}
+	.fix .tok {
+		font-family: var(--font-mono);
+		font-size: 0.78125rem;
+		color: var(--accent-ink);
+		margin-bottom: 9px;
+	}
+	.swap {
+		display: flex;
+		align-items: center;
+		gap: 9px;
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		color: var(--muted);
+	}
+	.dot {
+		width: 19px;
+		height: 19px;
+		border-radius: 5px;
+		border: 1px solid var(--line-strong);
+		flex: 0 0 auto;
+	}
+	.fix p {
+		font-size: 0.8125rem;
+		color: var(--muted);
+		margin-top: 10px;
+	}
+	.was {
+		color: var(--st-danger);
+	}
+	.now {
+		color: var(--st-live);
+	}
+
+	.pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 3px 9px;
+		border-radius: 999px;
+		border: 1px solid currentColor;
+		white-space: nowrap;
+	}
+	.pill::before {
+		content: '';
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: currentColor;
+	}
+	.p-neutral {
+		color: var(--st-neutral);
+	}
+	.p-inflight {
+		color: var(--st-inflight);
+	}
+	.p-live {
+		color: var(--st-live);
+	}
+	.p-danger {
+		color: var(--st-danger);
+	}
+	.p-dormant {
+		color: var(--st-dormant);
+	}
+	.callout {
+		border: 1px solid var(--line-strong);
+		border-radius: 12px;
+		padding: 20px 22px;
+		background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+		margin: 26px 0;
+	}
+	.callout h4 {
+		font-size: 0.9375rem;
+		margin-bottom: 8px;
+		color: var(--accent-ink);
+	}
+	.callout p {
+		font-size: 0.875rem;
+	}
+	.callout p + p {
+		margin-top: 10px;
+	}
+	.alert {
+		border: 1px solid color-mix(in srgb, var(--st-danger) 45%, transparent);
+		border-radius: 12px;
+		padding: 20px 22px;
+		background: color-mix(in srgb, var(--st-danger) 8%, var(--surface));
+		margin: 26px 0;
+	}
+	.alert h4 {
+		font-size: 0.9375rem;
+		margin-bottom: 8px;
+		color: var(--st-danger);
+	}
+	.alert p {
+		font-size: 0.875rem;
+	}
+	.alert p + p {
+		margin-top: 10px;
+	}
+	.laws {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		gap: 16px;
+	}
+	.law {
+		border: 1px solid var(--line);
+		border-left: 2px solid var(--accent);
+		border-radius: 0 12px 12px 0;
+		background: var(--surface);
+		padding: 19px 21px;
+		box-shadow: var(--shadow);
+	}
+	.law h4 {
+		font-size: 0.9375rem;
+		margin-bottom: 8px;
+	}
+	.law p {
+		font-size: 0.84375rem;
+		color: var(--muted);
+	}
+	.law p + p {
+		margin-top: 9px;
+	}
+	.focusdemo {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 14px;
+		align-items: center;
+		padding: 20px 22px;
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		background: var(--surface-2);
+		margin-top: 6px;
+	}
+	.fbtn {
+		font-family: var(--font-sans);
+		font-size: 0.84375rem;
+		font-weight: 600;
+		padding: 9px 16px;
+		border-radius: 8px;
+		border: 1px solid var(--line-control);
+		background: var(--surface);
+		color: var(--headline);
+	}
+	.fbtn.primary {
+		background: var(--accent);
+		color: var(--accent-on);
+		border-color: transparent;
+	}
+	.fbtn.ring {
+		outline: 2px solid var(--accent-ink);
+		outline-offset: 2px;
+	}
+	footer {
+		padding: 46px 0 70px;
+		color: var(--muted);
+		font-size: 0.84375rem;
+	}
+	@media (max-width: 720px) {
+		.masthead {
+			padding: 46px 0 32px;
+		}
+		section {
+			padding: 46px 0;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		* {
+			transition: none !important;
+			animation: none !important;
+		}
+	}
+</style>
+
+<div class="tocbar">
+	<nav class="inner" aria-label="Sections">
+		<a href="#standard">Standard</a>
+		<a href="#contrast">Contrast ledger</a>
+		<a href="#corrections">Six corrections</a>
+		<a href="#signal">Colour as signal</a>
+		<a href="#focus">Focus</a>
+		<a href="#keyboard">Keyboard</a>
+		<a href="#targets">Target size</a>
+		<a href="#semantics">Names and roles</a>
+		<a href="#live">Live regions</a>
+		<a href="#motion">Motion</a>
+		<a href="#errors">Errors</a>
+		<a href="#language">Language</a>
+		<a href="#media">Images</a>
+		<a href="#reflow">Zoom and reflow</a>
+		<a href="#testing">What to test</a>
+	</nav>
+</div>
+
+<header class="masthead">
+	<div class="shell">
+		<div class="eyebrow">Sixth paper · the one with numbers in it</div>
+		<h1>Accessibility Specification</h1>
+		<p class="standfirst">
+			Every other paper in this set describes intent. This one measures. The palette was audited
+			pair by pair against WCAG 2.2 AA, six tokens failed, and all six were changed in the Figma
+			variables before this document was written — so the ratios below describe the file you have,
+			not a target to aim at.
+		</p>
+		<p class="standfirst" style="margin-top: 14px">
+			<b>The design system moved.</b> If you already pulled <code>theme.css</code>, replace it. Six
+			colour values changed and one token is new.
+		</p>
+	</div>
+</header>
+
+<!-- ===================================================== 1 -->
+<section id="standard">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">01</span>
+			<h2>The standard, and what it binds</h2>
+		</div>
+		<p class="sec-lede">
+			The target is <b>WCAG 2.2 Level AA</b>. Not AAA — AAA would force a 7:1 text ratio that this
+			palette cannot carry without abandoning the amber accent, and would ban the justified prose
+			the public post template uses. AA is the level that regulation actually references.
+		</p>
+
+		<div class="laws">
+			<div class="law">
+				<h4>It binds the tokens, not the screens</h4>
+				<p>
+					Contrast is a property of a colour pair, and every colour in this product resolves through
+					the <code>Theme</code> variable collection. Auditing 17 variables across 2 modes covers
+					all 210 screens. Auditing screens would not have covered the ones nobody has drawn yet.
+				</p>
+			</div>
+			<div class="law">
+				<h4>Dark mode is audited separately, not assumed</h4>
+				<p>
+					A palette that passes in light routinely fails in dark, because the dark surfaces sit
+					close together — <code>#2f3133</code>, <code>#3a3c3e</code> and <code>#434547</code> are
+					within 20 points of each other. Four of the six failures found were dark-only.
+				</p>
+			</div>
+			<div class="law">
+				<h4>Three grounds, not one</h4>
+				<p>
+					Text lands on <code>bg</code>, on <code>surface</code>, and on <code>surface-2</code>. A
+					token is only compliant if it clears the bar on the <em>worst</em> of the three. Checking
+					against one ground is how most palettes pass an audit and still fail in use.
+				</p>
+			</div>
+		</div>
+
+		<div class="callout">
+			<h4>What was checked</h4>
+			<p>
+				62 foreground/ground pairs: 9 text tokens × 3 grounds × 2 modes, plus button text on the
+				accent fill and the control boundary against each ground.
+				<b>21 pairs failed on the first pass.</b> All 21 now clear their threshold, by changing six
+				token values and adding one.
+			</p>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 2 -->
+<section id="contrast">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">02</span>
+			<h2>The contrast ledger</h2>
+		</div>
+		<p class="sec-lede">
+			Every cell below is drawn in the colour it measures, on the ground it measures against. If a
+			row looks uncomfortable to read, that is the data, not a rendering artefact. Text needs
+			<b>4.5:1</b>; the control boundary needs <b>3:1</b>.
+		</p>
+
+		<div class="ledger">
+			<table>
+				<thead>
+					<tr>
+						<th>Token</th>
+						<th>Hex · light / dark</th>
+						<th>on bg</th>
+						<th>on surface</th>
+						<th>on surface-2</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td class="tokname">arch/headline</td>
+						<td class="hexes">1e2224 · f4e4c9</td>
+						<td>
+							<div class="chip g-bg" style="color: var(--headline)">
+								<b>Headline</b><span class="r">13.93</span>
+							</div>
+						</td>
+						<td>
+							<div class="chip g-su" style="color: var(--headline)">
+								<b>Headline</b><span class="r">16.04</span>
+							</div>
+						</td>
+						<td>
+							<div class="chip g-s2" style="color: var(--headline)">
+								<b>Headline</b><span class="r">14.95</span>
+							</div>
+						</td>
+					</tr>
+					<tr>
+						<td class="tokname">arch/muted</td>
+						<td class="hexes">5e6469 · b1b4b7</td>
+						<td>
+							<div class="chip g-bg" style="color: var(--muted)">
+								<b>Secondary</b><span class="r">5.21</span>
+							</div>
+						</td>
+						<td>
+							<div class="chip g-su" style="color: var(--muted)">
+								<b>Secondary</b><span class="r">6.00</span>
+							</div>
+						</td>
+						<td>
+							<div class="chip g-s2" style="color: var(--muted)">
+								<b>Secondary</b><span class="r">5.59</span>
+							</div>
+						</td>
+					</tr>
+					<tr>
+						<td class="tokname">arch/accent-ink</td>
+						<td class="hexes">8f5000 · f4a43d</td>
+						<td>
+							<div class="chip g-bg" style="color: var(--accent-ink)">
+								<b>Link text</b><span class="r">5.50</span>
+							</div>
+						</td>
+						<td>
+							<div class="chip g-su" style="color: var(--accent-ink)">
+								<b>Link text</b><span class="r">6.33</span>
+							</div>
+						</td>
+						<td>
+							<div class="chip g-s2" style="color: var(--accent-ink)">
+								<b>Link text</b><span class="r">5.91</span>
+							</div>
+						</td>
+					</tr>
+					<tr>
+						<td class="tokname">arch/accent-2</td>
+						<td class="hexes">83671d · e8c76b</td>
+						<td>
+							<div class="chip g-bg" style="color: var(--accent-2)">
+								<b>Code accent</b><span class="r">4.65</span>
+							</div>
+						</td>
+						<td>
+							<div class="chip g-su" style="color: var(--accent-2)">
+								<b>Code accent</b><span class="r">5.35</span>
+							</div>
+						</td>
+						<td>
+							<div class="chip g-s2" style="color: var(--accent-2)">
+								<b>Code accent</b><span class="r">4.99</span>
+							</div>
+						</td>
+					</tr>
+					<tr>
+						<td class="tokname">status/neutral</td>
+						<td class="hexes">5e6469 · b1b4b7</td>
+						<td>
+							<div class="chip g-bg" style="color: var(--st-neutral)">
+								<b>Draft</b><span class="r">5.21</span>
+							</div>
+						</td>
+						<td>
+							<div class="chip g-su" style="color: var(--st-neutral)">
+								<b>Draft</b><span class="r">6.00</span>
+							</div>
+						</td>
+						<td>
+							<div class="chip g-s2" style="color: var(--st-neutral)">
+								<b>Draft</b><span class="r">5.59</span>
+							</div>
+						</td>
+					</tr>
+					<tr>
+						<td class="tokname">status/inflight</td>
+						<td class="hexes">8a5a0b · e8c76b</td>
+						<td>
+							<div class="chip g-bg" style="color: var(--st-inflight)">
+								<b>Processing</b><span class="r">5.14</span>
+							</div>
+						</td>
+						<td>
+							<div class="chip g-su" style="color: var(--st-inflight)">
+								<b>Processing</b><span class="r">5.92</span>
+							</div>
+						</td>
+						<td>
+							<div class="chip g-s2" style="color: var(--st-inflight)">
+								<b>Processing</b><span class="r">5.52</span>
+							</div>
+						</td>
+					</tr>
+					<tr>
+						<td class="tokname">status/live</td>
+						<td class="hexes">2e6b45 · 8fbf9a</td>
+						<td>
+							<div class="chip g-bg" style="color: var(--st-live)">
+								<b>Live</b><span class="r">5.52</span>
+							</div>
+						</td>
+						<td>
+							<div class="chip g-su" style="color: var(--st-live)">
+								<b>Live</b><span class="r">6.35</span>
+							</div>
+						</td>
+						<td>
+							<div class="chip g-s2" style="color: var(--st-live)">
+								<b>Live</b><span class="r">5.92</span>
+							</div>
+						</td>
+					</tr>
+					<tr>
+						<td class="tokname">status/danger</td>
+						<td class="hexes">b3453a · e7a399</td>
+						<td>
+							<div class="chip g-bg" style="color: var(--st-danger)">
+								<b>Failed</b><span class="r">4.76</span>
+							</div>
+						</td>
+						<td>
+							<div class="chip g-su" style="color: var(--st-danger)">
+								<b>Failed</b><span class="r">5.48</span>
+							</div>
+						</td>
+						<td>
+							<div class="chip g-s2" style="color: var(--st-danger)">
+								<b>Failed</b><span class="r">5.11</span>
+							</div>
+						</td>
+					</tr>
+					<tr>
+						<td class="tokname">status/dormant</td>
+						<td class="hexes">666b70 · b2b4b7</td>
+						<td>
+							<div class="chip g-bg" style="color: var(--st-dormant)">
+								<b>Archived</b><span class="r">4.67</span>
+							</div>
+						</td>
+						<td>
+							<div class="chip g-su" style="color: var(--st-dormant)">
+								<b>Archived</b><span class="r">5.38</span>
+							</div>
+						</td>
+						<td>
+							<div class="chip g-s2" style="color: var(--st-dormant)">
+								<b>Archived</b><span class="r">5.02</span>
+							</div>
+						</td>
+					</tr>
+					<tr>
+						<td class="tokname">arch/line-control</td>
+						<td class="hexes">81888c · 919396</td>
+						<td>
+							<div
+								class="chip g-bg"
+								style="color: var(--headline); border: 1px solid var(--line-control)"
+							>
+								<b>Input border</b><span class="r">3.13</span>
+							</div>
+						</td>
+						<td>
+							<div
+								class="chip g-su"
+								style="color: var(--headline); border: 1px solid var(--line-control)"
+							>
+								<b>Input border</b><span class="r">3.60</span>
+							</div>
+						</td>
+						<td>
+							<div
+								class="chip g-s2"
+								style="color: var(--headline); border: 1px solid var(--line-control)"
+							>
+								<b>Input border</b><span class="r">3.36</span>
+							</div>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<p class="caption">
+			Ratios shown are for the theme this page is currently rendering. Switch your OS theme to see
+			the other set — the dark values are in the table above and every one of them also clears AA.
+			Button label on the amber fill (<code>accent-on</code> on <code>accent</code>) is
+			<b>7.81:1</b> in both modes, because neither value changes between themes.
+		</p>
+
+		<div class="callout">
+			<h4>What is exempt, and why <code>arch/line</code> still measures 1.17:1</h4>
+			<p>
+				<code>arch/line</code> is a hairline divider — the rule under a table header, the edge of a
+				card. WCAG 1.4.11 applies to boundaries that are <em>needed to identify a control</em>. A
+				divider identifies nothing, so it is exempt, and darkening every rule in the product to
+				satisfy a checker would make the interface louder for no one's benefit.
+			</p>
+			<p>
+				The moment a border is the only thing telling you where an input begins, the exemption stops
+				applying. That is why <code>arch/line-control</code> exists.
+			</p>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 3 -->
+<section id="corrections">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">03</span>
+			<h2>The six corrections, and the one addition</h2>
+		</div>
+		<p class="sec-lede">
+			Each value was moved along its own lightness axis with hue and saturation held, so the palette
+			still reads as one family. None of these is a redesign; the largest shift is
+			<code>status/dormant</code> in dark mode, which had to move because it was very nearly
+			invisible.
+		</p>
+
+		<div class="fixgrid">
+			<div class="fix">
+				<div class="tok">status/dormant · light</div>
+				<div class="swap">
+					<span class="dot" style="background: #8a9095"></span
+					><span class="was">#8a9095 · 2.80</span>
+					<span>→</span>
+					<span class="dot" style="background: #666b70"></span
+					><span class="now">#666b70 · 4.67</span>
+				</div>
+				<p>
+					Archived and dormant rows. Failed on all three grounds — the worst offender in the
+					palette.
+				</p>
+			</div>
+			<div class="fix">
+				<div class="tok">status/dormant · dark</div>
+				<div class="swap">
+					<span class="dot" style="background: #6f7276"></span
+					><span class="was">#6f7276 · 1.99</span>
+					<span>→</span>
+					<span class="dot" style="background: #b2b4b7"></span
+					><span class="now">#b2b4b7 · 4.63</span>
+				</div>
+				<p>1.99:1 on <code>surface-2</code> is barely distinguishable from the card it sits on.</p>
+			</div>
+			<div class="fix">
+				<div class="tok">arch/muted · dark</div>
+				<div class="swap">
+					<span class="dot" style="background: #9fa3a6"></span
+					><span class="was">#9fa3a6 · 3.79</span>
+					<span>→</span>
+					<span class="dot" style="background: #b1b4b7"></span
+					><span class="now">#b1b4b7 · 4.62</span>
+				</div>
+				<p>All secondary prose in dark mode. The single highest-traffic failure of the six.</p>
+			</div>
+			<div class="fix">
+				<div class="tok">status/neutral · dark</div>
+				<div class="swap">
+					<span class="dot" style="background: #9fa3a6"></span
+					><span class="was">#9fa3a6 · 3.79</span>
+					<span>→</span>
+					<span class="dot" style="background: #b1b4b7"></span
+					><span class="now">#b1b4b7 · 4.62</span>
+				</div>
+				<p>Shares a value with <code>arch/muted</code> by design; corrected in step with it.</p>
+			</div>
+			<div class="fix">
+				<div class="tok">status/danger · dark</div>
+				<div class="swap">
+					<span class="dot" style="background: #e08a7d"></span
+					><span class="was">#e08a7d · 3.71</span>
+					<span>→</span>
+					<span class="dot" style="background: #e7a399"></span
+					><span class="now">#e7a399 · 4.63</span>
+				</div>
+				<p>
+					Error text on cards. The one failure where the consequence of not reading it is highest.
+				</p>
+			</div>
+			<div class="fix">
+				<div class="tok">arch/accent-2 · light</div>
+				<div class="swap">
+					<span class="dot" style="background: #8a6d1f"></span
+					><span class="was">#8a6d1f · 4.25</span>
+					<span>→</span>
+					<span class="dot" style="background: #83671d"></span
+					><span class="now">#83671d · 4.65</span>
+				</div>
+				<p>Inline code and metadata. A marginal miss, and a nearly invisible correction.</p>
+			</div>
+			<div class="fix" style="border-color: var(--accent); border-left: 2px solid var(--accent)">
+				<div class="tok">arch/line-control · NEW</div>
+				<div class="swap">
+					<span class="dot" style="background: #dcdedf"></span
+					><span class="was">was arch/line · 1.17</span>
+					<span>→</span>
+					<span class="dot" style="background: #81888c"></span
+					><span class="now">#81888c · 3.13</span>
+				</div>
+				<p>
+					Light <code>#81888c</code>, dark <code>#919396</code>. Rebound onto the boundary of
+					<b>Button</b> (4 variants), <b>Field</b> (3) and <b>Combobox</b> (3) — 10 strokes in all.
+					Cards, dialogs and dividers keep <code>arch/line</code>.
+				</p>
+			</div>
+		</div>
+
+		<div class="alert">
+			<h4>Your <code>theme.css</code> is out of date</h4>
+			<p>
+				The stylesheet issued earlier carries the pre-audit values. Replace the six, add
+				<code>--arch-line-control</code> in both blocks and in the <code>@theme inline</code> map,
+				and switch input and secondary-button borders to it. The Figma file is already correct — if
+				the two disagree, Figma wins.
+			</p>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 4 -->
+<section id="signal">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">04</span>
+			<h2>Colour is never the only signal</h2>
+		</div>
+		<p class="sec-lede">
+			1.4.1 is the criterion most often failed by a design that passes contrast. Roughly one man in
+			twelve cannot separate the red and green in this palette; every one of them still has to tell
+			a failed upload from a finished one.
+		</p>
+
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Where</th>
+						<th>Colour says</th>
+						<th>What else says it</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>StatusPill</b></td>
+						<td class="dim">Five semantic hues</td>
+						<td class="dim">
+							A word — <span class="pill p-live">Live</span>
+							<span class="pill p-inflight">Processing</span>
+							<span class="pill p-danger">Failed</span> — plus a filled dot. The word is the signal;
+							the hue is reinforcement.
+						</td>
+					</tr>
+					<tr>
+						<td><b>Field error</b></td>
+						<td class="dim">Red border and red text</td>
+						<td class="dim">
+							The help line is <em>replaced</em> by the error sentence and wired with
+							<code>aria-describedby</code>. A red ring with unchanged text is not an error state.
+						</td>
+					</tr>
+					<tr>
+						<td><b>MediaTile</b></td>
+						<td class="dim">Amber / red / grey wash</td>
+						<td class="dim">
+							A state pill and a distinct action pair — <b>Retry · Remove</b> for failed,
+							<b>Restore · Purge</b> for archived.
+						</td>
+					</tr>
+					<tr>
+						<td><b>ATS bars</b></td>
+						<td class="dim">Bar length and hue</td>
+						<td class="dim">
+							A numeral and a named band. A null relevance renders one bar with a stated reason,
+							never a zero bar.
+						</td>
+					</tr>
+					<tr>
+						<td><b>SaveIndicator</b></td>
+						<td class="dim">Green tick on saved</td>
+						<td class="dim">
+							The words <em>Saving…</em>, <em>Saved 10:42</em>, <em>Unsaved changes</em>. The
+							timestamp is the proof.
+						</td>
+					</tr>
+					<tr>
+						<td><b>Diff in AI suggestions</b></td>
+						<td class="dim">Added green, removed red</td>
+						<td class="dim">
+							Strikethrough on removal, underline on addition — so the change survives a greyscale
+							print and a colour-blind reader.
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 5 -->
+<section id="focus">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">05</span>
+			<h2>Focus</h2>
+		</div>
+		<p class="sec-lede">
+			One ring, everywhere, on everything focusable. Never removed without a replacement that is at
+			least as visible — <code>outline:none</code> with nothing after it is a defect, not a style.
+		</p>
+
+		<div class="focusdemo">
+			<span class="fbtn primary ring">Publish</span>
+			<span class="fbtn ring">Preview</span>
+			<span class="fbtn">Unfocused, for comparison</span>
+		</div>
+		<p class="caption">
+			<code>outline: 2px solid var(--color-arch-accent-ink); outline-offset: 2px;</code> — offset so
+			the ring reads against both the control and the ground behind it. On the amber primary it sits
+			outside the fill rather than on it.
+		</p>
+
+		<div class="laws" style="margin-top: 30px">
+			<div class="law">
+				<h4>Order follows the document</h4>
+				<p>
+					Tab order is DOM order. No positive <code>tabindex</code> anywhere in this product. Where
+					the visual order and the DOM order disagree — the editor rail sits right of the canvas but
+					is reached after it — the DOM is what the design intends.
+				</p>
+			</div>
+			<div class="law">
+				<h4>Dialogs trap, then return</h4>
+				<p>
+					ConfirmDialog and the Export modal move focus to the first control on open, hold it inside
+					while open, and return it to the element that opened them on close. ConfirmDialog opens on
+					<b>Cancel</b>, never on the destructive action.
+				</p>
+			</div>
+			<div class="law">
+				<h4>Skip the shell</h4>
+				<p>
+					A skip link to <code>#main</code> is the first focusable element on every page. The
+					console sidebar is 8 links before content on desktop, and the tablet rail collapses those
+					to icons without changing how many stops they cost.
+				</p>
+			</div>
+			<div class="law">
+				<h4>Async never steals focus</h4>
+				<p>
+					A toast, a completed save, a finished stream — none of them move focus. The only movements
+					are ones the person initiated. An undoable toast is reachable by <kbd>Tab</kbd> and its
+					dwell timer pauses while it holds focus or hover.
+				</p>
+			</div>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 6 -->
+<section id="keyboard">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">06</span>
+			<h2>Keyboard</h2>
+		</div>
+		<p class="sec-lede">
+			The full map. Everything achievable with a pointer is achievable here; there is no
+			pointer-only path anywhere in the product.
+		</p>
+
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Key</th>
+						<th>Context</th>
+						<th>Does</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd></td>
+						<td class="dim">Everywhere</td>
+						<td class="dim">Move through focusable elements in DOM order.</td>
+					</tr>
+					<tr>
+						<td><kbd>Enter</kbd></td>
+						<td class="dim">Button, link, table row</td>
+						<td class="dim">
+							Activate. In ConfirmDialog it never confirms — the destructive action needs a
+							deliberate click or Space on the armed button.
+						</td>
+					</tr>
+					<tr>
+						<td><kbd>Space</kbd></td>
+						<td class="dim">Button, checkbox</td>
+						<td class="dim">Activate / toggle. Never scrolls when a control has focus.</td>
+					</tr>
+					<tr>
+						<td><kbd>Esc</kbd></td>
+						<td class="dim">Dialog, Combobox, bottom sheet</td>
+						<td class="dim">
+							Close and restore focus. On a Combobox it closes the list and keeps the typed value.
+						</td>
+					</tr>
+					<tr>
+						<td><kbd>↑</kbd> <kbd>↓</kbd></td>
+						<td class="dim">Combobox list</td>
+						<td class="dim">
+							Move the active option. Does not change the value until <kbd>Enter</kbd>.
+						</td>
+					</tr>
+					<tr>
+						<td><kbd>Enter</kbd></td>
+						<td class="dim">Combobox, no match</td>
+						<td class="dim">
+							Create the topic being typed, when creation is offered. The offer is visible before
+							the key is pressed.
+						</td>
+					</tr>
+					<tr>
+						<td><kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>S</kbd></td>
+						<td class="dim">Editors</td>
+						<td class="dim">
+							Force a save now. Autosave already runs; this exists because people press it
+							regardless.
+						</td>
+					</tr>
+					<tr>
+						<td><kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd></td>
+						<td class="dim">Post editor</td>
+						<td class="dim">Open the publish dialog. Never publishes directly.</td>
+					</tr>
+					<tr>
+						<td><kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>Z</kbd></td>
+						<td class="dim">After an applied AI suggestion</td>
+						<td class="dim">Revert it. Suggestions stay undoable for the session.</td>
+					</tr>
+					<tr>
+						<td><kbd>/</kbd></td>
+						<td class="dim">List screens</td>
+						<td class="dim">Focus the search field. Suppressed while a text input has focus.</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="callout">
+			<h4>The editor is a text area, not a canvas</h4>
+			<p>
+				Markdown is edited as plain text. That is an accessibility decision as much as a product
+				one: a rich-text canvas would need a full custom keyboard model and would fight the screen
+				reader's own text navigation. Here, arrow keys, selection and dictation all work because
+				nothing was rebuilt.
+			</p>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 7 -->
+<section id="targets">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">07</span>
+			<h2>Target size and pointer</h2>
+		</div>
+		<p class="sec-lede">
+			WCAG 2.2 added target size at AA with a 24×24 CSS pixel minimum. The platform guidance most
+			people quote — 44×44 — is stricter than the standard, and worth meeting where it costs
+			nothing.
+		</p>
+
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Control</th>
+						<th>Drawn</th>
+						<th>2.2 AA · 24px</th>
+						<th>Platform · 44px</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>Button</b>, mobile and tablet</td>
+						<td class="dim">36px tall — 40 instances across the mobile set</td>
+						<td class="dim"><span class="pill p-live">Passes</span></td>
+						<td class="dim">
+							<span class="pill p-inflight">Under</span> — raise to 44 in the build
+						</td>
+					</tr>
+					<tr>
+						<td><b>Button</b>, desktop</td>
+						<td class="dim">36px tall, pointer input</td>
+						<td class="dim"><span class="pill p-live">Passes</span></td>
+						<td class="dim">
+							<span class="pill p-neutral">Not required</span> — 44 is a touch guideline
+						</td>
+					</tr>
+					<tr>
+						<td><b>Sidebar nav row</b>, tablet rail</td>
+						<td class="dim">40 × 40</td>
+						<td class="dim"><span class="pill p-live">Passes</span></td>
+						<td class="dim">
+							<span class="pill p-inflight">Under</span> — pad the rail to 44 if tablets matter
+						</td>
+					</tr>
+					<tr>
+						<td><b>Table row action</b></td>
+						<td class="dim">Inline text link inside a 44px row</td>
+						<td class="dim"><span class="pill p-live">Passes</span> — the row is the target</td>
+						<td class="dim"><span class="pill p-live">Passes</span></td>
+					</tr>
+					<tr>
+						<td><b>Toast close</b></td>
+						<td class="dim">24 × 24 icon, 40 × 40 hit area</td>
+						<td class="dim"><span class="pill p-live">Passes</span></td>
+						<td class="dim"><span class="pill p-inflight">Under</span></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<p class="caption">
+			Recommendation, not a defect: bump the mobile Button height from 36 to 44 and pad the tablet
+			rail rows. Nothing here fails the standard — it is the difference between compliant and
+			comfortable, and it is a token change rather than a redesign.
+		</p>
+
+		<div class="callout">
+			<h4>Pointer rules that come free</h4>
+			<p>
+				No hover-only affordance anywhere: every action revealed on hover is also present on focus
+				and permanently visible on touch. No drag-only interaction — media reordering offers move up
+				/ move down alongside the drag. No gesture the product invents.
+			</p>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 8 -->
+<section id="semantics">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">08</span>
+			<h2>Names, roles and values</h2>
+		</div>
+		<p class="sec-lede">
+			What each of the ten components must expose. Prefer the native element every time — the ARIA
+			column is for what the native element cannot say on its own.
+		</p>
+
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Component</th>
+						<th>Element</th>
+						<th>Must expose</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>Button</b></td>
+						<td><code>&lt;button&gt;</code></td>
+						<td class="dim">
+							Its label as text. Icon-only buttons take <code>aria-label</code>. Loading sets
+							<code>aria-busy="true"</code> and keeps the accessible name unchanged. Disabled
+							carries the reason in <code>aria-describedby</code>, never a bare disabled attribute
+							with no explanation.
+						</td>
+					</tr>
+					<tr>
+						<td><b>Field</b></td>
+						<td><code>&lt;label&gt;</code> + <code>&lt;input&gt;</code></td>
+						<td class="dim">
+							A real <code>for</code>/<code>id</code> pair — never placeholder-as-label. Help and
+							error both via <code>aria-describedby</code>; error also sets
+							<code>aria-invalid="true"</code>. Required uses the <code>required</code> attribute,
+							not an asterisk alone.
+						</td>
+					</tr>
+					<tr>
+						<td><b>Combobox</b></td>
+						<td><code>role="combobox"</code></td>
+						<td class="dim">
+							<code>aria-expanded</code>, <code>aria-controls</code>,
+							<code>aria-activedescendant</code>. The list is <code>role="listbox"</code>; options
+							are <code>role="option"</code> with <code>aria-selected</code>. Result count announced
+							politely on filter.
+						</td>
+					</tr>
+					<tr>
+						<td><b>StatusPill</b></td>
+						<td><code>&lt;span&gt;</code></td>
+						<td class="dim">
+							Nothing extra — the word is the content. Do not add <code>role="status"</code>; a pill
+							in a table is not an announcement.
+						</td>
+					</tr>
+					<tr>
+						<td><b>SaveIndicator</b></td>
+						<td><code>role="status"</code></td>
+						<td class="dim">Polite. Announces the settled state, not every keystroke — see §09.</td>
+					</tr>
+					<tr>
+						<td><b>Toast</b></td>
+						<td><code>role="status"</code> / <code>role="alert"</code></td>
+						<td class="dim">
+							Success and undoable are polite; error is assertive. The Undo control is a real button
+							inside the toast and is reachable by keyboard.
+						</td>
+					</tr>
+					<tr>
+						<td><b>ConfirmDialog</b></td>
+						<td><code>&lt;dialog&gt;</code> · <code>aria-modal</code></td>
+						<td class="dim">
+							<code>aria-labelledby</code> the title, <code>aria-describedby</code> the consequence
+							sentence. The typed-match input is a labelled Field like any other.
+						</td>
+					</tr>
+					<tr>
+						<td><b>MediaTile</b></td>
+						<td><code>&lt;figure&gt;</code></td>
+						<td class="dim">
+							The image carries its alt text. State is a text pill, not a colour. Progress uses
+							<code>role="progressbar"</code> with <code>aria-valuenow</code> while determinate.
+						</td>
+					</tr>
+					<tr>
+						<td><b>SuggestionCard</b></td>
+						<td><code>&lt;article&gt;</code></td>
+						<td class="dim">
+							Apply and Skip are buttons with distinct accessible names — "Apply suggestion: tighten
+							opening line", not "Apply" six times on one page.
+						</td>
+					</tr>
+					<tr>
+						<td><b>CollectionState</b></td>
+						<td><code>role="status"</code> on load</td>
+						<td class="dim">
+							Empty, filtered-empty and error are headings plus prose, so they are reachable by
+							heading navigation rather than being announced and lost.
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 9 -->
+<section id="live">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">09</span>
+			<h2>Live regions and asynchronous work</h2>
+		</div>
+		<p class="sec-lede">
+			This product does a lot without being asked: it autosaves, it streams model output, it
+			processes uploads. Every one of those is invisible to a screen reader unless it is announced —
+			and unbearable if it is announced too often.
+		</p>
+
+		<div class="laws">
+			<div class="law">
+				<h4>Announce the settled state, not the transition</h4>
+				<p>
+					The save indicator announces <em>Saved</em> and <em>Unsaved changes</em>. It does not
+					announce <em>Saving…</em>, which would fire on every pause in typing and make the editor
+					unusable with a screen reader running.
+				</p>
+			</div>
+			<div class="law">
+				<h4>Streaming text is not a live region</h4>
+				<p>
+					Token-by-token model output inside <code>aria-live</code> produces a stream of
+					interruptions. The streaming area is <code>aria-busy="true"</code> while it runs; when it
+					settles, one polite announcement says the draft is ready and how long it is. The text
+					itself is then read on demand.
+				</p>
+			</div>
+			<div class="law">
+				<h4>Assertive is reserved for loss</h4>
+				<p>
+					Only two things interrupt: a save that failed, and an action that lost data. Everything
+					else — success, completion, upload finished — is polite. An assertive success toast is the
+					fastest way to make someone turn the screen reader off.
+				</p>
+			</div>
+			<div class="law">
+				<h4>Partial failure keeps what arrived</h4>
+				<p>
+					When a stream errors mid-flight the text on screen stays, an assertive message says where
+					it stopped, and both <b>Try again</b> and <b>Keep this</b> are focusable. Clearing the
+					region would discard work the person watched being produced.
+				</p>
+			</div>
+		</div>
+
+		<div class="callout">
+			<h4><code>AI_DISABLED</code> is a configuration, not an error</h4>
+			<p>
+				When the AI features are switched off the companion surfaces are muted and explanatory —
+				never red, never an alert, no retry. Announcing a deliberate configuration as a failure
+				teaches people to ignore real failures.
+			</p>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 10 -->
+<section id="motion">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">10</span>
+			<h2>Motion</h2>
+		</div>
+		<p class="sec-lede">
+			There is very little of it, which makes the rule easy: honour the preference, and never make
+			motion carry meaning.
+		</p>
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Motion</th>
+						<th>Default</th>
+						<th>Under reduced motion</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td class="dim">Toast enter / leave</td>
+						<td class="dim">120ms fade and 4px rise</td>
+						<td class="dim">Appears and disappears, no transform. Dwell time unchanged.</td>
+					</tr>
+					<tr>
+						<td class="dim">Dialog open</td>
+						<td class="dim">100ms scrim fade</td>
+						<td class="dim">Scrim appears instantly. Focus behaviour identical.</td>
+					</tr>
+					<tr>
+						<td class="dim">Skeleton shimmer</td>
+						<td class="dim">Sweep on loading rows</td>
+						<td class="dim">Static blocks. Loading is still announced politely.</td>
+					</tr>
+					<tr>
+						<td class="dim">Streaming caret</td>
+						<td class="dim">Blinking block</td>
+						<td class="dim">Solid, no blink. Blink rate never exceeds 3Hz in either case.</td>
+					</tr>
+					<tr>
+						<td class="dim">Button loading spinner</td>
+						<td class="dim">Rotates, suppressed under 400ms</td>
+						<td class="dim">Static glyph plus the busy state. The 400ms floor still applies.</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<p class="caption">
+			<code>@media (prefers-reduced-motion: reduce)</code> is a global rule in the stylesheet, not a
+			per-component opt-in. Nothing auto-advances, nothing auto-plays, and no animation loops more
+			than five seconds without user control.
+		</p>
+	</div>
+</section>
+
+<!-- ===================================================== 11 -->
+<section id="errors">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">11</span>
+			<h2>Errors, identified and suggested</h2>
+		</div>
+		<p class="sec-lede">
+			3.3.1 asks that the error be identified in text. 3.3.3 asks that a correction be suggested
+			when one is known. The second is the one that is usually skipped.
+		</p>
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Failure</th>
+						<th>Identified as</th>
+						<th>Suggested</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td class="dim">Slug already taken</td>
+						<td class="dim">"That slug is already in use."</td>
+						<td class="dim">Offers the next free variant as a one-click fix.</td>
+					</tr>
+					<tr>
+						<td class="dim">Password too short</td>
+						<td class="dim">Names the minimum, on blur, never mid-typing.</td>
+						<td class="dim">
+							The requirement is stated before the field is touched, so the error is a reminder
+							rather than news.
+						</td>
+					</tr>
+					<tr>
+						<td class="dim">Upload rejected</td>
+						<td class="dim">Names the limit and the actual size — "14MB, limit is 10MB".</td>
+						<td class="dim">
+							Keeps the file selected so a replacement is one action, not a restart.
+						</td>
+					</tr>
+					<tr>
+						<td class="dim">Sign-in failed</td>
+						<td class="dim">One message for both wrong address and wrong password.</td>
+						<td class="dim">
+							Deliberately no suggestion — distinguishing the two would confirm which addresses have
+							accounts.
+						</td>
+					</tr>
+					<tr>
+						<td class="dim">Session expired mid-edit</td>
+						<td class="dim">Assertive. Says the draft is held locally.</td>
+						<td class="dim">Sign in again in place; the editor is restored, not reloaded.</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<div class="callout">
+			<h4>Errors appear on blur, never on keystroke</h4>
+			<p>
+				A field that turns red while you are still typing in it is reporting a problem you have not
+				finished causing. Validation fires on blur, and once a field is showing an error it
+				revalidates live so the error clears as soon as it is fixed.
+			</p>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 12 -->
+<section id="language">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">12</span>
+			<h2>Language</h2>
+		</div>
+		<p class="sec-lede">
+			The product ships in English and Indonesian, and the two mix on a single page more often than
+			the switcher suggests.
+		</p>
+		<div class="laws">
+			<div class="law">
+				<h4>The page declares its language</h4>
+				<p>
+					<code>&lt;html lang&gt;</code> follows the interface locale and changes when the switcher
+					changes. Without it a screen reader pronounces Indonesian with English phonetics.
+				</p>
+			</div>
+			<div class="law">
+				<h4>So does content that disagrees with it</h4>
+				<p>
+					A CV written in Indonesian inside an English interface takes <code>lang="id"</code> on its
+					own container. This is 3.1.2, and it is the criterion this product is most likely to fail
+					— a bilingual portfolio is the normal case here, not the exception.
+				</p>
+			</div>
+			<div class="law">
+				<h4>The switcher is a control, not a flag</h4>
+				<p>
+					It is a labelled button reading <b>EN</b> / <b>ID</b> with an accessible name of
+					"Language". No flag icons — a flag names a country, not a language, and Indonesian is not
+					a country.
+				</p>
+			</div>
+			<div class="law">
+				<h4>Nothing is translated by layout</h4>
+				<p>
+					Both languages are left-to-right, so no mirroring is required. Copy length differs by
+					roughly a fifth, which is why no button in the design system is sized to its English
+					label.
+				</p>
+			</div>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 13 -->
+<section id="media">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">13</span>
+			<h2>Images and media</h2>
+		</div>
+		<p class="sec-lede">
+			Alt text is a product feature here, not a template attribute — the media library has a field
+			for it, an empty state that nags, and since backend round one, the ability to change it.
+		</p>
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Case</th>
+						<th>Rule</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>Post cover</b></td>
+						<td class="dim">
+							Alt required before publish. The publish dialog names the missing alt as a blocking
+							item, not a warning.
+						</td>
+					</tr>
+					<tr>
+						<td><b>Body image</b></td>
+						<td class="dim">
+							<code>![alt](media:id)</code> — the alt travels in the Markdown and is resolved at
+							render. An empty alt is allowed only when the image is decorative and the author has
+							said so.
+						</td>
+					</tr>
+					<tr>
+						<td><b>Decorative</b></td>
+						<td class="dim">
+							<code>alt=""</code> and <code>role="presentation"</code>. Never omit the attribute — a
+							missing alt makes a screen reader read the filename.
+						</td>
+					</tr>
+					<tr>
+						<td><b>Avatar</b></td>
+						<td class="dim">
+							Alt is the person's name when the image is the only representation, empty when the
+							name sits beside it. Both appear in this design; the name is beside it in the header,
+							so that one is empty.
+						</td>
+					</tr>
+					<tr>
+						<td><b>Project screenshot</b></td>
+						<td class="dim">
+							Alt describes what the screenshot shows, not that it is a screenshot. "Kafka topic lag
+							over a week" beats "Screenshot of dashboard".
+						</td>
+					</tr>
+					<tr>
+						<td><b>Charts in the CV</b></td>
+						<td class="dim">
+							The ATS bars are not images. They are text and DOM, so they need no alt and survive
+							zoom.
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<div class="callout">
+			<h4>The alt-text empty state earns its place</h4>
+			<p>
+				<b>No alt text — add one</b> renders in <code>status/danger</code> on the media tile, and
+				the media list can be filtered to exactly those. That is the difference between a product
+				that permits accessible content and one that produces it.
+			</p>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 14 -->
+<section id="reflow">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">14</span>
+			<h2>Zoom and reflow</h2>
+		</div>
+		<p class="sec-lede">
+			1.4.10 asks that content reflow to 320 CSS pixels without a second scrollbar. 1.4.4 asks that
+			text scale to 200% without loss. The design now has drawn frames at three widths, so neither
+			is guesswork.
+		</p>
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Width</th>
+						<th>Status</th>
+						<th>Behaviour</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td class="mono">&lt; 768px</td>
+						<td class="dim"><span class="pill p-live">70 frames</span></td>
+						<td class="dim">
+							390 × 844, light and dark. Tab bar, cards, bottom sheet. Reflows to 320 without
+							horizontal scroll.
+						</td>
+					</tr>
+					<tr>
+						<td class="mono">768 – 1023px</td>
+						<td class="dim"><span class="pill p-live">70 frames</span></td>
+						<td class="dim">
+							834 × 1112, light and dark. Sidebar collapses to a 64px icon rail; tables keep three
+							load-bearing columns; the editor rail stays a rail.
+						</td>
+					</tr>
+					<tr>
+						<td class="mono">≥ 1024px</td>
+						<td class="dim"><span class="pill p-live">70 frames</span></td>
+						<td class="dim">1180 wide, light and dark.</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<div class="laws" style="margin-top: 26px">
+			<div class="law">
+				<h4>Tables scroll in their own container</h4>
+				<p>
+					Every table sits in an <code>overflow-x:auto</code> wrapper. The page body never scrolls
+					sideways — that is the specific failure 1.4.10 is written to prevent.
+				</p>
+			</div>
+			<div class="law">
+				<h4>Text scales because nothing is pinned to pixels</h4>
+				<p>
+					Type is set in <code>rem</code>, containers in <code>ch</code> and percentages. At 200%
+					the console becomes the tablet layout, which is drawn — not an untested reflow.
+				</p>
+			</div>
+			<div class="law">
+				<h4>No width gets a wall</h4>
+				<p>
+					Nothing in this product answers a viewport with "please use a larger screen". It applied
+					when fifteen screens were undrawn; it still applies now that none are.
+				</p>
+			</div>
+			<div class="law">
+				<h4>Zoom does not hide controls</h4>
+				<p>
+					Actions that collapse into an overflow menu at narrow widths stay reachable and keep their
+					accessible names. Collapsing is a layout change, never a capability change.
+				</p>
+			</div>
+		</div>
+	</div>
+</section>
+
+<!-- ===================================================== 15 -->
+<section id="testing">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">15</span>
+			<h2>What to test, and what this document cannot promise</h2>
+		</div>
+		<p class="sec-lede">
+			Contrast is provable from the tokens and is now proved. Everything else in this document is a
+			specification that the build either meets or does not — automated tooling will catch perhaps a
+			third of it.
+		</p>
+
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Check</th>
+						<th>How</th>
+						<th>Catches</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>Axe / Lighthouse in CI</b></td>
+						<td class="dim">Per route, both themes</td>
+						<td class="dim">
+							Missing labels, bad contrast on anything hard-coded outside the tokens, duplicate ids,
+							missing <code>lang</code>.
+						</td>
+					</tr>
+					<tr>
+						<td><b>Keyboard-only pass</b></td>
+						<td class="dim">Unplug the mouse, walk §06</td>
+						<td class="dim">
+							Focus traps, lost focus after dialogs, hover-only actions. Nothing automated finds
+							these.
+						</td>
+					</tr>
+					<tr>
+						<td><b>Screen reader spot-check</b></td>
+						<td class="dim">
+							VoiceOver/Safari and NVDA/Firefox on: post editor, media library, tracker, publish
+							dialog
+						</td>
+						<td class="dim">
+							Over-announcement from live regions — the most likely defect in this product, and
+							invisible to every linter.
+						</td>
+					</tr>
+					<tr>
+						<td><b>200% zoom</b></td>
+						<td class="dim">Desktop browser, both themes</td>
+						<td class="dim">Clipped controls, horizontal scroll, text that stops reflowing.</td>
+					</tr>
+					<tr>
+						<td><b>Forced colours</b></td>
+						<td class="dim">Windows high contrast</td>
+						<td class="dim">
+							Anything that carries meaning in a background image or a border colour alone.
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="alert">
+			<h4>Three things this document does not cover</h4>
+			<p>
+				<b>The rendered PDF.</b> Export produces a document, and PDF accessibility — tagging,
+				reading order, embedded language — is a separate standard. A CV exported from here is
+				currently an untagged PDF. That is a known gap, not an oversight.
+			</p>
+			<p>
+				<b>Model output.</b> The companion writes prose. Nothing guarantees that prose is readable
+				at a given grade level, and the product does not claim it is. What the product does
+				guarantee is that the suggestion is always visible as text before it is applied.
+			</p>
+			<p>
+				<b>Author-supplied content.</b> A published post's heading order, link text and image alt
+				are the author's. The editor prompts for alt and blocks publish without cover alt; it does
+				not police heading structure, and should not silently rewrite what someone wrote.
+			</p>
+		</div>
+
+		<div class="callout">
+			<h4>If you change a colour, re-run the audit</h4>
+			<p>
+				The ledger in §02 is a snapshot of 17 variables. Any new token, any nudge to an existing
+				one, and the pairs have to be recomputed against all three grounds in both modes. The
+				failure mode is not dramatic — it is one status colour drifting under 4.5 and nobody
+				noticing for a year.
+			</p>
+		</div>
+	</div>
+</section>
+
+<footer>
+	<div class="shell prose">
+		<p>
+			<b>Blogport · Accessibility Specification.</b> Sixth of six papers. Measured against the
+			<code>Theme</code> collection in the Figma file, after the six corrections described in §03
+			were applied to it. Where this document and the Figma file disagree, the file is
+			authoritative; where this document and an automated checker disagree on
+			<code>arch/line</code>, read §02.
+		</p>
+	</div>
+</footer>

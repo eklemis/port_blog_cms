@@ -1,2 +1,1 @@
-export const backendBaseUrl =
-	import.meta.env.VITE_BACKEND_BASE_URL ?? 'http://localhost:8080';
+export const backendBaseUrl = import.meta.env.VITE_BACKEND_BASE_URL ?? 'http://localhost:8080';
