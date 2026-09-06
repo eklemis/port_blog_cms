@@ -341,19 +341,33 @@ scheduler sent the wrong one" without either being visible to the caller.
 
 ### Setting it up
 
+`deploy.sh` generates `MAINTENANCE_TOKEN` on the first deploy and prints the
+rest of this command filled in with the service URL. The token is read back from
+Secret Manager rather than asked for, so it is never typed or shown:
+
 ```bash
-gcloud scheduler jobs create http reap-stale-uploads   --location=asia-southeast1   --schedule="0 * * * *"   --uri="https://<service-url>/api/maintenance/reap-uploads"   --http-method=POST   --headers="X-Maintenance-Token=$MAINTENANCE_TOKEN"   --attempt-deadline=60s
+gcloud scheduler jobs create http reap-stale-uploads \
+  --project=<project> --location=asia-southeast2 \
+  --schedule="0 * * * *" \
+  --uri="https://<service-url>/api/maintenance/reap-uploads" \
+  --http-method=POST --attempt-deadline=60s \
+  --headers="X-Maintenance-Token=$(gcloud secrets versions access latest \
+    --secret=MAINTENANCE_TOKEN --project=<project>)"
 ```
+
+It is generated once and never rotated by a later deploy. Rotating it would
+leave the job sending a stale header, and a 404 from this route is
+indistinguishable from a sweep that ran and found nothing.
 
 Hourly is ample — nothing degrades while a stale row waits, and the point is
 that it does not wait forever.
 
 ### Its two settings
 
-| Variable | Meaning |
-|---|---|
-| `MAINTENANCE_TOKEN` | Enables the route and is the secret it checks. Unset disables it. |
-| `MEDIA_STALE_UPLOAD_SECS` | How old a `pending` row must be before it is swept. Defaults to 3600. |
+| Variable | Meaning | Set by |
+|---|---|---|
+| `MAINTENANCE_TOKEN` | Enables the route and is the secret it checks. Unset disables it. | `deploy.sh`, generated once |
+| `MEDIA_STALE_UPLOAD_SECS` | How old a `pending` row must be before it is swept. Defaults to 3600. | `deploy.sh`, prompted |
 
 `MEDIA_STALE_UPLOAD_SECS` has a floor of 900 seconds, the signed upload URL's
 own lifetime, and a shorter value is raised to it rather than obeyed. Below that
