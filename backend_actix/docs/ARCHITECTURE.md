@@ -249,14 +249,13 @@ concern that two auth flows need.
 ```mermaid
 flowchart TD
     blog --> auth
-    project --> auth
-    cv --> auth
-    multimedia --> auth
-    topic --> auth
     blog --> topic
     project --> topic
+    project --> auth
+    topic --> auth
+    cv --> auth
+    multimedia --> auth
     auth --> email
-
     classDef kernel fill:#0b6e63,stroke:#0b6e63,color:#fff
     class auth kernel
 ```
