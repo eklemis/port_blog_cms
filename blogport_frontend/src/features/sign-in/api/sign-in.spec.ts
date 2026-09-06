@@ -1,5 +1,6 @@
 import { expect, test, vi } from 'vitest';
-import { ACCOUNT_CLOSED, SIGN_IN_FAILED, UNEXPECTED, rateLimited, signIn } from './sign-in';
+import { UNEXPECTED } from '$lib/shared/lib/api-failure';
+import { ACCOUNT_CLOSED, SIGN_IN_FAILED, signIn } from './sign-in';
 
 /**
  * The browser talks to `/api/auth/login`, the SvelteKit proxy — never to the
@@ -113,14 +114,6 @@ test('a rate limit reports how long, from Retry-After', async () => {
 		message: 'Too many attempts. Try again in 5 minutes.',
 		retryAfterSeconds: 300
 	});
-});
-
-test('the countdown reads in whole units and gets the singulars right', () => {
-	expect(rateLimited(1)).toBe('Too many attempts. Try again in 1 second.');
-	expect(rateLimited(45)).toBe('Too many attempts. Try again in 45 seconds.');
-	expect(rateLimited(60)).toBe('Too many attempts. Try again in 1 minute.');
-	expect(rateLimited(90)).toBe('Too many attempts. Try again in 2 minutes.');
-	expect(rateLimited(2520)).toBe('Too many attempts. Try again in 42 minutes.');
 });
 
 test('a rate limit with no Retry-After still says something useful', async () => {

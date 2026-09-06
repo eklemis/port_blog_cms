@@ -1,0 +1,128 @@
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { render } from 'vitest-browser-svelte';
+import { expectNoA11yViolations } from '$lib/shared/test/a11y';
+import ResendVerification from './resend-verification.svelte';
+
+/**
+ * The one control the hold screen offers. Not an amber button: nothing on this
+ * screen moves the person forward, because only the emailed link can.
+ */
+
+const ACCEPTED = 'If that address needs verifying, a new link is on its way.';
+
+function stubFetch(status: number, body: unknown, headers: Record<string, string> = {}) {
+	const fetchFn = vi.fn<typeof fetch>(
+		async () => new Response(JSON.stringify(body), { status, headers })
+	);
+	vi.stubGlobal('fetch', fetchFn);
+	return fetchFn;
+}
+
+const button = () => ({ name: 'Resend the link' });
+
+beforeEach(() => vi.stubGlobal('fetch', vi.fn()));
+afterEach(() => vi.unstubAllGlobals());
+
+test('offers to send the link again', async () => {
+	const screen = render(ResendVerification, {});
+
+	await expect.element(screen.getByRole('button', button())).toBeInTheDocument();
+});
+
+test('is not the primary action — nothing here is', async () => {
+	// One amber button per screen, and this screen has none: the gate clears
+	// when the emailed link is opened, not when a button is pressed.
+	const screen = render(ResendVerification, {});
+
+	await expect.element(screen.getByRole('button', button())).not.toHaveClass(/bg-arch-accent/);
+});
+
+test('asks the proxy when pressed', async () => {
+	const fetchFn = stubFetch(202, { message: ACCEPTED });
+	const screen = render(ResendVerification, {});
+
+	await screen.getByRole('button', button()).click();
+
+	await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledOnce());
+	expect(fetchFn.mock.calls[0][0]).toBe('/api/auth/email-verification/resend');
+});
+
+test('says what happened, where a screen reader will hear it', async () => {
+	stubFetch(202, { message: ACCEPTED });
+	const screen = render(ResendVerification, {});
+
+	await screen.getByRole('button', button()).click();
+
+	// Polite, not assertive: assertive is reserved for loss, and a link being
+	// sent has lost nothing.
+	await expect.element(screen.getByRole('status')).toHaveTextContent(ACCEPTED);
+});
+
+test('a second press cannot send two links', async () => {
+	let release: (value: Response) => void = () => {};
+	vi.stubGlobal(
+		'fetch',
+		vi.fn<typeof fetch>(() => new Promise<Response>((resolve) => (release = resolve)))
+	);
+	const screen = render(ResendVerification, {});
+
+	const control = screen.getByRole('button', button());
+	await control.click();
+
+	await expect.element(control).toBeDisabled();
+
+	release(new Response(JSON.stringify({ message: ACCEPTED }), { status: 202 }));
+});
+
+test('stays pressable after a successful send — five an hour are allowed', async () => {
+	stubFetch(202, { message: ACCEPTED });
+	const screen = render(ResendVerification, {});
+
+	const control = screen.getByRole('button', button());
+	await control.click();
+
+	await expect.element(screen.getByRole('status')).toHaveTextContent(ACCEPTED);
+	await expect.element(control).not.toBeDisabled();
+});
+
+test('a rate limit holds the button shut and explains why', async () => {
+	stubFetch(429, { error: { code: 'RATE_LIMITED' } }, { 'retry-after': '3600' });
+	const screen = render(ResendVerification, {});
+
+	const control = screen.getByRole('button', button());
+	await control.click();
+
+	await expect
+		.element(screen.getByRole('status'))
+		.toHaveTextContent('Too many attempts. Try again in 60 minutes.');
+	await expect.element(control).toBeDisabled();
+	await expect
+		.element(control)
+		.toHaveAccessibleDescription('Too many attempts. Try again in 60 minutes.');
+});
+
+test('a lost session is handed upwards rather than shown as a failure', async () => {
+	stubFetch(401, { error: { code: 'MISSING_AUTH_HEADER' } });
+	let expired = 0;
+	const screen = render(ResendVerification, { onsessionexpired: () => expired++ });
+
+	await screen.getByRole('button', button()).click();
+
+	await vi.waitFor(() => expect(expired).toBe(1));
+});
+
+test('has no accessibility violations at rest', async () => {
+	render(ResendVerification, {});
+
+	await expectNoA11yViolations();
+});
+
+test('has no accessibility violations once it has reported', async () => {
+	stubFetch(202, { message: ACCEPTED });
+	const screen = render(ResendVerification, {});
+
+	await screen.getByRole('button', button()).click();
+	await expect.element(screen.getByRole('status')).toHaveTextContent(ACCEPTED);
+
+	await expectNoA11yViolations();
+});

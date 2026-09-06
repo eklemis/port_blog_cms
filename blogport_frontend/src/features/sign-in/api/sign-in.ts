@@ -1,4 +1,5 @@
 import type { components } from '$lib/shared/api/v1';
+import { UNEXPECTED, rateLimited, retryAfterSeconds } from '$lib/shared/lib/api-failure';
 import { normaliseEmail } from '../model/credentials';
 
 /**
@@ -22,7 +23,6 @@ export const LOGIN_ROUTE = '/api/auth/login';
  * suggested correction, for the same reason.
  */
 export const SIGN_IN_FAILED = "That email and password don't match.";
-export const UNEXPECTED = 'Something went wrong on our side.';
 
 /**
  * Not in the Console Blueprint's copy table — see the note in the PR. J2 wants a
@@ -34,23 +34,6 @@ export const ACCOUNT_CLOSED = 'That account has been closed.';
 export type SignInResult =
 	| { ok: true; user: LoginUserInfo }
 	| { ok: false; message: string; retryAfterSeconds: number | null };
-
-/** "Too many attempts. Try again in 42 minutes." — whole units, real countdown. */
-export function rateLimited(seconds: number | null): string {
-	if (seconds === null || seconds <= 0) return 'Too many attempts. Try again shortly.';
-
-	const [amount, unit] = seconds < 60 ? [seconds, 'second'] : [Math.ceil(seconds / 60), 'minute'];
-
-	return `Too many attempts. Try again in ${amount} ${unit}${amount === 1 ? '' : 's'}.`;
-}
-
-function retryAfterSeconds(response: Response): number | null {
-	const header = response.headers.get('retry-after');
-	if (!header) return null;
-
-	const seconds = Number(header);
-	return Number.isFinite(seconds) && seconds > 0 ? seconds : null;
-}
 
 function failed(message: string, seconds: number | null = null): SignInResult {
 	return { ok: false, message, retryAfterSeconds: seconds };
