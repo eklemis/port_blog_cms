@@ -614,6 +614,7 @@ impl FetchUserProfileUseCase for StubFetchUserProfileUseCase {
             full_name: "Stub User".to_string(),
             bio: None,
             locale: "en".to_string(),
+            is_verified: true,
         })
     }
 }

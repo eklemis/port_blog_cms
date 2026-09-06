@@ -11608,6 +11608,7 @@
                         "email",
                         "username",
                         "full_name",
+                        "is_verified",
                         "locale"
                       ],
                       "properties": {
@@ -11628,6 +11629,11 @@
                           "type": "string",
                           "description": "Full name",
                           "example": "John Doe"
+                        },
+                        "is_verified": {
+                          "type": "boolean",
+                          "description": "Whether this account's email has been verified.\n\nFresh from the database on every call. An unverified account can reach\nthis endpoint, `PUT /api/users/me` and `DELETE /api/users/me`, and\nnothing else — every other authenticated route answers `403`\n`EMAIL_NOT_VERIFIED` — so this is the field that decides whether to\nshow a workspace or a \"check your email\" prompt.",
+                          "example": true
                         },
                         "locale": {
                           "type": "string",
@@ -15926,6 +15932,7 @@
           "email",
           "username",
           "full_name",
+          "is_verified",
           "locale"
         ],
         "properties": {
@@ -15946,6 +15953,11 @@
             "type": "string",
             "description": "Full name",
             "example": "John Doe"
+          },
+          "is_verified": {
+            "type": "boolean",
+            "description": "Whether this account's email has been verified.\n\nFresh from the database on every call. An unverified account can reach\nthis endpoint, `PUT /api/users/me` and `DELETE /api/users/me`, and\nnothing else — every other authenticated route answers `403`\n`EMAIL_NOT_VERIFIED` — so this is the field that decides whether to\nshow a workspace or a \"check your email\" prompt.",
+            "example": true
           },
           "locale": {
             "type": "string",

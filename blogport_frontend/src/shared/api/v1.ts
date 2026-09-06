@@ -3996,6 +3996,17 @@ export interface components {
              */
             full_name: string;
             /**
+             * @description Whether this account's email has been verified.
+             *
+             *     Fresh from the database on every call. An unverified account can reach
+             *     this endpoint, `PUT /api/users/me` and `DELETE /api/users/me`, and
+             *     nothing else — every other authenticated route answers `403`
+             *     `EMAIL_NOT_VERIFIED` — so this is the field that decides whether to
+             *     show a workspace or a "check your email" prompt.
+             * @example true
+             */
+            is_verified: boolean;
+            /**
              * @description Interface language.
              * @example en
              */
@@ -12193,6 +12204,17 @@ export interface operations {
                              * @example John Doe
                              */
                             full_name: string;
+                            /**
+                             * @description Whether this account's email has been verified.
+                             *
+                             *     Fresh from the database on every call. An unverified account can reach
+                             *     this endpoint, `PUT /api/users/me` and `DELETE /api/users/me`, and
+                             *     nothing else — every other authenticated route answers `403`
+                             *     `EMAIL_NOT_VERIFIED` — so this is the field that decides whether to
+                             *     show a workspace or a "check your email" prompt.
+                             * @example true
+                             */
+                            is_verified: boolean;
                             /**
                              * @description Interface language.
                              * @example en
