@@ -49,10 +49,15 @@ RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
 - **A new error code is a variant in `src/shared/api/error_code.rs`**, not a
   string. Then regenerate the reference:
   `UPDATE_DOCS=1 cargo test -p backend_actix api_errors_doc`.
-- **Migrations must stay additive** — see
-  [ADR 0003](docs/adr/0003-migrate-before-deploy.md). Dropping a column the
-  running build still selects breaks production between the migration and the
-  service update.
+- **Migrations must be backward-compatible with the running build**, which is
+  stricter than additive — see
+  [ADR 0010](docs/adr/0010-migrations-must-be-backward-compatible.md) and
+  [ADR 0003](docs/adr/0003-migrate-before-deploy.md). Migrations apply while the
+  old build is still serving, so ask "is every write it might still make legal
+  against this schema?". Dropping a column it selects fails that. So does adding
+  a CHECK constraint, a NOT NULL, or a unique index — all additive, all enforced
+  by the database against code that does not know about them. Split those across
+  two deploys, narrowing what is legal second.
 - **Every public item needs a doc comment.** `#![deny(missing_docs)]` is on at
   the crate root, so an undocumented struct field or enum variant fails the
   build. `cargo check` names each one it wants. The only exemption is the

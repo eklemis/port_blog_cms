@@ -16,8 +16,16 @@ set -euo pipefail
 # Migrations run BEFORE the deploy on purpose. The container does not migrate
 # on startup, so shipping code ahead of its schema means the new routes fail at
 # request time with "relation ... does not exist" while the deploy itself looks
-# successful. Applying first is safe: migrations are additive, and the running
-# old build ignores tables it does not know about.
+# successful.
+#
+# That leaves a window — a minute or two — where the OLD build is serving
+# traffic against the NEW schema. Every migration must be safe in that window,
+# and the test is not "is this additive?" but "is every write the old build
+# might still make legal against this schema?". Adding a column passes. Adding
+# a CHECK constraint, a NOT NULL, or a unique index does not: the database
+# enforces those against whatever code is running, and the old build has no
+# idea. Such a change splits across two deploys, narrowing what is legal
+# second. See ADR 0010.
 #
 # SKIP_MIGRATIONS=1   skip the migration step entirely
 # AUTO_MIGRATE=1      apply without the interactive confirmation
