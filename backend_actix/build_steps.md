@@ -130,11 +130,19 @@ export RUST_ENV="production"
 export CPU="2"
 export MEMORY="1Gi"
 export MULTIMEDIA_UPLOAD_BUCKET="your-bucket-name"
+export MEDIA_STALE_UPLOAD_SECS="3600"
 export AUTO_MIGRATE="1"          # skip the migration confirmation too
 # ... etc
 
 ./deploy.sh  # No prompts!
 ```
+
+`MAINTENANCE_TOKEN` is deliberately absent from that list. It is machine-only —
+Cloud Scheduler sends it, the service compares it — so `deploy.sh` generates one
+on the first deploy and then leaves it alone. Re-generating it on later deploys
+would rotate it out from under the scheduler job, whose header still carries the
+old value; the sweep would answer 404 and go on answering it, which looks exactly
+like a sweep that ran and found nothing.
 
 ## Time Savings
 

@@ -64,6 +64,7 @@ echo "==> Enabling APIs (safe to re-run)..."
 gcloud services enable \
   run.googleapis.com \
   secretmanager.googleapis.com \
+  cloudscheduler.googleapis.com \
   --project "${PROJECT_ID}" >/dev/null
 
 # ------------------------------------------------------------
@@ -72,6 +73,30 @@ gcloud services enable \
 secret_exists() {
   local name="$1"
   gcloud secrets describe "$name" --project "${PROJECT_ID}" >/dev/null 2>&1
+}
+
+# Ensures a machine-only secret exists, without ever rotating it.
+#
+# MAINTENANCE_TOKEN is not typed by anyone: Cloud Scheduler sends it and the
+# service compares it. So it is generated on first deploy rather than prompted
+# for, and — this is the part that matters — an existing one is left completely
+# alone. Adding a new version on every deploy would rotate the token out from
+# under the scheduler job, whose header still carries the old value. The sweep
+# would then answer 404 and keep answering it, which is indistinguishable from
+# a sweep that ran and found nothing.
+ensure_generated_secret() {
+  local secret_name="$1"
+
+  if secret_exists "${secret_name}"; then
+    echo "==> Secret ${secret_name} exists -> left unchanged (rotating it would break the scheduler)"
+    return 0
+  fi
+
+  echo "==> Creating secret ${secret_name} (generated, never displayed)"
+  openssl rand -base64 32 | tr -d '\n' | gcloud secrets create "${secret_name}" \
+    --project "${PROJECT_ID}" \
+    --replication-policy="automatic" \
+    --data-file=-
 }
 
 create_or_update_secret_from_stdin() {
@@ -151,6 +176,9 @@ unset DB_URL_FOR_DEPLOY
 prompt_secret REDIS_URL "REDIS_URL (Upstash Redis, usually rediss://...)" | create_or_update_secret_from_stdin REDIS_URL
 prompt_secret JWT_SECRET "JWT_SECRET" | create_or_update_secret_from_stdin JWT_SECRET
 prompt_secret SMTP_PASSWORD "SMTP_PASSWORD" | create_or_update_secret_from_stdin SMTP_PASSWORD
+
+# Machine-only; generated rather than prompted for. See ensure_generated_secret.
+ensure_generated_secret MAINTENANCE_TOKEN
 echo
 
 # ------------------------------------------------------------
@@ -176,6 +204,11 @@ ARGON2_ITERATIONS_VAL="$(prompt_nonsecret ARGON2_ITERATIONS "ARGON2_ITERATIONS" 
 ARGON2_PARALLELISM_VAL="$(prompt_nonsecret ARGON2_PARALLELISM "ARGON2_PARALLELISM" "1")"
 
 MULTIMEDIA_UPLOAD_BUCKET_VAL="$(prompt_nonsecret MULTIMEDIA_UPLOAD_BUCKET "MULTIMEDIA_UPLOAD_BUCKET" "")"
+
+# How long a media registration may sit in `pending` before the sweep removes
+# it. The service holds this to a floor of 900s — the signed upload URL's own
+# lifetime — so a smaller value here is raised rather than obeyed.
+MEDIA_STALE_UPLOAD_SECS_VAL="$(prompt_nonsecret MEDIA_STALE_UPLOAD_SECS "MEDIA_STALE_UPLOAD_SECS (seconds before an abandoned upload is swept)" "3600")"
 
 # Cloud Run: bind 0.0.0.0; PORT is injected by Cloud Run automatically.
 HOST_VAL="0.0.0.0"
@@ -259,7 +292,8 @@ gcloud run deploy "${SERVICE_NAME}" \
 DATABASE_URL=DATABASE_URL:latest,\
 REDIS_URL=REDIS_URL:latest,\
 JWT_SECRET=JWT_SECRET:latest,\
-SMTP_PASSWORD=SMTP_PASSWORD:latest \
+SMTP_PASSWORD=SMTP_PASSWORD:latest,\
+MAINTENANCE_TOKEN=MAINTENANCE_TOKEN:latest \
   --set-env-vars \
 RUST_ENV="${RUST_ENV_VAL}",\
 HOST="${HOST_VAL}",\
@@ -274,7 +308,8 @@ EMAIL_FROM="${EMAIL_FROM_VAL}",\
 ARGON2_MEMORY_KIB="${ARGON2_MEMORY_KIB_VAL}",\
 ARGON2_ITERATIONS="${ARGON2_ITERATIONS_VAL}",\
 ARGON2_PARALLELISM="${ARGON2_PARALLELISM_VAL}",\
-MULTIMEDIA_UPLOAD_BUCKET="${MULTIMEDIA_UPLOAD_BUCKET_VAL}"
+MULTIMEDIA_UPLOAD_BUCKET="${MULTIMEDIA_UPLOAD_BUCKET_VAL}",\
+MEDIA_STALE_UPLOAD_SECS="${MEDIA_STALE_UPLOAD_SECS_VAL}"
 
 echo
 echo "==> ✓ Deployment complete!"
@@ -284,6 +319,27 @@ gcloud run services describe "${SERVICE_NAME}" \
   --project "${PROJECT_ID}" \
   --region "${REGION}" \
   --format='value(status.url)'
+
+echo
+echo "==> Maintenance sweep:"
+if gcloud scheduler jobs describe reap-stale-uploads \
+     --project "${PROJECT_ID}" --location "${REGION}" >/dev/null 2>&1; then
+  echo "    Cloud Scheduler job 'reap-stale-uploads' is already configured."
+else
+  SERVICE_URL="$(gcloud run services describe "${SERVICE_NAME}" \
+    --project "${PROJECT_ID}" --region "${REGION}" \
+    --format='value(status.url)')"
+  echo "    Not scheduled yet. To create it (the token is read back from"
+  echo "    Secret Manager, so it is never typed or shown):"
+  echo
+  echo "    gcloud scheduler jobs create http reap-stale-uploads \\"
+  echo "      --project ${PROJECT_ID} --location ${REGION} \\"
+  echo "      --schedule='0 * * * *' \\"
+  echo "      --uri='${SERVICE_URL}/api/maintenance/reap-uploads' \\"
+  echo "      --http-method=POST --attempt-deadline=60s \\"
+  echo "      --headers=\"X-Maintenance-Token=\$(gcloud secrets versions access latest \\"
+  echo "        --secret=MAINTENANCE_TOKEN --project ${PROJECT_ID})\""
+fi
 
 echo
 echo "==> If anything fails, read logs:"
