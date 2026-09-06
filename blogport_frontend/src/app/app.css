@@ -1,66 +1,147 @@
 @import 'tailwindcss';
 
-@plugin 'flowbite/plugin';
-
+/* Dark is a class on <html>, stamped before paint by the script in app.html.
+   Three states: 'light' | 'dark' | 'system'. System follows the OS and is the
+   default, which is why the class is stamped rather than hardcoded. */
 @custom-variant dark (&:where(.dark, .dark *));
 
-@theme {
-	/* =========================
-	   Preferred Theme Tokens
-	   ========================= */
+/* ============================================================================
+   Blogport tokens — v3, post-accessibility-audit.
 
-	/* Core surfaces / text (use in your own components) */
-	--color-arch-bg: #2f3133;        /* main charcoal */
-	--color-arch-surface: #3a3c3e;   /* section/cards */
-	--color-arch-headline: #f4e4c9;  /* warm beige */
-	--color-arch-muted: #9fa3a6;     /* cool grey */
+   Every colour in the product resolves through these. Six values here were
+   corrected so that all 62 foreground/ground pairs clear WCAG 2.2 AA; the
+   measured ratios are in docs/04-accessibility-spec.html §02. Do not "fix" one
+   back because it looks lighter in isolation — each was failing a threshold.
 
-	/* =========================
-	   Flowbite: PRIMARY (Accent)
-	   Purpose: buttons, links, emphasis
-	   Matches your amber/orange accent vibe
-	   ========================= */
-	--color-primary-50:  #fffbeb; /* amber-50  */
-	--color-primary-100: #fef3c7; /* amber-100 */
-	--color-primary-200: #fde68a; /* amber-200 */
-	--color-primary-300: #fcd34d; /* amber-300 */
-	--color-primary-400: #fbbf24; /* amber-400 (close to #F4A43D) */
-	--color-primary-500: #f59e0b; /* amber-500 */
-	--color-primary-600: #d97706; /* amber-600 */
-	--color-primary-700: #b45309; /* amber-700 */
-	--color-primary-800: #92400e; /* amber-800 */
-	--color-primary-900: #78350f; /* amber-900 */
+   THE RULE PEOPLE GET WRONG
+   --arch-line is a decorative hairline (dividers, card edges) and sits at about
+   1.2:1 on purpose — WCAG exempts boundaries that identify nothing.
+   --arch-line-control is the boundary of an actual control (input, secondary
+   button, combobox) and must stay at 3:1. They are not interchangeable.
+   ============================================================================ */
 
-	/* =========================
-	   Flowbite: SECONDARY (Cool Neutral)
-	   Purpose: secondary buttons, subtle accents
-	   ========================= */
-	--color-secondary-50:  #f8fafc; /* slate-50  */
-	--color-secondary-100: #f1f5f9; /* slate-100 */
-	--color-secondary-200: #e2e8f0; /* slate-200 */
-	--color-secondary-300: #cbd5e1; /* slate-300 */
-	--color-secondary-400: #94a3b8; /* slate-400 (close to #9FA3A6) */
-	--color-secondary-500: #64748b; /* slate-500 */
-	--color-secondary-600: #475569; /* slate-600 */
-	--color-secondary-700: #334155; /* slate-700 */
-	--color-secondary-800: #1f2937; /* gray-800-ish */
-	--color-secondary-900: #0f172a; /* slate-900 */
+:root {
+	/* surfaces — cool paper grey, not cream */
+	--arch-bg: #eeeff0;
+	--arch-surface: #ffffff;
+	--arch-surface-2: #f6f7f8;
+
+	/* text */
+	--arch-headline: #1e2224;
+	--arch-muted: #5e6469;
+
+	/* accent — three tokens, because one is not enough */
+	--arch-accent: #f4a43d; /* FILLS only, never text on a light ground */
+	--arch-accent-on: #1e2224; /* text ON the accent fill      7.81:1     */
+	--arch-accent-ink: #8f5000; /* the accent AS text           5.50:1 min */
+	--arch-accent-2: #83671d; /* code, metadata               4.65:1 min */
+
+	/* lines — decorative vs control, see the rule above */
+	--arch-line: rgb(30 34 36 / 0.12);
+	--arch-line-strong: rgb(30 34 36 / 0.26);
+	--arch-line-control: #81888c; /* 3.13:1 against every ground */
+
+	/* status — the word carries the meaning, colour reinforces it */
+	--st-neutral: #5e6469;
+	--st-inflight: #8a5a0b;
+	--st-live: #2e6b45;
+	--st-danger: #b3453a;
+	--st-dormant: #666b70;
+
+	--arch-scrim: rgb(15 18 20 / 0.5);
+	--arch-shadow: 0 1px 2px rgb(30 34 36 / 0.05), 0 1px 3px rgb(30 34 36 / 0.04);
+
+	color-scheme: light;
 }
 
-@source '../node_modules/flowbite-svelte/dist';
-@source '../node_modules/flowbite-svelte-icons/dist';
+.dark {
+	--arch-bg: #2f3133;
+	--arch-surface: #3a3c3e;
+	--arch-surface-2: #434547;
+
+	--arch-headline: #f4e4c9;
+	--arch-muted: #b1b4b7;
+
+	--arch-accent: #f4a43d;
+	--arch-accent-on: #1e2224;
+	--arch-accent-ink: #f4a43d; /* the accent becomes legible as text in dark */
+	--arch-accent-2: #e8c76b;
+
+	--arch-line: rgb(244 228 201 / 0.1);
+	--arch-line-strong: rgb(244 228 201 / 0.22);
+	--arch-line-control: #919396;
+
+	--st-neutral: #b1b4b7;
+	--st-inflight: #e8c76b;
+	--st-live: #8fbf9a;
+	--st-danger: #e7a399;
+	--st-dormant: #b2b4b7;
+
+	--arch-scrim: rgb(5 8 8 / 0.62);
+	--arch-shadow: none; /* dark surfaces separate by value, not by shadow */
+
+	color-scheme: dark;
+}
+
+/* `inline` is load-bearing: it maps Tailwind's colour namespace onto the custom
+   properties above rather than their values, so `bg-arch-surface` re-resolves
+   when .dark is toggled. Drop `inline` and the theme freezes at build time. */
+@theme inline {
+	--color-arch-bg: var(--arch-bg);
+	--color-arch-surface: var(--arch-surface);
+	--color-arch-surface-2: var(--arch-surface-2);
+	--color-arch-headline: var(--arch-headline);
+	--color-arch-muted: var(--arch-muted);
+	--color-arch-accent: var(--arch-accent);
+	--color-arch-accent-on: var(--arch-accent-on);
+	--color-arch-accent-ink: var(--arch-accent-ink);
+	--color-arch-accent-2: var(--arch-accent-2);
+	--color-arch-line: var(--arch-line);
+	--color-arch-line-strong: var(--arch-line-strong);
+	--color-arch-line-control: var(--arch-line-control);
+	--color-st-neutral: var(--st-neutral);
+	--color-st-inflight: var(--st-inflight);
+	--color-st-live: var(--st-live);
+	--color-st-danger: var(--st-danger);
+	--color-st-dormant: var(--st-dormant);
+	--color-arch-scrim: var(--arch-scrim);
+
+	--font-display: Sen, Inter, ui-sans-serif, system-ui, sans-serif;
+	--font-sans:
+		Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+	--font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
 
 @layer base {
-	/* disable chrome cancel button */
+	html,
+	body {
+		min-height: 100%;
+		background: var(--arch-bg);
+		color: var(--arch-headline);
+		font-family: var(--font-sans);
+	}
+
+	/* One focus ring, everywhere. Never remove without replacing — an
+	   `outline: none` with nothing after it is a defect, not a style.
+	   Offset so it reads against both the control and the ground behind it. */
+	:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+		outline: 2px solid var(--arch-accent-ink);
+		outline-offset: 2px;
+		border-radius: 4px;
+	}
+
 	input[type='search']::-webkit-search-cancel-button {
 		display: none;
 	}
+}
 
-	/* Optional: make the app default to your charcoal background */
-	html,
-	body {
-	min-height: 100%;
-		background: var(--color-arch-bg);
-		color: var(--color-arch-headline);
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
 	}
 }

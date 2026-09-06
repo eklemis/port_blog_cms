@@ -4,6 +4,299 @@
  */
 
 export interface paths {
+    "/api/ai/cover-letter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draft a cover letter
+         * @description **Streams**, with the same frames and the same mid-stream error rule as
+         *     `/api/ai/tailor`.
+         *
+         *     An existing letter on the application is given to the model to revise
+         *     rather than replaced blind. The language is taken from the request, never
+         *     inferred from what is already written.
+         */
+        post: operations["cover_letter_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/extract-job": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read a job posting into fields
+         * @description Returns typed fields the capture form fills directly, constrained by schema
+         *     so a malformed generation fails loudly rather than half-populating a screen.
+         *
+         *     Send `text` — pasting is the primary path. `url` is a shortcut that usually
+         *     fails, because most job boards block automated fetches; when it does you get
+         *     `AI_FETCH_FAILED` and should paste instead. It is not retried, because you
+         *     are one paste away and waiting helps nobody.
+         */
+        post: operations["extract_job_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/quota": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read your generation allowance
+         * @description **`limit` is `null` when generation is currently unmetered**, and `used` is
+         *     counted either way. That is deliberate: the number a sensible ceiling gets
+         *     chosen from should be real usage rather than a guess, and the screen that
+         *     shows a remaining count is far cheaper to build now than to retrofit onto
+         *     screens designed on the assumption that calls are free.
+         *
+         *     So render the remaining count when a limit exists and stay quiet when it
+         *     does not — but build the surface either way.
+         *
+         *     Reading this never refuses on account of the limit. Someone with nothing
+         *     left is exactly who looks.
+         */
+        get: operations["get_ai_quota_handler"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/tailor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest how a CV could better answer a job
+         * @description **Streams.** `text/event-stream`, one JSON object per `data:` line:
+         *     `{"type":"delta","text":"…"}`, then `{"type":"done", …}` with the token
+         *     counts.
+         *
+         *     An error can arrive **after** text has — the model may begin and then
+         *     decline — so failures are `{"type":"error"}` frames rather than a status
+         *     code. By the time one happens the 200 is long sent. A client must decide
+         *     what to do with text it has already shown; it must not assume an error
+         *     means nothing was displayed.
+         */
+        post: operations["tailor_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List applications */
+        get: operations["get_applications_handler"];
+        put?: never;
+        /**
+         * Start an application
+         * @description Always starts as a draft. Sending it is an edit — which is where the
+         *     snapshot rule applies, so there is exactly one path that can produce a sent
+         *     application rather than two to keep in step.
+         */
+        post: operations["create_application_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{application_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read one application */
+        get: operations["get_application_handler"];
+        put?: never;
+        post?: never;
+        /** Archive an application */
+        delete: operations["archive_application_handler"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit an application
+         * @description **Moving off `draft` requires a CV snapshot.** Send `cv_id` and one is
+         *     taken as part of this call; if the application already carries a snapshot
+         *     from an earlier edit, that is enough. Without either, this refuses with
+         *     `SNAPSHOT_REQUIRED` rather than storing a row that will misreport what was
+         *     sent once the CV is next edited.
+         *
+         *     `applied_at` is stamped automatically the first time the application leaves
+         *     draft. A reopened application that is sent again keeps its original date —
+         *     that is the date the employer saw.
+         */
+        patch: operations["patch_application_handler"];
+        trace?: never;
+    };
+    "/api/applications/{application_id}/analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Analyse a CV against the job an application is for
+         * @description Two halves, reported separately and **never averaged**. A single blended
+         *     number would hide which half a person should trust.
+         *
+         *     `readability` is computed here, deterministically — no model is consulted,
+         *     and the score is arithmetic over the checks shown, so a reader can
+         *     reconstruct it. Passing checks are included as well as failing ones: a list
+         *     of only problems leaves someone unable to tell "nothing wrong" from
+         *     "nothing looked at".
+         *
+         *     **`relevance` is `null` until the AI proxy exists.** `null` means *not
+         *     computed*, never *scored zero* — render one bar rather than two with one at
+         *     the floor.
+         *
+         *     One check the frontend asked for is deliberately absent: a CV here is
+         *     structured data, so whether it renders in one column or two is decided by
+         *     the template that draws it. A `single_column` result from this endpoint
+         *     would be the backend guessing about the frontend's rendering.
+         */
+        post: operations["analyse_application_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{application_id}/cover-letter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read an application's cover letter */
+        get: operations["get_cover_letter_handler"];
+        put?: never;
+        post?: never;
+        /** Delete an application's cover letter */
+        delete: operations["delete_cover_letter_handler"];
+        options?: never;
+        head?: never;
+        /**
+         * Write an application's cover letter
+         * @description Creates it on first write. Omitted fields keep whatever is stored, matching
+         *     the blog editor's semantics, so a partial save behaves the way the editor
+         *     already expects.
+         */
+        patch: operations["patch_cover_letter_handler"];
+        trace?: never;
+    };
+    "/api/applications/{application_id}/reflection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read an application's reflection
+         * @description Private to its author. Nothing else reads this — see
+         *     `docs/adr/0009-reflections-never-feed-generation.md`.
+         */
+        get: operations["get_reflection_handler"];
+        /**
+         * Write an application's reflection
+         * @description Written whole rather than patched: the three questions are answered in one
+         *     sitting, and a partial update would let a half-finished thought overwrite a
+         *     finished one field by field.
+         *
+         *     **This is the most sensitive data the product holds.** It never enters a
+         *     prompt that produces user-facing content — not a CV bullet, not a cover
+         *     letter, not a tailoring suggestion. See
+         *     `docs/adr/0009-reflections-never-feed-generation.md`.
+         */
+        put: operations["put_reflection_handler"];
+        post?: never;
+        /**
+         * Delete an application's reflection
+         * @description Real deletion, not a flag. Someone withdrawing a private note about their
+         *     own rejection should not later discover it was only hidden.
+         */
+        delete: operations["delete_reflection_handler"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/email-verification/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend the email-verification link
+         * @description Registration mails the link once and the token expires after
+         *     `JWT_VERIFICATION_EXPIRY`. Without this endpoint, an account whose owner
+         *     took a day to check their mail was permanently unusable: re-registering the
+         *     same address answers `USER_ALREADY_EXISTS`.
+         *
+         *     Always answers `202`, with the same body, whether the address is unknown,
+         *     deleted, already verified, or genuinely needed a new link — and also when
+         *     sending fails, which is logged server-side. Anything else would make this an
+         *     oracle for which addresses are registered and which are confirmed.
+         *
+         *     `202` rather than `200` because that is what the response means: the request
+         *     was accepted, and nothing about what followed is being reported.
+         *
+         *     Rate-limited at 5 per hour per caller, matching `password-reset` — each call
+         *     can cost a token mint and an outbound mail.
+         */
+        post: operations["resend_verification_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/email-verification/{token}": {
         parameters: {
             query?: never;
@@ -66,6 +359,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/password-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request a password reset
+         * @description Emails a reset link to the address if it belongs to an active account.
+         *
+         *     Always answers 200, whether or not the address is registered. Reporting
+         *     "no such user" would make this endpoint an oracle for which emails have
+         *     accounts, so the response is deliberately uninformative — including when
+         *     delivery itself fails, which is logged server-side instead.
+         */
+        post: operations["request_password_reset_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/password-reset/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete a password reset
+         * @description Consumes the token from the emailed link and sets a new password.
+         *
+         *     Every existing session is revoked on success: a reset is the remedy for a
+         *     compromised account, so refresh tokens issued under the old password must
+         *     stop working.
+         *
+         *     Only a token minted for reset is accepted; an email-verification or access
+         *     token is rejected on its type.
+         */
+        post: operations["reset_password_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/refresh": {
         parameters: {
             query?: never;
@@ -108,6 +453,264 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/blog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the authenticated author's posts
+         * @description Includes drafts. Use `published=true` or `published=false` to narrow.
+         */
+        get: operations["get_blog_posts_handler"];
+        put?: never;
+        /**
+         * Create a blog post
+         * @description Omit `published_at` to create a draft. A future timestamp schedules the
+         *     post: it stays out of public listings until that moment passes.
+         *
+         *     Slugs are lowercased and must contain only letters, numbers and hyphens.
+         *     They are unique per author, so two authors may both use `hello-world`.
+         */
+        post: operations["create_blog_post_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/blog/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply one operation to many posts
+         * @description A batch is many operations, not one: each post succeeds or fails on its own
+         *     and the response says which. **A 200 means the batch ran, not that every
+         *     post succeeded** — read `failed`.
+         *
+         *     Posts belonging to another author are reported as `POST_NOT_FOUND`, the same
+         *     as the single-item routes, so this cannot be used to discover or modify
+         *     anyone else's work.
+         */
+        post: operations["bulk_blog_posts_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/blog/slug-available": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check whether a blog slug is free
+         * @description Collisions previously surfaced only at save, as `SLUG_ALREADY_EXISTS`, and
+         *     search covers title, excerpt and content rather than slug — so there was no
+         *     way to ask ahead, and an editor could not suggest a free variant without
+         *     risking that its own suggestion was taken.
+         *
+         *     **Scoped to the authenticated author**, because slugs are unique per author:
+         *     another user holding `building-a-cms` does not make it unavailable to you.
+         *
+         *     The suggestion is checked against the database rather than guessed, so it
+         *     cannot itself collide.
+         */
+        get: operations["blog_slug_available_handler"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/blog/{post_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one of the author's own posts
+         * @description Returns drafts as well as published posts, with the post's topics. A post
+         *     belonging to another author is reported as not found rather than forbidden.
+         */
+        get: operations["get_single_blog_post_handler"];
+        put?: never;
+        post?: never;
+        /**
+         * Archive a post
+         * @description Soft delete: the post drops out of every listing but the row survives and can be brought back with `POST /api/blog/{post_id}/restore`. Use `DELETE /api/blog/{post_id}/hard` to remove it outright.
+         */
+        delete: operations["archive_blog_post_handler"];
+        options?: never;
+        head?: never;
+        /**
+         * Partially update a post
+         * @description Only the keys present in the body change. Sending `null` for `excerpt` or
+         *     `published_at` clears them — clearing `published_at` is how a post is
+         *     unpublished back to draft. The slug cannot be cleared, since the post's
+         *     public URL depends on it.
+         */
+        patch: operations["patch_blog_post_handler"];
+        trace?: never;
+    };
+    "/api/blog/{post_id}/hard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Permanently delete a post
+         * @description Removes the post outright, unlike the archive on `DELETE /api/blog/{post_id}`. Topic links go with it by cascade. Not reversible.
+         */
+        delete: operations["hard_delete_blog_post_handler"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/blog/{post_id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a post's sharing state
+         * @description Backs the sharing panel: the link, when it expires, and whether it already
+         *     has. An expired link is reported rather than hidden — the author needs to
+         *     see that it lapsed, which is the difference between a TTL that is safe and
+         *     one that surprises people.
+         */
+        get: operations["get_draft_preview_handler"];
+        put?: never;
+        /**
+         * Share a draft, or extend the link it already has
+         * @description Mints a link the holder can read this post with, without an account. Calling
+         *     it again **renews the same link** rather than minting a new one, so a
+         *     reviewer's bookmark survives the renewal.
+         */
+        post: operations["share_draft_handler"];
+        /**
+         * Withdraw a draft's preview link
+         * @description The link stops working immediately. Revoking a post that is not shared
+         *     succeeds — the author ends up where they wanted to be either way.
+         */
+        delete: operations["revoke_draft_preview_handler"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/blog/{post_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore an archived post
+         * @description Brings back a post archived with `DELETE /api/blog/{post_id}`. Its publication state is untouched, so an archived draft returns as a draft.
+         */
+        post: operations["restore_blog_post_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/blog/{post_id}/topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the topics attached to a post */
+        get: operations["get_blog_post_topics_handler"];
+        put?: never;
+        /**
+         * Attach a topic to a post
+         * @description Both the post and the topic must belong to the caller. Attaching a topic
+         *     that is already attached succeeds without creating a duplicate.
+         */
+        post: operations["attach_blog_post_topic_handler"];
+        /**
+         * Detach a topic from a post
+         * @description Idempotent: detaching a topic that is not attached still returns 204.
+         */
+        delete: operations["detach_blog_post_topic_handler"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/blog/{post_id}/topics/all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Detach every topic from a post */
+        delete: operations["clear_blog_post_topics_handler"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cv-snapshots/{snapshot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a snapshot back
+         * @description Returns the CV exactly as it was sent. There is no update path — if the
+         *     author wants to work from it, the client offers "start a new version from
+         *     this", which creates an ordinary CV rather than editing history.
+         *
+         *     Owner-scoped: a snapshot is a record of what *you* sent. The CV it came
+         *     from may be public, but by the time anyone asks, the two are different
+         *     documents.
+         */
+        get: operations["get_cv_snapshot_handler"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cvs": {
         parameters: {
             query?: never;
@@ -123,6 +726,941 @@ export interface paths {
         get: operations["get_cvs_handler"];
         put?: never;
         post: operations["create_cv_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cvs/{cv_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a single CV by id
+         * @description Returns one CV owned by the authenticated user. CVs belonging to another
+         *     user are reported as not found rather than forbidden, so the endpoint does
+         *     not leak the existence of other users' CVs.
+         */
+        get: operations["get_cv_by_id_handler"];
+        /**
+         * Replace a CV
+         * @description Full replacement: every field in the body overwrites the stored CV, and
+         *     collections are replaced wholesale rather than merged. Use PATCH to change
+         *     a subset of fields.
+         */
+        put: operations["update_cv_handler"];
+        post?: never;
+        /**
+         * Archive a CV
+         * @description Marks the CV deleted so it drops out of listings while the row survives, and
+         *     can be brought back with `POST /api/cvs/{cv_id}/restore`. Use
+         *     `DELETE /api/cvs/{cv_id}/hard` to remove it outright.
+         *
+         *     Idempotent: archiving an already-archived CV returns 204 rather than an
+         *     error.
+         */
+        delete: operations["soft_delete_cv_handler"];
+        options?: never;
+        head?: never;
+        /**
+         * Partially update a CV
+         * @description Only the fields present in the body are changed. Collection fields use the
+         *     `{ "replace": [...] }` wrapper and are swapped out entirely; omitting a
+         *     collection leaves it untouched.
+         */
+        patch: operations["patch_cv_handler"];
+        trace?: never;
+    };
+    "/api/cvs/{cv_id}/hard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Permanently delete a CV
+         * @description Removes the CV outright, unlike the soft delete on
+         *     `DELETE /api/cvs/{cv_id}`. Not reversible.
+         */
+        delete: operations["hard_delete_cv_handler"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cvs/{cv_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore an archived CV
+         * @description Brings back a CV archived with `DELETE /api/cvs/{cv_id}` and returns it, so
+         *     no follow-up fetch is needed.
+         *
+         *     Idempotent: restoring a CV that is not archived succeeds and returns it
+         *     unchanged.
+         */
+        post: operations["restore_cv_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cvs/{cv_id}/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Freeze a CV as it stands
+         * @description Takes an immutable copy for an application to point at. Without one, the
+         *     tracker links to a living document: keep editing the CV and every past
+         *     application retroactively claims to have used a version that did not exist
+         *     when it was sent.
+         *
+         *     Deliberately **not** idempotent. Two applications sent a week apart each get
+         *     their own snapshot, even if the CV did not change in between.
+         */
+        post: operations["create_cv_snapshot_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List captured postings */
+        get: operations["get_jobs_handler"];
+        put?: never;
+        /**
+         * Capture a job posting
+         * @description Stores the posting as found. `source_text` is kept verbatim: postings get
+         *     taken down, and at interview time it is the only record of what was
+         *     actually asked for. Everything else can be re-derived from it.
+         */
+        post: operations["create_job_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read one posting */
+        get: operations["get_job_handler"];
+        put?: never;
+        post?: never;
+        /**
+         * Archive a posting
+         * @description Soft, like every other archive in this API. Applications keep pointing at
+         *     it — an application whose posting vanished would lose the only record of
+         *     what was asked for.
+         */
+        delete: operations["archive_job_handler"];
+        options?: never;
+        head?: never;
+        /** Edit a posting */
+        patch: operations["patch_job_handler"];
+        trace?: never;
+    };
+    "/api/maintenance/reap-uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clear abandoned uploads
+         * @description Deletes media registrations whose bytes never arrived. A row is written when
+         *     an upload URL is issued, and only the bucket can move it past `pending`; if
+         *     the client never uploads, the row would otherwise stay forever and any
+         *     attachment to it would serve an empty `variants` map, which a client cannot
+         *     distinguish from one still processing.
+         *
+         *     Intended for a scheduler. Idempotent — a second call finds nothing and
+         *     reports zero, which matters because schedulers retry.
+         */
+        post: operations["reap_uploads_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/media/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply one operation to many media items
+         * @description A batch is many operations, not one: each media succeeds or fails on its own
+         *     and the response says which. **A 200 means the batch ran, not that every
+         *     media succeeded** — read `failed`.
+         *
+         *     Items belonging to another author are reported as `MEDIA_NOT_FOUND`, the same
+         *     as the single-item routes, so this cannot be used to discover or modify
+         *     anyone else's uploads.
+         */
+        post: operations["bulk_media_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/media/by-target/{target}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the caller's media for one attachment target
+         * @description `target` is matched literally against the lowercase forms
+         *     `user`, `resume`, `project`, and `blog_post`. Note that the same enum
+         *     serialises in PascalCase inside response bodies (`Resume`, `BlogPost`),
+         *     so the path form and the body form differ.
+         */
+        get: operations["list_media_handler"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/media/statuses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Poll several media items' processing state at once
+         * @description A grid with twelve uploads in flight otherwise polls twelve times every two
+         *     seconds, per client. This collapses that into one call.
+         *
+         *     **Ids that do not resolve are absent from the response rather than an
+         *     error** — a client polling a set should not lose the whole batch because
+         *     one item was deleted between polls, and can treat an absent id as gone.
+         *
+         *     Unparseable ids are skipped for the same reason. An empty or all-invalid
+         *     list returns an empty array.
+         */
+        get: operations["get_media_statuses_handler"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/media/upload-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Begin a media upload
+         * @description Returns a pre-signed URL the client PUTs the file to directly; the bytes
+         *     never pass through this API. The media row is created in `pending` state and
+         *     only becomes readable once processing completes.
+         *
+         *     Limits come from the server-side upload policy: 5 MB, 6000 px per side, and
+         *     `image/jpeg`, `image/png`, or `image/webp` only.
+         */
+        post: operations["init_upload_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/media/{media_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one media item
+         * @description Returns the item along with `available_sizes`, the variant sizes that are
+         *     ready to read. Poll this after an upload: `status` moves to `ready` and
+         *     `available_sizes` fills in once the processing pipeline publishes its
+         *     manifest. Fetch the bytes with `GET /api/media/{media_id}/{media_size}`.
+         *
+         *     Media that is missing, soft-deleted, or owned by another user all report
+         *     404, so the endpoint cannot be used to probe for media ids.
+         */
+        get: operations["get_media_handler"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a media item
+         * @description Soft delete: `deleted_at` is stamped and the item drops out of listings and
+         *     signed-URL requests immediately, since every read path filters on it. The
+         *     stored objects are left alone — the upload bucket is reaped by a GCS
+         *     lifecycle rule, and derived variants live in a separate bucket.
+         *
+         *     Media belonging to another user reports 404 rather than 403, so the endpoint
+         *     cannot be used to probe for media ids.
+         */
+        delete: operations["delete_media_handler"];
+        options?: never;
+        head?: never;
+        /**
+         * Correct a media item's attachment metadata
+         * @description Alt text, caption and position are set at upload and were not editable, so
+         *     a missing or wrong alt text was a permanent accessibility defect and a
+         *     gallery could not be reordered without re-uploading every image.
+         */
+        patch: operations["patch_media_handler"];
+        trace?: never;
+    };
+    "/api/media/{media_id}/hard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Permanently remove a media item
+         * @description Deletes the media, attachment and variant rows. **The stored objects are
+         *     not removed** — reclaiming those is the bucket's lifecycle policy, so this
+         *     is not a way to make bytes unreachable in a hurry.
+         *
+         *     Check `GET /api/media/{id}/usage` first: this will happily remove an image
+         *     that is on a live page.
+         */
+        delete: operations["hard_delete_media_handler"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/media/{media_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore a soft-deleted media item
+         * @description `DELETE /api/media/{id}` has always been a soft delete; this is the way
+         *     back, which did not previously exist.
+         */
+        post: operations["restore_media_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/media/{media_id}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report where a media item is used
+         * @description Answers the question a delete confirmation needs to ask. `is_published` is
+         *     what earns the endpoint: "used on 3 posts" is mildly useful, "used on a post
+         *     that is live right now" is what stops someone breaking their own page.
+         *
+         *     An unused item returns an empty list, not a 404.
+         */
+        get: operations["get_media_usage_handler"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/media/{media_id}/{media_size}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a signed read URL for one media variant
+         * @description `media_size` is matched literally against `thumbnail`, `small`, `medium`,
+         *     and `large`; anything else is reported as `VARIANT_NOT_FOUND` rather than a
+         *     validation error. Media that exists but is not yet `ready` returns 409 so
+         *     clients can distinguish "not finished" from "not there".
+         */
+        get: operations["get_variant_read_url_handler"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the authenticated user's projects
+         * @description Paginated. `page` defaults to 1 and `per_page` to 10 when omitted or zero.
+         */
+        get: operations["get_projects_handler"];
+        put?: never;
+        /**
+         * Create a project
+         * @description The slug must be unique per user; a collision returns 409 rather than
+         *     silently suffixing. Topics are attached separately via
+         *     `POST /api/projects/{project_id}/topics`.
+         */
+        post: operations["create_project_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply one operation to many projects
+         * @description A batch is many operations, not one: each project succeeds or fails on its own
+         *     and the response says which. **A 200 means the batch ran, not that every
+         *     project succeeded** — read `failed`.
+         *
+         *     Projects belonging to another author are reported as `PROJECT_NOT_FOUND`, the same
+         *     as the single-item routes, so this cannot be used to discover or modify
+         *     anyone else's work.
+         */
+        post: operations["bulk_projects_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/slug-available": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check whether a project slug is free
+         * @description Same shape and semantics as the blog equivalent, and scoped to the
+         *     authenticated owner for the same reason: the unique index is `(user_id,
+         *     lower(slug))`, so another author holding a slug does not make it
+         *     unavailable to you.
+         *
+         *     The suggestion is checked against the database rather than guessed.
+         */
+        get: operations["project_slug_available_handler"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one of the authenticated user's projects
+         * @description Includes the project's attached topics. Projects owned by another user are
+         *     reported as not found rather than forbidden.
+         */
+        get: operations["get_project_by_id_handler"];
+        put?: never;
+        post?: never;
+        /**
+         * Soft-delete a project
+         * @description Marks the project deleted so it drops out of listings while the row and its
+         *     topic links survive. Use `DELETE /api/projects/{project_id}/hard` to remove
+         *     it outright.
+         */
+        delete: operations["soft_delete_project_handler"];
+        options?: never;
+        head?: never;
+        /**
+         * Partially update a project
+         * @description Only the keys present in the body are touched. Sending `null` for a
+         *     nullable field clears it; omitting the key leaves it as-is. The slug is not
+         *     patchable.
+         */
+        patch: operations["patch_project_handler"];
+        trace?: never;
+    };
+    "/api/projects/{project_id}/hard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Permanently delete a project
+         * @description Removes the project outright, unlike the soft delete on
+         *     `DELETE /api/projects/{project_id}`. Not reversible.
+         */
+        delete: operations["hard_delete_project_handler"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore an archived project
+         * @description `DELETE /api/projects/{id}` has always been a soft delete, and the archiver
+         *     has always had a `restore`, but nothing exposed it — so the console had to
+         *     present project deletion as permanent, contradicting the archive pattern
+         *     blog and CVs already follow.
+         *
+         *     Idempotent: restoring a project that was never archived succeeds.
+         */
+        post: operations["restore_project_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the topics attached to a project */
+        get: operations["get_project_topics_handler"];
+        put?: never;
+        /**
+         * Attach a topic to a project
+         * @description Both the project and the topic must belong to the caller. Responds 200 with
+         *     a bare acknowledgement rather than the updated project.
+         */
+        post: operations["add_project_topic_handler"];
+        /**
+         * Detach a topic from a project
+         * @description Idempotent: detaching a topic that is not attached still returns 204, so
+         *     repeat calls are safe. Only a missing project is reported as 404.
+         */
+        delete: operations["remove_project_topic_handler"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/topics/all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Detach every topic from a project
+         * @description Idempotent: a project with no topics still returns 204.
+         */
+        delete: operations["clear_project_topics_handler"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/blog/preview/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a draft through its preview link
+         * @description Public: the token is the authorisation, so no account is needed.
+         *
+         *     **If the post has since been published, this redirects to its public page**
+         *     rather than reporting a dead link. A reviewer opening a bookmark for
+         *     something the world can now read should land on the real thing, not on an
+         *     error.
+         *
+         *     Unknown, revoked and expired tokens are all 404, and deliberately
+         *     indistinguishable.
+         *
+         *     The response carries `X-Robots-Tag: noindex, nofollow`: the token is a
+         *     bearer credential on a public route, and an indexed preview link is a
+         *     published draft.
+         */
+        get: operations["read_draft_preview_handler"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/blog/preview/{token}/media/{media_id}/{size}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read an image on a previewed draft
+         * @description Public: the token authorises it, exactly as it authorises the post itself.
+         *     Redirects to a freshly signed URL, like the ordinary public media route.
+         *
+         *     This route exists because the public one deliberately refuses media on an
+         *     unpublished post — which is right for the public, and would leave every
+         *     image in a preview broken. The token is checked per image, so revoking the
+         *     link stops the pictures as well as the prose.
+         *
+         *     A media id that belongs to a different post is a 404, the same as a dead
+         *     token: a preview link opens one draft, not the media table.
+         */
+        get: operations["read_preview_media_handler"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/blog/{username}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List an author's published posts
+         * @description Public: no authentication required. Drafts and scheduled posts are never
+         *     returned, regardless of the `published` query parameter — the public path
+         *     forces published-only rather than reading it from the request.
+         */
+        get: operations["get_public_blog_posts_handler"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/blog/{username}/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a published post by author and slug
+         * @description Public: no authentication required. Addressed by slug, which is unique per
+         *     author, so this is the shareable permalink. Drafts and posts scheduled for
+         *     the future report 404 — indistinguishable from a slug that does not exist,
+         *     so an unpublished post cannot be detected.
+         */
+        get: operations["get_public_blog_post_handler"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/cvs/{username}/{cv_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a single CV publicly by username and id
+         * @description Public endpoint: no authentication required. The username is resolved to an
+         *     owner first, so an unknown username yields `USER_NOT_FOUND` while a valid
+         *     username with an unknown CV yields `CV_NOT_FOUND`.
+         */
+        get: operations["get_public_cv_by_id_handler"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/media/{media_id}/{size}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Redirect a reader to a signed URL for one media variant
+         * @description Public: no token required. The bucket is private, so this endpoint is the
+         *     only way a reader reaches an object — it checks the media is attached to
+         *     something published, signs a short-lived URL, and redirects.
+         *
+         *     Unpublishing the post that carries the media makes this 404 from then on,
+         *     which is the property a world-readable bucket cannot provide.
+         */
+        get: operations["get_public_variant_handler"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/projects/{username}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a user's projects publicly
+         * @description Public endpoint: no authentication required. Accepts the same pagination
+         *     and filter query parameters as the authenticated listing.
+         */
+        get: operations["get_public_projects_handler"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/projects/{username}/{project_slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one project publicly by username and slug
+         * @description Public endpoint: no authentication required. Addressed by slug rather than
+         *     id, so it suits shareable portfolio links.
+         */
+        get: operations["get_public_single_project_handler"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/users/{username}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read an author's public profile
+         * @description Every public route is keyed on `{username}`, but nothing returned who that
+         *     was — so a public page had an anonymous header and could not introduce the
+         *     person whose work it was showing.
+         *
+         *     Public: no token required. Returns display name, bio and avatar only. No
+         *     email and no account state: this is the one endpoint that serves a user's
+         *     details to somebody else, so it carries the minimum a page needs.
+         *
+         *     A deleted account is reported as not found, matching the rest of the public
+         *     surface.
+         */
+        get: operations["get_public_profile_handler"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the authenticated user's topics
+         * @description Returns every topic owned by the caller. Soft-deleted topics are excluded.
+         */
+        get: operations["get_topics_handler"];
+        put?: never;
+        /**
+         * Create a topic
+         * @description Titles are trimmed before validation and must be 1-100 characters. Topics
+         *     are scoped to the authenticated user, so two users may hold the same title.
+         */
+        post: operations["create_topic_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/topics/{topic_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Soft-delete a topic
+         * @description Marks the topic deleted rather than removing the row, so it stops appearing
+         *     in listings while existing references remain resolvable. Deleting a topic
+         *     owned by another user is rejected as forbidden, not hidden as not-found.
+         */
+        delete: operations["soft_delete_topic_handler"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename a topic
+         * @description Topics supported create, list and soft delete only, so a typo in a title
+         *     was permanent and visible on every tagged post and project. The workaround
+         *     was create-retag-retire, by hand.
+         *
+         *     The topic keeps its id, so everything tagged with it follows the new name
+         *     automatically — nothing needs retagging.
+         */
+        patch: operations["patch_topic_handler"];
+        trace?: never;
+    };
+    "/api/topics/{topic_id}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Count what a topic is attached to
+         * @description Answers the question a retire-confirmation needs: "Retire «Rust»? It's on 6
+         *     posts and 2 projects." Getting that number previously meant fetching every
+         *     post and project and their topics, so the console either warned generically
+         *     or invented a figure.
+         *
+         *     Counts live rows only — a soft-deleted post is not a reason to keep a topic.
+         *     An unused, unknown, or someone else's topic all report zeroes rather than
+         *     404: this is a number for a dialog, not an existence check.
+         */
+        get: operations["get_topic_usage_handler"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -159,96 +1697,425 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liveness probe
+         * @description Answers as long as the process is running. Performs no I/O, so it stays
+         *     cheap enough for a frequent container health check and never fails because
+         *     a dependency is down.
+         */
+        get: operations["health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * READINESS PROBE
+         *     - Checks critical dependencies
+         * @description The Redis handle must match what `main.rs` registers: a `deadpool_redis::Pool`.
+         *     Asking for any other type here makes the extractor fail and the probe 500 before
+         *     a single dependency is checked.
+         */
+        get: operations["readiness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        CVInfo: {
-            /**
-             * @description Biography
-             * @example Passionate software engineer...
-             */
-            bio: string;
-            /** @description Contact information */
-            contact_info: components["schemas"]["ContactDetail"][];
-            /** @description Core skills */
-            core_skills: components["schemas"]["CoreSkill"][];
-            /**
-             * @description Display name
-             * @example John Doe
-             */
-            display_name: string;
-            /** @description Educational background */
-            educations: components["schemas"]["Education"][];
-            /** @description Work experiences */
-            experiences: components["schemas"]["Experience"][];
-            /** @description Highlighted projects */
-            highlighted_projects: components["schemas"]["HighlightedProject"][];
+        /** @description Request body accepted by this endpoint. */
+        AddProjectTopicRequest: {
             /**
              * Format: uuid
-             * @description CV unique identifier
+             * @description Topic to attach. Must already exist and belong to the caller.
+             * @example 9f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d
+             */
+            topic_id: string;
+        };
+        /** @description Which CV to analyse. */
+        AnalyseApplicationRequest: {
+            /**
+             * Format: uuid
+             * @description A living CV — this is how tailoring works, before anything is sent.
+             *
+             *     Omit it once the application has been sent and the analysis will run
+             *     against the snapshot that actually went out. A draft with neither
+             *     cannot be analysed.
+             */
+            cv_id?: string | null;
+        };
+        /** @description An application as returned by the API. */
+        ApplicationResponse: {
+            /**
+             * Format: date-time
+             * @description When it was sent. `null` while still a draft.
+             */
+            applied_at?: string | null;
+            /**
+             * Format: date-time
+             * @description When the row was created.
+             */
+            created_at: string;
+            /**
+             * Format: uuid
+             * @description The frozen CV that was sent. `null` only while this is a draft.
+             */
+            cv_snapshot_id?: string | null;
+            /**
+             * Format: uuid
+             * @description Identifier.
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @description The posting applied to.
+             */
+            job_id: string;
+            /** @description What you owe it next, in your own words. Empty when nothing is due. */
+            next_action: string;
+            /**
+             * Format: date-time
+             * @description When that is due.
+             */
+            next_action_at?: string | null;
+            /** @description Where it has got to. */
+            status: components["schemas"]["ApplicationStatus"];
+            /**
+             * Format: date-time
+             * @description Last edit.
+             */
+            updated_at: string;
+        };
+        /**
+         * @description Where an application has got to.
+         *
+         *     Server-side rather than a free string, because the whole feature is
+         *     pattern-finding over these values and a typo would quietly split a stage in
+         *     two.
+         * @enum {string}
+         */
+        ApplicationStatus: "draft" | "applied" | "screening" | "interview" | "final" | "offer" | "accepted" | "rejected" | "withdrawn" | "no_reply";
+        /**
+         * @description What kind of thing a media item is attached to.
+         *
+         *     Persisted, so adding a variant needs a migration and removing one needs a
+         *     backfill.
+         *
+         *     `snake_case` rather than `lowercase`, because `BlogPost` has always stored
+         *     as `blog_post`; see [`MediaRole`] for why the two forms must agree.
+         * @enum {string}
+         */
+        AttachmentTarget: "user" | "resume" | "project" | "blog_post";
+        /**
+         * @description One page of results, plus the totals a client needs to paginate.
+         *
+         *     `total` counts every row matching the filter, not just this page.
+         */
+        BlogPageResult_BlogPostCardResponse: {
+            /** @description The rows on this page. */
+            items: {
+                cover?: null | components["schemas"]["PublicMedia"];
+                /**
+                 * Format: date-time
+                 * @description When it was created.
+                 */
+                created_at: string;
+                /** @description Short summary for listings. `None` when none was written. */
+                excerpt?: string | null;
+                /**
+                 * Format: uuid
+                 * @description Primary key.
+                 */
+                id: string;
+                /**
+                 * Format: date-time
+                 * @description `None` is a draft; a past value is published, a future one scheduled.
+                 */
+                published_at?: string | null;
+                /**
+                 * @description URL segment. Unique per owner.
+                 * @example building-a-cms-in-rust
+                 */
+                slug: string;
+                /**
+                 * @description Display title.
+                 * @example Building a CMS in Rust
+                 */
+                title: string;
+                /**
+                 * Format: date-time
+                 * @description When it was last edited.
+                 */
+                updated_at: string;
+            }[];
+            /**
+             * Format: int32
+             * @description 1-based page number.
+             * @example 1
+             */
+            page: number;
+            /**
+             * Format: int32
+             * @description Rows per page.
+             * @example 10
+             */
+            per_page: number;
+            /**
+             * Format: int64
+             * @description Rows matching the filter across *all* pages, not just this one.
+             * @example 42
+             */
+            total: number;
+        };
+        /**
+         * @description A listing row. Carries no `content` — that column is not selected for
+         *     listings, so exposing a field for it would be a lie.
+         */
+        BlogPostCardResponse: {
+            cover?: null | components["schemas"]["PublicMedia"];
+            /**
+             * Format: date-time
+             * @description When it was created.
+             */
+            created_at: string;
+            /** @description Short summary for listings. `None` when none was written. */
+            excerpt?: string | null;
+            /**
+             * Format: uuid
+             * @description Primary key.
+             */
+            id: string;
+            /**
+             * Format: date-time
+             * @description `None` is a draft; a past value is published, a future one scheduled.
+             */
+            published_at?: string | null;
+            /**
+             * @description URL segment. Unique per owner.
+             * @example building-a-cms-in-rust
+             */
+            slug: string;
+            /**
+             * @description Display title.
+             * @example Building a CMS in Rust
+             */
+            title: string;
+            /**
+             * Format: date-time
+             * @description When it was last edited.
+             */
+            updated_at: string;
+        };
+        /** @description A post together with its topics, for detail views. */
+        BlogPostDetailResponse: components["schemas"]["BlogPostResponse"] & {
+            cover?: null | components["schemas"]["PublicMedia"];
+            /** @description Topics attached to the post. */
+            topics: components["schemas"]["BlogPostTopicResponse"][];
+        };
+        /** @description Response body returned by this endpoint. */
+        BlogPostResponse: {
+            /** @description The body. */
+            content: string;
+            /**
+             * Format: date-time
+             * @description When it was created.
+             */
+            created_at: string;
+            /**
+             * @description Short summary for listings. `None` when none was written.
+             * @example A walk through the hexagonal layout
+             */
+            excerpt?: string | null;
+            /**
+             * Format: uuid
+             * @description Primary key.
              * @example 123e4567-e89b-12d3-a456-426614174000
              */
             id: string;
             /**
-             * @description Profile photo URL
-             * @example https://example.com/photos/profile.jpg
+             * Format: date-time
+             * @description Null for a draft. A timestamp in the future means scheduled, not live.
              */
-            photo_url: string;
+            published_at?: string | null;
             /**
-             * @description Professional role
-             * @example Senior Software Engineer
+             * @description URL segment. Unique per owner.
+             * @example building-a-cms-in-rust
              */
-            role: string;
+            slug: string;
+            /**
+             * @description Display title.
+             * @example Building a CMS in Rust
+             */
+            title: string;
+            /**
+             * Format: date-time
+             * @description When it was last edited.
+             */
+            updated_at: string;
             /**
              * Format: uuid
-             * @description Owner user ID
+             * @description The owning user.
              * @example 987e6543-e21b-12d3-a456-426614174000
              */
             user_id: string;
         };
-        CVPageResult_CVInfo: {
+        /**
+         * @description Listing order. Defaults to [`PublishedNewest`](Self::PublishedNewest),
+         *     which is what a blog index wants.
+         * @enum {string}
+         */
+        BlogPostSort: "newest" | "oldest" | "published_newest" | "updated_newest";
+        /** @description Request body accepted by this endpoint. */
+        BlogPostTopicRequest: {
+            /**
+             * Format: uuid
+             * @description The topic to attach or detach.
+             * @example 9f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d
+             */
+            topic_id: string;
+        };
+        /** @description Response body returned by this endpoint. */
+        BlogPostTopicResponse: {
+            /**
+             * @description Long-form description.
+             * @example Posts about the Rust language
+             */
+            description: string;
+            /**
+             * Format: uuid
+             * @description Primary key.
+             */
+            id: string;
+            /**
+             * @description Display title.
+             * @example Rust
+             */
+            title: string;
+        };
+        /**
+         * @description Request body: the operation, then the posts to apply it to.
+         *
+         *     `op` and its arguments are flattened into this object, so an attach reads
+         *     `{"op": "attach_topic", "topic_id": "...", "ids": [...]}`.
+         */
+        BulkBlogRequest: Record<string, never> & {
+            /** @description The posts to apply it to. Duplicates are collapsed. */
+            ids: string[];
+        };
+        /** @description One item that did not succeed, and why. */
+        BulkFailure: {
+            /**
+             * @description The same vocabulary `error.code` uses, so a client branches on bulk
+             *     failures exactly as it branches on single-item ones.
+             * @example POST_NOT_FOUND
+             */
+            code: string;
+            /**
+             * Format: uuid
+             * @description The item this is about.
+             */
+            id: string;
+            /** @description Prose detail. May change; branch on `code`. */
+            message: string;
+        };
+        /**
+         * @description Request body: the operation, then the media items to apply it to.
+         *
+         *     `op` is flattened into this object, so a request reads
+         *     `{"op": "archive", "ids": [...]}`.
+         */
+        BulkMediaRequest: Record<string, never> & {
+            /** @description The media items to apply it to. Duplicates are collapsed. */
+            ids: string[];
+        };
+        /** @description What happened to each item in a bulk request. */
+        BulkOutcome: {
+            /**
+             * @description Ids the operation did not apply to, each with the reason.
+             *
+             *     Empty on a fully successful batch. **Never assume it is** — a partial
+             *     failure is the ordinary case here, not an exceptional one.
+             */
+            failed: components["schemas"]["BulkFailure"][];
+            /** @description Ids the operation applied to, in request order. */
+            succeeded: string[];
+        };
+        /**
+         * @description Request body: the operation, then the projects to apply it to.
+         *
+         *     `op` and its arguments are flattened into this object, so an attach reads
+         *     `{"op": "attach_topic", "topic_id": "...", "ids": [...]}`.
+         */
+        BulkProjectRequest: Record<string, never> & {
+            /** @description The projects to apply it to. Duplicates are collapsed. */
+            ids: string[];
+        };
+        /** @description One page of results, plus the totals a client needs to paginate. */
+        CVPageResult_CvResponse: {
             /** @description List of items in the current page */
             items: {
                 /**
-                 * @description Biography
+                 * @description Free-form introduction.
                  * @example Passionate software engineer...
                  */
                 bio: string;
-                /** @description Contact information */
-                contact_info: components["schemas"]["ContactDetail"][];
-                /** @description Core skills */
-                core_skills: components["schemas"]["CoreSkill"][];
+                /** @description Contact rows. Public on a published CV. */
+                contact_info: components["schemas"]["ContactDetailDto"][];
+                /** @description Headline skills, in display order. */
+                core_skills: components["schemas"]["CoreSkillDto"][];
                 /**
-                 * @description Display name
+                 * @description Name shown on the CV.
                  * @example John Doe
                  */
                 display_name: string;
-                /** @description Educational background */
-                educations: components["schemas"]["Education"][];
-                /** @description Work experiences */
-                experiences: components["schemas"]["Experience"][];
-                /** @description Highlighted projects */
-                highlighted_projects: components["schemas"]["HighlightedProject"][];
+                /** @description Education entries, in display order. */
+                educations: components["schemas"]["EducationDto"][];
+                /** @description Work history, in display order. */
+                experiences: components["schemas"]["ExperienceDto"][];
+                /** @description Projects featured on the CV, in display order. */
+                highlighted_projects: components["schemas"]["HighlightedProjectDto"][];
                 /**
                  * Format: uuid
-                 * @description CV unique identifier
+                 * @description Primary key.
                  * @example 123e4567-e89b-12d3-a456-426614174000
                  */
                 id: string;
                 /**
-                 * @description Profile photo URL
+                 * @description Portrait image. Empty when unset.
                  * @example https://example.com/photos/profile.jpg
                  */
                 photo_url: string;
                 /**
-                 * @description Professional role
+                 * @description Job title shown under the display name.
                  * @example Senior Software Engineer
                  */
                 role: string;
                 /**
                  * Format: uuid
-                 * @description Owner user ID
+                 * @description The owning user.
                  * @example 987e6543-e21b-12d3-a456-426614174000
                  */
                 user_id: string;
@@ -272,57 +2139,135 @@ export interface components {
              */
             total: number;
         };
-        /** @enum {string} */
-        CVSort: "newest" | "oldest" | "updatednewest" | "updatedoldest";
-        ContactDetail: {
-            /** @description Type of contact */
-            contact_type: components["schemas"]["ContactType"];
+        /**
+         * @description Listing order. Defaults to [`UpdatedNewest`](Self::UpdatedNewest).
+         * @enum {string}
+         */
+        CVSort: "newest" | "oldest" | "updated_newest" | "updated_oldest";
+        /** @description Request or response shape for the HTTP layer. */
+        ContactDetailDto: {
+            /** @description Which kind of contact row this is; decides how a client renders it. */
+            contact_type: components["schemas"]["ContactTypeDto"];
             /**
-             * @description Contact value
+             * @description The body.
              * @example john@example.com
              */
             content: string;
             /**
-             * @description Contact title/label
+             * @description Display title.
              * @example Work Email
              */
             title: string;
         };
-        /** @enum {string} */
-        ContactType: "PhoneNumber" | "WebPage";
-        CoreSkill: {
+        /**
+         * @description See the module documentation.
+         * @enum {string}
+         */
+        ContactTypeDto: "phone_number" | "web_page";
+        /** @description Request or response shape for the HTTP layer. */
+        CoreSkillDto: {
             /**
              * @description Skill description
              * @example Expert in Rust, Python, and Node.js
              */
             description: string;
             /**
-             * @description Skill title/name
+             * @description Skill title
              * @example Backend Development
              */
             title: string;
         };
+        /** @description A cover letter as returned by the API. */
+        CoverLetterResponse: {
+            /**
+             * Format: uuid
+             * @description The application it belongs to.
+             */
+            application_id: string;
+            /** @description Markdown, like a post body. */
+            content: string;
+            /**
+             * Format: date-time
+             * @description When it was started.
+             */
+            created_at: string;
+            /** @description The letter's own language — not the writer's interface language. */
+            language: string;
+            /** @description Whether it has gone out. */
+            status: components["schemas"]["CoverLetterStatus"];
+            /**
+             * Format: date-time
+             * @description Last edit.
+             */
+            updated_at: string;
+        };
+        /**
+         * @description Whether a cover letter has gone out.
+         * @enum {string}
+         */
+        CoverLetterStatus: "draft" | "sent";
+        /** @description Body for starting an application. */
+        CreateApplicationRequest: {
+            /**
+             * Format: uuid
+             * @description The posting being applied to. Must be one of yours.
+             */
+            job_id: string;
+            /** @description What you owe it next. */
+            next_action?: string;
+            /**
+             * Format: date-time
+             * @description When that is due.
+             */
+            next_action_at?: string | null;
+        };
+        /** @description Request body accepted by this endpoint. */
+        CreateBlogPostRequest: {
+            /** @description The body. */
+            content: string;
+            /**
+             * @description Short summary for listings. `None` when none was written.
+             * @example A walk through the hexagonal layout
+             */
+            excerpt?: string | null;
+            /**
+             * Format: date-time
+             * @description Omit to create a draft. A future timestamp schedules the post.
+             */
+            published_at?: string | null;
+            /**
+             * @description Lowercase letters, numbers and hyphens only. Unique per author.
+             * @example building-a-cms-in-rust
+             */
+            slug: string;
+            /**
+             * @description Display title.
+             * @example Building a CMS in Rust
+             */
+            title: string;
+        };
+        /** @description Request body accepted by this endpoint. */
         CreateCVRequest: {
             /**
              * @description Professional biography
              * @example Passionate software engineer with 10+ years of experience...
              */
             bio: string;
-            /** @description Contact information */
-            contact_info: components["schemas"]["ContactDetail"][];
-            /** @description List of core skills */
-            core_skills: components["schemas"]["CoreSkill"][];
+            /** @description Contact rows. Public on a published CV. */
+            contact_info: components["schemas"]["ContactDetailDto"][];
+            /** @description Headline skills, in display order. */
+            core_skills: components["schemas"]["CoreSkillDto"][];
             /**
              * @description Display name for the CV
              * @example John Doe
              */
             display_name: string;
-            /** @description Educational background */
-            educations: components["schemas"]["EducationRequest"][];
-            /** @description Work experience */
-            experiences: components["schemas"]["ExperienceRequest"][];
-            /** @description Highlighted projects */
-            highlighted_projects: components["schemas"]["HighlightedProjectRequest"][];
+            /** @description Education entries, in display order. */
+            educations: components["schemas"]["EducationDto"][];
+            /** @description Work history, in display order. */
+            experiences: components["schemas"]["ExperienceDto"][];
+            /** @description Projects featured on the CV, in display order. */
+            highlighted_projects: components["schemas"]["HighlightedProjectDto"][];
             /**
              * @description URL to profile photo
              * @example https://example.com/photos/profile.jpg
@@ -333,6 +2278,55 @@ export interface components {
              * @example Senior Software Engineer
              */
             role: string;
+        };
+        /** @description Body for capturing a posting. */
+        CreateJobRequest: {
+            /** @description Hiring company. Required. */
+            company: string;
+            /** @description Where the role is. */
+            location?: string;
+            /** @description Extracted nice-to-haves. */
+            nice_to_have?: string[];
+            /** @description Extracted must-haves. */
+            required_skills?: string[];
+            /** @description Seniority as advertised. */
+            seniority?: string;
+            /** @description The posting verbatim. Stored exactly as sent, whitespace included. */
+            source_text?: string;
+            /** @description Where it was found. */
+            source_url?: string;
+            /** @description Role title. Required. */
+            title: string;
+        };
+        /** @description Request body accepted by this endpoint. */
+        CreateProjectRequest: {
+            /** @description Long-form description. */
+            description: string;
+            /** @description Running instance, if there is one. */
+            live_demo_url?: string | null;
+            /** @description Source repository, if published. */
+            repo_url?: string | null;
+            /** @description Image URLs, in display order. */
+            screenshots: string[];
+            /** @description URL segment. Unique per owner. */
+            slug: string;
+            /** @description Technology labels, in display order. */
+            tech_stack: string[];
+            /** @description Display title. */
+            title: string;
+        };
+        /** @description Request body accepted by this endpoint. */
+        CreateTopicRequest: {
+            /**
+             * @description Optional description.
+             * @example Notes and projects on consensus and replication
+             */
+            description?: string | null;
+            /**
+             * @description Topic title. Trimmed, must be non-empty and at most 100 characters.
+             * @example Distributed Systems
+             */
+            title: string;
         };
         /** @description Request body for user registration */
         CreateUserRequest: {
@@ -357,41 +2351,169 @@ export interface components {
              */
             username: string;
         };
-        Education: {
-            /** @example Bachelor of Science in Computer Science */
-            degree: string;
+        /** @description A CV as returned by the API. */
+        CvResponse: {
             /**
-             * Format: int32
-             * @example 2015
+             * @description Free-form introduction.
+             * @example Passionate software engineer...
              */
-            graduation_year: number;
-            /** @example MIT */
-            institution: string;
-        };
-        EducationRequest: {
+            bio: string;
+            /** @description Contact rows. Public on a published CV. */
+            contact_info: components["schemas"]["ContactDetailDto"][];
+            /** @description Headline skills, in display order. */
+            core_skills: components["schemas"]["CoreSkillDto"][];
             /**
-             * @description Degree obtained
+             * @description Name shown on the CV.
+             * @example John Doe
+             */
+            display_name: string;
+            /** @description Education entries, in display order. */
+            educations: components["schemas"]["EducationDto"][];
+            /** @description Work history, in display order. */
+            experiences: components["schemas"]["ExperienceDto"][];
+            /** @description Projects featured on the CV, in display order. */
+            highlighted_projects: components["schemas"]["HighlightedProjectDto"][];
+            /**
+             * Format: uuid
+             * @description Primary key.
+             * @example 123e4567-e89b-12d3-a456-426614174000
+             */
+            id: string;
+            /**
+             * @description Portrait image. Empty when unset.
+             * @example https://example.com/photos/profile.jpg
+             */
+            photo_url: string;
+            /**
+             * @description Job title shown under the display name.
+             * @example Senior Software Engineer
+             */
+            role: string;
+            /**
+             * Format: uuid
+             * @description The owning user.
+             * @example 987e6543-e21b-12d3-a456-426614174000
+             */
+            user_id: string;
+        };
+        /** @description What a freshly taken snapshot reports. */
+        CvSnapshotCreated: {
+            /**
+             * Format: date-time
+             * @description When it was taken — the "as sent" date the tracker shows.
+             */
+            created_at: string;
+            /**
+             * Format: uuid
+             * @description The snapshot's identifier. Store this on the application.
+             */
+            snapshot_id: string;
+        };
+        /** @description A snapshot read back. */
+        CvSnapshotResponse: {
+            /**
+             * Format: date-time
+             * @description When it was taken.
+             */
+            created_at: string;
+            /**
+             * Format: uuid
+             * @description The CV it was taken from. That CV has probably changed since; this is
+             *     here so a client can offer "start a new version from this", not so it
+             *     can go and read the current one instead.
+             */
+            cv_id: string;
+            /** @description The CV exactly as it stood. Read-only, always. */
+            document: components["schemas"]["CvResponse"];
+            /**
+             * Format: uuid
+             * @description The snapshot's identifier.
+             */
+            snapshot_id: string;
+        };
+        /** @description What a reader holding a preview link is served. */
+        DraftPreviewResponse: components["schemas"]["BlogPostDetailResponse"] & {
+            /**
+             * @description Always `true`. Present so a client can render the "not published"
+             *     banner from the payload rather than from which URL it happened to call
+             *     — without it a reviewer cannot tell a draft from the live post, and may
+             *     link to it as though it were public.
+             */
+            preview: boolean;
+        };
+        /** @description The author-facing view of a post's sharing state. */
+        DraftPreviewState: {
+            /**
+             * Format: date-time
+             * @description When it was first shared. Unchanged by renewing.
+             */
+            created_at: string;
+            /**
+             * @description True once `expires_at` has passed. The link still exists and can be
+             *     renewed; it just does not currently work.
+             */
+            expired: boolean;
+            /**
+             * Format: date-time
+             * @description When the link stops working.
+             */
+            expires_at: string;
+            /**
+             * @description The shareable secret. Shown so the sharing panel can display the link
+             *     again rather than re-minting one and breaking the reviewer's bookmark.
+             */
+            token: string;
+        };
+        /** @description What a drafting pass should work from. */
+        DraftingRequest: {
+            /**
+             * Format: uuid
+             * @description The application being worked on.
+             */
+            application_id: string;
+            /**
+             * Format: uuid
+             * @description A living CV to work from. Falls back to the application's snapshot;
+             *     a draft with neither is a 400.
+             */
+            cv_id?: string | null;
+            /** @description What to do this turn, in your own words. Each surface has a default. */
+            instruction?: string | null;
+            /** @description The language to write in. Explicit, never inferred. */
+            language?: string | null;
+        };
+        /** @description Request or response shape for the HTTP layer. */
+        EducationDto: {
+            /**
+             * @description Qualification earned.
              * @example Bachelor of Science in Computer Science
              */
             degree: string;
             /**
              * Format: int32
-             * @description Year of graduation
+             * @description Year of completion.
              * @example 2015
              */
             graduation_year: number;
             /**
-             * @description Educational institution
+             * @description Where it was earned.
              * @example MIT
              */
             institution: string;
         };
+        /**
+         * @description Machine-readable error code. Stable contract: branch on this, not on `message`. See docs/API_ERRORS.md.
+         * @example USER_NOT_FOUND
+         * @enum {string}
+         */
+        ErrorCode: "MISSING_AUTH_HEADER" | "INVALID_CREDENTIALS" | "INVALID_TOKEN" | "TOKEN_INVALID" | "TOKEN_EXPIRED" | "TOKEN_NOT_YET_VALID" | "INVALID_TOKEN_TYPE" | "INVALID_RESET_TOKEN" | "EMAIL_NOT_VERIFIED" | "USER_DELETED" | "FORBIDDEN" | "USER_UNAUTHORIZED" | "CV_UNAUTHORIZED" | "POST_UNAUTHORIZED" | "USER_NOT_FOUND" | "CV_NOT_FOUND" | "POST_NOT_FOUND" | "PROJECT_NOT_FOUND" | "TOPIC_NOT_FOUND" | "MEDIA_NOT_FOUND" | "JOB_NOT_FOUND" | "APPLICATION_NOT_FOUND" | "VARIANT_NOT_FOUND" | "TARGET_NOT_FOUND" | "USER_ALREADY_EXISTS" | "TOPIC_ALREADY_EXISTS" | "SLUG_ALREADY_EXISTS" | "VALIDATION_ERROR" | "INVALID_REQUEST" | "MISSING_FIELD" | "BULK_TOO_LARGE" | "BULK_EMPTY" | "AI_QUOTA_EXCEEDED" | "AI_REFUSED" | "AI_UPSTREAM_ERROR" | "AI_TIMEOUT" | "AI_DISABLED" | "AI_FETCH_FAILED" | "SNAPSHOT_REQUIRED" | "INVALID_EMAIL" | "INVALID_PASSWORD" | "INVALID_USERNAME" | "INVALID_FULL_NAME" | "INVALID_SLUG" | "INVALID_TITLE" | "EMPTY_TITLE" | "TITLE_TOO_LONG" | "INVALID_CONTENT" | "INVALID_FILE_NAME" | "INVALID_EXTENSION" | "INVALID_MIME_TYPE" | "MIME_EXTENSION_MISMATCH" | "FILE_TOO_LARGE" | "INVALID_DIMENSIONS" | "MEDIA_PENDING" | "MEDIA_PROCESSING" | "MEDIA_FAILED" | "STORAGE_ERROR" | "RATE_LIMITED" | "INTERNAL_ERROR";
+        /** @description The `error` object inside a failed response. */
         ErrorDetail: {
             /**
-             * @description Error code for programmatic handling
-             * @example INVALID_FILE_NAME
+             * @description Machine-readable error code. This is the stable contract — branch on it
+             *     rather than on `message`, which is prose and may change.
              */
-            code: string;
+            code: components["schemas"]["ErrorCode"];
             /**
              * @description Human-readable error message
              * @example Invalid file name
@@ -408,101 +2530,201 @@ export interface components {
              */
             success: boolean;
         };
-        Experience: {
-            achievements: string[];
-            /** @example Tech Corp */
-            company: string;
-            /** @example Led backend development team... */
-            description: string;
-            /** @example 2023-12 */
-            end_date?: string | null;
-            /** @example San Francisco, CA */
-            location: string;
-            /** @example Senior Backend Engineer */
-            position: string;
-            /** @example 2020-01 */
-            start_date: string;
-            tasks: string[];
-        };
-        ExperienceRequest: {
+        /** @description Request or response shape for the HTTP layer. */
+        ExperienceDto: {
             /**
-             * @description Notable achievements
+             * @description Notable outcomes, in display order.
              * @example [
-             *       "Reduced latency by 40%",
-             *       "Increased test coverage to 90%"
+             *       "Reduced latency by 40%"
              *     ]
              */
             achievements: string[];
             /**
-             * @description Company name
+             * @description Employer.
              * @example Tech Corp
              */
             company: string;
             /**
-             * @description Job description
+             * @description Long-form description.
              * @example Led backend development team...
              */
             description: string;
             /**
-             * @description End date (None if current position)
+             * @description Absent for a current position
              * @example 2023-12
              */
             end_date?: string | null;
             /**
-             * @description Work location
+             * @description Where the role was based.
              * @example San Francisco, CA
              */
             location: string;
             /**
-             * @description Job position/title
+             * @description Job title.
              * @example Senior Backend Engineer
              */
             position: string;
             /**
-             * @description Start date (ISO format or readable string)
+             * @description When the role began. Free-form, so partial dates are allowed.
              * @example 2020-01
              */
             start_date: string;
             /**
-             * @description Key tasks and responsibilities
+             * @description Responsibilities, in display order.
              * @example [
-             *       "Designed microservices architecture",
-             *       "Mentored junior developers"
+             *       "Designed microservices architecture"
              *     ]
              */
             tasks: string[];
         };
-        HighlightedProject: {
-            /** @example proj-123 */
-            id: string;
-            /** @example A scalable e-commerce platform... */
-            short_description: string;
-            /** @example ecommerce-platform */
-            slug: string;
-            /** @example E-commerce Platform */
-            title: string;
-        };
-        HighlightedProjectRequest: {
+        /** @description Where to read a job posting from. */
+        ExtractJobRequest: {
+            /** @description The posting, pasted. **The primary path.** */
+            text?: string | null;
             /**
-             * @description Project ID
+             * @description A link to the posting.
+             *
+             *     A shortcut, and one that usually fails — most boards block automated
+             *     fetches or sit behind a login. When it does, the answer is
+             *     `AI_FETCH_FAILED` and the remedy is to paste. It is not retried.
+             */
+            url?: string | null;
+        };
+        /** @description Response body returned by this endpoint. */
+        GetVariantUrlResponse: {
+            /**
+             * Format: date-time
+             * @description When the URL stops working. Short by design.
+             */
+            expires_at: string;
+            /**
+             * Format: uuid
+             * @description Which media item.
+             */
+            media_id: string;
+            /** @description The size the URL points at. */
+            size: components["schemas"]["MediaSize"];
+            /** @description Where the resource is served from. */
+            url: string;
+        };
+        /** @description Response body returned by this endpoint. */
+        HealthResponse: {
+            /** @example ok */
+            status: string;
+        };
+        /** @description Request or response shape for the HTTP layer. */
+        HighlightedProjectDto: {
+            /**
+             * @description The project's identifier.
              * @example proj-123
              */
             id: string;
             /**
-             * @description Short project description
-             * @example A scalable e-commerce platform built with microservices
+             * @description One-line summary.
+             * @example A scalable e-commerce platform
              */
             short_description: string;
             /**
-             * @description URL-friendly slug
+             * @description URL segment. Unique per owner.
              * @example ecommerce-platform
              */
             slug: string;
             /**
-             * @description Project title
+             * @description Display title.
              * @example E-commerce Platform
              */
             title: string;
+        };
+        /** @description Request body accepted by this endpoint. */
+        InitUploadRequest: {
+            /** @description Alternative text. */
+            alt_text?: string | null;
+            /** @description What kind of thing this attaches to. */
+            attachment_target: components["schemas"]["AttachmentTarget"];
+            /**
+             * Format: uuid
+             * @description The id of that thing.
+             */
+            attachment_target_id: string;
+            /** @description Caption. */
+            caption?: string | null;
+            /** @description Name to store the upload under. Path separators are rejected. */
+            file_name: string;
+            /**
+             * Format: int64
+             * @description Size as declared by the client.
+             */
+            file_size_bytes: number;
+            /**
+             * Format: int32
+             * @description Declared height, for media with pixel dimensions.
+             */
+            height_px?: number | null;
+            /**
+             * @description MIME type **as declared by the client**. Never checked against the bytes,
+             *     which never reach this service.
+             */
+            mime_type: string;
+            /**
+             * Format: int32
+             * @description Display order within the role, starting at 0.
+             */
+            position?: number;
+            /** @description What the media is for on its target. */
+            role: components["schemas"]["MediaRole"];
+            /**
+             * Format: int32
+             * @description Declared width, for media with pixel dimensions.
+             */
+            width_px?: number | null;
+        };
+        /** @description Response body returned by this endpoint. */
+        InitUploadResponse: {
+            /**
+             * Format: uuid
+             * @description Poll this id to learn when variants are ready.
+             */
+            media_id: string;
+            /** @description Signed URL to PUT the bytes to. Short-lived. */
+            upload_url: string;
+        };
+        /** @description A posting as returned by the API. */
+        JobResponse: {
+            /** @description Hiring company. */
+            company: string;
+            /**
+             * Format: date-time
+             * @description When it was captured.
+             */
+            created_at: string;
+            /**
+             * Format: uuid
+             * @description Identifier.
+             */
+            id: string;
+            /** @description Where the role is. Empty when unstated. */
+            location: string;
+            /** @description Extracted nice-to-haves. */
+            nice_to_have: string[];
+            /** @description Extracted must-haves. */
+            required_skills: string[];
+            /** @description Seniority as advertised. Empty when unstated. */
+            seniority: string;
+            /** @description The posting verbatim. Kept because postings get taken down. */
+            source_text: string;
+            /** @description Where it was found. Empty when pasted rather than linked. */
+            source_url: string;
+            /** @description Role title. */
+            title: string;
+            /**
+             * Format: date-time
+             * @description Last edit.
+             */
+            updated_at: string;
+        };
+        /** @description Response body returned by this endpoint. */
+        ListMediaResponse: {
+            rows: components["schemas"]["MediaItem"][];
         };
         /** @description Login request from client */
         LoginRequestDto: {
@@ -517,6 +2739,7 @@ export interface components {
              */
             password: string;
         };
+        /** @description Response body returned by this endpoint. */
         LoginResponse: {
             /**
              * @description JWT access token (short-lived)
@@ -531,6 +2754,7 @@ export interface components {
             /** @description Authenticated user information */
             user: components["schemas"]["LoginUserInfo"];
         };
+        /** @description See the module documentation. */
         LoginUserInfo: {
             /**
              * @description Email address
@@ -561,6 +2785,7 @@ export interface components {
              */
             refresh_token?: string | null;
         };
+        /** @description Response body returned by this endpoint. */
         LogoutResponseBody: {
             /**
              * @description Success message
@@ -568,6 +2793,708 @@ export interface components {
              */
             message: string;
         };
+        /**
+         * @description A match analysis: what can be measured, and what a model estimated.
+         *
+         *     The two halves are reported separately and **never averaged**. Half of this
+         *     is genuinely measurable and half is an estimate; one blended number would
+         *     hide which half a person should trust.
+         */
+        MatchAnalysis: {
+            /** @description The deterministic half. Always present. */
+            readability: components["schemas"]["ReadabilityReport"];
+            relevance?: null | components["schemas"]["RelevanceReport"];
+            /**
+             * @description Why [`relevance`](Self::relevance) is absent, when it is.
+             *
+             *     One of the generation error codes — `AI_DISABLED`,
+             *     `AI_QUOTA_EXCEEDED`, `AI_REFUSED`, `AI_UPSTREAM_ERROR`. The measured
+             *     half is still worth showing when the estimate fails, so this endpoint
+             *     degrades rather than erroring; without a reason a client could only say
+             *     "unavailable", which tells a person nothing about whether to retry.
+             */
+            relevance_unavailable?: string | null;
+        };
+        /**
+         * @description A single media item with the variant sizes that are ready to read.
+         *
+         *     Carries the same fields as a listing row, plus `available_sizes`. Bucket
+         *     names and object keys are deliberately not exposed: callers reach the bytes
+         *     through `GET /api/media/{media_id}/{media_size}`, which issues a signed URL,
+         *     so storage layout stays an internal detail.
+         *     One media item in full, including which sizes exist.
+         *
+         *     `available_sizes` is derived from the variant rows, so an item still being
+         *     processed comes back with an empty list rather than an error — check
+         *     `status` to tell "none yet" from "none ever".
+         */
+        MediaDetail: {
+            /** @description Alternative text. Empty rather than absent when unset. */
+            alt_text: string;
+            /** @description What kind of thing it is attached to. */
+            attachment_target: components["schemas"]["AttachmentTarget"];
+            /**
+             * Format: uuid
+             * @description The id of that thing.
+             */
+            attachment_target_id: string;
+            /** @description Sizes that can currently be fetched. Empty until processing completes. */
+            available_sizes: components["schemas"]["MediaSize"][];
+            /** @description Caption. Empty rather than absent when unset. */
+            caption: string;
+            /**
+             * Format: uuid
+             * @description The media item.
+             */
+            media_id: string;
+            /** @description The name the file was uploaded under. */
+            original_filename: string;
+            /**
+             * Format: int32
+             * @description Display order within the role, starting at 0.
+             */
+            position: number;
+            /** @description What the media is for on its target. */
+            role: components["schemas"]["MediaRole"];
+            /**
+             * @description Where the item is in processing. A row exists before its bytes do, so
+             *     this is what says whether the file is usable.
+             */
+            status: components["schemas"]["MediaState"];
+        };
+        /**
+         * @description One media item as it appears in a listing.
+         *
+         *     Carries no `available_sizes`, unlike
+         *     [`MediaDetail`](super::get_media::MediaDetail): a listing would otherwise
+         *     need a variant query per row.
+         */
+        MediaItem: {
+            /** @description Alternative text. Empty rather than absent when unset. */
+            alt_text: string;
+            /** @description What kind of thing it is attached to. */
+            attachment_target: components["schemas"]["AttachmentTarget"];
+            /**
+             * Format: uuid
+             * @description The id of that thing.
+             */
+            attachment_target_id: string;
+            /** @description Caption. Empty rather than absent when unset. */
+            caption: string;
+            /**
+             * Format: uuid
+             * @description The media item.
+             */
+            media_id: string;
+            /** @description The name the file was uploaded under. */
+            original_filename: string;
+            /**
+             * Format: int32
+             * @description Display order within the role, starting at 0.
+             */
+            position: number;
+            /** @description What the media is for on its target. */
+            role: components["schemas"]["MediaRole"];
+            /**
+             * @description Where the item is in processing. A row exists before its bytes do, so
+             *     this is what says whether the file is usable.
+             */
+            status: components["schemas"]["MediaState"];
+        };
+        /**
+         * @description What a media item is for on the thing it is attached to.
+         *
+         *     The role decides how a client renders it, and lets one target carry
+         *     several images without ambiguity.
+         *
+         *     The serde form and the [`Display`](std::fmt::Display) form are deliberately
+         *     the same string: `Display` is what gets stored and what public responses
+         *     carry, so a client must be able to post back a role it just read. They
+         *     disagreed once — see
+         *     [ADR 0008](../../../../docs/adr/0008-collapse-the-screenshot-rename.md) —
+         *     and a test now walks every variant to keep them in step.
+         * @enum {string}
+         */
+        MediaRole: "avatar" | "profile" | "cover" | "screenshot" | "gallery" | "inline";
+        /**
+         * @description A generated variant size. The processor writes one object per size.
+         * @enum {string}
+         */
+        MediaSize: "thumbnail" | "small" | "medium" | "large";
+        /**
+         * @description Where an upload is in its lifecycle.
+         *
+         *     A row is created before the bytes arrive, so a media item existing does
+         *     not mean the file does.
+         * @enum {string}
+         */
+        MediaState: "pending" | "processing" | "ready" | "failed";
+        /** @description One item's processing state, as returned by a batched poll. */
+        MediaStatus: {
+            /**
+             * Format: uuid
+             * @description Which item.
+             */
+            media_id: string;
+            /** @description Where it is in processing. */
+            state: components["schemas"]["MediaState"];
+            /** @description When the state last changed. */
+            updated_at: string;
+        };
+        /** @description One place a media item is used. */
+        MediaUsage: {
+            /**
+             * @description Whether that target is visible to readers right now.
+             *
+             *     This is the field that earns the endpoint. "Used on 3 posts" is mildly
+             *     useful; "used on a post that is live right now" is what stops someone
+             *     breaking their own published page.
+             *
+             *     Projects have no draft state, so a non-deleted project is always `true`.
+             */
+            is_published: boolean;
+            /** @description What the media is for on that target. */
+            role: string;
+            /** @description What kind of thing it is attached to. */
+            target: components["schemas"]["AttachmentTarget"];
+            /**
+             * Format: uuid
+             * @description The id of that thing.
+             */
+            target_id: string;
+        };
+        /**
+         * @description One page of results, plus the totals a client needs to paginate.
+         *
+         *     `total` counts every row matching the filter, not just this page.
+         */
+        PageResult_ProjectCardView: {
+            /** @description Items on the current page */
+            items: {
+                cover?: null | components["schemas"]["PublicMedia"];
+                /**
+                 * Format: date-time
+                 * @description When the project was created.
+                 */
+                created_at: string;
+                /**
+                 * Format: uuid
+                 * @description Primary key.
+                 */
+                id: string;
+                /** @description Running instance, if there is one. */
+                live_demo_url?: string | null;
+                /** @description Source repository, if the owner published one. */
+                repo_url?: string | null;
+                /** @description URL segment. Unique per owner, so two users may hold the same one. */
+                slug: string;
+                /** @description Free-form technology labels, in the order the owner set them. */
+                tech_stack: string[];
+                /** @description Display title, as the owner wrote it. */
+                title: string;
+                /**
+                 * Format: date-time
+                 * @description When it was last edited.
+                 */
+                updated_at: string;
+            }[];
+            /**
+             * Format: int32
+             * @description Current page number, 1-based
+             * @example 1
+             */
+            page: number;
+            /**
+             * Format: int32
+             * @description Items per page
+             * @example 10
+             */
+            per_page: number;
+            /**
+             * Format: int64
+             * @description Total items across all pages
+             * @example 42
+             */
+            total: number;
+        };
+        /** @description Response body returned by this endpoint. */
+        PasswordResetResponse: {
+            /**
+             * @description Human-readable text for the caller.
+             * @example If that email is registered, a reset link has been sent
+             */
+            message: string;
+        };
+        /** @description Body for editing an application. */
+        PatchApplicationRequest: {
+            /**
+             * Format: uuid
+             * @description A CV to freeze and attach as part of this edit.
+             *
+             *     This is how the snapshot gets taken: name the CV you are applying with
+             *     and the backend stores an immutable copy. **Moving off `draft` requires
+             *     one** — either sent here, or already attached by an earlier edit.
+             */
+            cv_id?: string | null;
+            /** @description New next action. Send `""` to clear it. */
+            next_action?: string | null;
+            /**
+             * Format: date-time
+             * @description New due date. Send `null` to clear it.
+             */
+            next_action_at?: string | null;
+            status?: null | components["schemas"]["ApplicationStatus"];
+        };
+        /**
+         * @description Partial update.
+         *
+         *     Each field distinguishes three cases: omitting the key leaves the value
+         *     alone, `null` clears it, and a value sets it. Unpublishing a post back to
+         *     draft is a `null` on `published_at`. The slug cannot be cleared.
+         */
+        PatchBlogPostRequest: {
+            /** @description New body. */
+            content?: string | null;
+            /** @description New excerpt. `null` clears it. */
+            excerpt?: string | null;
+            /**
+             * Format: date-time
+             * @description `null` unpublishes back to draft; a value publishes or reschedules.
+             */
+            published_at?: string | null;
+            /**
+             * @description New slug.
+             * @example building-a-cms-in-rust
+             */
+            slug?: string | null;
+            /**
+             * @description New title, if the client sent one.
+             * @example Building a CMS in Rust
+             */
+            title?: string | null;
+        };
+        /** @description Partial CV update. Every field is optional; omitted fields are left as-is. */
+        PatchCVRequest: {
+            /** @description New bio, or `None` to leave it. */
+            bio?: string | null;
+            contact_info?: null | components["schemas"]["ReplaceOp_ContactDetailDto"];
+            core_skills?: null | components["schemas"]["ReplaceOp_CoreSkillDto"];
+            /** @description New display name, or `None` to leave it. */
+            display_name?: string | null;
+            educations?: null | components["schemas"]["ReplaceOp_EducationDto"];
+            experiences?: null | components["schemas"]["ReplaceOp_ExperienceDto"];
+            highlighted_projects?: null | components["schemas"]["ReplaceOp_HighlightedProjectDto"];
+            /** @description New portrait URL, or `None` to leave it. */
+            photo_url?: string | null;
+            /** @description New role, or `None` to leave it. */
+            role?: string | null;
+        };
+        /** @description Body for writing a cover letter. Omitted fields are left alone. */
+        PatchCoverLetterRequest: {
+            /** @description New body, Markdown. */
+            content?: string | null;
+            /**
+             * @description The language to write in.
+             *
+             *     **Explicit, never inferred.** Guessing from the existing text breaks on
+             *     a half-written letter, and this is what tells a generator which language
+             *     to produce.
+             */
+            language?: string | null;
+            status?: null | components["schemas"]["CoverLetterStatus"];
+        };
+        /** @description Body for editing a posting. Every field is optional; omitted means unchanged. */
+        PatchJobRequest: {
+            /** @description New company. */
+            company?: string | null;
+            /** @description New location. */
+            location?: string | null;
+            /** @description Replacement nice-to-haves. */
+            nice_to_have?: string[] | null;
+            /** @description Replacement must-haves. Sending `[]` empties the list. */
+            required_skills?: string[] | null;
+            /** @description New seniority. */
+            seniority?: string | null;
+            /**
+             * @description Replacement source text. Rarely wanted — this is the record of what was
+             *     published, not a field to tidy.
+             */
+            source_text?: string | null;
+            /** @description New source URL. */
+            source_url?: string | null;
+            /** @description New title. */
+            title?: string | null;
+        };
+        /**
+         * @description A partial update to a media item's attachment metadata.
+         *
+         *     Tri-state, matching the patch DTOs in `blog` and `project`: omit a key to
+         *     leave the field alone, send `null` to clear it, send a value to replace it.
+         *     Only the attachment metadata is mutable — not the file, its MIME type or its
+         *     dimensions, which describe bytes already in the bucket.
+         */
+        PatchMediaRequest: {
+            /**
+             * @description New alternative text. `null` clears it.
+             * @example Corrected description
+             */
+            alt_text?: string | null;
+            /** @description New caption. `null` clears it. */
+            caption?: string | null;
+            /**
+             * Format: int32
+             * @description New display position within the role, from 0.
+             * @example 2
+             */
+            position?: number | null;
+        };
+        /**
+         * @description Partial project update.
+         *
+         *     Each field distinguishes three cases, which is why the types are
+         *     `PatchField` rather than `Option`: omitting the key leaves the value
+         *     untouched, sending `null` clears it, and sending a value sets it. The
+         *     schema describes them as nullable optionals, which is the closest
+         *     OpenAPI equivalent.
+         */
+        PatchProjectRequest: {
+            /** @description New body, if the client sent one. */
+            description?: string | null;
+            /**
+             * @description New demo URL. `null` clears it.
+             * @example https://demo.example.com
+             */
+            live_demo_url?: string | null;
+            /**
+             * @description New repository URL. `null` clears it.
+             * @example https://github.com/user/repo
+             */
+            repo_url?: string | null;
+            /** @description Replaces the list. `null` clears it. */
+            screenshots?: string[] | null;
+            /**
+             * @description Replaces the list. `null` clears it.
+             * @example [
+             *       "rust",
+             *       "actix-web"
+             *     ]
+             */
+            tech_stack?: string[] | null;
+            /**
+             * @description Omit to leave unchanged; `null` to clear; a string to set.
+             * @example Portfolio CMS
+             */
+            title?: string | null;
+        };
+        /** @description A partial topic edit. Omitted fields are left alone. */
+        PatchTopicRequest: {
+            /**
+             * @description New description.
+             * @example Notes and projects on consensus and replication
+             */
+            description?: string | null;
+            /**
+             * @description New title. Trimmed, 1–100 characters, matching creation.
+             * @example Distributed Systems
+             */
+            title?: string | null;
+        };
+        /** @description A project as it appears in a listing — the summary fields only. */
+        ProjectCardView: {
+            cover?: null | components["schemas"]["PublicMedia"];
+            /**
+             * Format: date-time
+             * @description When the project was created.
+             */
+            created_at: string;
+            /**
+             * Format: uuid
+             * @description Primary key.
+             */
+            id: string;
+            /** @description Running instance, if there is one. */
+            live_demo_url?: string | null;
+            /** @description Source repository, if the owner published one. */
+            repo_url?: string | null;
+            /** @description URL segment. Unique per owner, so two users may hold the same one. */
+            slug: string;
+            /** @description Free-form technology labels, in the order the owner set them. */
+            tech_stack: string[];
+            /** @description Display title, as the owner wrote it. */
+            title: string;
+            /**
+             * Format: date-time
+             * @description When it was last edited.
+             */
+            updated_at: string;
+        };
+        /** @description A project as returned after a write. */
+        ProjectResult: {
+            /**
+             * Format: date-time
+             * @description When the project was created.
+             */
+            created_at: string;
+            /** @description Long-form body. */
+            description: string;
+            /**
+             * Format: uuid
+             * @description Primary key.
+             */
+            id: string;
+            /** @description Running instance, if there is one. */
+            live_demo_url?: string | null;
+            /**
+             * @description Owning user. Serialises as a bare UUID string.
+             * @example 123e4567-e89b-12d3-a456-426614174000
+             */
+            owner: string;
+            /** @description Source repository, if there is one. */
+            repo_url?: string | null;
+            /** @description Image URLs, in display order. */
+            screenshots: string[];
+            /** @description URL segment. Unique per owner. */
+            slug: string;
+            /** @description Technology labels, in the order the owner set them. */
+            tech_stack: string[];
+            /** @description Display title. */
+            title: string;
+            /**
+             * Format: date-time
+             * @description When it was last edited.
+             */
+            updated_at: string;
+        };
+        /**
+         * @description Listing order.
+         * @enum {string}
+         */
+        ProjectSort: "newest" | "oldest" | "updated_newest" | "updated_oldest";
+        /** @description A topic as it appears attached to a project: just enough to render a tag. */
+        ProjectTopicItem: {
+            /** @description Long-form body. */
+            description: string;
+            /**
+             * Format: uuid
+             * @description Primary key.
+             */
+            id: string;
+            /** @description Display title, as the owner wrote it. */
+            title: string;
+        };
+        /** @description A single project in full, including its body and topic links. */
+        ProjectView: {
+            /**
+             * Format: date-time
+             * @description When the project was created.
+             */
+            created_at: string;
+            /** @description Long-form body. */
+            description: string;
+            /**
+             * Format: uuid
+             * @description Primary key.
+             */
+            id: string;
+            /** @description Running instance, if there is one. */
+            live_demo_url?: string | null;
+            /**
+             * @description Media attached to the project, on the **public** read path only.
+             *
+             *     Each item carries its `role`, so a client picks screenshots with
+             *     `role == "screenshot"` and a cover with `role == "cover"`.
+             *
+             *     Distinct from [`screenshots`](Self::screenshots), which is a plain list
+             *     of author-supplied URLs stored on the project row. The two coexist; this
+             *     one is backed by uploaded media and carries generated sizes.
+             */
+            media: components["schemas"]["PublicMedia"][];
+            /**
+             * @description Owning user. Serialises as a bare UUID string.
+             * @example 123e4567-e89b-12d3-a456-426614174000
+             */
+            owner: string;
+            /** @description Source repository, if the owner published one. */
+            repo_url?: string | null;
+            /** @description Image URLs, in display order. */
+            screenshots: string[];
+            /** @description URL segment. Unique per owner, so two users may hold the same one. */
+            slug: string;
+            /** @description Free-form technology labels, in the order the owner set them. */
+            tech_stack: string[];
+            /** @description Display title, as the owner wrote it. */
+            title: string;
+            /** @description Topics attached to this project. */
+            topics: components["schemas"]["ProjectTopicItem"][];
+            /**
+             * Format: date-time
+             * @description When it was last edited.
+             */
+            updated_at: string;
+        };
+        /**
+         * @description A media item attached to something, projected for a **public** response.
+         *
+         *     The URLs are unsigned and durable, unlike the console's signed ones — see
+         *     `docs/adr/0006-public-media-urls.md` for why a public page cannot use a
+         *     signed URL.
+         */
+        PublicMedia: {
+            /**
+             * @description Alternative text. Empty rather than absent when the author set none —
+             *     which is itself worth surfacing in the console.
+             * @example Hexagonal layout of the API
+             */
+            alt_text: string;
+            /** @description Caption. Empty rather than absent when unset. */
+            caption: string;
+            /**
+             * Format: uuid
+             * @description The media item's identifier.
+             * @example 8f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d
+             */
+            media_id: string;
+            /**
+             * Format: int32
+             * @description Display order within the role, ascending from 0.
+             */
+            position: number;
+            /**
+             * @description What the media is for on this post — `cover`, `gallery`, `inline`.
+             * @example cover
+             */
+            role: string;
+            /**
+             * @description One entry per generated size, keyed by size name: `thumbnail`, `small`,
+             *     `medium`, `large`.
+             *
+             *     **May be empty**, and a caller must handle that: a media row exists
+             *     before its variants do, so a post published while its cover is still
+             *     processing carries the attachment with no URLs yet.
+             * @example {
+             *       "thumbnail": "https://storage.googleapis.com/…"
+             *     }
+             */
+            variants: {
+                [key: string]: string;
+            };
+        };
+        /** @description An author, as a reader sees them. */
+        PublicProfile: {
+            avatar?: null | components["schemas"]["PublicMedia"];
+            /**
+             * @description Free-form introduction. `null` when the author has not written one.
+             * @example Backend engineer, mostly Rust.
+             */
+            bio?: string | null;
+            /**
+             * @description Display name.
+             * @example Jane Doe
+             */
+            full_name: string;
+            /**
+             * @description Public handle. The same value that keys every public URL.
+             * @example janedoe
+             */
+            username: string;
+        };
+        /** @description Body for writing a reflection. All three questions are optional to answer. */
+        PutReflectionRequest: {
+            /** @description How far it got, in your own words. */
+            stage_reached?: string;
+            /** @description What happened. */
+            what_happened?: string;
+            /** @description What you would do differently. */
+            what_id_change?: string;
+        };
+        /** @description One thing that was checked, and how it came out. */
+        ReadabilityCheck: {
+            /**
+             * @description What was wrong, when something was. Prose, and may change; it names the
+             *     offending entry so a person can go and fix it.
+             */
+            detail?: string | null;
+            /**
+             * @description Stable identifier. The wire contract — clients key their copy off this,
+             *     so it must not change once shipped.
+             */
+            id: string;
+            /** @description Whether it passed. */
+            ok: boolean;
+        };
+        /** @description The measured half of an analysis. */
+        ReadabilityReport: {
+            /**
+             * @description Every check, passed and failed, in a stable order.
+             *
+             *     Passes are included deliberately: a list that only showed problems
+             *     would leave a person unable to tell "nothing was wrong" from "nothing
+             *     was looked at".
+             */
+            checks: components["schemas"]["ReadabilityCheck"][];
+            /**
+             * Format: int32
+             * @description Percentage of checks that passed, rounded.
+             *
+             *     Arithmetic over [`checks`](Self::checks) and nothing else, so a reader
+             *     can always reconstruct it from what is shown. It is **not** blended
+             *     with the model's relevance estimate — see the module documentation.
+             */
+            score: number;
+        };
+        /** @description Response body returned by this endpoint. */
+        ReadinessResponse: {
+            /** @example ok */
+            database: string;
+            /** @example ok */
+            redis: string;
+            /**
+             * @description "ok" only when every dependency is reachable
+             * @example ok
+             */
+            status: string;
+        };
+        /** @description What a sweep did. */
+        ReapOutcome: {
+            /**
+             * Format: int64
+             * @description How many registrations were removed.
+             */
+            deleted: number;
+            /**
+             * Format: int64
+             * @description The window actually applied, after the floor was enforced.
+             *
+             *     Reported so a caller can see that a misconfigured window was corrected
+             *     rather than silently obeyed.
+             */
+            older_than_secs: number;
+        };
+        /** @description A reflection as returned by the API. */
+        ReflectionResponse: {
+            /**
+             * Format: uuid
+             * @description The application it belongs to.
+             */
+            application_id: string;
+            /**
+             * Format: date-time
+             * @description When it was written.
+             */
+            created_at: string;
+            /** @description How far it got. */
+            stage_reached: string;
+            /**
+             * Format: date-time
+             * @description Last edit.
+             */
+            updated_at: string;
+            /** @description What happened. */
+            what_happened: string;
+            /** @description What they would change. */
+            what_id_change: string;
+        };
+        /** @description Request or response shape for the HTTP layer. */
         RefreshTokenRequestDto: {
             /**
              * @description Refresh token to exchange for new tokens
@@ -575,6 +3502,7 @@ export interface components {
              */
             refresh_token: string;
         };
+        /** @description Response body returned by this endpoint. */
         RefreshTokenResponseBody: {
             /**
              * @description New JWT access token
@@ -587,6 +3515,7 @@ export interface components {
              */
             refresh_token: string;
         };
+        /** @description Response body returned by this endpoint. */
         RegisterUserResponse: {
             /**
              * @description Success message
@@ -596,6 +3525,7 @@ export interface components {
             /** @description Created user details */
             user: components["schemas"]["RegisteredUser"];
         };
+        /** @description See the module documentation. */
         RegisteredUser: {
             /**
              * @description Email address
@@ -618,8 +3548,275 @@ export interface components {
              */
             username: string;
         };
+        /** @description The estimated half of an analysis. */
+        RelevanceReport: {
+            /** @description Every requirement the model found, in the posting's order. */
+            requirements: components["schemas"]["RequirementMatch"][];
+            /**
+             * Format: int32
+             * @description Percentage, computed from the verdicts below and nothing else.
+             */
+            score: number;
+        };
+        /** @description Request body accepted by this endpoint. */
+        RemoveProjectTopicRequest: {
+            /**
+             * Format: uuid
+             * @description Topic to detach from the project.
+             * @example 9f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d
+             */
+            topic_id: string;
+        };
+        /**
+         * @description Wholesale replacement of a collection field.
+         *
+         *     Omitting the field leaves the stored collection untouched; supplying it
+         *     replaces every element. There is no append or per-element patch.
+         */
+        ReplaceOp_ContactDetailDto: {
+            /**
+             * @description The full replacement list. There is no per-item patch: a list is replaced
+             *     wholesale or left alone.
+             */
+            replace: {
+                /** @description Which kind of contact row this is; decides how a client renders it. */
+                contact_type: components["schemas"]["ContactTypeDto"];
+                /**
+                 * @description The body.
+                 * @example john@example.com
+                 */
+                content: string;
+                /**
+                 * @description Display title.
+                 * @example Work Email
+                 */
+                title: string;
+            }[];
+        };
+        /**
+         * @description Wholesale replacement of a collection field.
+         *
+         *     Omitting the field leaves the stored collection untouched; supplying it
+         *     replaces every element. There is no append or per-element patch.
+         */
+        ReplaceOp_CoreSkillDto: {
+            /**
+             * @description The full replacement list. There is no per-item patch: a list is replaced
+             *     wholesale or left alone.
+             */
+            replace: {
+                /**
+                 * @description Skill description
+                 * @example Expert in Rust, Python, and Node.js
+                 */
+                description: string;
+                /**
+                 * @description Skill title
+                 * @example Backend Development
+                 */
+                title: string;
+            }[];
+        };
+        /**
+         * @description Wholesale replacement of a collection field.
+         *
+         *     Omitting the field leaves the stored collection untouched; supplying it
+         *     replaces every element. There is no append or per-element patch.
+         */
+        ReplaceOp_EducationDto: {
+            /**
+             * @description The full replacement list. There is no per-item patch: a list is replaced
+             *     wholesale or left alone.
+             */
+            replace: {
+                /**
+                 * @description Qualification earned.
+                 * @example Bachelor of Science in Computer Science
+                 */
+                degree: string;
+                /**
+                 * Format: int32
+                 * @description Year of completion.
+                 * @example 2015
+                 */
+                graduation_year: number;
+                /**
+                 * @description Where it was earned.
+                 * @example MIT
+                 */
+                institution: string;
+            }[];
+        };
+        /**
+         * @description Wholesale replacement of a collection field.
+         *
+         *     Omitting the field leaves the stored collection untouched; supplying it
+         *     replaces every element. There is no append or per-element patch.
+         */
+        ReplaceOp_ExperienceDto: {
+            /**
+             * @description The full replacement list. There is no per-item patch: a list is replaced
+             *     wholesale or left alone.
+             */
+            replace: {
+                /**
+                 * @description Notable outcomes, in display order.
+                 * @example [
+                 *       "Reduced latency by 40%"
+                 *     ]
+                 */
+                achievements: string[];
+                /**
+                 * @description Employer.
+                 * @example Tech Corp
+                 */
+                company: string;
+                /**
+                 * @description Long-form description.
+                 * @example Led backend development team...
+                 */
+                description: string;
+                /**
+                 * @description Absent for a current position
+                 * @example 2023-12
+                 */
+                end_date?: string | null;
+                /**
+                 * @description Where the role was based.
+                 * @example San Francisco, CA
+                 */
+                location: string;
+                /**
+                 * @description Job title.
+                 * @example Senior Backend Engineer
+                 */
+                position: string;
+                /**
+                 * @description When the role began. Free-form, so partial dates are allowed.
+                 * @example 2020-01
+                 */
+                start_date: string;
+                /**
+                 * @description Responsibilities, in display order.
+                 * @example [
+                 *       "Designed microservices architecture"
+                 *     ]
+                 */
+                tasks: string[];
+            }[];
+        };
+        /**
+         * @description Wholesale replacement of a collection field.
+         *
+         *     Omitting the field leaves the stored collection untouched; supplying it
+         *     replaces every element. There is no append or per-element patch.
+         */
+        ReplaceOp_HighlightedProjectDto: {
+            /**
+             * @description The full replacement list. There is no per-item patch: a list is replaced
+             *     wholesale or left alone.
+             */
+            replace: {
+                /**
+                 * @description The project's identifier.
+                 * @example proj-123
+                 */
+                id: string;
+                /**
+                 * @description One-line summary.
+                 * @example A scalable e-commerce platform
+                 */
+                short_description: string;
+                /**
+                 * @description URL segment. Unique per owner.
+                 * @example ecommerce-platform
+                 */
+                slug: string;
+                /**
+                 * @description Display title.
+                 * @example E-commerce Platform
+                 */
+                title: string;
+            }[];
+        };
+        /** @description Request or response shape for the HTTP layer. */
+        RequestPasswordResetDto: {
+            /**
+             * @description Email address.
+             * @example john@example.com
+             */
+            email: string;
+        };
+        /** @description One requirement from the posting, and how the CV answers it. */
+        RequirementMatch: {
+            /**
+             * @description The CV line this was judged against.
+             *
+             *     **This is what makes the estimate auditable rather than oracular.** A
+             *     reader can check the quote, disagree with one row, and still trust the
+             *     rest — which is impossible when a score arrives with no working shown.
+             *     `None` for a requirement nothing in the CV addresses.
+             */
+            evidence?: string | null;
+            /** @description The requirement, in the posting's own words. */
+            text: string;
+            /** @description How well the CV answers it. */
+            verdict: components["schemas"]["Verdict"];
+        };
+        /** @description Request or response shape for the HTTP layer. */
+        ResendVerificationDto: {
+            /**
+             * @description The address to send a fresh verification link to.
+             * @example jane@example.com
+             */
+            email: string;
+        };
+        /** @description Response body returned by this endpoint. */
+        ResendVerificationResponse: {
+            /**
+             * @description Deliberately non-committal: the same text comes back whether or not the
+             *     address needed anything doing.
+             * @example If that address needs verifying, a new link is on its way.
+             */
+            message: string;
+        };
+        /** @description Request or response shape for the HTTP layer. */
+        ResetPasswordDto: {
+            /**
+             * @description Must satisfy the same policy as registration: 12-128 characters.
+             * @example a-new-and-long-password
+             */
+            password: string;
+        };
+        /** @description Whether a slug is free, and a free alternative if it is not. */
+        SlugAvailability: {
+            /**
+             * @description True when the caller can use it.
+             * @example false
+             */
+            available: boolean;
+            /**
+             * @description The slug that was asked about, normalised.
+             * @example building-a-cms
+             */
+            slug: string;
+            /**
+             * @description A free variant, when the requested one is taken.
+             *
+             *     `None` when the slug is available, and also when no free variant was
+             *     found within the search bound — the caller should then treat the
+             *     absence as "pick something else" rather than as an error.
+             *
+             *     **The suggestion is checked, not guessed.** Returning an unverified
+             *     `-2` would reproduce the problem this endpoint exists to solve: a
+             *     collision that only surfaces at save.
+             * @example building-a-cms-2
+             */
+            suggestion?: string | null;
+        };
         /** @description Standard success response wrapper */
         SuccessResponse_RegisterUserResponse: {
+            /** @description Response body returned by this endpoint. */
             data: {
                 /**
                  * @description Success message
@@ -635,14 +3832,124 @@ export interface components {
              */
             success: boolean;
         };
+        /** @description Response body returned by this endpoint. */
+        TopicResponse: {
+            /**
+             * @description Topic description
+             * @example Notes and projects on consensus and replication
+             */
+            description: string;
+            /**
+             * Format: uuid
+             * @description Topic identifier
+             * @example 9f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d
+             */
+            id: string;
+            /**
+             * @description Topic title
+             * @example Distributed Systems
+             */
+            title: string;
+        };
+        /** @description A topic as returned after a write, and as serialised to clients. */
+        TopicResult: {
+            /**
+             * @description Topic description
+             * @example Notes and projects on consensus and replication
+             */
+            description: string;
+            /**
+             * Format: uuid
+             * @description Topic identifier
+             * @example 9f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d
+             */
+            id: string;
+            /**
+             * @description Identifier of the owning user. Serialises as a bare UUID string, so it
+             *     is described as `String` rather than pulling `UserId` into the schema.
+             * @example 123e4567-e89b-12d3-a456-426614174000
+             */
+            owner: string;
+            /**
+             * @description Topic title
+             * @example Distributed Systems
+             */
+            title: string;
+        };
+        /**
+         * @description How many things reference a topic.
+         *
+         *     What a retire-confirmation needs: "Retire «Rust»? It's on 6 posts and 2
+         *     projects" rather than a generic warning or an invented number.
+         */
+        TopicUsage: {
+            /**
+             * Format: int64
+             * @description Blog posts carrying this topic, deleted ones excluded.
+             * @example 6
+             */
+            posts: number;
+            /**
+             * Format: int64
+             * @description Projects carrying this topic, deleted ones excluded.
+             * @example 2
+             */
+            projects: number;
+        };
+        /** @description Full replacement body for a CV. */
+        UpdateCVRequest: {
+            /** @description Free-form introduction. */
+            bio: string;
+            /** @description Contact rows. Public on a published CV. */
+            contact_info: components["schemas"]["ContactDetailDto"][];
+            /** @description Headline skills, in display order. */
+            core_skills: components["schemas"]["CoreSkillDto"][];
+            /** @description Name shown on the CV. */
+            display_name: string;
+            /** @description Education entries, in display order. */
+            educations: components["schemas"]["EducationDto"][];
+            /** @description Work history, in display order. */
+            experiences: components["schemas"]["ExperienceDto"][];
+            /** @description Projects featured on the CV, in display order. */
+            highlighted_projects: components["schemas"]["HighlightedProjectDto"][];
+            /** @description Portrait image. Empty when unset. */
+            photo_url: string;
+            /** @description Job title shown under the display name. */
+            role: string;
+        };
+        /** @description Request body accepted by this endpoint. */
         UpdateUserRequest: {
+            /**
+             * @description New public bio.
+             *
+             *     Omit to leave it alone, send `null` to clear it. Shown on the author's
+             *     public pages via `GET /api/public/users/{username}`.
+             * @example Backend engineer, mostly Rust.
+             */
+            bio?: string | null;
             /**
              * @description New full name for the user
              * @example John Smith
              */
             full_name: string;
+            /**
+             * @description New interface language.
+             *
+             *     This is the language of the **UI**, not of anything you write. A CV or
+             *     cover letter carries its own — someone reading the interface in
+             *     Indonesian while writing an English CV is the ordinary case, not a
+             *     mistake to reconcile.
+             * @example id
+             */
+            locale?: string | null;
         };
+        /** @description Response body returned by this endpoint. */
         UpdateUserResponse: {
+            /**
+             * @description Public bio. `null` when the user has not written one.
+             * @example Backend engineer, mostly Rust.
+             */
+            bio?: string | null;
             /**
              * @description Email address
              * @example john@example.com
@@ -654,6 +3961,11 @@ export interface components {
              */
             full_name: string;
             /**
+             * @description Interface language.
+             * @example en
+             */
+            locale: string;
+            /**
              * @description User ID (UUID)
              * @example 123e4567-e89b-12d3-a456-426614174000
              */
@@ -664,7 +3976,13 @@ export interface components {
              */
             username: string;
         };
+        /** @description Response body returned by this endpoint. */
         UserProfileResponse: {
+            /**
+             * @description Public bio. `null` when the user has not written one.
+             * @example Backend engineer, mostly Rust.
+             */
+            bio?: string | null;
             /**
              * @description Email address
              * @example john@example.com
@@ -676,6 +3994,11 @@ export interface components {
              */
             full_name: string;
             /**
+             * @description Interface language.
+             * @example en
+             */
+            locale: string;
+            /**
              * @description User ID (UUID)
              * @example 123e4567-e89b-12d3-a456-426614174000
              */
@@ -686,6 +4009,12 @@ export interface components {
              */
             username: string;
         };
+        /**
+         * @description How well one stated requirement is answered.
+         * @enum {string}
+         */
+        Verdict: "met" | "partial" | "missing";
+        /** @description Response body returned by this endpoint. */
         VerifyEmailResponse: {
             /**
              * @description Success message
@@ -702,6 +4031,1402 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    cover_letter_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftingRequest"];
+            };
+        };
+        responses: {
+            /** @description An event stream of delta, done and error frames */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description No CV to work from */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Generation allowance spent */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Generation is not configured here */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    extract_job_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtractJobRequest"];
+            };
+        };
+        responses: {
+            /** @description The posting's fields */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * @description Job fields pulled out of a posting.
+                         *
+                         *     Every field is optional in practice — a posting that omits the seniority
+                         *     leaves it empty rather than making something up — which is why the schema
+                         *     asks for empty strings and lists rather than nulls.
+                         */
+                        data: {
+                            /** @description Hiring company. */
+                            company: string;
+                            /** @description Where the role is. */
+                            location: string;
+                            /** @description Nice-to-haves. */
+                            nice_to_have: string[];
+                            /** @description Must-haves. */
+                            required_skills: string[];
+                            /** @description Seniority as advertised. */
+                            seniority: string;
+                            /** @description Role title. */
+                            title: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Neither text nor url */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The URL could not be fetched, or the model declined */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Generation allowance spent */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The provider failed */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Generation is not configured here */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_ai_quota_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Your standing for the current period */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "limit": null,
+                     *         "resets_at": "2026-10-01T00:00:00Z",
+                     *         "used": 12
+                     *       },
+                     *       "success": true
+                     *     }
+                     */
+                    "application/json": {
+                        /** @description A person's standing for the current period. */
+                        data: {
+                            /**
+                             * Format: int32
+                             * @description The ceiling, or `null` when generation is currently unmetered.
+                             *
+                             *     **`null` means "no limit configured", not "no limit possible".** A
+                             *     client should render the remaining count when a limit exists and stay
+                             *     quiet when it does not — but the surface that would show it should be
+                             *     built either way, because adding a limit later to screens that assume
+                             *     calls are free is the expensive order to do this in.
+                             */
+                            limit?: number | null;
+                            /**
+                             * Format: date-time
+                             * @description When `used` returns to zero.
+                             */
+                            resets_at: string;
+                            /**
+                             * Format: int32
+                             * @description Generations used in the current period.
+                             *
+                             *     Counted whether or not a limit is configured. That is the point of
+                             *     having this endpoint before having a limit: the number that a sensible
+                             *     ceiling gets chosen from is real usage, not a guess.
+                             */
+                            used: number;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The counter could not be reached */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    tailor_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftingRequest"];
+            };
+        };
+        responses: {
+            /** @description An event stream of delta, done and error frames */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description No CV to work from */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Generation allowance spent */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Generation is not configured here */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_applications_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Applications, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /**
+                             * Format: date-time
+                             * @description When it was sent. `null` while still a draft.
+                             */
+                            applied_at?: string | null;
+                            /**
+                             * Format: date-time
+                             * @description When the row was created.
+                             */
+                            created_at: string;
+                            /**
+                             * Format: uuid
+                             * @description The frozen CV that was sent. `null` only while this is a draft.
+                             */
+                            cv_snapshot_id?: string | null;
+                            /**
+                             * Format: uuid
+                             * @description Identifier.
+                             */
+                            id: string;
+                            /**
+                             * Format: uuid
+                             * @description The posting applied to.
+                             */
+                            job_id: string;
+                            /** @description What you owe it next, in your own words. Empty when nothing is due. */
+                            next_action: string;
+                            /**
+                             * Format: date-time
+                             * @description When that is due.
+                             */
+                            next_action_at?: string | null;
+                            /** @description Where it has got to. */
+                            status: components["schemas"]["ApplicationStatus"];
+                            /**
+                             * Format: date-time
+                             * @description Last edit.
+                             */
+                            updated_at: string;
+                        }[];
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_application_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApplicationRequest"];
+            };
+        };
+        responses: {
+            /** @description Draft application started */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description An application as returned by the API. */
+                        data: {
+                            /**
+                             * Format: date-time
+                             * @description When it was sent. `null` while still a draft.
+                             */
+                            applied_at?: string | null;
+                            /**
+                             * Format: date-time
+                             * @description When the row was created.
+                             */
+                            created_at: string;
+                            /**
+                             * Format: uuid
+                             * @description The frozen CV that was sent. `null` only while this is a draft.
+                             */
+                            cv_snapshot_id?: string | null;
+                            /**
+                             * Format: uuid
+                             * @description Identifier.
+                             */
+                            id: string;
+                            /**
+                             * Format: uuid
+                             * @description The posting applied to.
+                             */
+                            job_id: string;
+                            /** @description What you owe it next, in your own words. Empty when nothing is due. */
+                            next_action: string;
+                            /**
+                             * Format: date-time
+                             * @description When that is due.
+                             */
+                            next_action_at?: string | null;
+                            /** @description Where it has got to. */
+                            status: components["schemas"]["ApplicationStatus"];
+                            /**
+                             * Format: date-time
+                             * @description Last edit.
+                             */
+                            updated_at: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such posting, or it is not yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_application_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the application */
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The application */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description An application as returned by the API. */
+                        data: {
+                            /**
+                             * Format: date-time
+                             * @description When it was sent. `null` while still a draft.
+                             */
+                            applied_at?: string | null;
+                            /**
+                             * Format: date-time
+                             * @description When the row was created.
+                             */
+                            created_at: string;
+                            /**
+                             * Format: uuid
+                             * @description The frozen CV that was sent. `null` only while this is a draft.
+                             */
+                            cv_snapshot_id?: string | null;
+                            /**
+                             * Format: uuid
+                             * @description Identifier.
+                             */
+                            id: string;
+                            /**
+                             * Format: uuid
+                             * @description The posting applied to.
+                             */
+                            job_id: string;
+                            /** @description What you owe it next, in your own words. Empty when nothing is due. */
+                            next_action: string;
+                            /**
+                             * Format: date-time
+                             * @description When that is due.
+                             */
+                            next_action_at?: string | null;
+                            /** @description Where it has got to. */
+                            status: components["schemas"]["ApplicationStatus"];
+                            /**
+                             * Format: date-time
+                             * @description Last edit.
+                             */
+                            updated_at: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such application, or it is not yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    archive_application_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the application */
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archived */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such application, or it is not yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_application_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the application */
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchApplicationRequest"];
+            };
+        };
+        responses: {
+            /** @description The stored application */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description An application as returned by the API. */
+                        data: {
+                            /**
+                             * Format: date-time
+                             * @description When it was sent. `null` while still a draft.
+                             */
+                            applied_at?: string | null;
+                            /**
+                             * Format: date-time
+                             * @description When the row was created.
+                             */
+                            created_at: string;
+                            /**
+                             * Format: uuid
+                             * @description The frozen CV that was sent. `null` only while this is a draft.
+                             */
+                            cv_snapshot_id?: string | null;
+                            /**
+                             * Format: uuid
+                             * @description Identifier.
+                             */
+                            id: string;
+                            /**
+                             * Format: uuid
+                             * @description The posting applied to.
+                             */
+                            job_id: string;
+                            /** @description What you owe it next, in your own words. Empty when nothing is due. */
+                            next_action: string;
+                            /**
+                             * Format: date-time
+                             * @description When that is due.
+                             */
+                            next_action_at?: string | null;
+                            /** @description Where it has got to. */
+                            status: components["schemas"]["ApplicationStatus"];
+                            /**
+                             * Format: date-time
+                             * @description Last edit.
+                             */
+                            updated_at: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Leaving draft with no CV to point at */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "SNAPSHOT_REQUIRED",
+                     *         "message": "Leaving draft requires a CV: send cv_id, or attach a snapshot first"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such application or CV, or it is not yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    analyse_application_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The application to analyse */
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnalyseApplicationRequest"];
+            };
+        };
+        responses: {
+            /** @description The analysis */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "readability": {
+                     *           "checks": [
+                     *             {
+                     *               "detail": null,
+                     *               "id": "has_experience",
+                     *               "ok": true
+                     *             },
+                     *             {
+                     *               "detail": "Start date not recognised on: Engineer at Acme. Use a year, or YYYY-MM.",
+                     *               "id": "dates_parse",
+                     *               "ok": false
+                     *             }
+                     *           ],
+                     *           "score": 88
+                     *         },
+                     *         "relevance": null
+                     *       },
+                     *       "success": true
+                     *     }
+                     */
+                    "application/json": {
+                        /**
+                         * @description A match analysis: what can be measured, and what a model estimated.
+                         *
+                         *     The two halves are reported separately and **never averaged**. Half of this
+                         *     is genuinely measurable and half is an estimate; one blended number would
+                         *     hide which half a person should trust.
+                         */
+                        data: {
+                            /** @description The deterministic half. Always present. */
+                            readability: components["schemas"]["ReadabilityReport"];
+                            relevance?: null | components["schemas"]["RelevanceReport"];
+                            /**
+                             * @description Why [`relevance`](Self::relevance) is absent, when it is.
+                             *
+                             *     One of the generation error codes — `AI_DISABLED`,
+                             *     `AI_QUOTA_EXCEEDED`, `AI_REFUSED`, `AI_UPSTREAM_ERROR`. The measured
+                             *     half is still worth showing when the estimate fails, so this endpoint
+                             *     degrades rather than erroring; without a reason a client could only say
+                             *     "unavailable", which tells a person nothing about whether to retry.
+                             */
+                            relevance_unavailable?: string | null;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description A draft with no CV named and no snapshot */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such application or CV, or it is not yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_cover_letter_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The application */
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The letter */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A cover letter as returned by the API. */
+                        data: {
+                            /**
+                             * Format: uuid
+                             * @description The application it belongs to.
+                             */
+                            application_id: string;
+                            /** @description Markdown, like a post body. */
+                            content: string;
+                            /**
+                             * Format: date-time
+                             * @description When it was started.
+                             */
+                            created_at: string;
+                            /** @description The letter's own language — not the writer's interface language. */
+                            language: string;
+                            /** @description Whether it has gone out. */
+                            status: components["schemas"]["CoverLetterStatus"];
+                            /**
+                             * Format: date-time
+                             * @description Last edit.
+                             */
+                            updated_at: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No letter, or the application is not yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_cover_letter_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The application */
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_cover_letter_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The application */
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchCoverLetterRequest"];
+            };
+        };
+        responses: {
+            /** @description The stored letter */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A cover letter as returned by the API. */
+                        data: {
+                            /**
+                             * Format: uuid
+                             * @description The application it belongs to.
+                             */
+                            application_id: string;
+                            /** @description Markdown, like a post body. */
+                            content: string;
+                            /**
+                             * Format: date-time
+                             * @description When it was started.
+                             */
+                            created_at: string;
+                            /** @description The letter's own language — not the writer's interface language. */
+                            language: string;
+                            /** @description Whether it has gone out. */
+                            status: components["schemas"]["CoverLetterStatus"];
+                            /**
+                             * Format: date-time
+                             * @description Last edit.
+                             */
+                            updated_at: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The application is not yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_reflection_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The application */
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The reflection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A reflection as returned by the API. */
+                        data: {
+                            /**
+                             * Format: uuid
+                             * @description The application it belongs to.
+                             */
+                            application_id: string;
+                            /**
+                             * Format: date-time
+                             * @description When it was written.
+                             */
+                            created_at: string;
+                            /** @description How far it got. */
+                            stage_reached: string;
+                            /**
+                             * Format: date-time
+                             * @description Last edit.
+                             */
+                            updated_at: string;
+                            /** @description What happened. */
+                            what_happened: string;
+                            /** @description What they would change. */
+                            what_id_change: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No reflection, or the application is not yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    put_reflection_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The application */
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutReflectionRequest"];
+            };
+        };
+        responses: {
+            /** @description The stored reflection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A reflection as returned by the API. */
+                        data: {
+                            /**
+                             * Format: uuid
+                             * @description The application it belongs to.
+                             */
+                            application_id: string;
+                            /**
+                             * Format: date-time
+                             * @description When it was written.
+                             */
+                            created_at: string;
+                            /** @description How far it got. */
+                            stage_reached: string;
+                            /**
+                             * Format: date-time
+                             * @description Last edit.
+                             */
+                            updated_at: string;
+                            /** @description What happened. */
+                            what_happened: string;
+                            /** @description What they would change. */
+                            what_id_change: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The application is not yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_reflection_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The application */
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted permanently */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    resend_verification_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResendVerificationDto"];
+            };
+        };
+        responses: {
+            /** @description Accepted. Says nothing about whether the address exists or needed verifying. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "message": "If that address needs verifying, a new link is on its way."
+                     *       },
+                     *       "success": true
+                     *     }
+                     */
+                    "application/json": {
+                        /** @description Response body returned by this endpoint. */
+                        data: {
+                            /**
+                             * @description Deliberately non-committal: the same text comes back whether or not the
+                             *     address needed anything doing.
+                             * @example If that address needs verifying, a new link is on its way.
+                             */
+                            message: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Email missing or blank */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "INVALID_EMAIL",
+                     *         "message": "Email cannot be empty"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     verify_user_email_handler: {
         parameters: {
             query?: never;
@@ -729,6 +5454,7 @@ export interface operations {
                      *     }
                      */
                     "application/json": {
+                        /** @description Response body returned by this endpoint. */
                         data: {
                             /**
                              * @description Success message
@@ -813,12 +5539,12 @@ export interface operations {
                     /**
                      * @example {
                      *       "data": {
-                     *         "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-                     *         "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                     *         "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                     *         "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
                      *         "user": {
                      *           "email": "john@example.com",
                      *           "id": "123e4567-e89b-12d3-a456-426614174000",
-                     *           "isVerified": true,
+                     *           "is_verified": true,
                      *           "username": "johndoe"
                      *         }
                      *       },
@@ -826,6 +5552,7 @@ export interface operations {
                      *     }
                      */
                     "application/json": {
+                        /** @description Response body returned by this endpoint. */
                         data: {
                             /**
                              * @description JWT access token (short-lived)
@@ -932,6 +5659,7 @@ export interface operations {
                      *     }
                      */
                     "application/json": {
+                        /** @description Response body returned by this endpoint. */
                         data: {
                             /**
                              * @description Success message
@@ -945,6 +5673,174 @@ export interface operations {
                          */
                         success: boolean;
                     };
+                };
+            };
+        };
+    };
+    request_password_reset_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestPasswordResetDto"];
+            };
+        };
+        responses: {
+            /** @description Request accepted. Says nothing about whether the address exists. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "message": "If that email is registered, a reset link has been sent"
+                     *       },
+                     *       "success": true
+                     *     }
+                     */
+                    "application/json": {
+                        /** @description Response body returned by this endpoint. */
+                        data: {
+                            /**
+                             * @description Human-readable text for the caller.
+                             * @example If that email is registered, a reset link has been sent
+                             */
+                            message: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Email missing or blank */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "INVALID_EMAIL",
+                     *         "message": "Email cannot be empty"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reset_password_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Reset token from the emailed link */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordDto"];
+            };
+        };
+        responses: {
+            /** @description Password changed and all sessions revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Response body returned by this endpoint. */
+                        data: {
+                            /**
+                             * @description Human-readable text for the caller.
+                             * @example If that email is registered, a reset link has been sent
+                             */
+                            message: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Password fails the policy */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "INVALID_PASSWORD",
+                     *         "message": "Password must be at least 12 characters"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Token is expired, malformed, or not a reset token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "INVALID_RESET_TOKEN",
+                     *         "message": "Invalid or expired reset token"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description User no longer exists */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -971,13 +5867,14 @@ export interface operations {
                     /**
                      * @example {
                      *       "data": {
-                     *         "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-                     *         "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                     *         "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                     *         "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                      *       },
                      *       "success": true
                      *     }
                      */
                     "application/json": {
+                        /** @description Response body returned by this endpoint. */
                         data: {
                             /**
                              * @description New JWT access token
@@ -1061,7 +5958,7 @@ export interface operations {
                      *         "message": "User created successfully. Please check your email to verify your account.",
                      *         "user": {
                      *           "email": "john@example.com",
-                     *           "fullName": "John Doe",
+                     *           "full_name": "John Doe",
                      *           "id": "123e4567-e89b-12d3-a456-426614174000",
                      *           "username": "johndoe"
                      *         }
@@ -1070,6 +5967,7 @@ export interface operations {
                      *     }
                      */
                     "application/json": {
+                        /** @description Response body returned by this endpoint. */
                         data: {
                             /**
                              * @description Success message
@@ -1134,6 +6032,1461 @@ export interface operations {
             };
         };
     };
+    get_blog_posts_handler: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Free-text search over title and excerpt
+                 * @example rust
+                 */
+                search?: string;
+                /** @description Restrict to posts carrying this topic */
+                topic_id?: string;
+                /**
+                 * @description `true` for published only, `false` for drafts only. Omit for both.
+                 *     Ignored by the public listing, which always forces published only.
+                 */
+                published?: boolean;
+                /** @description Listing order. */
+                sort?: components["schemas"]["BlogPostSort"];
+                /**
+                 * @description 1-based page number.
+                 * @example 1
+                 */
+                page?: number;
+                /**
+                 * @description Rows per page.
+                 * @example 10
+                 */
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Posts retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * @description One page of results, plus the totals a client needs to paginate.
+                         *
+                         *     `total` counts every row matching the filter, not just this page.
+                         */
+                        data: {
+                            /** @description The rows on this page. */
+                            items: {
+                                cover?: null | components["schemas"]["PublicMedia"];
+                                /**
+                                 * Format: date-time
+                                 * @description When it was created.
+                                 */
+                                created_at: string;
+                                /** @description Short summary for listings. `None` when none was written. */
+                                excerpt?: string | null;
+                                /**
+                                 * Format: uuid
+                                 * @description Primary key.
+                                 */
+                                id: string;
+                                /**
+                                 * Format: date-time
+                                 * @description `None` is a draft; a past value is published, a future one scheduled.
+                                 */
+                                published_at?: string | null;
+                                /**
+                                 * @description URL segment. Unique per owner.
+                                 * @example building-a-cms-in-rust
+                                 */
+                                slug: string;
+                                /**
+                                 * @description Display title.
+                                 * @example Building a CMS in Rust
+                                 */
+                                title: string;
+                                /**
+                                 * Format: date-time
+                                 * @description When it was last edited.
+                                 */
+                                updated_at: string;
+                            }[];
+                            /**
+                             * Format: int32
+                             * @description 1-based page number.
+                             * @example 1
+                             */
+                            page: number;
+                            /**
+                             * Format: int32
+                             * @description Rows per page.
+                             * @example 10
+                             */
+                            per_page: number;
+                            /**
+                             * Format: int64
+                             * @description Rows matching the filter across *all* pages, not just this one.
+                             * @example 42
+                             */
+                            total: number;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_blog_post_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBlogPostRequest"];
+            };
+        };
+        responses: {
+            /** @description Post created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Response body returned by this endpoint. */
+                        data: {
+                            /** @description The body. */
+                            content: string;
+                            /**
+                             * Format: date-time
+                             * @description When it was created.
+                             */
+                            created_at: string;
+                            /**
+                             * @description Short summary for listings. `None` when none was written.
+                             * @example A walk through the hexagonal layout
+                             */
+                            excerpt?: string | null;
+                            /**
+                             * Format: uuid
+                             * @description Primary key.
+                             * @example 123e4567-e89b-12d3-a456-426614174000
+                             */
+                            id: string;
+                            /**
+                             * Format: date-time
+                             * @description Null for a draft. A timestamp in the future means scheduled, not live.
+                             */
+                            published_at?: string | null;
+                            /**
+                             * @description URL segment. Unique per owner.
+                             * @example building-a-cms-in-rust
+                             */
+                            slug: string;
+                            /**
+                             * @description Display title.
+                             * @example Building a CMS in Rust
+                             */
+                            title: string;
+                            /**
+                             * Format: date-time
+                             * @description When it was last edited.
+                             */
+                            updated_at: string;
+                            /**
+                             * Format: uuid
+                             * @description The owning user.
+                             * @example 987e6543-e21b-12d3-a456-426614174000
+                             */
+                            user_id: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Validation failed. Codes: INVALID_TITLE, INVALID_SLUG, INVALID_CONTENT */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "INVALID_SLUG",
+                     *         "message": "Slug may contain only letters, numbers, and hyphens"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description This author already has a post with that slug */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "SLUG_ALREADY_EXISTS",
+                     *         "message": "Slug already exists"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    bulk_blog_posts_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkBlogRequest"];
+            };
+        };
+        responses: {
+            /** @description The batch ran. Check `failed` for items that did not. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "failed": [
+                     *           {
+                     *             "code": "POST_NOT_FOUND",
+                     *             "id": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+                     *             "message": "Blog post not found"
+                     *           }
+                     *         ],
+                     *         "succeeded": [
+                     *           "3f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d"
+                     *         ]
+                     *       },
+                     *       "success": true
+                     *     }
+                     */
+                    "application/json": {
+                        /** @description What happened to each item in a bulk request. */
+                        data: {
+                            /**
+                             * @description Ids the operation did not apply to, each with the reason.
+                             *
+                             *     Empty on a fully successful batch. **Never assume it is** — a partial
+                             *     failure is the ordinary case here, not an exceptional one.
+                             */
+                            failed: components["schemas"]["BulkFailure"][];
+                            /** @description Ids the operation applied to, in request order. */
+                            succeeded: string[];
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description The id list was empty or longer than the cap */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "BULK_TOO_LARGE",
+                     *         "message": "A bulk request carries at most 100 ids, got 250"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    blog_slug_available_handler: {
+        parameters: {
+            query: {
+                /**
+                 * @description Candidate slug, before normalisation.
+                 * @example building-a-cms
+                 */
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Availability, with a free variant when taken */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "available": false,
+                     *         "slug": "building-a-cms",
+                     *         "suggestion": "building-a-cms-2"
+                     *       },
+                     *       "success": true
+                     *     }
+                     */
+                    "application/json": {
+                        /** @description Whether a slug is free, and a free alternative if it is not. */
+                        data: {
+                            /**
+                             * @description True when the caller can use it.
+                             * @example false
+                             */
+                            available: boolean;
+                            /**
+                             * @description The slug that was asked about, normalised.
+                             * @example building-a-cms
+                             */
+                            slug: string;
+                            /**
+                             * @description A free variant, when the requested one is taken.
+                             *
+                             *     `None` when the slug is available, and also when no free variant was
+                             *     found within the search bound — the caller should then treat the
+                             *     absence as "pick something else" rather than as an error.
+                             *
+                             *     **The suggestion is checked, not guessed.** Returning an unverified
+                             *     `-2` would reproduce the problem this endpoint exists to solve: a
+                             *     collision that only surfaces at save.
+                             * @example building-a-cms-2
+                             */
+                            suggestion?: string | null;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Slug missing or blank */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_single_blog_post_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the post */
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Post retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A post together with its topics, for detail views. */
+                        data: components["schemas"]["BlogPostResponse"] & {
+                            cover?: null | components["schemas"]["PublicMedia"];
+                            /** @description Topics attached to the post. */
+                            topics: components["schemas"]["BlogPostTopicResponse"][];
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Post not found, archived, or owned by another author */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "POST_NOT_FOUND",
+                     *         "message": "Blog post not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    archive_blog_post_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the post */
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Post archived */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Post not found, already archived, or owned by another author */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "POST_NOT_FOUND",
+                     *         "message": "Blog post not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_blog_post_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the post */
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchBlogPostRequest"];
+            };
+        };
+        responses: {
+            /** @description Post updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Response body returned by this endpoint. */
+                        data: {
+                            /** @description The body. */
+                            content: string;
+                            /**
+                             * Format: date-time
+                             * @description When it was created.
+                             */
+                            created_at: string;
+                            /**
+                             * @description Short summary for listings. `None` when none was written.
+                             * @example A walk through the hexagonal layout
+                             */
+                            excerpt?: string | null;
+                            /**
+                             * Format: uuid
+                             * @description Primary key.
+                             * @example 123e4567-e89b-12d3-a456-426614174000
+                             */
+                            id: string;
+                            /**
+                             * Format: date-time
+                             * @description Null for a draft. A timestamp in the future means scheduled, not live.
+                             */
+                            published_at?: string | null;
+                            /**
+                             * @description URL segment. Unique per owner.
+                             * @example building-a-cms-in-rust
+                             */
+                            slug: string;
+                            /**
+                             * @description Display title.
+                             * @example Building a CMS in Rust
+                             */
+                            title: string;
+                            /**
+                             * Format: date-time
+                             * @description When it was last edited.
+                             */
+                            updated_at: string;
+                            /**
+                             * Format: uuid
+                             * @description The owning user.
+                             * @example 987e6543-e21b-12d3-a456-426614174000
+                             */
+                            user_id: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Invalid slug, including an attempt to clear it */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "INVALID_SLUG",
+                     *         "message": "Slug cannot be cleared"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified, or the post belongs to another author */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Post not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description This author already has a post with that slug */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    hard_delete_blog_post_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the post */
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Post deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Post not found, or owned by another author */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "POST_NOT_FOUND",
+                     *         "message": "Blog post not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_draft_preview_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the post */
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The post is shared */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description The author-facing view of a post's sharing state. */
+                        data: {
+                            /**
+                             * Format: date-time
+                             * @description When it was first shared. Unchanged by renewing.
+                             */
+                            created_at: string;
+                            /**
+                             * @description True once `expires_at` has passed. The link still exists and can be
+                             *     renewed; it just does not currently work.
+                             */
+                            expired: boolean;
+                            /**
+                             * Format: date-time
+                             * @description When the link stops working.
+                             */
+                            expires_at: string;
+                            /**
+                             * @description The shareable secret. Shown so the sharing panel can display the link
+                             *     again rather than re-minting one and breaking the reviewer's bookmark.
+                             */
+                            token: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The post is not shared, or is not yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    share_draft_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the post */
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The link, and when it expires */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "created_at": "2026-09-02T09:00:00Z",
+                     *         "expired": false,
+                     *         "expires_at": "2026-09-16T09:00:00Z",
+                     *         "token": "9f8e7d6c…"
+                     *       },
+                     *       "success": true
+                     *     }
+                     */
+                    "application/json": {
+                        /** @description The author-facing view of a post's sharing state. */
+                        data: {
+                            /**
+                             * Format: date-time
+                             * @description When it was first shared. Unchanged by renewing.
+                             */
+                            created_at: string;
+                            /**
+                             * @description True once `expires_at` has passed. The link still exists and can be
+                             *     renewed; it just does not currently work.
+                             */
+                            expired: boolean;
+                            /**
+                             * Format: date-time
+                             * @description When the link stops working.
+                             */
+                            expires_at: string;
+                            /**
+                             * @description The shareable secret. Shown so the sharing panel can display the link
+                             *     again rather than re-minting one and breaking the reviewer's bookmark.
+                             */
+                            token: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Post not found, or owned by another author */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    revoke_draft_preview_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the post */
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The post is no longer shared */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Post not found, or owned by another author */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    restore_blog_post_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the post */
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Post restored */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Post not found, not archived, or owned by another author */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "POST_NOT_FOUND",
+                     *         "message": "Blog post not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_blog_post_topics_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the post */
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Topics retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /**
+                             * @description Long-form description.
+                             * @example Posts about the Rust language
+                             */
+                            description: string;
+                            /**
+                             * Format: uuid
+                             * @description Primary key.
+                             */
+                            id: string;
+                            /**
+                             * @description Display title.
+                             * @example Rust
+                             */
+                            title: string;
+                        }[];
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Post not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    attach_blog_post_topic_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the post */
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlogPostTopicRequest"];
+            };
+        };
+        responses: {
+            /** @description Topic attached, or already was */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Malformed request body */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Post or topic not found. Codes: POST_NOT_FOUND, TOPIC_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    detach_blog_post_topic_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the post */
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlogPostTopicRequest"];
+            };
+        };
+        responses: {
+            /** @description Topic detached, or was not attached */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Malformed request body */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Post not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    clear_blog_post_topics_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the post */
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All topics detached */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Post not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_cv_snapshot_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The snapshot to read */
+                snapshot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The frozen CV */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A snapshot read back. */
+                        data: {
+                            /**
+                             * Format: date-time
+                             * @description When it was taken.
+                             */
+                            created_at: string;
+                            /**
+                             * Format: uuid
+                             * @description The CV it was taken from. That CV has probably changed since; this is
+                             *     here so a client can offer "start a new version from this", not so it
+                             *     can go and read the current one instead.
+                             */
+                            cv_id: string;
+                            /** @description The CV exactly as it stood. Read-only, always. */
+                            document: components["schemas"]["CvResponse"];
+                            /**
+                             * Format: uuid
+                             * @description The snapshot's identifier.
+                             */
+                            snapshot_id: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such snapshot, or it is not yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_cvs_handler: {
         parameters: {
             query?: {
@@ -1173,68 +7526,69 @@ export interface operations {
                      *         "items": [
                      *           {
                      *             "bio": "Passionate software engineer...",
-                     *             "contactInfo": [],
-                     *             "coreSkills": [],
-                     *             "displayName": "John Doe",
+                     *             "contact_info": [],
+                     *             "core_skills": [],
+                     *             "display_name": "John Doe",
                      *             "educations": [],
                      *             "experiences": [],
-                     *             "highlightedProjects": [],
+                     *             "highlighted_projects": [],
                      *             "id": "123e4567-e89b-12d3-a456-426614174000",
-                     *             "photoUrl": "https://example.com/photos/profile.jpg",
+                     *             "photo_url": "https://example.com/photos/profile.jpg",
                      *             "role": "Senior Software Engineer",
-                     *             "userId": "987e6543-e21b-12d3-a456-426614174000"
+                     *             "user_id": "987e6543-e21b-12d3-a456-426614174000"
                      *           }
                      *         ],
                      *         "page": 1,
-                     *         "perPage": 10,
+                     *         "per_page": 10,
                      *         "total": 5
                      *       },
                      *       "success": true
                      *     }
                      */
                     "application/json": {
+                        /** @description One page of results, plus the totals a client needs to paginate. */
                         data: {
                             /** @description List of items in the current page */
                             items: {
                                 /**
-                                 * @description Biography
+                                 * @description Free-form introduction.
                                  * @example Passionate software engineer...
                                  */
                                 bio: string;
-                                /** @description Contact information */
-                                contact_info: components["schemas"]["ContactDetail"][];
-                                /** @description Core skills */
-                                core_skills: components["schemas"]["CoreSkill"][];
+                                /** @description Contact rows. Public on a published CV. */
+                                contact_info: components["schemas"]["ContactDetailDto"][];
+                                /** @description Headline skills, in display order. */
+                                core_skills: components["schemas"]["CoreSkillDto"][];
                                 /**
-                                 * @description Display name
+                                 * @description Name shown on the CV.
                                  * @example John Doe
                                  */
                                 display_name: string;
-                                /** @description Educational background */
-                                educations: components["schemas"]["Education"][];
-                                /** @description Work experiences */
-                                experiences: components["schemas"]["Experience"][];
-                                /** @description Highlighted projects */
-                                highlighted_projects: components["schemas"]["HighlightedProject"][];
+                                /** @description Education entries, in display order. */
+                                educations: components["schemas"]["EducationDto"][];
+                                /** @description Work history, in display order. */
+                                experiences: components["schemas"]["ExperienceDto"][];
+                                /** @description Projects featured on the CV, in display order. */
+                                highlighted_projects: components["schemas"]["HighlightedProjectDto"][];
                                 /**
                                  * Format: uuid
-                                 * @description CV unique identifier
+                                 * @description Primary key.
                                  * @example 123e4567-e89b-12d3-a456-426614174000
                                  */
                                 id: string;
                                 /**
-                                 * @description Profile photo URL
+                                 * @description Portrait image. Empty when unset.
                                  * @example https://example.com/photos/profile.jpg
                                  */
                                 photo_url: string;
                                 /**
-                                 * @description Professional role
+                                 * @description Job title shown under the display name.
                                  * @example Senior Software Engineer
                                  */
                                 role: string;
                                 /**
                                  * Format: uuid
-                                 * @description Owner user ID
+                                 * @description The owning user.
                                  * @example 987e6543-e21b-12d3-a456-426614174000
                                  */
                                 user_id: string;
@@ -1309,66 +7663,67 @@ export interface operations {
                      * @example {
                      *       "data": {
                      *         "bio": "Passionate software engineer...",
-                     *         "contactInfo": [],
-                     *         "coreSkills": [
+                     *         "contact_info": [],
+                     *         "core_skills": [
                      *           {
                      *             "description": "Expert in Rust, Python, and Node.js",
                      *             "title": "Backend Development"
                      *           }
                      *         ],
-                     *         "displayName": "John Doe",
+                     *         "display_name": "John Doe",
                      *         "educations": [],
                      *         "experiences": [],
-                     *         "highlightedProjects": [],
+                     *         "highlighted_projects": [],
                      *         "id": "123e4567-e89b-12d3-a456-426614174000",
-                     *         "photoUrl": "https://example.com/photos/profile.jpg",
+                     *         "photo_url": "https://example.com/photos/profile.jpg",
                      *         "role": "Senior Software Engineer",
-                     *         "userId": "987e6543-e21b-12d3-a456-426614174000"
+                     *         "user_id": "987e6543-e21b-12d3-a456-426614174000"
                      *       },
                      *       "success": true
                      *     }
                      */
                     "application/json": {
+                        /** @description A CV as returned by the API. */
                         data: {
                             /**
-                             * @description Biography
+                             * @description Free-form introduction.
                              * @example Passionate software engineer...
                              */
                             bio: string;
-                            /** @description Contact information */
-                            contact_info: components["schemas"]["ContactDetail"][];
-                            /** @description Core skills */
-                            core_skills: components["schemas"]["CoreSkill"][];
+                            /** @description Contact rows. Public on a published CV. */
+                            contact_info: components["schemas"]["ContactDetailDto"][];
+                            /** @description Headline skills, in display order. */
+                            core_skills: components["schemas"]["CoreSkillDto"][];
                             /**
-                             * @description Display name
+                             * @description Name shown on the CV.
                              * @example John Doe
                              */
                             display_name: string;
-                            /** @description Educational background */
-                            educations: components["schemas"]["Education"][];
-                            /** @description Work experiences */
-                            experiences: components["schemas"]["Experience"][];
-                            /** @description Highlighted projects */
-                            highlighted_projects: components["schemas"]["HighlightedProject"][];
+                            /** @description Education entries, in display order. */
+                            educations: components["schemas"]["EducationDto"][];
+                            /** @description Work history, in display order. */
+                            experiences: components["schemas"]["ExperienceDto"][];
+                            /** @description Projects featured on the CV, in display order. */
+                            highlighted_projects: components["schemas"]["HighlightedProjectDto"][];
                             /**
                              * Format: uuid
-                             * @description CV unique identifier
+                             * @description Primary key.
                              * @example 123e4567-e89b-12d3-a456-426614174000
                              */
                             id: string;
                             /**
-                             * @description Profile photo URL
+                             * @description Portrait image. Empty when unset.
                              * @example https://example.com/photos/profile.jpg
                              */
                             photo_url: string;
                             /**
-                             * @description Professional role
+                             * @description Job title shown under the display name.
                              * @example Senior Software Engineer
                              */
                             role: string;
                             /**
                              * Format: uuid
-                             * @description Owner user ID
+                             * @description The owning user.
                              * @example 987e6543-e21b-12d3-a456-426614174000
                              */
                             user_id: string;
@@ -1382,6 +7737,4396 @@ export interface operations {
                 };
             };
             /** @description Not authenticated or not verified */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_cv_by_id_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the CV to fetch */
+                cv_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CV retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A CV as returned by the API. */
+                        data: {
+                            /**
+                             * @description Free-form introduction.
+                             * @example Passionate software engineer...
+                             */
+                            bio: string;
+                            /** @description Contact rows. Public on a published CV. */
+                            contact_info: components["schemas"]["ContactDetailDto"][];
+                            /** @description Headline skills, in display order. */
+                            core_skills: components["schemas"]["CoreSkillDto"][];
+                            /**
+                             * @description Name shown on the CV.
+                             * @example John Doe
+                             */
+                            display_name: string;
+                            /** @description Education entries, in display order. */
+                            educations: components["schemas"]["EducationDto"][];
+                            /** @description Work history, in display order. */
+                            experiences: components["schemas"]["ExperienceDto"][];
+                            /** @description Projects featured on the CV, in display order. */
+                            highlighted_projects: components["schemas"]["HighlightedProjectDto"][];
+                            /**
+                             * Format: uuid
+                             * @description Primary key.
+                             * @example 123e4567-e89b-12d3-a456-426614174000
+                             */
+                            id: string;
+                            /**
+                             * @description Portrait image. Empty when unset.
+                             * @example https://example.com/photos/profile.jpg
+                             */
+                            photo_url: string;
+                            /**
+                             * @description Job title shown under the display name.
+                             * @example Senior Software Engineer
+                             */
+                            role: string;
+                            /**
+                             * Format: uuid
+                             * @description The owning user.
+                             * @example 987e6543-e21b-12d3-a456-426614174000
+                             */
+                            user_id: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description CV not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "CV_NOT_FOUND",
+                     *         "message": "CV not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_cv_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the CV to replace */
+                cv_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCVRequest"];
+            };
+        };
+        responses: {
+            /** @description CV replaced successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A CV as returned by the API. */
+                        data: {
+                            /**
+                             * @description Free-form introduction.
+                             * @example Passionate software engineer...
+                             */
+                            bio: string;
+                            /** @description Contact rows. Public on a published CV. */
+                            contact_info: components["schemas"]["ContactDetailDto"][];
+                            /** @description Headline skills, in display order. */
+                            core_skills: components["schemas"]["CoreSkillDto"][];
+                            /**
+                             * @description Name shown on the CV.
+                             * @example John Doe
+                             */
+                            display_name: string;
+                            /** @description Education entries, in display order. */
+                            educations: components["schemas"]["EducationDto"][];
+                            /** @description Work history, in display order. */
+                            experiences: components["schemas"]["ExperienceDto"][];
+                            /** @description Projects featured on the CV, in display order. */
+                            highlighted_projects: components["schemas"]["HighlightedProjectDto"][];
+                            /**
+                             * Format: uuid
+                             * @description Primary key.
+                             * @example 123e4567-e89b-12d3-a456-426614174000
+                             */
+                            id: string;
+                            /**
+                             * @description Portrait image. Empty when unset.
+                             * @example https://example.com/photos/profile.jpg
+                             */
+                            photo_url: string;
+                            /**
+                             * @description Job title shown under the display name.
+                             * @example Senior Software Engineer
+                             */
+                            role: string;
+                            /**
+                             * Format: uuid
+                             * @description The owning user.
+                             * @example 987e6543-e21b-12d3-a456-426614174000
+                             */
+                            user_id: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Malformed request body */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description CV not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "CV_NOT_FOUND",
+                     *         "message": "CV not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    soft_delete_cv_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the CV to archive */
+                cv_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CV archived, or was already archived */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified, or the CV belongs to another user */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "CV_UNAUTHORIZED",
+                     *         "message": "You are not authorized to delete this CV"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description CV not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "CV_NOT_FOUND",
+                     *         "message": "CV not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_cv_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the CV to update */
+                cv_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchCVRequest"];
+            };
+        };
+        responses: {
+            /** @description CV updated successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A CV as returned by the API. */
+                        data: {
+                            /**
+                             * @description Free-form introduction.
+                             * @example Passionate software engineer...
+                             */
+                            bio: string;
+                            /** @description Contact rows. Public on a published CV. */
+                            contact_info: components["schemas"]["ContactDetailDto"][];
+                            /** @description Headline skills, in display order. */
+                            core_skills: components["schemas"]["CoreSkillDto"][];
+                            /**
+                             * @description Name shown on the CV.
+                             * @example John Doe
+                             */
+                            display_name: string;
+                            /** @description Education entries, in display order. */
+                            educations: components["schemas"]["EducationDto"][];
+                            /** @description Work history, in display order. */
+                            experiences: components["schemas"]["ExperienceDto"][];
+                            /** @description Projects featured on the CV, in display order. */
+                            highlighted_projects: components["schemas"]["HighlightedProjectDto"][];
+                            /**
+                             * Format: uuid
+                             * @description Primary key.
+                             * @example 123e4567-e89b-12d3-a456-426614174000
+                             */
+                            id: string;
+                            /**
+                             * @description Portrait image. Empty when unset.
+                             * @example https://example.com/photos/profile.jpg
+                             */
+                            photo_url: string;
+                            /**
+                             * @description Job title shown under the display name.
+                             * @example Senior Software Engineer
+                             */
+                            role: string;
+                            /**
+                             * Format: uuid
+                             * @description The owning user.
+                             * @example 987e6543-e21b-12d3-a456-426614174000
+                             */
+                            user_id: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Malformed request body */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description CV not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "CV_NOT_FOUND",
+                     *         "message": "CV not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    hard_delete_cv_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the CV to delete */
+                cv_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CV deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified, or the CV belongs to another user */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "CV_UNAUTHORIZED",
+                     *         "message": "You are not authorized to delete this CV"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description CV not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "CV_NOT_FOUND",
+                     *         "message": "CV not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    restore_cv_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the CV to restore */
+                cv_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CV restored, or was already active */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A CV as returned by the API. */
+                        data: {
+                            /**
+                             * @description Free-form introduction.
+                             * @example Passionate software engineer...
+                             */
+                            bio: string;
+                            /** @description Contact rows. Public on a published CV. */
+                            contact_info: components["schemas"]["ContactDetailDto"][];
+                            /** @description Headline skills, in display order. */
+                            core_skills: components["schemas"]["CoreSkillDto"][];
+                            /**
+                             * @description Name shown on the CV.
+                             * @example John Doe
+                             */
+                            display_name: string;
+                            /** @description Education entries, in display order. */
+                            educations: components["schemas"]["EducationDto"][];
+                            /** @description Work history, in display order. */
+                            experiences: components["schemas"]["ExperienceDto"][];
+                            /** @description Projects featured on the CV, in display order. */
+                            highlighted_projects: components["schemas"]["HighlightedProjectDto"][];
+                            /**
+                             * Format: uuid
+                             * @description Primary key.
+                             * @example 123e4567-e89b-12d3-a456-426614174000
+                             */
+                            id: string;
+                            /**
+                             * @description Portrait image. Empty when unset.
+                             * @example https://example.com/photos/profile.jpg
+                             */
+                            photo_url: string;
+                            /**
+                             * @description Job title shown under the display name.
+                             * @example Senior Software Engineer
+                             */
+                            role: string;
+                            /**
+                             * Format: uuid
+                             * @description The owning user.
+                             * @example 987e6543-e21b-12d3-a456-426614174000
+                             */
+                            user_id: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified, or the CV belongs to another user */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "CV_UNAUTHORIZED",
+                     *         "message": "You are not authorized to restore this CV"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description CV not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "CV_NOT_FOUND",
+                     *         "message": "CV not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_cv_snapshot_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The CV to freeze */
+                cv_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Snapshot taken */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "created_at": "2026-09-03T09:00:00Z",
+                     *         "snapshot_id": "8f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d"
+                     *       },
+                     *       "success": true
+                     *     }
+                     */
+                    "application/json": {
+                        /** @description What a freshly taken snapshot reports. */
+                        data: {
+                            /**
+                             * Format: date-time
+                             * @description When it was taken — the "as sent" date the tracker shows.
+                             */
+                            created_at: string;
+                            /**
+                             * Format: uuid
+                             * @description The snapshot's identifier. Store this on the application.
+                             */
+                            snapshot_id: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such CV, or it is not yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_jobs_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Postings, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @description Hiring company. */
+                            company: string;
+                            /**
+                             * Format: date-time
+                             * @description When it was captured.
+                             */
+                            created_at: string;
+                            /**
+                             * Format: uuid
+                             * @description Identifier.
+                             */
+                            id: string;
+                            /** @description Where the role is. Empty when unstated. */
+                            location: string;
+                            /** @description Extracted nice-to-haves. */
+                            nice_to_have: string[];
+                            /** @description Extracted must-haves. */
+                            required_skills: string[];
+                            /** @description Seniority as advertised. Empty when unstated. */
+                            seniority: string;
+                            /** @description The posting verbatim. Kept because postings get taken down. */
+                            source_text: string;
+                            /** @description Where it was found. Empty when pasted rather than linked. */
+                            source_url: string;
+                            /** @description Role title. */
+                            title: string;
+                            /**
+                             * Format: date-time
+                             * @description Last edit.
+                             */
+                            updated_at: string;
+                        }[];
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_job_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateJobRequest"];
+            };
+        };
+        responses: {
+            /** @description Posting captured */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A posting as returned by the API. */
+                        data: {
+                            /** @description Hiring company. */
+                            company: string;
+                            /**
+                             * Format: date-time
+                             * @description When it was captured.
+                             */
+                            created_at: string;
+                            /**
+                             * Format: uuid
+                             * @description Identifier.
+                             */
+                            id: string;
+                            /** @description Where the role is. Empty when unstated. */
+                            location: string;
+                            /** @description Extracted nice-to-haves. */
+                            nice_to_have: string[];
+                            /** @description Extracted must-haves. */
+                            required_skills: string[];
+                            /** @description Seniority as advertised. Empty when unstated. */
+                            seniority: string;
+                            /** @description The posting verbatim. Kept because postings get taken down. */
+                            source_text: string;
+                            /** @description Where it was found. Empty when pasted rather than linked. */
+                            source_url: string;
+                            /** @description Role title. */
+                            title: string;
+                            /**
+                             * Format: date-time
+                             * @description Last edit.
+                             */
+                            updated_at: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description No title or no company */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_job_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the posting */
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The posting */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A posting as returned by the API. */
+                        data: {
+                            /** @description Hiring company. */
+                            company: string;
+                            /**
+                             * Format: date-time
+                             * @description When it was captured.
+                             */
+                            created_at: string;
+                            /**
+                             * Format: uuid
+                             * @description Identifier.
+                             */
+                            id: string;
+                            /** @description Where the role is. Empty when unstated. */
+                            location: string;
+                            /** @description Extracted nice-to-haves. */
+                            nice_to_have: string[];
+                            /** @description Extracted must-haves. */
+                            required_skills: string[];
+                            /** @description Seniority as advertised. Empty when unstated. */
+                            seniority: string;
+                            /** @description The posting verbatim. Kept because postings get taken down. */
+                            source_text: string;
+                            /** @description Where it was found. Empty when pasted rather than linked. */
+                            source_url: string;
+                            /** @description Role title. */
+                            title: string;
+                            /**
+                             * Format: date-time
+                             * @description Last edit.
+                             */
+                            updated_at: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such posting, or it is not yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    archive_job_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the posting */
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archived */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such posting, or it is not yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_job_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the posting */
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchJobRequest"];
+            };
+        };
+        responses: {
+            /** @description The stored posting */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A posting as returned by the API. */
+                        data: {
+                            /** @description Hiring company. */
+                            company: string;
+                            /**
+                             * Format: date-time
+                             * @description When it was captured.
+                             */
+                            created_at: string;
+                            /**
+                             * Format: uuid
+                             * @description Identifier.
+                             */
+                            id: string;
+                            /** @description Where the role is. Empty when unstated. */
+                            location: string;
+                            /** @description Extracted nice-to-haves. */
+                            nice_to_have: string[];
+                            /** @description Extracted must-haves. */
+                            required_skills: string[];
+                            /** @description Seniority as advertised. Empty when unstated. */
+                            seniority: string;
+                            /** @description The posting verbatim. Kept because postings get taken down. */
+                            source_text: string;
+                            /** @description Where it was found. Empty when pasted rather than linked. */
+                            source_url: string;
+                            /** @description Role title. */
+                            title: string;
+                            /**
+                             * Format: date-time
+                             * @description Last edit.
+                             */
+                            updated_at: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Title or company blanked out */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such posting, or it is not yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reap_uploads_handler: {
+        parameters: {
+            query?: {
+                /** @description Override the staleness window, in seconds. Raised to the signed upload URL's lifetime if shorter. */
+                older_than_secs?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sweep ran */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReapOutcome"];
+                };
+            };
+            /** @description No maintenance token is configured, or the one presented did not match */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    bulk_media_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkMediaRequest"];
+            };
+        };
+        responses: {
+            /** @description The batch ran. Check `failed` for items that did not. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "failed": [
+                     *           {
+                     *             "code": "MEDIA_NOT_FOUND",
+                     *             "id": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+                     *             "message": "Media not found"
+                     *           }
+                     *         ],
+                     *         "succeeded": [
+                     *           "3f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d"
+                     *         ]
+                     *       },
+                     *       "success": true
+                     *     }
+                     */
+                    "application/json": {
+                        /** @description What happened to each item in a bulk request. */
+                        data: {
+                            /**
+                             * @description Ids the operation did not apply to, each with the reason.
+                             *
+                             *     Empty on a fully successful batch. **Never assume it is** — a partial
+                             *     failure is the ordinary case here, not an exceptional one.
+                             */
+                            failed: components["schemas"]["BulkFailure"][];
+                            /** @description Ids the operation applied to, in request order. */
+                            succeeded: string[];
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description The id list was empty or longer than the cap */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "BULK_TOO_LARGE",
+                     *         "message": "A bulk request carries at most 100 ids, got 250"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_media_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Attachment target: user, resume, project, or blog_post */
+                target: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Media listed successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Response body returned by this endpoint. */
+                        data: {
+                            rows: components["schemas"]["MediaItem"][];
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Unrecognised attachment target */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "TARGET_NOT_FOUND",
+                     *         "message": "Target Attachment Is Not Exist"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_media_statuses_handler: {
+        parameters: {
+            query: {
+                /**
+                 * @description Comma-separated media ids.
+                 * @example a1b2…,c3d4…
+                 */
+                ids: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description States for the ids that resolved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /**
+                             * Format: uuid
+                             * @description Which item.
+                             */
+                            media_id: string;
+                            /** @description Where it is in processing. */
+                            state: components["schemas"]["MediaState"];
+                            /** @description When the state last changed. */
+                            updated_at: string;
+                        }[];
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Too many ids */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    init_upload_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InitUploadRequest"];
+            };
+        };
+        responses: {
+            /** @description Upload URL issued */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "media_id": "123e4567-e89b-12d3-a456-426614174000",
+                     *         "upload_url": "https://storage.googleapis.com/..."
+                     *       },
+                     *       "success": true
+                     *     }
+                     */
+                    "application/json": {
+                        /** @description Response body returned by this endpoint. */
+                        data: {
+                            /**
+                             * Format: uuid
+                             * @description Poll this id to learn when variants are ready.
+                             */
+                            media_id: string;
+                            /** @description Signed URL to PUT the bytes to. Short-lived. */
+                            upload_url: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Request violates the upload policy. Codes: MISSING_FIELD,                            INVALID_FILE_NAME, FILE_TOO_LARGE, INVALID_DIMENSIONS,                            INVALID_MIME_TYPE, INVALID_EXTENSION, MIME_EXTENSION_MISMATCH */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "FILE_TOO_LARGE",
+                     *         "message": "File too large (max 5242880 bytes, got 8388608 bytes)"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Object storage refused to issue a signed URL */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "STORAGE_ERROR",
+                     *         "message": "Failed to generate upload URL"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_media_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the media */
+                media_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Media retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "alt_text": "Profile photo",
+                     *         "attachment_target": "resume",
+                     *         "attachment_target_id": "987e6543-e21b-12d3-a456-426614174000",
+                     *         "available_sizes": [
+                     *           "thumbnail",
+                     *           "small",
+                     *           "medium",
+                     *           "large"
+                     *         ],
+                     *         "caption": "",
+                     *         "media_id": "123e4567-e89b-12d3-a456-426614174000",
+                     *         "original_filename": "photo.png",
+                     *         "position": 0,
+                     *         "role": "profile",
+                     *         "status": "ready"
+                     *       },
+                     *       "success": true
+                     *     }
+                     */
+                    "application/json": {
+                        /**
+                         * @description A single media item with the variant sizes that are ready to read.
+                         *
+                         *     Carries the same fields as a listing row, plus `available_sizes`. Bucket
+                         *     names and object keys are deliberately not exposed: callers reach the bytes
+                         *     through `GET /api/media/{media_id}/{media_size}`, which issues a signed URL,
+                         *     so storage layout stays an internal detail.
+                         *     One media item in full, including which sizes exist.
+                         *
+                         *     `available_sizes` is derived from the variant rows, so an item still being
+                         *     processed comes back with an empty list rather than an error — check
+                         *     `status` to tell "none yet" from "none ever".
+                         */
+                        data: {
+                            /** @description Alternative text. Empty rather than absent when unset. */
+                            alt_text: string;
+                            /** @description What kind of thing it is attached to. */
+                            attachment_target: components["schemas"]["AttachmentTarget"];
+                            /**
+                             * Format: uuid
+                             * @description The id of that thing.
+                             */
+                            attachment_target_id: string;
+                            /** @description Sizes that can currently be fetched. Empty until processing completes. */
+                            available_sizes: components["schemas"]["MediaSize"][];
+                            /** @description Caption. Empty rather than absent when unset. */
+                            caption: string;
+                            /**
+                             * Format: uuid
+                             * @description The media item.
+                             */
+                            media_id: string;
+                            /** @description The name the file was uploaded under. */
+                            original_filename: string;
+                            /**
+                             * Format: int32
+                             * @description Display order within the role, starting at 0.
+                             */
+                            position: number;
+                            /** @description What the media is for on its target. */
+                            role: components["schemas"]["MediaRole"];
+                            /**
+                             * @description Where the item is in processing. A row exists before its bytes do, so
+                             *     this is what says whether the file is usable.
+                             */
+                            status: components["schemas"]["MediaState"];
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Media not found, deleted, or owned by another user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "MEDIA_NOT_FOUND",
+                     *         "message": "Media not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_media_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the media to delete */
+                media_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Media deleted, or was already deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Media not found, or owned by another user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "MEDIA_NOT_FOUND",
+                     *         "message": "Media not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_media_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Media identifier */
+                media_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchMediaRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unknown, or owned by another user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    hard_delete_media_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Media identifier */
+                media_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted permanently */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unknown, or owned by another user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    restore_media_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Media identifier */
+                media_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Restored. Idempotent — restoring a live item succeeds. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unknown, or owned by another user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_media_usage_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Media identifier */
+                media_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Where the media is attached */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": [
+                     *         {
+                     *           "is_published": true,
+                     *           "role": "cover",
+                     *           "target": "blog_post",
+                     *           "target_id": "8f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d"
+                     *         }
+                     *       ],
+                     *       "success": true
+                     *     }
+                     */
+                    "application/json": {
+                        data: {
+                            /**
+                             * @description Whether that target is visible to readers right now.
+                             *
+                             *     This is the field that earns the endpoint. "Used on 3 posts" is mildly
+                             *     useful; "used on a post that is live right now" is what stops someone
+                             *     breaking their own published page.
+                             *
+                             *     Projects have no draft state, so a non-deleted project is always `true`.
+                             */
+                            is_published: boolean;
+                            /** @description What the media is for on that target. */
+                            role: string;
+                            /** @description What kind of thing it is attached to. */
+                            target: components["schemas"]["AttachmentTarget"];
+                            /**
+                             * Format: uuid
+                             * @description The id of that thing.
+                             */
+                            target_id: string;
+                        }[];
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unknown, or owned by another user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_variant_read_url_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the media */
+                media_id: string;
+                /** @description Variant to read: thumbnail, small, medium, or large */
+                media_size: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed read URL issued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Response body returned by this endpoint. */
+                        data: {
+                            /**
+                             * Format: date-time
+                             * @description When the URL stops working. Short by design.
+                             */
+                            expires_at: string;
+                            /**
+                             * Format: uuid
+                             * @description Which media item.
+                             */
+                            media_id: string;
+                            /** @description The size the URL points at. */
+                            size: components["schemas"]["MediaSize"];
+                            /** @description Where the resource is served from. */
+                            url: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Media or variant not found, or the size is unrecognised.                            Codes: MEDIA_NOT_FOUND, VARIANT_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Media is not ready to read. Codes: MEDIA_PENDING,                            MEDIA_PROCESSING, MEDIA_FAILED */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "MEDIA_PROCESSING",
+                     *         "message": "Media is still being processed"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Object storage refused to issue a signed URL */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_projects_handler: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Free-text search over project title and description
+                 * @example rust
+                 */
+                search?: string;
+                /** @description Restrict results to projects carrying this topic */
+                topic_id?: string;
+                /** @description Listing order. */
+                sort?: components["schemas"]["ProjectSort"];
+                /** @description 1-based page number. */
+                page?: number;
+                /** @description Rows per page. */
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Projects retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * @description One page of results, plus the totals a client needs to paginate.
+                         *
+                         *     `total` counts every row matching the filter, not just this page.
+                         */
+                        data: {
+                            /** @description Items on the current page */
+                            items: {
+                                cover?: null | components["schemas"]["PublicMedia"];
+                                /**
+                                 * Format: date-time
+                                 * @description When the project was created.
+                                 */
+                                created_at: string;
+                                /**
+                                 * Format: uuid
+                                 * @description Primary key.
+                                 */
+                                id: string;
+                                /** @description Running instance, if there is one. */
+                                live_demo_url?: string | null;
+                                /** @description Source repository, if the owner published one. */
+                                repo_url?: string | null;
+                                /** @description URL segment. Unique per owner, so two users may hold the same one. */
+                                slug: string;
+                                /** @description Free-form technology labels, in the order the owner set them. */
+                                tech_stack: string[];
+                                /** @description Display title, as the owner wrote it. */
+                                title: string;
+                                /**
+                                 * Format: date-time
+                                 * @description When it was last edited.
+                                 */
+                                updated_at: string;
+                            }[];
+                            /**
+                             * Format: int32
+                             * @description Current page number, 1-based
+                             * @example 1
+                             */
+                            page: number;
+                            /**
+                             * Format: int32
+                             * @description Items per page
+                             * @example 10
+                             */
+                            per_page: number;
+                            /**
+                             * Format: int64
+                             * @description Total items across all pages
+                             * @example 42
+                             */
+                            total: number;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_project_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description Project created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A project as returned after a write. */
+                        data: {
+                            /**
+                             * Format: date-time
+                             * @description When the project was created.
+                             */
+                            created_at: string;
+                            /** @description Long-form body. */
+                            description: string;
+                            /**
+                             * Format: uuid
+                             * @description Primary key.
+                             */
+                            id: string;
+                            /** @description Running instance, if there is one. */
+                            live_demo_url?: string | null;
+                            /**
+                             * @description Owning user. Serialises as a bare UUID string.
+                             * @example 123e4567-e89b-12d3-a456-426614174000
+                             */
+                            owner: string;
+                            /** @description Source repository, if there is one. */
+                            repo_url?: string | null;
+                            /** @description Image URLs, in display order. */
+                            screenshots: string[];
+                            /** @description URL segment. Unique per owner. */
+                            slug: string;
+                            /** @description Technology labels, in the order the owner set them. */
+                            tech_stack: string[];
+                            /** @description Display title. */
+                            title: string;
+                            /**
+                             * Format: date-time
+                             * @description When it was last edited.
+                             */
+                            updated_at: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Malformed request body */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description A project with this slug already exists for this user */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "SLUG_ALREADY_EXISTS",
+                     *         "message": "Project slug already exists"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    bulk_projects_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description The batch ran. Check `failed` for items that did not. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "failed": [
+                     *           {
+                     *             "code": "PROJECT_NOT_FOUND",
+                     *             "id": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+                     *             "message": "Project not found"
+                     *           }
+                     *         ],
+                     *         "succeeded": [
+                     *           "3f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d"
+                     *         ]
+                     *       },
+                     *       "success": true
+                     *     }
+                     */
+                    "application/json": {
+                        /** @description What happened to each item in a bulk request. */
+                        data: {
+                            /**
+                             * @description Ids the operation did not apply to, each with the reason.
+                             *
+                             *     Empty on a fully successful batch. **Never assume it is** — a partial
+                             *     failure is the ordinary case here, not an exceptional one.
+                             */
+                            failed: components["schemas"]["BulkFailure"][];
+                            /** @description Ids the operation applied to, in request order. */
+                            succeeded: string[];
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description The id list was empty or longer than the cap */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "BULK_TOO_LARGE",
+                     *         "message": "A bulk request carries at most 100 ids, got 250"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    project_slug_available_handler: {
+        parameters: {
+            query: {
+                /**
+                 * @description Candidate slug, before normalisation.
+                 * @example building-a-cms
+                 */
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Availability, with a free variant when taken */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Whether a slug is free, and a free alternative if it is not. */
+                        data: {
+                            /**
+                             * @description True when the caller can use it.
+                             * @example false
+                             */
+                            available: boolean;
+                            /**
+                             * @description The slug that was asked about, normalised.
+                             * @example building-a-cms
+                             */
+                            slug: string;
+                            /**
+                             * @description A free variant, when the requested one is taken.
+                             *
+                             *     `None` when the slug is available, and also when no free variant was
+                             *     found within the search bound — the caller should then treat the
+                             *     absence as "pick something else" rather than as an error.
+                             *
+                             *     **The suggestion is checked, not guessed.** Returning an unverified
+                             *     `-2` would reproduce the problem this endpoint exists to solve: a
+                             *     collision that only surfaces at save.
+                             * @example building-a-cms-2
+                             */
+                            suggestion?: string | null;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Slug missing or blank */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_project_by_id_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the project */
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A single project in full, including its body and topic links. */
+                        data: {
+                            /**
+                             * Format: date-time
+                             * @description When the project was created.
+                             */
+                            created_at: string;
+                            /** @description Long-form body. */
+                            description: string;
+                            /**
+                             * Format: uuid
+                             * @description Primary key.
+                             */
+                            id: string;
+                            /** @description Running instance, if there is one. */
+                            live_demo_url?: string | null;
+                            /**
+                             * @description Media attached to the project, on the **public** read path only.
+                             *
+                             *     Each item carries its `role`, so a client picks screenshots with
+                             *     `role == "screenshot"` and a cover with `role == "cover"`.
+                             *
+                             *     Distinct from [`screenshots`](Self::screenshots), which is a plain list
+                             *     of author-supplied URLs stored on the project row. The two coexist; this
+                             *     one is backed by uploaded media and carries generated sizes.
+                             */
+                            media: components["schemas"]["PublicMedia"][];
+                            /**
+                             * @description Owning user. Serialises as a bare UUID string.
+                             * @example 123e4567-e89b-12d3-a456-426614174000
+                             */
+                            owner: string;
+                            /** @description Source repository, if the owner published one. */
+                            repo_url?: string | null;
+                            /** @description Image URLs, in display order. */
+                            screenshots: string[];
+                            /** @description URL segment. Unique per owner, so two users may hold the same one. */
+                            slug: string;
+                            /** @description Free-form technology labels, in the order the owner set them. */
+                            tech_stack: string[];
+                            /** @description Display title, as the owner wrote it. */
+                            title: string;
+                            /** @description Topics attached to this project. */
+                            topics: components["schemas"]["ProjectTopicItem"][];
+                            /**
+                             * Format: date-time
+                             * @description When it was last edited.
+                             */
+                            updated_at: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project not found, or owned by another user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "PROJECT_NOT_FOUND",
+                     *         "message": "Project not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    soft_delete_project_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the project to archive */
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project archived successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project not found, or owned by another user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "PROJECT_NOT_FOUND",
+                     *         "message": "Project not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_project_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the project to update */
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description Project updated successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A project as returned after a write. */
+                        data: {
+                            /**
+                             * Format: date-time
+                             * @description When the project was created.
+                             */
+                            created_at: string;
+                            /** @description Long-form body. */
+                            description: string;
+                            /**
+                             * Format: uuid
+                             * @description Primary key.
+                             */
+                            id: string;
+                            /** @description Running instance, if there is one. */
+                            live_demo_url?: string | null;
+                            /**
+                             * @description Owning user. Serialises as a bare UUID string.
+                             * @example 123e4567-e89b-12d3-a456-426614174000
+                             */
+                            owner: string;
+                            /** @description Source repository, if there is one. */
+                            repo_url?: string | null;
+                            /** @description Image URLs, in display order. */
+                            screenshots: string[];
+                            /** @description URL segment. Unique per owner. */
+                            slug: string;
+                            /** @description Technology labels, in the order the owner set them. */
+                            tech_stack: string[];
+                            /** @description Display title. */
+                            title: string;
+                            /**
+                             * Format: date-time
+                             * @description When it was last edited.
+                             */
+                            updated_at: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Malformed request body */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project not found, or owned by another user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "PROJECT_NOT_FOUND",
+                     *         "message": "Project not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    hard_delete_project_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the project to delete */
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project not found, or owned by another user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "PROJECT_NOT_FOUND",
+                     *         "message": "Project not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    restore_project_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project identifier */
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Restored */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unknown, or owned by another user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_project_topics_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the project */
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Topics retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @description Long-form body. */
+                            description: string;
+                            /**
+                             * Format: uuid
+                             * @description Primary key.
+                             */
+                            id: string;
+                            /** @description Display title, as the owner wrote it. */
+                            title: string;
+                        }[];
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project not found, or owned by another user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "PROJECT_NOT_FOUND",
+                     *         "message": "Project not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    add_project_topic_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the project */
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddProjectTopicRequest"];
+            };
+        };
+        responses: {
+            /** @description Topic attached successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "message": "OK"
+                     *       },
+                     *       "success": true
+                     *     }
+                     */
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Malformed request body */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project or topic not found. Codes: PROJECT_NOT_FOUND, TOPIC_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    remove_project_topic_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the project */
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RemoveProjectTopicRequest"];
+            };
+        };
+        responses: {
+            /** @description Topic detached, or was not attached to begin with */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Malformed request body */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project not found, or owned by another user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "PROJECT_NOT_FOUND",
+                     *         "message": "Project not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    clear_project_topics_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the project */
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All topics detached */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project not found, or owned by another user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "PROJECT_NOT_FOUND",
+                     *         "message": "Project not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    read_draft_preview_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The preview token from the shared link */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The draft, as it stands now */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description What a reader holding a preview link is served. */
+                        data: components["schemas"]["BlogPostDetailResponse"] & {
+                            /**
+                             * @description Always `true`. Present so a client can render the "not published"
+                             *     banner from the payload rather than from which URL it happened to call
+                             *     — without it a reviewer cannot tell a draft from the live post, and may
+                             *     link to it as though it were public.
+                             */
+                            preview: boolean;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description The post is published; Location carries its public path */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown, revoked or expired token */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "POST_NOT_FOUND",
+                     *         "message": "Blog post not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    read_preview_media_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The preview token from the shared link */
+                token: string;
+                /** @description Media item on that draft */
+                media_id: string;
+                /** @description thumbnail | small | medium | large */
+                size: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Location carries a freshly signed URL */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Dead token, media on another post, or a variant that does not exist yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_public_blog_posts_handler: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Free-text search over title and excerpt
+                 * @example rust
+                 */
+                search?: string;
+                /** @description Restrict to posts carrying this topic */
+                topic_id?: string;
+                /**
+                 * @description `true` for published only, `false` for drafts only. Omit for both.
+                 *     Ignored by the public listing, which always forces published only.
+                 */
+                published?: boolean;
+                /** @description Listing order. */
+                sort?: components["schemas"]["BlogPostSort"];
+                /**
+                 * @description 1-based page number.
+                 * @example 1
+                 */
+                page?: number;
+                /**
+                 * @description Rows per page.
+                 * @example 10
+                 */
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Author whose posts to list */
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Posts retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * @description One page of results, plus the totals a client needs to paginate.
+                         *
+                         *     `total` counts every row matching the filter, not just this page.
+                         */
+                        data: {
+                            /** @description The rows on this page. */
+                            items: {
+                                cover?: null | components["schemas"]["PublicMedia"];
+                                /**
+                                 * Format: date-time
+                                 * @description When it was created.
+                                 */
+                                created_at: string;
+                                /** @description Short summary for listings. `None` when none was written. */
+                                excerpt?: string | null;
+                                /**
+                                 * Format: uuid
+                                 * @description Primary key.
+                                 */
+                                id: string;
+                                /**
+                                 * Format: date-time
+                                 * @description `None` is a draft; a past value is published, a future one scheduled.
+                                 */
+                                published_at?: string | null;
+                                /**
+                                 * @description URL segment. Unique per owner.
+                                 * @example building-a-cms-in-rust
+                                 */
+                                slug: string;
+                                /**
+                                 * @description Display title.
+                                 * @example Building a CMS in Rust
+                                 */
+                                title: string;
+                                /**
+                                 * Format: date-time
+                                 * @description When it was last edited.
+                                 */
+                                updated_at: string;
+                            }[];
+                            /**
+                             * Format: int32
+                             * @description 1-based page number.
+                             * @example 1
+                             */
+                            page: number;
+                            /**
+                             * Format: int32
+                             * @description Rows per page.
+                             * @example 10
+                             */
+                            per_page: number;
+                            /**
+                             * Format: int64
+                             * @description Rows matching the filter across *all* pages, not just this one.
+                             * @example 42
+                             */
+                            total: number;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description No such username */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "USER_NOT_FOUND",
+                     *         "message": "User not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_public_blog_post_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Author of the post */
+                username: string;
+                /** @description URL slug of the post */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Post retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A post together with its topics, for detail views. */
+                        data: components["schemas"]["BlogPostResponse"] & {
+                            cover?: null | components["schemas"]["PublicMedia"];
+                            /** @description Topics attached to the post. */
+                            topics: components["schemas"]["BlogPostTopicResponse"][];
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description No such username, or no published post with that slug */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "POST_NOT_FOUND",
+                     *         "message": "Blog post not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_public_cv_by_id_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Username of the CV owner */
+                username: string;
+                /** @description Identifier of the CV to fetch */
+                cv_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CV retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A CV as returned by the API. */
+                        data: {
+                            /**
+                             * @description Free-form introduction.
+                             * @example Passionate software engineer...
+                             */
+                            bio: string;
+                            /** @description Contact rows. Public on a published CV. */
+                            contact_info: components["schemas"]["ContactDetailDto"][];
+                            /** @description Headline skills, in display order. */
+                            core_skills: components["schemas"]["CoreSkillDto"][];
+                            /**
+                             * @description Name shown on the CV.
+                             * @example John Doe
+                             */
+                            display_name: string;
+                            /** @description Education entries, in display order. */
+                            educations: components["schemas"]["EducationDto"][];
+                            /** @description Work history, in display order. */
+                            experiences: components["schemas"]["ExperienceDto"][];
+                            /** @description Projects featured on the CV, in display order. */
+                            highlighted_projects: components["schemas"]["HighlightedProjectDto"][];
+                            /**
+                             * Format: uuid
+                             * @description Primary key.
+                             * @example 123e4567-e89b-12d3-a456-426614174000
+                             */
+                            id: string;
+                            /**
+                             * @description Portrait image. Empty when unset.
+                             * @example https://example.com/photos/profile.jpg
+                             */
+                            photo_url: string;
+                            /**
+                             * @description Job title shown under the display name.
+                             * @example Senior Software Engineer
+                             */
+                            role: string;
+                            /**
+                             * Format: uuid
+                             * @description The owning user.
+                             * @example 987e6543-e21b-12d3-a456-426614174000
+                             */
+                            user_id: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Owner or CV not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "CV_NOT_FOUND",
+                     *         "message": "CV not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_public_variant_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Media identifier */
+                media_id: string;
+                /** @description thumbnail, small, medium or large */
+                size: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to a short-lived signed URL */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown variant, or not attached to anything published */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Object store unavailable */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_public_projects_handler: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Free-text search over project title and description
+                 * @example rust
+                 */
+                search?: string;
+                /** @description Restrict results to projects carrying this topic */
+                topic_id?: string;
+                /** @description Listing order. */
+                sort?: components["schemas"]["ProjectSort"];
+                /** @description 1-based page number. */
+                page?: number;
+                /** @description Rows per page. */
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Username whose projects to list */
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Projects retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * @description One page of results, plus the totals a client needs to paginate.
+                         *
+                         *     `total` counts every row matching the filter, not just this page.
+                         */
+                        data: {
+                            /** @description Items on the current page */
+                            items: {
+                                cover?: null | components["schemas"]["PublicMedia"];
+                                /**
+                                 * Format: date-time
+                                 * @description When the project was created.
+                                 */
+                                created_at: string;
+                                /**
+                                 * Format: uuid
+                                 * @description Primary key.
+                                 */
+                                id: string;
+                                /** @description Running instance, if there is one. */
+                                live_demo_url?: string | null;
+                                /** @description Source repository, if the owner published one. */
+                                repo_url?: string | null;
+                                /** @description URL segment. Unique per owner, so two users may hold the same one. */
+                                slug: string;
+                                /** @description Free-form technology labels, in the order the owner set them. */
+                                tech_stack: string[];
+                                /** @description Display title, as the owner wrote it. */
+                                title: string;
+                                /**
+                                 * Format: date-time
+                                 * @description When it was last edited.
+                                 */
+                                updated_at: string;
+                            }[];
+                            /**
+                             * Format: int32
+                             * @description Current page number, 1-based
+                             * @example 1
+                             */
+                            page: number;
+                            /**
+                             * Format: int32
+                             * @description Items per page
+                             * @example 10
+                             */
+                            per_page: number;
+                            /**
+                             * Format: int64
+                             * @description Total items across all pages
+                             * @example 42
+                             */
+                            total: number;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description No such username */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "USER_NOT_FOUND",
+                     *         "message": "User not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_public_single_project_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Username of the project owner */
+                username: string;
+                /** @description URL slug of the project */
+                project_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A single project in full, including its body and topic links. */
+                        data: {
+                            /**
+                             * Format: date-time
+                             * @description When the project was created.
+                             */
+                            created_at: string;
+                            /** @description Long-form body. */
+                            description: string;
+                            /**
+                             * Format: uuid
+                             * @description Primary key.
+                             */
+                            id: string;
+                            /** @description Running instance, if there is one. */
+                            live_demo_url?: string | null;
+                            /**
+                             * @description Media attached to the project, on the **public** read path only.
+                             *
+                             *     Each item carries its `role`, so a client picks screenshots with
+                             *     `role == "screenshot"` and a cover with `role == "cover"`.
+                             *
+                             *     Distinct from [`screenshots`](Self::screenshots), which is a plain list
+                             *     of author-supplied URLs stored on the project row. The two coexist; this
+                             *     one is backed by uploaded media and carries generated sizes.
+                             */
+                            media: components["schemas"]["PublicMedia"][];
+                            /**
+                             * @description Owning user. Serialises as a bare UUID string.
+                             * @example 123e4567-e89b-12d3-a456-426614174000
+                             */
+                            owner: string;
+                            /** @description Source repository, if the owner published one. */
+                            repo_url?: string | null;
+                            /** @description Image URLs, in display order. */
+                            screenshots: string[];
+                            /** @description URL segment. Unique per owner, so two users may hold the same one. */
+                            slug: string;
+                            /** @description Free-form technology labels, in the order the owner set them. */
+                            tech_stack: string[];
+                            /** @description Display title, as the owner wrote it. */
+                            title: string;
+                            /** @description Topics attached to this project. */
+                            topics: components["schemas"]["ProjectTopicItem"][];
+                            /**
+                             * Format: date-time
+                             * @description When it was last edited.
+                             */
+                            updated_at: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description No such username, or no project with that slug */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "PROJECT_NOT_FOUND",
+                     *         "message": "Project not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_public_profile_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The author's public handle */
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The author's public profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "avatar": {
+                     *           "alt_text": "Jane Doe",
+                     *           "caption": "",
+                     *           "media_id": "8f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d",
+                     *           "position": 0,
+                     *           "role": "avatar",
+                     *           "variants": {
+                     *             "thumbnail": "/api/public/media/8f1b2c3d…/thumbnail"
+                     *           }
+                     *         },
+                     *         "bio": "Backend engineer, mostly Rust.",
+                     *         "full_name": "Jane Doe",
+                     *         "username": "janedoe"
+                     *       },
+                     *       "success": true
+                     *     }
+                     */
+                    "application/json": {
+                        /** @description An author, as a reader sees them. */
+                        data: {
+                            avatar?: null | components["schemas"]["PublicMedia"];
+                            /**
+                             * @description Free-form introduction. `null` when the author has not written one.
+                             * @example Backend engineer, mostly Rust.
+                             */
+                            bio?: string | null;
+                            /**
+                             * @description Display name.
+                             * @example Jane Doe
+                             */
+                            full_name: string;
+                            /**
+                             * @description Public handle. The same value that keys every public URL.
+                             * @example janedoe
+                             */
+                            username: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description No such author, or the account is deleted */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_topics_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Topics retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /**
+                             * @description Topic description
+                             * @example Notes and projects on consensus and replication
+                             */
+                            description: string;
+                            /**
+                             * Format: uuid
+                             * @description Topic identifier
+                             * @example 9f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d
+                             */
+                            id: string;
+                            /**
+                             * @description Topic title
+                             * @example Distributed Systems
+                             */
+                            title: string;
+                        }[];
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_topic_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTopicRequest"];
+            };
+        };
+        responses: {
+            /** @description Topic created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A topic as returned after a write, and as serialised to clients. */
+                        data: {
+                            /**
+                             * @description Topic description
+                             * @example Notes and projects on consensus and replication
+                             */
+                            description: string;
+                            /**
+                             * Format: uuid
+                             * @description Topic identifier
+                             * @example 9f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d
+                             */
+                            id: string;
+                            /**
+                             * @description Identifier of the owning user. Serialises as a bare UUID string, so it
+                             *     is described as `String` rather than pulling `UserId` into the schema.
+                             * @example 123e4567-e89b-12d3-a456-426614174000
+                             */
+                            owner: string;
+                            /**
+                             * @description Topic title
+                             * @example Distributed Systems
+                             */
+                            title: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Title empty or longer than 100 characters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "EMPTY_TITLE",
+                     *         "message": "Title cannot be empty"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Topic already exists for this user */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "TOPIC_ALREADY_EXISTS",
+                     *         "message": "Topic already exists"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    soft_delete_topic_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifier of the topic to delete */
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Topic deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified, or the topic belongs to another user */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "FORBIDDEN",
+                     *         "message": "You are not the owner of this topic"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Topic not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "TOPIC_NOT_FOUND",
+                     *         "message": "Topic not found"
+                     *       },
+                     *       "success": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_topic_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Topic identifier */
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchTopicRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A topic as returned after a write, and as serialised to clients. */
+                        data: {
+                            /**
+                             * @description Topic description
+                             * @example Notes and projects on consensus and replication
+                             */
+                            description: string;
+                            /**
+                             * Format: uuid
+                             * @description Topic identifier
+                             * @example 9f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d
+                             */
+                            id: string;
+                            /**
+                             * @description Identifier of the owning user. Serialises as a bare UUID string, so it
+                             *     is described as `String` rather than pulling `UserId` into the schema.
+                             * @example 123e4567-e89b-12d3-a456-426614174000
+                             */
+                            owner: string;
+                            /**
+                             * @description Topic title
+                             * @example Distributed Systems
+                             */
+                            title: string;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Title empty or longer than 100 characters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unknown, or owned by another user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The owner already has a topic with that title */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_topic_usage_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Topic identifier */
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reference counts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "posts": 6,
+                     *         "projects": 2
+                     *       },
+                     *       "success": true
+                     *     }
+                     */
+                    "application/json": {
+                        /**
+                         * @description How many things reference a topic.
+                         *
+                         *     What a retire-confirmation needs: "Retire «Rust»? It's on 6 posts and 2
+                         *     projects" rather than a generic warning or an invented number.
+                         */
+                        data: {
+                            /**
+                             * Format: int64
+                             * @description Blog posts carrying this topic, deleted ones excluded.
+                             * @example 6
+                             */
+                            posts: number;
+                            /**
+                             * Format: int64
+                             * @description Projects carrying this topic, deleted ones excluded.
+                             * @example 2
+                             */
+                            projects: number;
+                        };
+                        /**
+                         * @description Always true for successful responses
+                         * @example true
+                         */
+                        success: boolean;
+                    };
+                };
+            };
+            /** @description Not authenticated */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1419,16 +12164,23 @@ export interface operations {
                     /**
                      * @example {
                      *       "data": {
+                     *         "bio": "Backend engineer, mostly Rust.",
                      *         "email": "john@example.com",
-                     *         "fullName": "John Doe",
-                     *         "userId": "123e4567-e89b-12d3-a456-426614174000",
+                     *         "full_name": "John Doe",
+                     *         "user_id": "123e4567-e89b-12d3-a456-426614174000",
                      *         "username": "johndoe"
                      *       },
                      *       "success": true
                      *     }
                      */
                     "application/json": {
+                        /** @description Response body returned by this endpoint. */
                         data: {
+                            /**
+                             * @description Public bio. `null` when the user has not written one.
+                             * @example Backend engineer, mostly Rust.
+                             */
+                            bio?: string | null;
                             /**
                              * @description Email address
                              * @example john@example.com
@@ -1439,6 +12191,11 @@ export interface operations {
                              * @example John Doe
                              */
                             full_name: string;
+                            /**
+                             * @description Interface language.
+                             * @example en
+                             */
+                            locale: string;
                             /**
                              * @description User ID (UUID)
                              * @example 123e4567-e89b-12d3-a456-426614174000
@@ -1536,16 +12293,23 @@ export interface operations {
                     /**
                      * @example {
                      *       "data": {
+                     *         "bio": "Backend engineer, mostly Rust.",
                      *         "email": "john@example.com",
-                     *         "fullName": "John Smith",
-                     *         "userId": "123e4567-e89b-12d3-a456-426614174000",
+                     *         "full_name": "John Smith",
+                     *         "user_id": "123e4567-e89b-12d3-a456-426614174000",
                      *         "username": "johndoe"
                      *       },
                      *       "success": true
                      *     }
                      */
                     "application/json": {
+                        /** @description Response body returned by this endpoint. */
                         data: {
+                            /**
+                             * @description Public bio. `null` when the user has not written one.
+                             * @example Backend engineer, mostly Rust.
+                             */
+                            bio?: string | null;
                             /**
                              * @description Email address
                              * @example john@example.com
@@ -1556,6 +12320,11 @@ export interface operations {
                              * @example John Smith
                              */
                             full_name: string;
+                            /**
+                             * @description Interface language.
+                             * @example en
+                             */
+                            locale: string;
                             /**
                              * @description User ID (UUID)
                              * @example 123e4567-e89b-12d3-a456-426614174000
@@ -1699,6 +12468,62 @@ export interface operations {
                      *     }
                      */
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    health: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Process is alive */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    readiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All dependencies reachable */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadinessResponse"];
+                };
+            };
+            /** @description At least one dependency is unreachable; the body names which */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "database": "ok",
+                     *       "redis": "unhealthy",
+                     *       "status": "unhealthy"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ReadinessResponse"];
                 };
             };
         };

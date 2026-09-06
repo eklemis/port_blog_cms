@@ -7,11 +7,7 @@ import {
 	clearAuthCookies
 } from '$lib/shared/auth/cookies.server';
 
-async function callBackend(
-	event: RequestEvent,
-	path: string,
-	init: RequestInit = {}
-) {
+async function callBackend(event: RequestEvent, path: string, init: RequestInit = {}) {
 	const access = event.cookies.get(ACCESS_COOKIE);
 
 	const res = await fetch(`${backendBaseUrl}${path}`, {

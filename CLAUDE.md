@@ -9,7 +9,7 @@ rationale.
 | `backend_actix/` | The API. Rust · Actix Web · SeaORM. Owns the Postgres schema. Has its own [`CLAUDE.md`](backend_actix/CLAUDE.md) — **read it before working there.** |
 | `image-processor-function/` | Rust. Eventarc-triggered; resizes uploads. |
 | `media-status-updater/` | Node 22. Marks media ready once variants land. |
-| `blogport_frontend/` | SvelteKit 2 · Svelte 5 · Tailwind 4. |
+| `blogport_frontend/` | The client. SvelteKit 2 · Svelte 5 (runes) · Tailwind 4 · Feature-Sliced · TDD. Has its own [`CLAUDE.md`](blogport_frontend/CLAUDE.md) — **read it before working there.** |
 | `backend_node/` | Empty stub. Name reserved, no source. |
 
 ## The Rust workspace
@@ -34,8 +34,10 @@ blocks on.
   pin and which is older than a typical local `stable`. A careless
   `cargo update` can pull a crate needing a newer rustc and break the container
   build while everything passes locally.
-- **`package-lock.json` is the only lockfile that belongs in the repo.** Vercel
-  and Cloud Build pick their package manager from whichever lockfile they find.
+- **One lockfile per JS service, and it decides the package manager.** Vercel
+  and Cloud Build pick their package manager from whichever lockfile they find,
+  so a second one silently changes how a service builds. `blogport_frontend`
+  uses **Bun** (`bun.lockb`) — run `bun install` there, never `npm install`.
 - **Both Rust services build with the repository root as the Docker context**,
   because their crates need the root manifest and lockfile. Their Dockerfiles
   are selected by `cloudbuild.yaml` rather than `gcloud builds submit --tag`.

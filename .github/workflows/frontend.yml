@@ -7,10 +7,20 @@ on:
     paths:
       - 'blogport_frontend/**'
       - '.github/workflows/frontend.yml'
+      # src/shared/api/v1.ts is generated from this spec, so a backend-only
+      # change can leave the frontend's types stale. Without this path the
+      # workflow never runs and the drift goes unseen — which is exactly how
+      # v1.ts fell 11k lines behind.
+      - 'backend_actix/docs/openapi.json'
   pull_request:
     paths:
       - 'blogport_frontend/**'
       - '.github/workflows/frontend.yml'
+      # src/shared/api/v1.ts is generated from this spec, so a backend-only
+      # change can leave the frontend's types stale. Without this path the
+      # workflow never runs and the drift goes unseen — which is exactly how
+      # v1.ts fell 11k lines behind.
+      - 'backend_actix/docs/openapi.json'
 
 concurrency:
   group: frontend-${{ github.ref }}
@@ -39,6 +49,16 @@ jobs:
       # @vitest/browser-playwright, so the browser has to be present.
       - name: Install Chromium for browser tests
         run: bunx playwright install --with-deps chromium
+
+      # Fails if src/shared/api/v1.ts no longer matches the committed OpenAPI
+      # spec. Cheapest check here, so it runs first.
+      - name: API types are in sync
+        run: bun run types:check
+
+      # FSD boundaries, Svelte 5 runes, design tokens, component specs. The
+      # write-time hook only protects an agent session; this protects everyone.
+      - name: House rules
+        run: bun run guard
 
       - name: Typecheck
         run: bun run check

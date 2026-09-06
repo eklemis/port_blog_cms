@@ -1,0 +1,3698 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<style>
+			:root {
+				color-scheme: light;
+			}
+			body {
+				margin: 0;
+				padding: 0;
+				font:
+					14px -apple-system,
+					BlinkMacSystemFont,
+					sans-serif;
+				background: #faf9f5;
+				color: #141413;
+			}
+			img {
+				max-width: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<title>Blogport Console Blueprint</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			rel="stylesheet"
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sen:wght@400;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+		/>
+
+		<style>
+			/* ============================================================
+   Tokens — lifted verbatim from blogport_frontend/src/app/routes/layout.css.
+   This page is a specimen of the system it documents, so it commits to the
+   product's single dark world rather than offering a light theme the app
+   does not have. Every colour is painted explicitly for that reason.
+   ============================================================ */
+			:root {
+				--bg: #2f3133;
+				--surface: #3a3c3e;
+				--surface-2: #434547;
+				--headline: #f4e4c9;
+				--muted: #9fa3a6;
+				--accent: #f4a43d;
+				--accent-2: #e8c76b;
+
+				--line: rgba(244, 228, 201, 0.1);
+				--line-strong: rgba(244, 228, 201, 0.22);
+
+				/* Semantic state — separate from the accent, which is never a status. */
+				--st-neutral: #9fa3a6;
+				--st-inflight: #e8c76b;
+				--st-live: #8fbf9a;
+				--st-danger: #e08a7d;
+				--st-dormant: #6f7276;
+
+				--font-display:
+					Sen, Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+				--font-sans:
+					Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+				--font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+				--shell: 1140px;
+				--prose: 68ch;
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			body {
+				margin: 0;
+				background: var(--bg);
+				color: var(--headline);
+				font-family: var(--font-sans);
+				font-size: 16px;
+				line-height: 1.65;
+				-webkit-font-smoothing: antialiased;
+			}
+
+			h1,
+			h2,
+			h3,
+			h4 {
+				font-family: var(--font-display);
+				text-wrap: balance;
+				margin: 0;
+			}
+			p {
+				margin: 0;
+			}
+			a {
+				color: var(--accent);
+				text-decoration-color: rgba(244, 164, 61, 0.4);
+				text-underline-offset: 3px;
+			}
+			a:focus-visible,
+			button:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 3px;
+				border-radius: 4px;
+			}
+
+			code,
+			.mono {
+				font-family: var(--font-mono);
+				font-size: 0.86em;
+			}
+
+			/* ---------- shell ---------- */
+			.shell {
+				max-width: var(--shell);
+				margin: 0 auto;
+				padding: 0 24px;
+			}
+			.prose {
+				max-width: var(--prose);
+			}
+
+			/* ---------- masthead ---------- */
+			.masthead {
+				padding: 72px 0 48px;
+				border-bottom: 1px solid var(--line);
+			}
+			.eyebrow {
+				font-family: var(--font-mono);
+				font-size: 0.6875rem;
+				letter-spacing: 0.16em;
+				text-transform: uppercase;
+				color: var(--accent);
+				margin-bottom: 20px;
+			}
+			.masthead h1 {
+				font-size: clamp(2.3rem, 5.2vw, 3.4rem);
+				font-weight: 800;
+				line-height: 1.05;
+				letter-spacing: -0.02em;
+			}
+			.masthead .standfirst {
+				margin-top: 20px;
+				font-size: 1.075rem;
+				color: var(--muted);
+				max-width: 62ch;
+			}
+
+			.premise {
+				margin-top: 40px;
+				display: grid;
+				gap: 1px;
+				background: var(--line);
+				grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+				border: 1px solid var(--line);
+				border-radius: 12px;
+				overflow: hidden;
+			}
+			.premise > div {
+				background: var(--surface);
+				padding: 20px 22px;
+			}
+			.premise h4 {
+				font-size: 0.9375rem;
+				color: var(--headline);
+				margin-bottom: 6px;
+			}
+			.premise p {
+				font-size: 0.875rem;
+				color: var(--muted);
+			}
+
+			/* ---------- sticky section nav ---------- */
+			.tocbar {
+				position: sticky;
+				top: 0;
+				z-index: 40;
+				background: rgba(47, 49, 51, 0.94);
+				backdrop-filter: blur(10px);
+				border-bottom: 1px solid var(--line);
+			}
+			.tocbar .inner {
+				display: flex;
+				gap: 4px;
+				overflow-x: auto;
+				padding: 10px 24px;
+				max-width: var(--shell);
+				margin: 0 auto;
+				scrollbar-width: thin;
+			}
+			.tocbar a {
+				flex: 0 0 auto;
+				font-size: 0.78125rem;
+				color: var(--muted);
+				text-decoration: none;
+				padding: 6px 12px;
+				border-radius: 999px;
+				white-space: nowrap;
+				transition:
+					color 0.15s,
+					background 0.15s;
+			}
+			.tocbar a:hover {
+				color: var(--headline);
+				background: rgba(244, 228, 201, 0.06);
+			}
+
+			/* ---------- sections ---------- */
+			section {
+				padding: 64px 0;
+				border-bottom: 1px solid var(--line);
+				scroll-margin-top: 64px;
+			}
+			section:last-of-type {
+				border-bottom: none;
+			}
+			.sec-head {
+				display: flex;
+				align-items: baseline;
+				gap: 14px;
+				margin-bottom: 10px;
+			}
+			.sec-num {
+				font-family: var(--font-mono);
+				font-size: 0.75rem;
+				color: var(--accent);
+				letter-spacing: 0.08em;
+				padding-top: 4px;
+			}
+			section h2 {
+				font-size: clamp(1.6rem, 3vw, 2.1rem);
+				font-weight: 800;
+				letter-spacing: -0.015em;
+			}
+			.sec-lede {
+				color: var(--muted);
+				margin-bottom: 36px;
+				max-width: var(--prose);
+			}
+
+			h3.block {
+				font-size: 1.125rem;
+				font-weight: 700;
+				margin: 40px 0 14px;
+			}
+			h3.block:first-of-type {
+				margin-top: 0;
+			}
+
+			/* ---------- swatches ---------- */
+			.swatches {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+				gap: 12px;
+			}
+			.sw {
+				border: 1px solid var(--line);
+				border-radius: 10px;
+				overflow: hidden;
+				background: var(--surface);
+			}
+			.sw .chip {
+				height: 62px;
+			}
+			.sw .meta {
+				padding: 10px 12px;
+			}
+			.sw .name {
+				font-size: 0.8125rem;
+				font-weight: 600;
+			}
+			.sw .val {
+				font-family: var(--font-mono);
+				font-size: 0.6875rem;
+				color: var(--muted);
+			}
+
+			/* ---------- type specimen ---------- */
+			.specimen {
+				border: 1px solid var(--line);
+				border-radius: 12px;
+				background: var(--surface);
+				padding: 26px 28px;
+				display: grid;
+				gap: 22px;
+			}
+			.spec-row {
+				display: grid;
+				grid-template-columns: 190px 1fr;
+				gap: 20px;
+				align-items: baseline;
+			}
+			.spec-key {
+				font-family: var(--font-mono);
+				font-size: 0.6875rem;
+				color: var(--muted);
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+			}
+
+			/* ---------- tables ---------- */
+			.scroller {
+				overflow-x: auto;
+				border: 1px solid var(--line);
+				border-radius: 12px;
+				background: var(--surface);
+			}
+			table {
+				width: 100%;
+				border-collapse: collapse;
+				font-size: 0.84375rem;
+				min-width: 620px;
+			}
+			thead th {
+				text-align: left;
+				font-family: var(--font-mono);
+				font-size: 0.6875rem;
+				font-weight: 500;
+				letter-spacing: 0.1em;
+				text-transform: uppercase;
+				color: var(--muted);
+				padding: 12px 16px;
+				border-bottom: 1px solid var(--line-strong);
+				white-space: nowrap;
+			}
+			tbody td {
+				padding: 12px 16px;
+				border-bottom: 1px solid var(--line);
+				vertical-align: top;
+				color: var(--headline);
+			}
+			tbody tr:last-child td {
+				border-bottom: none;
+			}
+			tbody td.dim {
+				color: var(--muted);
+			}
+			td .mono,
+			th .mono {
+				color: var(--accent-2);
+			}
+
+			/* ---------- pills ---------- */
+			.pill {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				font-family: var(--font-mono);
+				font-size: 0.6875rem;
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+				padding: 3px 9px;
+				border-radius: 999px;
+				border: 1px solid currentColor;
+				white-space: nowrap;
+			}
+			.pill::before {
+				content: '';
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: currentColor;
+			}
+			.p-neutral {
+				color: var(--st-neutral);
+			}
+			.p-inflight {
+				color: var(--st-inflight);
+			}
+			.p-live {
+				color: var(--st-live);
+			}
+			.p-danger {
+				color: var(--st-danger);
+			}
+			.p-dormant {
+				color: var(--st-dormant);
+			}
+
+			.verb {
+				font-family: var(--font-mono);
+				font-size: 0.6875rem;
+				font-weight: 500;
+				letter-spacing: 0.06em;
+				padding: 2px 6px;
+				border-radius: 4px;
+				background: rgba(244, 228, 201, 0.08);
+				color: var(--headline);
+			}
+
+			/* ---------- journeys ---------- */
+			.journeys {
+				display: grid;
+				gap: 20px;
+			}
+			.journey {
+				border: 1px solid var(--line);
+				border-radius: 14px;
+				background: var(--surface);
+				overflow: hidden;
+			}
+			.j-head {
+				display: flex;
+				align-items: center;
+				gap: 14px;
+				padding: 18px 24px;
+				border-bottom: 1px solid var(--line);
+				flex-wrap: wrap;
+			}
+			.j-id {
+				font-family: var(--font-mono);
+				font-size: 0.75rem;
+				font-weight: 500;
+				color: var(--bg);
+				background: var(--accent);
+				padding: 3px 9px;
+				border-radius: 5px;
+				letter-spacing: 0.04em;
+			}
+			.j-head h3 {
+				font-size: 1.0625rem;
+				font-weight: 700;
+				flex: 1;
+				min-width: 200px;
+			}
+			.j-goal {
+				font-size: 0.8125rem;
+				color: var(--muted);
+				width: 100%;
+			}
+			.j-body {
+				padding: 22px 24px 24px;
+			}
+
+			ol.steps {
+				list-style: none;
+				counter-reset: s;
+				margin: 0;
+				padding: 0;
+				display: grid;
+				gap: 0;
+			}
+			ol.steps li {
+				counter-increment: s;
+				position: relative;
+				padding: 0 0 20px 42px;
+			}
+			ol.steps li::before {
+				content: counter(s);
+				position: absolute;
+				left: 0;
+				top: 1px;
+				width: 24px;
+				height: 24px;
+				border-radius: 50%;
+				border: 1px solid var(--line-strong);
+				font-family: var(--font-mono);
+				font-size: 0.6875rem;
+				color: var(--accent-2);
+				display: grid;
+				place-items: center;
+			}
+			ol.steps li::after {
+				content: '';
+				position: absolute;
+				left: 12px;
+				top: 27px;
+				bottom: 4px;
+				width: 1px;
+				background: var(--line);
+			}
+			ol.steps li:last-child {
+				padding-bottom: 0;
+			}
+			ol.steps li:last-child::after {
+				display: none;
+			}
+			.step-title {
+				font-weight: 600;
+				font-size: 0.9375rem;
+			}
+			.step-note {
+				font-size: 0.84375rem;
+				color: var(--muted);
+				margin-top: 3px;
+			}
+			.step-call {
+				margin-top: 6px;
+				font-family: var(--font-mono);
+				font-size: 0.75rem;
+				color: var(--accent-2);
+			}
+
+			.branches {
+				margin-top: 22px;
+				border-top: 1px solid var(--line);
+				padding-top: 18px;
+				display: grid;
+				gap: 10px;
+			}
+			.branches .bh {
+				font-family: var(--font-mono);
+				font-size: 0.6875rem;
+				letter-spacing: 0.12em;
+				text-transform: uppercase;
+				color: var(--muted);
+			}
+			.branch {
+				display: grid;
+				grid-template-columns: 190px 1fr;
+				gap: 16px;
+				font-size: 0.84375rem;
+				align-items: start;
+			}
+			.branch .cond {
+				font-family: var(--font-mono);
+				font-size: 0.71875rem;
+				color: var(--st-danger);
+				padding-top: 2px;
+			}
+			.branch .fix {
+				color: var(--muted);
+			}
+			.branch .fix b {
+				color: var(--headline);
+				font-weight: 600;
+			}
+
+			/* ---------- figures ---------- */
+			figure {
+				margin: 0 0 8px;
+			}
+			.figwrap {
+				border: 1px solid var(--line);
+				border-radius: 12px;
+				background: var(--surface);
+				padding: 24px;
+				overflow-x: auto;
+			}
+			.figwrap svg {
+				display: block;
+				width: 100%;
+				min-width: 620px;
+				max-width: 100%;
+				height: auto;
+				color: var(--headline);
+			}
+			figcaption {
+				margin-top: 14px;
+				font-size: 0.84375rem;
+				color: var(--muted);
+				max-width: var(--prose);
+			}
+
+			/* ---------- law cards ---------- */
+			.laws {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+				gap: 16px;
+			}
+			.law {
+				border: 1px solid var(--line);
+				border-left: 2px solid var(--accent);
+				border-radius: 0 12px 12px 0;
+				background: var(--surface);
+				padding: 20px 22px;
+			}
+			.law h4 {
+				font-size: 0.9375rem;
+				margin-bottom: 8px;
+			}
+			.law p {
+				font-size: 0.84375rem;
+				color: var(--muted);
+			}
+			.law p + p {
+				margin-top: 10px;
+			}
+			.law .say {
+				color: var(--headline);
+				font-style: normal;
+			}
+
+			/* ---------- callout ---------- */
+			.callout {
+				border: 1px solid var(--line-strong);
+				border-radius: 12px;
+				padding: 20px 22px;
+				background: linear-gradient(180deg, rgba(244, 164, 61, 0.07), rgba(244, 164, 61, 0.02));
+				margin: 28px 0;
+			}
+			.callout h4 {
+				font-size: 0.9375rem;
+				margin-bottom: 8px;
+				color: var(--accent);
+			}
+			.callout p {
+				font-size: 0.875rem;
+				color: var(--headline);
+			}
+			.callout p + p {
+				margin-top: 10px;
+			}
+
+			/* ---------- gaps ---------- */
+			.gaps {
+				display: grid;
+				gap: 1px;
+				background: var(--line);
+				border: 1px solid var(--line);
+				border-radius: 12px;
+				overflow: hidden;
+			}
+			.gap {
+				background: var(--surface);
+				padding: 18px 22px;
+				display: grid;
+				grid-template-columns: 1fr auto;
+				gap: 6px 20px;
+				align-items: start;
+			}
+			.gap h4 {
+				font-size: 0.9375rem;
+			}
+			.gap p {
+				grid-column: 1 / -1;
+				font-size: 0.84375rem;
+				color: var(--muted);
+			}
+			.sev {
+				font-family: var(--font-mono);
+				font-size: 0.625rem;
+				letter-spacing: 0.1em;
+				text-transform: uppercase;
+				padding: 3px 8px;
+				border-radius: 999px;
+				border: 1px solid currentColor;
+				white-space: nowrap;
+			}
+			.sev-block {
+				color: var(--st-danger);
+			}
+			.sev-seam {
+				color: var(--st-inflight);
+			}
+			.sev-later {
+				color: var(--muted);
+			}
+
+			footer {
+				padding: 48px 0 72px;
+				color: var(--muted);
+				font-size: 0.84375rem;
+			}
+			footer .prose {
+				max-width: 62ch;
+			}
+
+			@media (max-width: 720px) {
+				.spec-row {
+					grid-template-columns: 1fr;
+					gap: 6px;
+				}
+				.branch {
+					grid-template-columns: 1fr;
+					gap: 4px;
+				}
+				.masthead {
+					padding: 48px 0 36px;
+				}
+				section {
+					padding: 48px 0;
+				}
+			}
+			@media (prefers-reduced-motion: reduce) {
+				* {
+					transition: none !important;
+					animation: none !important;
+				}
+			}
+		</style>
+
+		<div class="tocbar">
+			<nav class="inner" aria-label="Sections">
+				<a href="#foundations">Foundations</a>
+				<a href="#gate">The gate</a>
+				<a href="#map">Surface map</a>
+				<a href="#journeys">Journeys</a>
+				<a href="#states">State model</a>
+				<a href="#laws">Interaction laws</a>
+				<a href="#feedback">Feedback</a>
+				<a href="#components">Components</a>
+				<a href="#gaps">Gaps</a>
+			</nav>
+		</div>
+
+		<header class="masthead">
+			<div class="shell">
+				<div class="eyebrow">UX plan · backend_actix → blogport_frontend</div>
+				<h1>Blogport Console Blueprint</h1>
+				<p class="standfirst">
+					Every capability <code>backend_actix</code> exposes today, arranged into the paths a
+					person actually walks — and the rules that keep those paths feeling like one product.
+					Fifty-two routes across seven domains, drawn in the charcoal-and-amber system already
+					sitting in <code>layout.css</code>.
+				</p>
+
+				<div class="premise">
+					<div>
+						<h4>Two facts shape everything</h4>
+						<p>
+							Every authoring route is guarded by the <code>VerifiedUser</code> extractor, and media
+							processing is asynchronous. Ignore either and the UI lies to people.
+						</p>
+					</div>
+					<div>
+						<h4>Nothing invented</h4>
+						<p>
+							Each journey step names the endpoint that backs it. Where a step has no endpoint, it
+							is listed in <a href="#gaps">Gaps</a> instead of quietly designed around.
+						</p>
+					</div>
+					<div>
+						<h4>Two audiences, one API</h4>
+						<p>
+							The authenticated console under <code>/api/*</code> and the anonymous reader under
+							<code>/api/public/*</code>. They share a design language, not a shell.
+						</p>
+					</div>
+				</div>
+			</div>
+		</header>
+
+		<!-- ============================================================ 1 -->
+		<section id="foundations">
+			<div class="shell">
+				<div class="sec-head">
+					<span class="sec-num">01</span>
+					<h2>Foundations</h2>
+				</div>
+				<p class="sec-lede">
+					The palette and type below are not proposals — they are what
+					<code>blogport_frontend/src/app/routes/layout.css</code> already defines. The plan's job
+					is to say what each token <em>means</em>, so two screens built by two people land in the
+					same place.
+				</p>
+
+				<h3 class="block">Surfaces and voice</h3>
+				<div class="swatches">
+					<div class="sw">
+						<div class="chip" style="background: #2f3133"></div>
+						<div class="meta">
+							<div class="name">Ground</div>
+							<div class="val">--color-arch-bg · #2f3133</div>
+						</div>
+					</div>
+					<div class="sw">
+						<div class="chip" style="background: #3a3c3e"></div>
+						<div class="meta">
+							<div class="name">Surface</div>
+							<div class="val">--color-arch-surface · #3a3c3e</div>
+						</div>
+					</div>
+					<div class="sw">
+						<div class="chip" style="background: #f4e4c9"></div>
+						<div class="meta">
+							<div class="name">Headline</div>
+							<div class="val">--color-arch-headline · #f4e4c9</div>
+						</div>
+					</div>
+					<div class="sw">
+						<div class="chip" style="background: #9fa3a6"></div>
+						<div class="meta">
+							<div class="name">Muted</div>
+							<div class="val">--color-arch-muted · #9fa3a6</div>
+						</div>
+					</div>
+					<div class="sw">
+						<div class="chip" style="background: #f4a43d"></div>
+						<div class="meta">
+							<div class="name">Accent</div>
+							<div class="val">--color-arch-accent · #f4a43d</div>
+						</div>
+					</div>
+					<div class="sw">
+						<div class="chip" style="background: #e8c76b"></div>
+						<div class="meta">
+							<div class="name">Accent 2</div>
+							<div class="val">--color-arch-accent-2 · #e8c76b</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="callout">
+					<h4>The accent is a verb, never a status</h4>
+					<p>
+						<code>--color-arch-accent</code> marks the one thing to do on a screen: the primary
+						button, the active nav item, the focus ring. The moment amber also means "published" or
+						"warning", a page with three amber things stops telling anyone where to click. Status
+						gets its own four-value scale, below, and status colour never appears on a button.
+					</p>
+				</div>
+
+				<h3 class="block">Status scale (proposed addition)</h3>
+				<p class="prose" style="color: var(--muted); font-size: 0.875rem; margin-bottom: 18px">
+					Four values, each carrying one meaning across every resource. A reader who learns them on
+					the blog list reads the media library correctly without being taught twice.
+				</p>
+				<div class="scroller">
+					<table>
+						<thead>
+							<tr>
+								<th>Token</th>
+								<th>Value</th>
+								<th>Means</th>
+								<th>Worn by</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td><code>--st-neutral</code></td>
+								<td><span class="pill p-neutral">draft</span></td>
+								<td class="dim">Exists, not visible to anyone else</td>
+								<td class="dim">Blog drafts, unattached media</td>
+							</tr>
+							<tr>
+								<td><code>--st-inflight</code></td>
+								<td><span class="pill p-inflight">processing</span></td>
+								<td class="dim">The server is working; this will change on its own</td>
+								<td class="dim">Media pending/processing, scheduled posts</td>
+							</tr>
+							<tr>
+								<td><code>--st-live</code></td>
+								<td><span class="pill p-live">live</span></td>
+								<td class="dim">Publicly reachable right now</td>
+								<td class="dim">Published posts, ready media, active projects</td>
+							</tr>
+							<tr>
+								<td><code>--st-danger</code></td>
+								<td><span class="pill p-danger">failed</span></td>
+								<td class="dim">Needs a decision from the person</td>
+								<td class="dim">Failed uploads, validation, purge confirmations</td>
+							</tr>
+							<tr>
+								<td><code>--st-dormant</code></td>
+								<td><span class="pill p-dormant">archived</span></td>
+								<td class="dim">Recoverable, out of the way</td>
+								<td class="dim">Archived posts, soft-deleted CVs and projects</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3 class="block">Type</h3>
+				<div class="specimen">
+					<div class="spec-row">
+						<div class="spec-key">Display · Sen 800</div>
+						<div
+							style="
+								font-family: var(--font-display);
+								font-weight: 800;
+								font-size: 1.9rem;
+								line-height: 1.15;
+								letter-spacing: -0.015em;
+							"
+						>
+							Page and section titles
+						</div>
+					</div>
+					<div class="spec-row">
+						<div class="spec-key">Display · Sen 700</div>
+						<div style="font-family: var(--font-display); font-weight: 700; font-size: 1.125rem">
+							Card titles, dialog headings
+						</div>
+					</div>
+					<div class="spec-row">
+						<div class="spec-key">Body · Inter 400</div>
+						<div style="font-size: 1rem; line-height: 1.65">
+							Running text, field help, empty-state explanation. Held near 65 characters wherever it
+							is read rather than scanned.
+						</div>
+					</div>
+					<div class="spec-row">
+						<div class="spec-key">Body · Inter 500/600</div>
+						<div style="font-weight: 600; font-size: 0.9375rem">
+							Labels, table headers in content, button text
+						</div>
+					</div>
+					<div class="spec-row">
+						<div class="spec-key">Micro · Inter 500</div>
+						<div
+							style="
+								font-size: 0.6875rem;
+								letter-spacing: 0.12em;
+								text-transform: uppercase;
+								color: var(--muted);
+							"
+						>
+							Field labels · Section eyebrows · Metadata
+						</div>
+					</div>
+					<div class="spec-row">
+						<div class="spec-key">
+							Data · Mono 400 <em style="color: var(--st-inflight); font-style: normal">new</em>
+						</div>
+						<div class="mono" style="font-size: 0.875rem">
+							slug · 8f1b2c3d · 4.2&nbsp;MB · 2026-09-01T09:14Z
+						</div>
+					</div>
+				</div>
+				<p class="prose" style="color: var(--muted); font-size: 0.84375rem; margin-top: 14px">
+					One token is missing from the repo and needed by this plan: a monospace family for slugs,
+					IDs, file sizes and timestamps. Add <code>--font-mono</code> to
+					<code>@theme</code> alongside <code>--font-sans</code> and <code>--font-display</code>.
+					Everything else is already there.
+				</p>
+
+				<h3 class="block">Spacing and shape</h3>
+				<p class="prose" style="color: var(--muted); font-size: 0.875rem">
+					The existing login form sets the grammar and the rest of the console should not argue with
+					it:
+					<code>rounded-xl</code> on cards, <code>rounded-lg</code> on inputs and buttons,
+					<code>border-white/5</code> hairlines, <code>p-8</code> inside cards,
+					<code>space-y-6</code> between field groups, <code>space-y-2</code> between a label and
+					its input. Focus is a border shift to <code>--color-arch-accent</code>, never a glow.
+				</p>
+			</div>
+		</section>
+
+		<!-- ============================================================ 2 -->
+		<section id="gate">
+			<div class="shell">
+				<div class="sec-head">
+					<span class="sec-num">02</span>
+					<h2>The gate that decides the whole product</h2>
+				</div>
+				<p class="sec-lede">
+					<code>POST /api/auth/login</code> succeeds for an unverified account and hands back a
+					working access token. Every route that creates, edits or uploads anything then refuses it
+					with <code>403 EMAIL_NOT_VERIFIED</code>. A console that treats "logged in" as "can work"
+					will show a person a full authoring UI that fails on every button.
+				</p>
+
+				<figure>
+					<div class="figwrap">
+						<svg
+							viewBox="0 0 900 330"
+							role="img"
+							aria-label="Three account states: a visitor registers to become an unverified account, which can sign in but is refused by every authoring route with 403 EMAIL_NOT_VERIFIED; following the emailed verification link produces a verified author, for whom the same routes return 200."
+						>
+							<defs>
+								<marker
+									id="ah"
+									viewBox="0 0 10 10"
+									refX="9"
+									refY="5"
+									markerWidth="7"
+									markerHeight="7"
+									orient="auto-start-reverse"
+								>
+									<path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+								</marker>
+								<marker
+									id="ah-danger"
+									viewBox="0 0 10 10"
+									refX="9"
+									refY="5"
+									markerWidth="7"
+									markerHeight="7"
+									orient="auto-start-reverse"
+								>
+									<path d="M 0 0 L 10 5 L 0 10 z" fill="#e08a7d" />
+								</marker>
+								<marker
+									id="ah-live"
+									viewBox="0 0 10 10"
+									refX="9"
+									refY="5"
+									markerWidth="7"
+									markerHeight="7"
+									orient="auto-start-reverse"
+								>
+									<path d="M 0 0 L 10 5 L 0 10 z" fill="#8fbf9a" />
+								</marker>
+							</defs>
+
+							<!-- nodes -->
+							<rect
+								x="20"
+								y="46"
+								width="176"
+								height="56"
+								rx="10"
+								fill="none"
+								stroke="currentColor"
+								stroke-opacity="0.35"
+							/>
+							<text
+								x="108"
+								y="70"
+								text-anchor="middle"
+								font-size="13"
+								font-weight="600"
+								fill="currentColor"
+							>
+								Visitor
+							</text>
+							<text
+								x="108"
+								y="88"
+								text-anchor="middle"
+								font-size="11"
+								fill="currentColor"
+								fill-opacity="0.6"
+							>
+								no token
+							</text>
+
+							<rect
+								x="322"
+								y="46"
+								width="196"
+								height="56"
+								rx="10"
+								fill="none"
+								stroke="currentColor"
+								stroke-opacity="0.35"
+							/>
+							<text
+								x="420"
+								y="70"
+								text-anchor="middle"
+								font-size="13"
+								font-weight="600"
+								fill="currentColor"
+							>
+								Unverified account
+							</text>
+							<text
+								x="420"
+								y="88"
+								text-anchor="middle"
+								font-size="11"
+								fill="currentColor"
+								fill-opacity="0.6"
+							>
+								is_verified: false
+							</text>
+
+							<rect
+								x="662"
+								y="46"
+								width="216"
+								height="56"
+								rx="10"
+								fill="none"
+								stroke="#f4a43d"
+								stroke-width="1.5"
+							/>
+							<text
+								x="770"
+								y="70"
+								text-anchor="middle"
+								font-size="13"
+								font-weight="600"
+								fill="#f4a43d"
+							>
+								Verified author
+							</text>
+							<text
+								x="770"
+								y="88"
+								text-anchor="middle"
+								font-size="11"
+								fill="currentColor"
+								fill-opacity="0.6"
+							>
+								is_verified: true
+							</text>
+
+							<!-- transitions -->
+							<line
+								x1="196"
+								y1="74"
+								x2="314"
+								y2="74"
+								stroke="currentColor"
+								stroke-opacity="0.5"
+								marker-end="url(#ah)"
+							/>
+							<text
+								x="255"
+								y="38"
+								text-anchor="middle"
+								font-size="10.5"
+								font-family="monospace"
+								fill="currentColor"
+								fill-opacity="0.75"
+							>
+								POST /auth/register
+							</text>
+
+							<line
+								x1="518"
+								y1="74"
+								x2="654"
+								y2="74"
+								stroke="currentColor"
+								stroke-opacity="0.5"
+								marker-end="url(#ah)"
+							/>
+							<text
+								x="586"
+								y="38"
+								text-anchor="middle"
+								font-size="10.5"
+								font-family="monospace"
+								fill="currentColor"
+								fill-opacity="0.75"
+							>
+								GET /auth/email-
+							</text>
+							<text
+								x="586"
+								y="26"
+								text-anchor="middle"
+								font-size="10.5"
+								font-family="monospace"
+								fill="currentColor"
+								fill-opacity="0.75"
+							>
+								verification/{token}
+							</text>
+
+							<!-- guarded surface -->
+							<rect
+								x="250"
+								y="228"
+								width="500"
+								height="66"
+								rx="10"
+								fill="none"
+								stroke="currentColor"
+								stroke-opacity="0.25"
+								stroke-dasharray="0"
+							/>
+							<text
+								x="500"
+								y="254"
+								text-anchor="middle"
+								font-size="12.5"
+								font-weight="600"
+								fill="currentColor"
+							>
+								Every authoring route
+							</text>
+							<text
+								x="500"
+								y="274"
+								text-anchor="middle"
+								font-size="11"
+								font-family="monospace"
+								fill="currentColor"
+								fill-opacity="0.6"
+							>
+								/blog · /projects · /cvs · /topics · /media
+							</text>
+
+							<path
+								d="M 400 102 L 360 220"
+								stroke="#e08a7d"
+								stroke-width="1.4"
+								stroke-dasharray="5 4"
+								marker-end="url(#ah-danger)"
+								fill="none"
+							/>
+							<text x="266" y="160" font-size="10.5" font-family="monospace" fill="#e08a7d">
+								403
+							</text>
+							<text x="266" y="175" font-size="10.5" font-family="monospace" fill="#e08a7d">
+								EMAIL_NOT_VERIFIED
+							</text>
+
+							<path
+								d="M 762 102 L 660 220"
+								stroke="#8fbf9a"
+								stroke-width="1.4"
+								marker-end="url(#ah-live)"
+								fill="none"
+							/>
+							<text x="712" y="165" font-size="10.5" font-family="monospace" fill="#8fbf9a">
+								200
+							</text>
+
+							<!-- login note -->
+							<path
+								d="M 108 102 L 108 190 L 314 190 L 314 96"
+								stroke="currentColor"
+								stroke-opacity="0.3"
+								stroke-dasharray="4 4"
+								fill="none"
+								marker-end="url(#ah)"
+							/>
+							<text
+								x="130"
+								y="184"
+								font-size="10.5"
+								font-family="monospace"
+								fill="currentColor"
+								fill-opacity="0.55"
+							>
+								POST /auth/login — succeeds either way
+							</text>
+						</svg>
+					</div>
+					<figcaption>
+						The console has three account states, not two. Login is not the gate; verification is.
+					</figcaption>
+				</figure>
+
+				<div class="callout">
+					<h4>What the design owes the unverified state</h4>
+					<p>
+						A dedicated <b>hold screen</b> at <code>/verify</code>, not a dashboard with dead
+						buttons. It shows the address the link went to, a "Resend" affordance, and a "Wrong
+						address?" escape. The nav renders read-only: profile is reachable, authoring is not
+						shown at all rather than shown disabled — a disabled button people cannot un-disable is
+						a dead end with extra steps.
+					</p>
+					<p>
+						Verification is a plain <code>GET</code> with the token in the path, so the emailed link
+						can land directly on a frontend route that calls it and renders three outcomes:
+						verified, already verified (treat as success — do not scold), and expired or invalid
+						(offer resend).
+					</p>
+				</div>
+			</div>
+		</section>
+
+		<!-- ============================================================ 3 -->
+		<section id="map">
+			<div class="shell">
+				<div class="sec-head">
+					<span class="sec-num">03</span>
+					<h2>Surface map</h2>
+				</div>
+				<p class="sec-lede">
+					One screen per coherent job, each named after what a person is doing rather than the table
+					it reads. The right column is the contract: if a screen calls an endpoint not listed here,
+					either the map is wrong or the screen is doing someone else's job.
+				</p>
+
+				<h3 class="block">Console — requires a verified session</h3>
+				<div class="scroller">
+					<table>
+						<thead>
+							<tr>
+								<th>Route</th>
+								<th>Screen</th>
+								<th>Backed by</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td><code>/studio</code></td>
+								<td>Overview — counts, drafts needing attention, failed uploads</td>
+								<td class="dim mono">GET /api/blog · /api/projects · /api/cvs</td>
+							</tr>
+							<tr>
+								<td><code>/studio/posts</code></td>
+								<td>Posts — search, topic filter, draft/published toggle, sort, paging</td>
+								<td class="dim mono">GET /api/blog</td>
+							</tr>
+							<tr>
+								<td><code>/studio/posts/new</code></td>
+								<td>New post</td>
+								<td class="dim mono">POST /api/blog</td>
+							</tr>
+							<tr>
+								<td><code>/studio/posts/[id]</code></td>
+								<td>Post editor — content, topics, cover, schedule</td>
+								<td class="dim mono">
+									GET·PATCH /api/blog/{id}<br />GET·POST·DELETE /api/blog/{id}/topics<br />DELETE
+									/api/blog/{id}/topics/all
+								</td>
+							</tr>
+							<tr>
+								<td><code>/studio/posts/archive</code></td>
+								<td>Archived posts — restore or purge</td>
+								<td class="dim mono">
+									POST /api/blog/{id}/restore<br />DELETE /api/blog/{id}/hard
+								</td>
+							</tr>
+							<tr>
+								<td><code>/studio/projects</code></td>
+								<td>Projects — search, topic filter, sort, paging</td>
+								<td class="dim mono">GET /api/projects</td>
+							</tr>
+							<tr>
+								<td><code>/studio/projects/[id]</code></td>
+								<td>Project editor — stack, links, screenshots, topics</td>
+								<td class="dim mono">
+									GET·PATCH /api/projects/{id}<br />GET·POST·DELETE /api/projects/{id}/topics
+								</td>
+							</tr>
+							<tr>
+								<td><code>/studio/resumes</code></td>
+								<td>Résumés — list, search, sort</td>
+								<td class="dim mono">GET /api/cvs</td>
+							</tr>
+							<tr>
+								<td><code>/studio/resumes/[id]</code></td>
+								<td>Résumé builder — five repeatable sections</td>
+								<td class="dim mono">GET·PATCH·PUT /api/cvs/{id}</td>
+							</tr>
+							<tr>
+								<td><code>/studio/topics</code></td>
+								<td>Topics — the shared vocabulary</td>
+								<td class="dim mono">GET·POST /api/topics · DELETE /api/topics/{id}</td>
+							</tr>
+							<tr>
+								<td><code>/studio/media</code></td>
+								<td>Media library, filtered by attachment target</td>
+								<td class="dim mono">
+									GET /api/media/by-target/{target}<br />GET /api/media/{id} · /{id}/{size}<br />POST
+									/api/media/upload-url · DELETE /api/media/{id}
+								</td>
+							</tr>
+							<tr>
+								<td><code>/studio/account</code></td>
+								<td>Account — name, email, sessions, danger zone</td>
+								<td class="dim mono">GET·PUT·DELETE /api/users/me</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3 class="block">Public — no session</h3>
+				<div class="scroller">
+					<table>
+						<thead>
+							<tr>
+								<th>Route</th>
+								<th>Screen</th>
+								<th>Backed by</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td><code>/[username]/blog</code></td>
+								<td>Author's published posts</td>
+								<td class="dim mono">GET /api/public/blog/{username}</td>
+							</tr>
+							<tr>
+								<td><code>/[username]/blog/[slug]</code></td>
+								<td>A post</td>
+								<td class="dim mono">GET /api/public/blog/{username}/{slug}</td>
+							</tr>
+							<tr>
+								<td><code>/[username]/projects</code></td>
+								<td>Author's projects</td>
+								<td class="dim mono">GET /api/public/projects/{username}</td>
+							</tr>
+							<tr>
+								<td><code>/[username]/projects/[slug]</code></td>
+								<td>A project</td>
+								<td class="dim mono">GET /api/public/projects/{username}/{slug}</td>
+							</tr>
+							<tr>
+								<td><code>/[username]/cv/[id]</code></td>
+								<td>A shared résumé</td>
+								<td class="dim mono">GET /api/public/cvs/{username}/{cv_id}</td>
+							</tr>
+							<tr>
+								<td colspan="3" class="dim">
+									Auth surfaces: <code>/auth/login</code> · <code>/auth/register</code> ·
+									<code>/auth/forgot</code> · <code>/auth/reset/[token]</code> ·
+									<code>/email/verification/[token]</code> · <code>/verify</code> (hold screen)
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<div class="callout">
+					<h4>Public routes are keyed on username, and username is immutable</h4>
+					<p>
+						<code>PUT /api/users/me</code> accepts <code>full_name</code> and nothing else. Every
+						public URL an author shares therefore stays valid forever, which is a genuine promise
+						worth making out loud on the account screen:
+						<span class="say"
+							>"Your public address is <code>/janedoe</code>. It never changes."</span
+						>
+						Do not render username as an editable field that silently discards the edit.
+					</p>
+				</div>
+			</div>
+		</section>
+
+		<!-- ============================================================ 4 -->
+		<section id="journeys">
+			<div class="shell">
+				<div class="sec-head">
+					<span class="sec-num">04</span>
+					<h2>The ten journeys</h2>
+				</div>
+				<p class="sec-lede">
+					Numbered because they are genuinely ordered — each step's outcome is the next step's
+					input. Failure branches carry the error code that produces them and the exact recovery the
+					UI offers; an error with no listed recovery is a bug in this plan.
+				</p>
+
+				<div class="journeys">
+					<!-- J1 -->
+					<article class="journey">
+						<div class="j-head">
+							<span class="j-id">J1</span>
+							<h3>Get an account</h3>
+							<p class="j-goal">
+								Stranger → verified author who can publish. The only journey that crosses both
+								gates.
+							</p>
+						</div>
+						<div class="j-body">
+							<ol class="steps">
+								<li>
+									<div class="step-title">Register</div>
+									<div class="step-note">
+										Four fields: username, email, full name, password. Validate username and
+										password inline before submit — the server has distinct codes for each and the
+										person should never learn them one round-trip at a time.
+									</div>
+									<div class="step-call">POST /api/auth/register → 201 { message, user }</div>
+								</li>
+								<li>
+									<div class="step-title">Land on the hold screen, not the dashboard</div>
+									<div class="step-note">
+										Registration returns a user, not a token. Route straight to
+										<code>/verify</code> showing the address the mail went to. This is the screen
+										that does the waiting, so it must be worth looking at: what verification
+										unlocks, and a resend.
+									</div>
+								</li>
+								<li>
+									<div class="step-title">Open the emailed link</div>
+									<div class="step-note">
+										Lands on <code>/email/verification/[token]</code>, which calls the API and
+										renders one of three outcomes. "Already verified" is a success, not an error.
+									</div>
+									<div class="step-call">GET /api/auth/email-verification/{token}</div>
+								</li>
+								<li>
+									<div class="step-title">Sign in</div>
+									<div class="step-note">
+										Store the access token in memory and the refresh token in an httpOnly cookie via
+										the SvelteKit <code>/api</code> route — the pattern
+										<code>shared/auth/cookies.server.ts</code> already establishes.
+									</div>
+									<div class="step-call">
+										POST /api/auth/login → { access_token, refresh_token, user }
+									</div>
+								</li>
+								<li>
+									<div class="step-title">First run: three things, then get out of the way</div>
+									<div class="step-note">
+										A dismissible checklist on <code>/studio</code> — create a topic, write a first
+										post, add a résumé. It disappears for good once any two are done; it is not a
+										permanent fixture.
+									</div>
+								</li>
+							</ol>
+							<div class="branches">
+								<div class="bh">Branches</div>
+								<div class="branch">
+									<div class="cond">USER_ALREADY_EXISTS</div>
+									<div class="fix">
+										<b>409 on register.</b> Keep the form filled, mark the email field, and offer
+										"Sign in instead" and "Reset your password" as buttons — the person almost
+										certainly has an account they forgot.
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">INVALID_PASSWORD</div>
+									<div class="fix">
+										<b>400.</b> The server's message names the failed rule. Show it under the field
+										and keep the requirements visible from the moment the field is focused, not only
+										after a rejection.
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">RATE_LIMITED</div>
+									<div class="fix">
+										<b>429 after 5 registrations per hour.</b> Read <code>Retry-After</code> and
+										render a real countdown:
+										<span class="say">"Too many sign-up attempts. Try again in 42 minutes."</span>
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">INVALID_TOKEN · TOKEN_EXPIRED</div>
+									<div class="fix">
+										<b>Verification link is stale.</b> The dead-end to avoid. Show "This link has
+										expired" with a resend button on the same screen — never bounce back to login.
+									</div>
+								</div>
+							</div>
+						</div>
+					</article>
+
+					<!-- J2 -->
+					<article class="journey">
+						<div class="j-head">
+							<span class="j-id">J2</span>
+							<h3>Stay signed in, then leave cleanly</h3>
+							<p class="j-goal">
+								The journey nobody should ever notice. Success is measured in absent interruptions.
+							</p>
+						</div>
+						<div class="j-body">
+							<ol class="steps">
+								<li>
+									<div class="step-title">Refresh silently, ahead of expiry</div>
+									<div class="step-note">
+										Schedule the refresh from the access token's own <code>exp</code>, at roughly
+										80% of its life. Do not wait for a 401 to discover the token died mid-keystroke.
+									</div>
+									<div class="step-call">POST /api/auth/refresh — 30 per 5 minutes</div>
+								</li>
+								<li>
+									<div class="step-title">Queue in-flight requests during a refresh</div>
+									<div class="step-note">
+										One refresh at a time; other calls wait and retry once. Ten parallel refreshes
+										on a dashboard load will burn the rate limit and log the person out for being
+										busy.
+									</div>
+								</li>
+								<li>
+									<div class="step-title">On an unrecoverable 401, save the destination</div>
+									<div class="step-note">
+										Redirect to login with the intended path preserved, and say why:
+										<span class="say"
+											>"Your session expired. Sign in to pick up where you left off."</span
+										>
+										After login, return them there.
+									</div>
+								</li>
+								<li>
+									<div class="step-title">Log out</div>
+									<div class="step-note">
+										The refresh token is blacklisted in Redis server-side. Clear the cookie and
+										in-memory token regardless of the response — a failed logout call must never
+										trap someone in a session they asked to end.
+									</div>
+									<div class="step-call">POST /api/auth/logout</div>
+								</li>
+							</ol>
+							<div class="branches">
+								<div class="bh">Branches</div>
+								<div class="branch">
+									<div class="cond">USER_DELETED</div>
+									<div class="fix">
+										<b>403 on any call.</b> The account was soft-deleted. Clear everything and route
+										to a plain page explaining the account is closed — do not loop through login.
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">INVALID_TOKEN_TYPE</div>
+									<div class="fix">
+										<b>An access token was sent where a refresh token belongs.</b> A client bug, not
+										a user error. Log it, force a clean re-login, and never show the code.
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">Network failure on refresh</div>
+									<div class="fix">
+										<b>Not a logout.</b> Retry with backoff and show an unobtrusive "Reconnecting…"
+										strip. Discarding a person's unsaved editor because Wi-Fi blinked is the worst
+										thing this app can do.
+									</div>
+								</div>
+							</div>
+						</div>
+					</article>
+
+					<!-- J3 -->
+					<article class="journey">
+						<div class="j-head">
+							<span class="j-id">J3</span>
+							<h3>Recover a password</h3>
+							<p class="j-goal">
+								Locked out → signed in, without the flow confirming to a stranger whether an address
+								is registered.
+							</p>
+						</div>
+						<div class="j-body">
+							<ol class="steps">
+								<li>
+									<div class="step-title">Ask for a reset from the login screen</div>
+									<div class="step-note">
+										"Forgot password?" sits beside the password field, not buried in a footer.
+									</div>
+									<div class="step-call">POST /api/auth/password-reset { email } — 5 per hour</div>
+								</li>
+								<li>
+									<div class="step-title">Show the same confirmation either way</div>
+									<div class="step-note">
+										<span class="say"
+											>"If an account exists for that address, a reset link is on its way."</span
+										>
+										Never branch the copy on whether the address was found — that turns the form
+										into an account-enumeration oracle.
+									</div>
+								</li>
+								<li>
+									<div class="step-title">Set a new password</div>
+									<div class="step-note">
+										Token comes in from the path. One password field with a reveal toggle, not two
+										fields to mistype in parallel.
+									</div>
+									<div class="step-call">POST /api/auth/password-reset/{token} — 10 per hour</div>
+								</li>
+								<li>
+									<div class="step-title">Route to login, prefilled</div>
+									<div class="step-note">
+										The reset does not return tokens. Confirm success, prefill the email, and put
+										focus on the password field.
+									</div>
+								</li>
+							</ol>
+							<div class="branches">
+								<div class="bh">Branches</div>
+								<div class="branch">
+									<div class="cond">INVALID_RESET_TOKEN</div>
+									<div class="fix">
+										<b>401.</b>
+										<span class="say"
+											>"This reset link is no longer valid — they expire after a short
+											window."</span
+										>
+										Offer to send a fresh one from that same screen.
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">INVALID_PASSWORD</div>
+									<div class="fix">
+										<b>400.</b> Keep the token in the URL and let them retype. Losing a valid token
+										to one weak password is a needless restart.
+									</div>
+								</div>
+							</div>
+						</div>
+					</article>
+
+					<!-- J4 -->
+					<article class="journey">
+						<div class="j-head">
+							<span class="j-id">J4</span>
+							<h3>Publish a post</h3>
+							<p class="j-goal">
+								The flagship loop. Blank page → live at <code>/{username}/{slug}</code>, and back
+								again if needed.
+							</p>
+						</div>
+						<div class="j-body">
+							<ol class="steps">
+								<li>
+									<div class="step-title">Create the draft first</div>
+									<div class="step-note">
+										Title, slug, content. Omitting <code>published_at</code> creates a draft.
+										Creating early matters: media attaches to a <code>target_id</code>, so a post
+										must exist before it can have a cover image.
+									</div>
+									<div class="step-call">POST /api/blog → 201 { id }</div>
+								</li>
+								<li>
+									<div class="step-title">Derive the slug, let it be overridden, then lock it</div>
+									<div class="step-note">
+										Auto-slug from the title while the post is a draft. Once published, editing the
+										slug breaks a live URL — move it behind an "Change address" disclosure with that
+										consequence stated.
+									</div>
+								</li>
+								<li>
+									<div class="step-title">Write, saving as you go</div>
+									<div class="step-note">
+										PATCH on a two-second idle debounce. The status line reads Saving… → Saved 10:42
+										→ Unsaved changes, and it is the only place that reports save state.
+									</div>
+									<div class="step-call">PATCH /api/blog/{id}</div>
+								</li>
+								<li>
+									<div class="step-title">Attach topics</div>
+									<div class="step-note">
+										A combobox over <code>GET /api/topics</code> that can create a topic inline.
+										Attaching is its own call, so each chip resolves independently and a duplicate
+										failure does not roll back the others.
+									</div>
+									<div class="step-call">
+										POST /api/blog/{id}/topics · DELETE /api/blog/{id}/topics
+									</div>
+								</li>
+								<li>
+									<div class="step-title">Add a cover image</div>
+									<div class="step-note">
+										Runs J8 with <code>attachment_target: BlogPost</code>, <code>target_id</code> =
+										this post, <code>role: Cover</code>. The tile shows a processing state;
+										publishing is not blocked on it.
+									</div>
+								</li>
+								<li>
+									<div class="step-title">Publish, or schedule</div>
+									<div class="step-note">
+										One control with two outcomes: "Publish now" sets <code>published_at</code> to
+										now; "Schedule" sets a future timestamp. A future date means the post goes live
+										with no further call — the UI must say so plainly, because nothing will happen
+										on screen when it does.
+									</div>
+									<div class="step-call">PATCH /api/blog/{id} { published_at }</div>
+								</li>
+								<li>
+									<div class="step-title">Confirm with the real address</div>
+									<div class="step-note">
+										The success toast carries the public link, and the editor header switches to a
+										<span class="pill p-live">live</span> pill with "View" and "Unpublish".
+									</div>
+								</li>
+							</ol>
+							<div class="branches">
+								<div class="bh">Branches</div>
+								<div class="branch">
+									<div class="cond">SLUG_ALREADY_EXISTS</div>
+									<div class="fix">
+										<b>409.</b> Slugs are unique per author. Mark the field, suggest an available
+										variant (<code>-2</code>), and never lose the draft body to a slug collision.
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">TITLE_TOO_LONG · EMPTY_TITLE</div>
+									<div class="fix">
+										<b>400, 200-char cap.</b> Show a live counter from 160 characters onward rather
+										than rejecting at submit.
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">POST_UNAUTHORIZED</div>
+									<div class="fix">
+										<b>403 — someone else's post.</b> Only reachable via a pasted URL. Show a plain
+										"You don't have access to this post" page with a route back to the list.
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">Autosave fails</div>
+									<div class="fix">
+										<b>Keep the buffer.</b> Switch the status line to
+										<span class="say">"Couldn't save — retrying"</span> in the danger colour, retry
+										with backoff, and block navigation with a confirm while changes are unsaved.
+									</div>
+								</div>
+							</div>
+						</div>
+					</article>
+
+					<!-- J5 -->
+					<article class="journey">
+						<div class="j-head">
+							<span class="j-id">J5</span>
+							<h3>Ship a project entry</h3>
+							<p class="j-goal">
+								A piece of work → a public project page with stack, links and screenshots.
+							</p>
+						</div>
+						<div class="j-body">
+							<ol class="steps">
+								<li>
+									<div class="step-title">Create with the essentials</div>
+									<div class="step-note">
+										Title, slug, description, tech stack, and optional repository and demo URLs.
+										<code>tech_stack</code> is a string array — a chip input, not a comma-separated
+										text field people have to guess the delimiter for.
+									</div>
+									<div class="step-call">POST /api/projects → 201 { id }</div>
+								</li>
+								<li>
+									<div class="step-title">Add screenshots</div>
+									<div class="step-note">
+										J8 with <code>attachment_target: Project</code> and
+										<code>role: Screenshoot</code>. <code>PATCH /api/media/{id}</code> now exists,
+										so metadata is editable. Whether <code>position</code> is in that patch set is
+										unconfirmed &mdash; until it is, treat upload order as display order and hold
+										the drag-to-reorder.
+									</div>
+								</li>
+								<li>
+									<div class="step-title">Tag it</div>
+									<div class="step-note">
+										Same topic component as posts, same vocabulary. A topic used on a project
+										appears in the post filter too — one taxonomy, two surfaces.
+									</div>
+									<div class="step-call">POST · GET · DELETE /api/projects/{id}/topics</div>
+								</li>
+								<li>
+									<div class="step-title">Refine</div>
+									<div class="step-note">
+										<code>PATCH</code> only. Unlike CVs there is no full-replace <code>PUT</code>,
+										so the editor is field-level throughout and never sends an object it did not
+										load first.
+									</div>
+									<div class="step-call">PATCH /api/projects/{id}</div>
+								</li>
+							</ol>
+							<div class="branches">
+								<div class="bh">Branches</div>
+								<div class="branch">
+									<div class="cond">No draft state</div>
+									<div class="fix">
+										<b>Projects have no <code>published_at</code>.</b> Creating one publishes it.
+										Say so on the create button — <span class="say">"Add project"</span> with the
+										helper
+										<span class="say"
+											>"Projects are visible on your public page as soon as they're added."</span
+										>
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">No restore endpoint</div>
+									<div class="fix">
+										<b>The asymmetry to design around.</b>
+										<code>DELETE /api/projects/{id}</code> soft-deletes but nothing brings it back.
+										Until that changes, the UI must treat project deletion as permanent — see
+										<a href="#gaps">Gaps</a>.
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">SLUG_ALREADY_EXISTS</div>
+									<div class="fix"><b>409.</b> Same handling as posts: suggest, don't discard.</div>
+								</div>
+							</div>
+						</div>
+					</article>
+
+					<!-- J6 -->
+					<article class="journey">
+						<div class="j-head">
+							<span class="j-id">J6</span>
+							<h3>Build a résumé</h3>
+							<p class="j-goal">
+								The heaviest form in the product: five repeatable collections in one document.
+							</p>
+						</div>
+						<div class="j-body">
+							<ol class="steps">
+								<li>
+									<div class="step-title">Start from role and identity</div>
+									<div class="step-note">
+										Role, display name, bio, photo. Multiple CVs per person is the point — one
+										tailored per audience — so name each by its <code>role</code> in the list.
+									</div>
+									<div class="step-call">POST /api/cvs → 201 { id }</div>
+								</li>
+								<li>
+									<div class="step-title">Fill the five collections</div>
+									<div class="step-note">
+										Core skills, education, experience, highlighted projects, contact details. Each
+										is an add/remove/reorder list with the same row grammar, so learning one teaches
+										the other four.
+									</div>
+								</li>
+								<li>
+									<div class="step-title">Treat experience as the hard case</div>
+									<div class="step-note">
+										A row carries company, position, location, dates, description, plus
+										<code>tasks[]</code> and <code>achievements[]</code>. Collapse rows to a
+										one-line summary by default and expand one at a time; ten expanded rows is not a
+										form, it is a wall.
+									</div>
+								</li>
+								<li>
+									<div class="step-title">Handle "current position"</div>
+									<div class="step-note">
+										<code>end_date</code> is optional and absence means current. Render a "I
+										currently work here" checkbox that clears the field, never a blank date input
+										people have to intuit.
+									</div>
+								</li>
+								<li>
+									<div class="step-title">Save deliberately</div>
+									<div class="step-note">
+										Unlike the post editor, this form has an explicit Save. <code>PATCH</code> for a
+										section edit; <code>PUT</code> only from a full-document editor that loaded
+										every field.
+									</div>
+									<div class="step-call">PATCH /api/cvs/{id} · PUT /api/cvs/{id}</div>
+								</li>
+								<li>
+									<div class="step-title">Share</div>
+									<div class="step-note">
+										The public URL needs both username and CV id, so it is a copyable link rather
+										than a guessable path. Show it as a read-only field with a copy button.
+									</div>
+									<div class="step-call">GET /api/public/cvs/{username}/{cv_id}</div>
+								</li>
+							</ol>
+							<div class="branches">
+								<div class="bh">Branches</div>
+								<div class="branch">
+									<div class="cond">CV_UNAUTHORIZED</div>
+									<div class="fix">
+										<b>403.</b> Same treatment as a foreign post: a plain page, not a modal, with a
+										way back.
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">Soft-deleted CV</div>
+									<div class="fix">
+										<b>Recoverable.</b> CVs have restore. Deleting moves the card to an "Archived"
+										filter on the list with a Restore action; only from there is a hard delete
+										offered.
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond"><code>photo_url</code> is a string</div>
+									<div class="fix">
+										<b>Not media-module backed.</b> Accept a URL, and where an uploaded image is
+										wanted, run J8 with <code>attachment_target: Resume</code> and paste the read
+										URL — noted in <a href="#gaps">Gaps</a> as a seam.
+									</div>
+								</div>
+							</div>
+						</div>
+					</article>
+
+					<!-- J7 -->
+					<article class="journey">
+						<div class="j-head">
+							<span class="j-id">J7</span>
+							<h3>Curate topics</h3>
+							<p class="j-goal">
+								Keep one vocabulary across posts and projects, from inside the work rather than as a
+								chore.
+							</p>
+						</div>
+						<div class="j-body">
+							<ol class="steps">
+								<li>
+									<div class="step-title">Create where they are needed</div>
+									<div class="step-note">
+										The topic combobox in either editor offers "Create «Rust»" when nothing matches.
+										Most topics should be born this way; the management screen exists for tidying,
+										not for setup.
+									</div>
+									<div class="step-call">POST /api/topics { title, description }</div>
+								</li>
+								<li>
+									<div class="step-title">Require the description</div>
+									<div class="step-note">
+										The API takes both fields. In the inline create, ask for a one-line description
+										in the same popover — a taxonomy of bare words stops being useful at about
+										fifteen entries.
+									</div>
+								</li>
+								<li>
+									<div class="step-title">Review on one screen</div>
+									<div class="step-note">
+										Title, description, and usage counts assembled client-side from the post and
+										project topic endpoints. Sort by usage so the unused ones surface themselves.
+									</div>
+									<div class="step-call">GET /api/topics</div>
+								</li>
+								<li>
+									<div class="step-title">Retire, don't rename</div>
+									<div class="step-note">
+										Only soft delete exists. Name a topic well or replace it: create the new one,
+										retag, retire the old. Frame the action as "Retire topic" so it reads as
+										reversible-in-principle rather than destructive.
+									</div>
+									<div class="step-call">DELETE /api/topics/{topic_id}</div>
+								</li>
+							</ol>
+							<div class="branches">
+								<div class="bh">Branches</div>
+								<div class="branch">
+									<div class="cond">TOPIC_ALREADY_EXISTS</div>
+									<div class="fix">
+										<b>409.</b> In the inline creator this is a near-miss, not a failure:
+										<span class="say">"You already have a topic called Rust"</span> and select it
+										for them.
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">No update endpoint</div>
+									<div class="fix">
+										<b>A typo is unfixable.</b> Validate hard at creation and preview the topic
+										exactly as it will appear on the public page before committing.
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">Retiring a topic in use</div>
+									<div class="fix">
+										<b>Count it first.</b> <code>GET /api/topics/{id}/usage</code> returns the real
+										numbers, so the dialog can say
+										<span class="say">"Retire «Rust»? It's on 6 posts and 2 projects."</span> Never
+										drop a topic off eight pages silently.
+									</div>
+								</div>
+							</div>
+						</div>
+					</article>
+
+					<!-- J8 -->
+					<article class="journey">
+						<div class="j-head">
+							<span class="j-id">J8</span>
+							<h3>Add an image</h3>
+							<p class="j-goal">
+								Local file → a variant URL on a public page. The only journey where the browser
+								talks to something other than the API.
+							</p>
+						</div>
+						<div class="j-body">
+							<figure style="margin-bottom: 26px">
+								<div class="figwrap">
+									<svg
+										viewBox="0 0 900 430"
+										role="img"
+										aria-label="Upload sequence across four lanes: the console asks the API for an upload URL and receives a media id in pending state, PUTs the bytes directly to cloud storage bypassing the API, storage triggers the processor which writes variants and flips the row to ready, and the console polls the media endpoint before requesting an expiring signed read URL for a chosen size."
+									>
+										<defs>
+											<marker
+												id="ah2"
+												viewBox="0 0 10 10"
+												refX="9"
+												refY="5"
+												markerWidth="7"
+												markerHeight="7"
+												orient="auto-start-reverse"
+											>
+												<path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+											</marker>
+											<marker
+												id="ah2-acc"
+												viewBox="0 0 10 10"
+												refX="9"
+												refY="5"
+												markerWidth="7"
+												markerHeight="7"
+												orient="auto-start-reverse"
+											>
+												<path d="M 0 0 L 10 5 L 0 10 z" fill="#f4a43d" />
+											</marker>
+										</defs>
+
+										<!-- lane heads -->
+										<rect
+											x="30"
+											y="14"
+											width="150"
+											height="34"
+											rx="8"
+											fill="none"
+											stroke="currentColor"
+											stroke-opacity="0.3"
+										/>
+										<text
+											x="105"
+											y="36"
+											text-anchor="middle"
+											font-size="12"
+											font-weight="600"
+											fill="currentColor"
+										>
+											Console
+										</text>
+										<rect
+											x="285"
+											y="14"
+											width="150"
+											height="34"
+											rx="8"
+											fill="none"
+											stroke="currentColor"
+											stroke-opacity="0.3"
+										/>
+										<text
+											x="360"
+											y="36"
+											text-anchor="middle"
+											font-size="12"
+											font-weight="600"
+											fill="currentColor"
+										>
+											API
+										</text>
+										<rect
+											x="530"
+											y="14"
+											width="150"
+											height="34"
+											rx="8"
+											fill="none"
+											stroke="currentColor"
+											stroke-opacity="0.3"
+										/>
+										<text
+											x="605"
+											y="36"
+											text-anchor="middle"
+											font-size="12"
+											font-weight="600"
+											fill="currentColor"
+										>
+											GCS bucket
+										</text>
+										<rect
+											x="760"
+											y="14"
+											width="120"
+											height="34"
+											rx="8"
+											fill="none"
+											stroke="currentColor"
+											stroke-opacity="0.3"
+										/>
+										<text
+											x="820"
+											y="36"
+											text-anchor="middle"
+											font-size="12"
+											font-weight="600"
+											fill="currentColor"
+										>
+											Processor
+										</text>
+
+										<!-- lifelines -->
+										<line
+											x1="105"
+											y1="48"
+											x2="105"
+											y2="410"
+											stroke="currentColor"
+											stroke-opacity="0.16"
+										/>
+										<line
+											x1="360"
+											y1="48"
+											x2="360"
+											y2="410"
+											stroke="currentColor"
+											stroke-opacity="0.16"
+										/>
+										<line
+											x1="605"
+											y1="48"
+											x2="605"
+											y2="410"
+											stroke="currentColor"
+											stroke-opacity="0.16"
+										/>
+										<line
+											x1="820"
+											y1="48"
+											x2="820"
+											y2="410"
+											stroke="currentColor"
+											stroke-opacity="0.16"
+										/>
+
+										<!-- 1 -->
+										<text
+											x="232"
+											y="82"
+											text-anchor="middle"
+											font-size="10.5"
+											font-family="monospace"
+											fill="currentColor"
+											fill-opacity="0.8"
+										>
+											1 · POST /api/media/upload-url
+										</text>
+										<line
+											x1="105"
+											y1="92"
+											x2="352"
+											y2="92"
+											stroke="currentColor"
+											stroke-opacity="0.55"
+											marker-end="url(#ah2)"
+										/>
+
+										<!-- 2 -->
+										<text
+											x="232"
+											y="122"
+											text-anchor="middle"
+											font-size="10.5"
+											font-family="monospace"
+											fill="currentColor"
+											fill-opacity="0.8"
+										>
+											2 · 201 { upload_url, media_id } — state: pending
+										</text>
+										<line
+											x1="360"
+											y1="132"
+											x2="113"
+											y2="132"
+											stroke="currentColor"
+											stroke-opacity="0.55"
+											marker-end="url(#ah2)"
+										/>
+
+										<!-- 3 highlighted -->
+										<text
+											x="355"
+											y="176"
+											text-anchor="middle"
+											font-size="11"
+											font-family="monospace"
+											fill="#f4a43d"
+										>
+											3 · PUT the bytes — straight to storage, never through the API
+										</text>
+										<line
+											x1="105"
+											y1="186"
+											x2="597"
+											y2="186"
+											stroke="#f4a43d"
+											stroke-width="1.5"
+											marker-end="url(#ah2-acc)"
+										/>
+
+										<!-- 4 -->
+										<text
+											x="712"
+											y="220"
+											text-anchor="middle"
+											font-size="10.5"
+											font-family="monospace"
+											fill="currentColor"
+											fill-opacity="0.8"
+										>
+											4 · object.finalized
+										</text>
+										<line
+											x1="605"
+											y1="230"
+											x2="812"
+											y2="230"
+											stroke="currentColor"
+											stroke-opacity="0.55"
+											marker-end="url(#ah2)"
+										/>
+
+										<!-- 5 -->
+										<text
+											x="590"
+											y="264"
+											text-anchor="middle"
+											font-size="10.5"
+											font-family="monospace"
+											fill="currentColor"
+											fill-opacity="0.8"
+										>
+											5 · variants written · row → ready
+										</text>
+										<line
+											x1="820"
+											y1="274"
+											x2="368"
+											y2="274"
+											stroke="currentColor"
+											stroke-opacity="0.55"
+											stroke-dasharray="5 4"
+											marker-end="url(#ah2)"
+										/>
+
+										<!-- 6 -->
+										<text
+											x="232"
+											y="312"
+											text-anchor="middle"
+											font-size="10.5"
+											font-family="monospace"
+											fill="currentColor"
+											fill-opacity="0.8"
+										>
+											6 · GET /api/media/{id} — poll until ready
+										</text>
+										<line
+											x1="105"
+											y1="322"
+											x2="352"
+											y2="322"
+											stroke="currentColor"
+											stroke-opacity="0.55"
+											marker-end="url(#ah2)"
+										/>
+
+										<!-- 7 -->
+										<text
+											x="232"
+											y="356"
+											text-anchor="middle"
+											font-size="10.5"
+											font-family="monospace"
+											fill="currentColor"
+											fill-opacity="0.8"
+										>
+											7 · GET /api/media/{id}/{size} → signed url + expires_at
+										</text>
+										<line
+											x1="360"
+											y1="366"
+											x2="113"
+											y2="366"
+											stroke="currentColor"
+											stroke-opacity="0.55"
+											marker-end="url(#ah2)"
+										/>
+
+										<!-- pending bracket -->
+										<path
+											d="M 74 132 L 62 132 L 62 322 L 74 322"
+											fill="none"
+											stroke="#e8c76b"
+											stroke-width="1.2"
+										/>
+										<text
+											x="54"
+											y="216"
+											text-anchor="end"
+											font-size="10.5"
+											font-family="monospace"
+											fill="#e8c76b"
+										>
+											the
+										</text>
+										<text
+											x="54"
+											y="230"
+											text-anchor="end"
+											font-size="10.5"
+											font-family="monospace"
+											fill="#e8c76b"
+										>
+											pending
+										</text>
+										<text
+											x="54"
+											y="244"
+											text-anchor="end"
+											font-size="10.5"
+											font-family="monospace"
+											fill="#e8c76b"
+										>
+											tile
+										</text>
+									</svg>
+								</div>
+								<figcaption>
+									Steps 2 through 6 are the window the interface has to fill. Nothing arrives to
+									announce the change — 409 <code>MEDIA_PENDING</code> /
+									<code>MEDIA_PROCESSING</code> is what a premature read returns, so the console
+									polls and holds a placeholder until then.
+								</figcaption>
+							</figure>
+
+							<ol class="steps">
+								<li>
+									<div class="step-title">Validate before asking for anything</div>
+									<div class="step-note">
+										The server policy is 5&nbsp;MB, 6000&nbsp;px per side, JPEG/PNG/WebP. All three
+										are checkable in the browser. Rejecting a 12&nbsp;MB file locally is instant;
+										the round trip is not.
+									</div>
+								</li>
+								<li>
+									<div class="step-title">Request the upload URL</div>
+									<div class="step-note">
+										Carries both file metadata and the attachment: target, target id, role,
+										position, alt text, caption. <b>Alt text is required by this plan</b>, not by
+										the API. It is no longer permanent — <code>PATCH /api/media/{id}</code> corrects
+										it — but the picker is where someone is actually looking at the image, so it
+										stays required there, and the media library gains an edit affordance.
+									</div>
+									<div class="step-call">POST /api/media/upload-url → { upload_url, media_id }</div>
+								</li>
+								<li>
+									<div class="step-title">PUT the bytes to storage</div>
+									<div class="step-note">
+										Direct to the signed URL. This is the only progress the UI can measure honestly,
+										so the determinate bar belongs here and nowhere else.
+									</div>
+								</li>
+								<li>
+									<div class="step-title">Show a pending tile immediately</div>
+									<div class="step-note">
+										A tile in the grid with the local <code>ObjectURL</code> as its preview and a
+										<span class="pill p-inflight">processing</span> pill. The person continues
+										working; the tile settles on its own.
+									</div>
+								</li>
+								<li>
+									<div class="step-title">Poll, with a ceiling</div>
+									<div class="step-note">
+										Every 2s, backing off to 5s, giving up at 60s with
+										<span class="say">"Still processing — this one's taking a while"</span> and a
+										Check again button. An indefinite spinner is a lie about progress.
+									</div>
+									<div class="step-call">GET /api/media/{media_id}</div>
+								</li>
+								<li>
+									<div class="step-title">Read through the right variant</div>
+									<div class="step-note">
+										Request <code>thumbnail</code> for grids, <code>small</code> for cards,
+										<code>medium</code> for in-body, <code>large</code> for covers. Never fetch
+										<code>large</code> to render a 96&nbsp;px tile. This signed route is the console
+										path. Public pages use <code>/api/public/media/{id}/{size}</code> — a stable
+										path that 302s to a freshly minted signature, so it is safe to render
+										server-side and to cache.
+									</div>
+									<div class="step-call">
+										GET /api/media/{media_id}/{size} → { url, expires_at }
+									</div>
+								</li>
+								<li>
+									<div class="step-title">Refresh URLs before they expire</div>
+									<div class="step-note">
+										The response carries <code>expires_at</code>. Cache by
+										<code>media_id + size</code> and re-request on expiry — a long-open editor
+										showing broken images is the failure this prevents.
+									</div>
+								</li>
+							</ol>
+							<div class="branches">
+								<div class="bh">Branches</div>
+								<div class="branch">
+									<div class="cond">FILE_TOO_LARGE · INVALID_DIMENSIONS</div>
+									<div class="fix">
+										<b>400.</b> Caught client-side first. If it still arrives, name the actual limit
+										and the actual value:
+										<span class="say">"That image is 8.4 MB. The limit is 5 MB."</span>
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">MIME_EXTENSION_MISMATCH</div>
+									<div class="fix">
+										<b>400 — a <code>.png</code> that is really a JPEG.</b> Never show the code.
+										<span class="say"
+											>"This file's contents don't match its .png extension. Re-export it and try
+											again."</span
+										>
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">MEDIA_FAILED</div>
+									<div class="fix">
+										<b>409 on read.</b> Processing failed server-side. The tile turns
+										<span class="pill p-danger">failed</span> with Retry (re-upload) and Remove.
+										Failed tiles stay visible until dismissed — a silently vanishing upload is worse
+										than a visible failure.
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">STORAGE_ERROR</div>
+									<div class="fix">
+										<b>502.</b> Not the person's fault and not fixable by them.
+										<span class="say"
+											>"Uploads are temporarily unavailable. Your post is saved — try the image
+											again in a few minutes."</span
+										>
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">TARGET_NOT_FOUND</div>
+									<div class="fix">
+										<b>400.</b> A client bug: uploading before the parent exists. Guaranteed away by
+										creating the draft first (J4 step 1).
+									</div>
+								</div>
+							</div>
+						</div>
+					</article>
+
+					<!-- J9 -->
+					<article class="journey">
+						<div class="j-head">
+							<span class="j-id">J9</span>
+							<h3>Read in public</h3>
+							<p class="j-goal">
+								A visitor with a link. No session, no token, no idea any of the above exists.
+							</p>
+						</div>
+						<div class="j-body">
+							<ol class="steps">
+								<li>
+									<div class="step-title">Land anywhere</div>
+									<div class="step-note">
+										Every public route is server-rendered from the SvelteKit layer, so a shared link
+										is a real page with real metadata — not a shell that fetches after paint.
+									</div>
+									<div class="step-call">GET /api/public/blog/{username}/{slug}</div>
+								</li>
+								<li>
+									<div class="step-title">Browse across</div>
+									<div class="step-note">
+										The three public listings — posts, projects, résumé — share a header keyed on
+										the author, so any entry point leads to the other two.
+									</div>
+									<div class="step-call">
+										GET /api/public/blog/{username} · /api/public/projects/{username}
+									</div>
+								</li>
+								<li>
+									<div class="step-title">Follow topics — the chips are real links</div>
+									<div class="step-note">
+										Both public listings accept <code>search</code>, <code>topic_id</code>,
+										<code>sort</code>, <code>page</code> and <code>per_page</code>, the same query
+										struct the console uses. Render topic chips as links and paginate long archives;
+										no backend work is needed for either.
+									</div>
+									<div class="step-call">
+										GET /api/public/blog/{username}?topic_id=&amp;search=&amp;page=&amp;per_page=
+									</div>
+								</li>
+								<li>
+									<div class="step-title">Never leak the console</div>
+									<div class="step-note">
+										No edit affordances, no draft indicators, no "Sign in" nag over the content. The
+										public reader is not a lapsed author.
+									</div>
+								</li>
+							</ol>
+							<div class="branches">
+								<div class="bh">Branches</div>
+								<div class="branch">
+									<div class="cond">POST_NOT_FOUND</div>
+									<div class="fix">
+										<b>404.</b> Also what an unpublished or archived post returns. Show the author's
+										other posts on the 404 rather than a bare dead end.
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">USER_NOT_FOUND</div>
+									<div class="fix">
+										<b>404 on the whole space.</b> A generic not-found page. Never confirm which
+										usernames exist.
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">Scheduled post, not yet due</div>
+									<div class="fix">
+										<b>404 until the timestamp passes.</b> Expected, not an error — and the reason
+										the console must show authors a clear "goes live in 3 days" state.
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">Images on public pages</div>
+									<div class="fix">
+										<b>Fixed.</b> Public responses now carry media as a stable path that redirects
+										to a signed URL — render it straight into <code>src</code>. One state to handle:
+										<code>variants</code> can be empty while sizes are still generating, which is a
+										pending tile rather than an error.
+									</div>
+								</div>
+							</div>
+						</div>
+					</article>
+
+					<!-- J10 -->
+					<article class="journey">
+						<div class="j-head">
+							<span class="j-id">J10</span>
+							<h3>Change or close the account</h3>
+							<p class="j-goal">
+								The smallest surface and the highest stakes. One editable field and one irreversible
+								button.
+							</p>
+						</div>
+						<div class="j-body">
+							<ol class="steps">
+								<li>
+									<div class="step-title">Show what is fixed and what is not</div>
+									<div class="step-note">
+										Username and email are read-only with an explanation, not greyed inputs. Only
+										<code>full_name</code> is editable, because only <code>full_name</code> is
+										accepted.
+									</div>
+									<div class="step-call">GET /api/users/me</div>
+								</li>
+								<li>
+									<div class="step-title">Save the display name</div>
+									<div class="step-note">
+										Explicit Save; optimistic update with rollback on failure.
+									</div>
+									<div class="step-call">PUT /api/users/me { full_name }</div>
+								</li>
+								<li>
+									<div class="step-title">Put closure behind its own door</div>
+									<div class="step-note">
+										A "Danger zone" panel at the bottom, outlined in <code>--st-danger</code>,
+										containing exactly one action.
+									</div>
+								</li>
+								<li>
+									<div class="step-title">Make the consequence concrete before confirming</div>
+									<div class="step-note">
+										List what goes dark, with counts:
+										<span class="say"
+											>"12 posts, 4 projects and 2 résumés will stop being publicly
+											reachable."</span
+										>
+										Require typing the username to enable the button.
+									</div>
+									<div class="step-call">DELETE /api/users/me</div>
+								</li>
+								<li>
+									<div class="step-title">Exit completely</div>
+									<div class="step-note">
+										Clear tokens, clear the cookie, land on a plain confirmation page. Every later
+										API call returns <code>403 USER_DELETED</code>, which J2 already handles.
+									</div>
+								</li>
+							</ol>
+							<div class="branches">
+								<div class="bh">Branches</div>
+								<div class="branch">
+									<div class="cond">Soft delete, not erasure</div>
+									<div class="fix">
+										<b>The row survives.</b> Do not promise deletion the backend does not perform.
+										Say
+										<span class="say"
+											>"Your account will be closed and your public pages taken down."</span
+										>
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">INVALID_FULL_NAME</div>
+									<div class="fix">
+										<b>400.</b> Inline under the field, previous value retained.
+									</div>
+								</div>
+								<div class="branch">
+									<div class="cond">No self-serve reactivation</div>
+									<div class="fix">
+										<b>There is no undelete endpoint.</b> The confirmation must state that reopening
+										requires contacting support, since the UI cannot offer it.
+									</div>
+								</div>
+							</div>
+						</div>
+					</article>
+				</div>
+			</div>
+		</section>
+
+		<!-- ============================================================ 5 -->
+		<section id="states">
+			<div class="shell">
+				<div class="sec-head">
+					<span class="sec-num">05</span>
+					<h2>The state model</h2>
+				</div>
+				<p class="sec-lede">
+					Every list in the console is a view onto one of these state machines. Get the pills and
+					the available actions right per state and the whole product becomes predictable; get them
+					inconsistent and each screen has to be learned separately.
+				</p>
+
+				<figure>
+					<div class="figwrap">
+						<svg
+							viewBox="0 0 900 400"
+							role="img"
+							aria-label="Blog post lifecycle: a draft becomes scheduled by setting a future published_at or live by setting a current one; a scheduled post becomes live when the time passes with no API call; clearing published_at returns a live post to draft; deleting archives it, restore brings it back, and a hard delete removes it permanently."
+						>
+							<defs>
+								<marker
+									id="ah3"
+									viewBox="0 0 10 10"
+									refX="9"
+									refY="5"
+									markerWidth="7"
+									markerHeight="7"
+									orient="auto-start-reverse"
+								>
+									<path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+								</marker>
+								<marker
+									id="ah3-warn"
+									viewBox="0 0 10 10"
+									refX="9"
+									refY="5"
+									markerWidth="7"
+									markerHeight="7"
+									orient="auto-start-reverse"
+								>
+									<path d="M 0 0 L 10 5 L 0 10 z" fill="#e8c76b" />
+								</marker>
+								<marker
+									id="ah3-dan"
+									viewBox="0 0 10 10"
+									refX="9"
+									refY="5"
+									markerWidth="7"
+									markerHeight="7"
+									orient="auto-start-reverse"
+								>
+									<path d="M 0 0 L 10 5 L 0 10 z" fill="#e08a7d" />
+								</marker>
+							</defs>
+
+							<!-- row 1 -->
+							<rect
+								x="60"
+								y="60"
+								width="150"
+								height="56"
+								rx="10"
+								fill="none"
+								stroke="#9fa3a6"
+								stroke-opacity="0.8"
+							/>
+							<text
+								x="135"
+								y="84"
+								text-anchor="middle"
+								font-size="13"
+								font-weight="600"
+								fill="#9fa3a6"
+							>
+								Draft
+							</text>
+							<text
+								x="135"
+								y="101"
+								text-anchor="middle"
+								font-size="10"
+								font-family="monospace"
+								fill="#9fa3a6"
+								fill-opacity="0.7"
+							>
+								published_at: null
+							</text>
+
+							<rect
+								x="330"
+								y="60"
+								width="170"
+								height="56"
+								rx="10"
+								fill="none"
+								stroke="#e8c76b"
+								stroke-opacity="0.8"
+							/>
+							<text
+								x="415"
+								y="84"
+								text-anchor="middle"
+								font-size="13"
+								font-weight="600"
+								fill="#e8c76b"
+							>
+								Scheduled
+							</text>
+							<text
+								x="415"
+								y="101"
+								text-anchor="middle"
+								font-size="10"
+								font-family="monospace"
+								fill="#e8c76b"
+								fill-opacity="0.7"
+							>
+								published_at: future
+							</text>
+
+							<rect
+								x="620"
+								y="60"
+								width="150"
+								height="56"
+								rx="10"
+								fill="none"
+								stroke="#8fbf9a"
+								stroke-opacity="0.9"
+							/>
+							<text
+								x="695"
+								y="84"
+								text-anchor="middle"
+								font-size="13"
+								font-weight="600"
+								fill="#8fbf9a"
+							>
+								Live
+							</text>
+							<text
+								x="695"
+								y="101"
+								text-anchor="middle"
+								font-size="10"
+								font-family="monospace"
+								fill="#8fbf9a"
+								fill-opacity="0.7"
+							>
+								published_at: past
+							</text>
+
+							<!-- row 2 -->
+							<rect x="620" y="250" width="150" height="56" rx="10" fill="none" stroke="#6f7276" />
+							<text
+								x="695"
+								y="274"
+								text-anchor="middle"
+								font-size="13"
+								font-weight="600"
+								fill="#9fa3a6"
+							>
+								Archived
+							</text>
+							<text
+								x="695"
+								y="291"
+								text-anchor="middle"
+								font-size="10"
+								font-family="monospace"
+								fill="#9fa3a6"
+								fill-opacity="0.6"
+							>
+								soft-deleted
+							</text>
+
+							<rect
+								x="330"
+								y="250"
+								width="150"
+								height="56"
+								rx="10"
+								fill="none"
+								stroke="#e08a7d"
+								stroke-dasharray="5 4"
+							/>
+							<text
+								x="405"
+								y="274"
+								text-anchor="middle"
+								font-size="13"
+								font-weight="600"
+								fill="#e08a7d"
+							>
+								Gone
+							</text>
+							<text
+								x="405"
+								y="291"
+								text-anchor="middle"
+								font-size="10"
+								font-family="monospace"
+								fill="#e08a7d"
+								fill-opacity="0.7"
+							>
+								no way back
+							</text>
+
+							<!-- draft -> scheduled -->
+							<line
+								x1="210"
+								y1="88"
+								x2="322"
+								y2="88"
+								stroke="currentColor"
+								stroke-opacity="0.5"
+								marker-end="url(#ah3)"
+							/>
+							<text
+								x="266"
+								y="80"
+								text-anchor="middle"
+								font-size="10"
+								font-family="monospace"
+								fill="currentColor"
+								fill-opacity="0.7"
+							>
+								schedule
+							</text>
+
+							<!-- scheduled -> live : no call -->
+							<line
+								x1="500"
+								y1="88"
+								x2="612"
+								y2="88"
+								stroke="#e8c76b"
+								stroke-dasharray="5 4"
+								marker-end="url(#ah3-warn)"
+							/>
+							<text
+								x="556"
+								y="80"
+								text-anchor="middle"
+								font-size="10"
+								font-family="monospace"
+								fill="#e8c76b"
+							>
+								time passes
+							</text>
+							<text
+								x="556"
+								y="112"
+								text-anchor="middle"
+								font-size="10"
+								font-family="monospace"
+								fill="#e8c76b"
+								fill-opacity="0.75"
+							>
+								no API call
+							</text>
+
+							<!-- draft -> live arc above -->
+							<path
+								d="M 175 60 C 300 6, 540 6, 655 56"
+								fill="none"
+								stroke="currentColor"
+								stroke-opacity="0.5"
+								marker-end="url(#ah3)"
+							/>
+							<text
+								x="415"
+								y="22"
+								text-anchor="middle"
+								font-size="10"
+								font-family="monospace"
+								fill="currentColor"
+								fill-opacity="0.7"
+							>
+								PATCH published_at: now — publish
+							</text>
+
+							<!-- live -> draft arc below -->
+							<path
+								d="M 655 120 C 540 186, 300 186, 178 120"
+								fill="none"
+								stroke="currentColor"
+								stroke-opacity="0.5"
+								marker-end="url(#ah3)"
+							/>
+							<text
+								x="415"
+								y="178"
+								text-anchor="middle"
+								font-size="10"
+								font-family="monospace"
+								fill="currentColor"
+								fill-opacity="0.7"
+							>
+								PATCH published_at: null — unpublish
+							</text>
+
+							<!-- live -> archived -->
+							<line
+								x1="676"
+								y1="116"
+								x2="676"
+								y2="242"
+								stroke="currentColor"
+								stroke-opacity="0.5"
+								marker-end="url(#ah3)"
+							/>
+							<text
+								x="664"
+								y="172"
+								text-anchor="end"
+								font-size="10"
+								font-family="monospace"
+								fill="currentColor"
+								fill-opacity="0.7"
+							>
+								archive
+							</text>
+							<text
+								x="664"
+								y="186"
+								text-anchor="end"
+								font-size="10"
+								font-family="monospace"
+								fill="currentColor"
+								fill-opacity="0.55"
+							>
+								DELETE /blog/{id}
+							</text>
+
+							<!-- archived -> live -->
+							<line
+								x1="716"
+								y1="250"
+								x2="716"
+								y2="124"
+								stroke="currentColor"
+								stroke-opacity="0.5"
+								marker-end="url(#ah3)"
+							/>
+							<text
+								x="728"
+								y="172"
+								font-size="10"
+								font-family="monospace"
+								fill="currentColor"
+								fill-opacity="0.7"
+							>
+								restore
+							</text>
+							<text
+								x="728"
+								y="186"
+								font-size="10"
+								font-family="monospace"
+								fill="currentColor"
+								fill-opacity="0.55"
+							>
+								POST …/restore
+							</text>
+
+							<!-- archived -> gone -->
+							<line
+								x1="620"
+								y1="278"
+								x2="488"
+								y2="278"
+								stroke="#e08a7d"
+								marker-end="url(#ah3-dan)"
+							/>
+							<text
+								x="554"
+								y="268"
+								text-anchor="middle"
+								font-size="10"
+								font-family="monospace"
+								fill="#e08a7d"
+							>
+								purge
+							</text>
+							<text
+								x="554"
+								y="296"
+								text-anchor="middle"
+								font-size="10"
+								font-family="monospace"
+								fill="#e08a7d"
+								fill-opacity="0.75"
+							>
+								DELETE …/hard
+							</text>
+
+							<text x="60" y="352" font-size="11" fill="currentColor" fill-opacity="0.6">
+								A draft archives by the same call — archiving is reachable from every live state,
+								purging only from Archived.
+							</text>
+						</svg>
+					</div>
+					<figcaption>
+						Two transitions have no button behind them: a scheduled post going live, and a purge
+						that cannot be undone. Both need copy that says so before the fact.
+					</figcaption>
+				</figure>
+
+				<h3 class="block">Every resource, side by side</h3>
+				<div class="scroller">
+					<table>
+						<thead>
+							<tr>
+								<th>Resource</th>
+								<th>States</th>
+								<th>Reversible removal</th>
+								<th>Permanent removal</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td><b>Blog post</b></td>
+								<td>
+									<span class="pill p-neutral">draft</span>
+									<span class="pill p-inflight">scheduled</span>
+									<span class="pill p-live">live</span> <span class="pill p-dormant">archived</span>
+								</td>
+								<td class="dim mono">DELETE /api/blog/{id}<br />POST /api/blog/{id}/restore</td>
+								<td class="dim mono">DELETE /api/blog/{id}/hard</td>
+							</tr>
+							<tr>
+								<td><b>Project</b></td>
+								<td>
+									<span class="pill p-live">live</span> <span class="pill p-dormant">deleted</span>
+								</td>
+								<td class="dim mono">
+									DELETE /api/projects/{id}<br />POST /api/projects/{id}/restore
+								</td>
+								<td class="dim mono">DELETE /api/projects/{id}/hard</td>
+							</tr>
+							<tr>
+								<td><b>CV</b></td>
+								<td>
+									<span class="pill p-live">active</span>
+									<span class="pill p-dormant">archived</span>
+								</td>
+								<td class="dim mono">DELETE /api/cvs/{id}<br />POST /api/cvs/{id}/restore</td>
+								<td class="dim mono">DELETE /api/cvs/{id}/hard</td>
+							</tr>
+							<tr>
+								<td><b>Topic</b></td>
+								<td>
+									<span class="pill p-live">active</span>
+									<span class="pill p-dormant">retired</span>
+								</td>
+								<td class="dim mono">
+									DELETE /api/topics/{id}<br />PATCH /api/topics/{id}
+									<span style="color: var(--st-neutral)">(rename)</span>
+								</td>
+								<td class="dim">—</td>
+							</tr>
+							<tr>
+								<td><b>Media</b></td>
+								<td>
+									<span class="pill p-inflight">pending</span>
+									<span class="pill p-inflight">processing</span>
+									<span class="pill p-live">ready</span> <span class="pill p-danger">failed</span>
+									<span class="pill p-dormant">deleted</span>
+								</td>
+								<td class="dim mono">
+									DELETE /api/media/{id} <span style="color: var(--st-neutral)">(soft)</span
+									><br />POST /api/media/{id}/restore
+								</td>
+								<td class="dim mono">DELETE /api/media/{id}/hard</td>
+							</tr>
+							<tr>
+								<td><b>Account</b></td>
+								<td>
+									<span class="pill p-neutral">unverified</span>
+									<span class="pill p-live">verified</span>
+									<span class="pill p-dormant">closed</span>
+								</td>
+								<td class="dim">—</td>
+								<td class="dim mono">
+									DELETE /api/users/me <span style="color: var(--st-neutral)">(soft)</span>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+				<p class="prose" style="color: var(--muted); font-size: 0.84375rem; margin-top: 14px">
+					The two red cells are where the interface has to be more careful than the API. Where
+					restore is missing, removal must be presented as permanent and confirmed as such —
+					offering an "Archive" that quietly cannot be undone is the one inconsistency users will
+					not forgive.
+				</p>
+			</div>
+		</section>
+
+		<!-- ============================================================ 6 -->
+		<section id="laws">
+			<div class="shell">
+				<div class="sec-head">
+					<span class="sec-num">06</span>
+					<h2>Interaction laws</h2>
+				</div>
+				<p class="sec-lede">
+					Ten rules that hold on every screen. They are what makes the fifth screen someone opens
+					feel like the first four, which is the whole of "predictable".
+				</p>
+
+				<div class="laws">
+					<div class="law">
+						<h4>One primary action per screen</h4>
+						<p>
+							Exactly one amber button in view. Everything else is a bordered secondary or a plain
+							text action. Two amber buttons means neither is the answer.
+						</p>
+					</div>
+					<div class="law">
+						<h4>Destruction has three rungs</h4>
+						<p>
+							<b>Archive</b> — one click, undo toast for 8 seconds. <b>Restore</b> — one click, no
+							confirm. <b>Purge</b> — a dialog naming the item, requiring the title to be typed,
+							with a danger-coloured button. Never skip a rung, and never dress a purge as an
+							archive.
+						</p>
+					</div>
+					<div class="law">
+						<h4>PATCH is tri-state; the UI must be too</h4>
+						<p>
+							Omitted leaves a field alone, <code>null</code> clears it, a value sets it. So the
+							editor tracks which fields the person actually touched and sends only those. Sending
+							the whole object back means one editor's stale read silently reverts another tab's
+							edit.
+						</p>
+					</div>
+					<div class="law">
+						<h4>Lists share one control bar</h4>
+						<p>
+							Search left, filters centre, sort right, in that order, on posts, projects, CVs and
+							media. Defaults are <code>page=1</code>, <code>per_page=10</code>, and each resource's
+							own default sort. Search debounces at 300&nbsp;ms and writes to the URL, so a filtered
+							list is a shareable, reloadable, back-button-safe address.
+						</p>
+					</div>
+					<div class="law">
+						<h4>Optimistic only when it is reversible</h4>
+						<p>
+							Renames, topic chips, reordering — apply immediately, roll back on failure. Publish,
+							purge, upload, account closure — wait for the server. Optimism about an irreversible
+							action is just an inaccurate screen.
+						</p>
+					</div>
+					<div class="law">
+						<h4>Four states, always, for every collection</h4>
+						<p>
+							<b>Loading</b> — skeletons shaped like the rows, never a centred spinner.
+							<b>Empty</b> — why it is empty and the one action that fixes it.
+							<b>Filtered-empty</b> — distinct from empty, with a Clear filters button.
+							<b>Error</b> — what failed and a Retry.
+						</p>
+					</div>
+					<div class="law">
+						<h4>The save indicator is singular</h4>
+						<p>
+							Autosaving screens report state in one fixed place near the title. No toast per
+							keystroke, no second indicator in a corner. Toasts are for things a person cannot see
+							happen.
+						</p>
+					</div>
+					<div class="law">
+						<h4>Never render a raw error code</h4>
+						<p>
+							Codes go to the console and to telemetry. The screen gets a sentence in the product's
+							voice with a way forward. The mapping in <a href="#feedback">Feedback</a> is the whole
+							contract — nothing reaches a person that is not in that table.
+						</p>
+					</div>
+					<div class="law">
+						<h4>Ownership failures are pages, not modals</h4>
+						<p>
+							403 and 404 on a detail route mean the URL was wrong or the item is someone else's.
+							That is a destination, not an interruption: render a page with an explanation and a
+							route back to the list.
+						</p>
+					</div>
+					<div class="law">
+						<h4>Keyboard and focus are not a phase two</h4>
+						<p>
+							Visible focus everywhere via the accent border already in the login form. Dialogs trap
+							focus and restore it on close. Every destructive dialog opens with focus on Cancel,
+							never on the button that destroys.
+						</p>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- ============================================================ 7 -->
+		<section id="feedback">
+			<div class="shell">
+				<div class="sec-head">
+					<span class="sec-num">07</span>
+					<h2>Feedback</h2>
+				</div>
+				<p class="sec-lede">
+					The backend has 41 error codes across eight groups. People do not need 41 experiences —
+					they need six, chosen by what they can do next. Classify first, then write the sentence.
+				</p>
+
+				<h3 class="block">Six handling classes</h3>
+				<div class="scroller">
+					<table>
+						<thead>
+							<tr>
+								<th>Class</th>
+								<th>Where it lands</th>
+								<th>Recovery offered</th>
+								<th>Codes</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td><b>Field-level</b></td>
+								<td class="dim">Under the input, on submit or on blur</td>
+								<td class="dim">Fix and resubmit; form state preserved</td>
+								<td class="dim mono">
+									INVALID_EMAIL · INVALID_PASSWORD · INVALID_USERNAME · INVALID_FULL_NAME ·
+									INVALID_SLUG · INVALID_TITLE · EMPTY_TITLE · TITLE_TOO_LONG · INVALID_CONTENT ·
+									MISSING_FIELD · VALIDATION_ERROR
+								</td>
+							</tr>
+							<tr>
+								<td><b>Collision</b></td>
+								<td class="dim">Under the offending field, with a suggestion</td>
+								<td class="dim">Accept the suggestion, or go to the existing item</td>
+								<td class="dim mono">
+									USER_ALREADY_EXISTS · SLUG_ALREADY_EXISTS · TOPIC_ALREADY_EXISTS
+								</td>
+							</tr>
+							<tr>
+								<td><b>Session</b></td>
+								<td class="dim">Silent refresh, then a full-page redirect</td>
+								<td class="dim">Re-authenticate, returning to the saved destination</td>
+								<td class="dim mono">
+									MISSING_AUTH_HEADER · INVALID_TOKEN · TOKEN_INVALID · TOKEN_EXPIRED ·
+									TOKEN_NOT_YET_VALID · INVALID_TOKEN_TYPE · USER_UNAUTHORIZED
+								</td>
+							</tr>
+							<tr>
+								<td><b>Gate</b></td>
+								<td class="dim">Route to <code>/verify</code>, or a full page for ownership</td>
+								<td class="dim">Verify the address, or return to a list you own</td>
+								<td class="dim mono">
+									EMAIL_NOT_VERIFIED · FORBIDDEN · CV_UNAUTHORIZED · POST_UNAUTHORIZED ·
+									USER_DELETED
+								</td>
+							</tr>
+							<tr>
+								<td><b>Wait</b></td>
+								<td class="dim">In place, on the affected tile or button</td>
+								<td class="dim">Poll or retry; the UI keeps the placeholder</td>
+								<td class="dim mono">MEDIA_PENDING · MEDIA_PROCESSING · RATE_LIMITED</td>
+							</tr>
+							<tr>
+								<td><b>Not ours</b></td>
+								<td class="dim">Inline banner scoped to the failed region</td>
+								<td class="dim">Retry, with an assurance that other work is safe</td>
+								<td class="dim mono">STORAGE_ERROR · INTERNAL_ERROR · MEDIA_FAILED</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3 class="block">Copy for the codes people actually meet</h3>
+				<div class="scroller">
+					<table>
+						<thead>
+							<tr>
+								<th>Code</th>
+								<th>What the person reads</th>
+								<th>Alongside it</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td class="mono">INVALID_CREDENTIALS</td>
+								<td>That email and password don't match.</td>
+								<td class="dim">"Forgot password?" beside the field</td>
+							</tr>
+							<tr>
+								<td class="mono">EMAIL_NOT_VERIFIED</td>
+								<td>Verify your email to start publishing.</td>
+								<td class="dim">Resend link; the address it went to</td>
+							</tr>
+							<tr>
+								<td class="mono">USER_ALREADY_EXISTS</td>
+								<td>There's already an account for that address.</td>
+								<td class="dim">Sign in · Reset password</td>
+							</tr>
+							<tr>
+								<td class="mono">SLUG_ALREADY_EXISTS</td>
+								<td>You already have a post at that address.</td>
+								<td class="dim">Suggested free slug, one click to accept</td>
+							</tr>
+							<tr>
+								<td class="mono">RATE_LIMITED</td>
+								<td>Too many attempts. Try again in <span class="mono">{Retry-After}</span>.</td>
+								<td class="dim">Live countdown; submit stays disabled</td>
+							</tr>
+							<tr>
+								<td class="mono">FILE_TOO_LARGE</td>
+								<td>That image is 8.4 MB. The limit is 5 MB.</td>
+								<td class="dim">Choose another file</td>
+							</tr>
+							<tr>
+								<td class="mono">INVALID_MIME_TYPE</td>
+								<td>Only JPEG, PNG and WebP images can be uploaded.</td>
+								<td class="dim">Choose another file</td>
+							</tr>
+							<tr>
+								<td class="mono">MIME_EXTENSION_MISMATCH</td>
+								<td>This file's contents don't match its extension.</td>
+								<td class="dim">Re-export and try again</td>
+							</tr>
+							<tr>
+								<td class="mono">MEDIA_PROCESSING</td>
+								<td>Still preparing this image.</td>
+								<td class="dim">Pending tile; polling continues</td>
+							</tr>
+							<tr>
+								<td class="mono">MEDIA_FAILED</td>
+								<td>This image couldn't be processed.</td>
+								<td class="dim">Retry upload · Remove</td>
+							</tr>
+							<tr>
+								<td class="mono">STORAGE_ERROR</td>
+								<td>Uploads are temporarily unavailable. Your work is saved.</td>
+								<td class="dim">Try again</td>
+							</tr>
+							<tr>
+								<td class="mono">INVALID_RESET_TOKEN</td>
+								<td>This reset link is no longer valid.</td>
+								<td class="dim">Send a new one</td>
+							</tr>
+							<tr>
+								<td class="mono">POST_NOT_FOUND</td>
+								<td>That post doesn't exist, or it isn't published yet.</td>
+								<td class="dim">Back to posts</td>
+							</tr>
+							<tr>
+								<td class="mono">INTERNAL_ERROR</td>
+								<td>Something went wrong on our side.</td>
+								<td class="dim">Retry; a reference id for support</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<div class="callout">
+					<h4>Rate limits are a designed experience, not an exception</h4>
+					<p>
+						Five routes are limited and all five are ones a frustrated person hits repeatedly: login
+						(10 per 5 min), register (5 per hour), password reset request (5 per hour), reset
+						completion (10 per hour), refresh (30 per 5 min). Read <code>Retry-After</code>, disable
+						submit, and count down visibly. A dead button with no explanation reads as a broken
+						product at exactly the moment someone is already annoyed.
+					</p>
+					<p>
+						The refresh limit is the one that bites engineering rather than users: it is why J2
+						insists on a single queued refresh rather than one per in-flight request.
+					</p>
+				</div>
+			</div>
+		</section>
+
+		<!-- ============================================================ 8 -->
+		<section id="components">
+			<div class="shell">
+				<div class="sec-head">
+					<span class="sec-num">08</span>
+					<h2>What to build</h2>
+				</div>
+				<p class="sec-lede">
+					Eighteen components cover every screen in the map. Built in the order below, each one is
+					immediately used by the journey beneath it — nothing is built on speculation.
+				</p>
+
+				<div class="scroller">
+					<table>
+						<thead>
+							<tr>
+								<th>Component</th>
+								<th>Layer</th>
+								<th>Carries</th>
+								<th>First needed by</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td><b>StatusPill</b></td>
+								<td class="dim">shared/ui</td>
+								<td class="dim">The five status tokens; one component, never ad-hoc spans</td>
+								<td class="dim">J4</td>
+							</tr>
+							<tr>
+								<td><b>Button</b></td>
+								<td class="dim">shared/ui</td>
+								<td class="dim">
+									primary · secondary · ghost · danger; loading and disabled states
+								</td>
+								<td class="dim">J1</td>
+							</tr>
+							<tr>
+								<td><b>Field</b></td>
+								<td class="dim">shared/ui</td>
+								<td class="dim">Label, input, help, error — the login form's grammar, extracted</td>
+								<td class="dim">J1</td>
+							</tr>
+							<tr>
+								<td><b>InlineAlert</b></td>
+								<td class="dim">shared/ui</td>
+								<td class="dim">The six handling classes, colour-mapped</td>
+								<td class="dim">J1</td>
+							</tr>
+							<tr>
+								<td><b>Toast</b></td>
+								<td class="dim">shared/ui</td>
+								<td class="dim">Confirmations with an optional 8-second Undo</td>
+								<td class="dim">J4</td>
+							</tr>
+							<tr>
+								<td><b>ConfirmDialog</b></td>
+								<td class="dim">shared/ui</td>
+								<td class="dim">Focus trap, type-to-confirm, Cancel-focused by default</td>
+								<td class="dim">J4</td>
+							</tr>
+							<tr>
+								<td><b>EmptyState</b></td>
+								<td class="dim">shared/ui</td>
+								<td class="dim">Empty vs filtered-empty vs error, each with its action</td>
+								<td class="dim">J4</td>
+							</tr>
+							<tr>
+								<td><b>Skeleton</b></td>
+								<td class="dim">shared/ui</td>
+								<td class="dim">Row and card shapes matching real content</td>
+								<td class="dim">J4</td>
+							</tr>
+							<tr>
+								<td><b>ListToolbar</b></td>
+								<td class="dim">widgets</td>
+								<td class="dim">Search, filters, sort — URL-synced, debounced</td>
+								<td class="dim">J4</td>
+							</tr>
+							<tr>
+								<td><b>Pager</b></td>
+								<td class="dim">widgets</td>
+								<td class="dim">
+									<code>page</code>/<code>per_page</code>/<code>total</code> from every list
+									response
+								</td>
+								<td class="dim">J4</td>
+							</tr>
+							<tr>
+								<td><b>SaveIndicator</b></td>
+								<td class="dim">widgets</td>
+								<td class="dim">Saving · Saved · Unsaved · Retrying, in one fixed slot</td>
+								<td class="dim">J4</td>
+							</tr>
+							<tr>
+								<td><b>TopicPicker</b></td>
+								<td class="dim">features/topic</td>
+								<td class="dim">
+									Search, multi-select, inline create; shared by posts and projects
+								</td>
+								<td class="dim">J4</td>
+							</tr>
+							<tr>
+								<td><b>MediaPicker</b></td>
+								<td class="dim">features/media</td>
+								<td class="dim">Local validation, alt text, the full J8 upload sequence</td>
+								<td class="dim">J8</td>
+							</tr>
+							<tr>
+								<td><b>MediaTile</b></td>
+								<td class="dim">entities/media</td>
+								<td class="dim">All four media states, variant-aware, expiry-aware URLs</td>
+								<td class="dim">J8</td>
+							</tr>
+							<tr>
+								<td><b>RepeatableSection</b></td>
+								<td class="dim">features/cv</td>
+								<td class="dim">Add, remove, reorder, collapse — all five CV collections</td>
+								<td class="dim">J6</td>
+							</tr>
+							<tr>
+								<td><b>DangerZone</b></td>
+								<td class="dim">widgets</td>
+								<td class="dim">Irreversible actions, isolated and outlined</td>
+								<td class="dim">J10</td>
+							</tr>
+							<tr>
+								<td><b>VerificationBanner</b></td>
+								<td class="dim">widgets</td>
+								<td class="dim">The gate, wherever an unverified session reaches</td>
+								<td class="dim">J1</td>
+							</tr>
+							<tr>
+								<td><b>StudioShell</b></td>
+								<td class="dim">widgets</td>
+								<td class="dim">
+									Console nav, breadcrumb, account menu; distinct from the public navbar
+								</td>
+								<td class="dim">J1</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<div class="callout">
+					<h4>Build order</h4>
+					<p>
+						<b>1.</b> The gate — hold screen, verification landing, banner. Nothing else works
+						honestly without it. <b>2.</b> Shared UI primitives plus the error-class mapping.
+						<b>3.</b> Posts end to end, which exercises lists, editor, topics and archive in one
+						pass. <b>4.</b> Media, which posts already need. <b>5.</b> Projects, which reuse
+						everything from 3. <b>6.</b> CVs, the heaviest form, once the patterns are settled.
+						<b>7.</b> Account and danger zone. <b>8.</b> Public reader surfaces.
+					</p>
+				</div>
+			</div>
+		</section>
+
+		<!-- ============================================================ 9 -->
+		<section id="gaps">
+			<div class="shell">
+				<div class="sec-head">
+					<span class="sec-num">09</span>
+					<h2>Where the API and the journeys don't meet</h2>
+				</div>
+				<p class="sec-lede">
+					This section listed fourteen gaps. <b>Backend round one shipped all fourteen</b>,
+					including the two both sides had written off. Four narrower gaps remain, none of which
+					blocks a journey. What follows is the resolved list first, because several of the rules
+					elsewhere in this document only made sense while those gaps existed.
+				</p>
+
+				<div class="callout">
+					<h4>Closed — and three of them reversed a rule in this document</h4>
+					<p>
+						<b>Public media</b> now ships as a stable path per variant that 302s to a signed URL,
+						which also resolved the Markdown inline-image question for free.
+						<b>Resend verification</b>, <b>project restore</b>, <b>topic rename</b>,
+						<b>slug availability</b>, <b>usage counts</b>, <b>batched media status</b>,
+						<b>public author identity</b>, <b>bulk operations</b> and
+						<b>shareable draft previews</b> all exist. Blog search was case-sensitive and is not any
+						more. Public listing filters turned out to have existed all along.
+					</p>
+					<p>
+						The three that changed this document: <b>media metadata is patchable</b>, so alt text is
+						correctable rather than permanent; <b>media has restore and hard delete</b>, so it
+						follows the same ladder as everything else; and <b>topic usage counts exist</b>, so
+						destructive confirmations can state a real number instead of warning generically. J5,
+						J7, J8, J9 and the state model have all been corrected.
+					</p>
+				</div>
+
+				<h3 class="block">The four that remain</h3>
+				<div class="gaps">
+					<div class="gap">
+						<h4><code>photo_url</code> still bypasses the media module</h4>
+						<span class="sev sev-seam">seam</span>
+						<p>
+							A CV's photo is a plain string while <code>attachment_target: "resume"</code> exists
+							in the media module — two ways to put an image on a résumé, only one of which gets
+							resizing and variants. Note this is now inconsistent with the <b>user avatar</b>,
+							which R5 made an ordinary media attachment. The pattern exists; the CV has not adopted
+							it.
+						</p>
+					</div>
+					<div class="gap">
+						<h4>Media has no unfiltered list</h4>
+						<span class="sev sev-seam">seam</span>
+						<p>
+							Listing is <code>by-target</code> only, so a combined media library means one call per
+							target merged client-side. Workable, and it makes "everything I've uploaded" four
+							requests with no paging.
+						</p>
+					</div>
+					<div class="gap">
+						<h4>No summary endpoint</h4>
+						<span class="sev sev-later">later</span>
+						<p>
+							The overview screen assembles its counts from the <code>total</code> field of three
+							paginated lists fetched at <code>per_page=1</code>. Fine at this scale, worth
+							replacing before it isn't.
+						</p>
+					</div>
+					<div class="gap">
+						<h4>Email and password cannot be changed while signed in</h4>
+						<span class="sev sev-later">later</span>
+						<p>
+							<code>PUT /api/users/me</code> now takes <code>full_name</code> and <code>bio</code>,
+							and will take <code>locale</code>. It still does not take email or password, so a
+							password change goes out through the forgot-password flow. J10 states the constraint
+							rather than showing fields that do nothing.
+						</p>
+					</div>
+				</div>
+
+				<div class="callout">
+					<h4>Two open questions, not gaps</h4>
+					<p>
+						Whether <code>position</code> is patchable alongside <code>alt_text</code> — which
+						decides whether project galleries get drag-to-reorder — and whether the public media
+						route checks the owning post's publication state. Both are filed in the API Round Two
+						document as C2 and C3.
+					</p>
+				</div>
+			</div>
+		</section>
+
+		<footer>
+			<div class="shell prose">
+				<p>
+					Drawn from <code>backend_actix</code> at the current
+					<code>claude/demo-setup-and-logout-fix</code> state: routes as registered in
+					<code>src/lib.rs::init_routes</code>, error codes from
+					<code>src/shared/api/error_code.rs</code>, limits from
+					<code>src/shared/rate_limit/policy.rs</code>, and the upload policy from
+					<code>init_upload.rs</code>. Colours and type are the tokens already defined in
+					<code>blogport_frontend/src/app/routes/layout.css</code>; the only additions proposed here
+					are a monospace family and the five status values in Foundations.
+				</p>
+			</div>
+		</footer>
+	</body>
+</html>

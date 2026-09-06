@@ -1,10 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { POST as backendPOST } from '$lib/shared/api/client';
 import type { components } from '$lib/shared/api/v1';
-import {
-	clearAuthCookies,
-	REFRESH_COOKIE
-} from '$lib/shared/auth/cookies.server';
+import { clearAuthCookies, REFRESH_COOKIE } from '$lib/shared/auth/cookies.server';
 
 type LogoutRequestDto = components['schemas']['LogoutRequestDto'];
 

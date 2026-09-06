@@ -1,0 +1,978 @@
+<title>Blogport Frontend Handoff</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+	rel="stylesheet"
+	href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sen:wght@400;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+/>
+
+<style>
+	/* Same token set as the Console Blueprint — these two documents are a pair. */
+	:root {
+		--bg: #2f3133;
+		--surface: #3a3c3e;
+		--surface-2: #434547;
+		--headline: #f4e4c9;
+		--muted: #9fa3a6;
+		--accent: #f4a43d;
+		--accent-2: #e8c76b;
+		--line: rgba(244, 228, 201, 0.1);
+		--line-strong: rgba(244, 228, 201, 0.22);
+		--st-live: #8fbf9a;
+		--st-danger: #e08a7d;
+		--st-inflight: #e8c76b;
+		--font-display: Sen, Inter, ui-sans-serif, system-ui, sans-serif;
+		--font-sans:
+			Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+		--font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		--shell: 1080px;
+		--prose: 68ch;
+	}
+	* {
+		box-sizing: border-box;
+	}
+	body {
+		margin: 0;
+		background: var(--bg);
+		color: var(--headline);
+		font-family: var(--font-sans);
+		font-size: 16px;
+		line-height: 1.65;
+		-webkit-font-smoothing: antialiased;
+	}
+	h1,
+	h2,
+	h3,
+	h4 {
+		font-family: var(--font-display);
+		text-wrap: balance;
+		margin: 0;
+	}
+	p {
+		margin: 0;
+	}
+	a {
+		color: var(--accent);
+		text-underline-offset: 3px;
+	}
+	a:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 3px;
+		border-radius: 4px;
+	}
+	code,
+	.mono {
+		font-family: var(--font-mono);
+		font-size: 0.86em;
+	}
+	.shell {
+		max-width: var(--shell);
+		margin: 0 auto;
+		padding: 0 24px;
+	}
+	.prose {
+		max-width: var(--prose);
+	}
+
+	.masthead {
+		padding: 68px 0 44px;
+		border-bottom: 1px solid var(--line);
+	}
+	.eyebrow {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: var(--accent);
+		margin-bottom: 18px;
+	}
+	.masthead h1 {
+		font-size: clamp(2.1rem, 5vw, 3rem);
+		font-weight: 800;
+		line-height: 1.06;
+		letter-spacing: -0.02em;
+	}
+	.masthead .standfirst {
+		margin-top: 18px;
+		font-size: 1.05rem;
+		color: var(--muted);
+		max-width: 62ch;
+	}
+
+	.tocbar {
+		position: sticky;
+		top: 0;
+		z-index: 40;
+		background: rgba(47, 49, 51, 0.94);
+		backdrop-filter: blur(10px);
+		border-bottom: 1px solid var(--line);
+	}
+	.tocbar .inner {
+		display: flex;
+		gap: 4px;
+		overflow-x: auto;
+		padding: 10px 24px;
+		max-width: var(--shell);
+		margin: 0 auto;
+	}
+	.tocbar a {
+		flex: 0 0 auto;
+		font-size: 0.78125rem;
+		color: var(--muted);
+		text-decoration: none;
+		padding: 6px 12px;
+		border-radius: 999px;
+		white-space: nowrap;
+	}
+	.tocbar a:hover {
+		color: var(--headline);
+		background: rgba(244, 228, 201, 0.06);
+	}
+
+	section {
+		padding: 60px 0;
+		border-bottom: 1px solid var(--line);
+		scroll-margin-top: 62px;
+	}
+	section:last-of-type {
+		border-bottom: none;
+	}
+	.sec-head {
+		display: flex;
+		align-items: baseline;
+		gap: 14px;
+		margin-bottom: 10px;
+	}
+	.sec-num {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		color: var(--accent);
+		letter-spacing: 0.08em;
+	}
+	section h2 {
+		font-size: clamp(1.5rem, 3vw, 1.95rem);
+		font-weight: 800;
+		letter-spacing: -0.015em;
+	}
+	.sec-lede {
+		color: var(--muted);
+		margin-bottom: 32px;
+		max-width: var(--prose);
+	}
+	h3.block {
+		font-size: 1.0625rem;
+		font-weight: 700;
+		margin: 36px 0 14px;
+	}
+	h3.block:first-of-type {
+		margin-top: 0;
+	}
+
+	.scroller {
+		overflow-x: auto;
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		background: var(--surface);
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 0.84375rem;
+		min-width: 600px;
+		font-variant-numeric: tabular-nums;
+	}
+	thead th {
+		text-align: left;
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		font-weight: 500;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--muted);
+		padding: 12px 16px;
+		border-bottom: 1px solid var(--line-strong);
+		white-space: nowrap;
+	}
+	tbody td {
+		padding: 12px 16px;
+		border-bottom: 1px solid var(--line);
+		vertical-align: top;
+	}
+	tbody tr:last-child td {
+		border-bottom: none;
+	}
+	td.dim {
+		color: var(--muted);
+	}
+	td .mono {
+		color: var(--accent-2);
+	}
+	.vpin {
+		display: block;
+		margin-top: 6px;
+		font-family: var(--font-mono);
+		font-size: 0.71rem;
+		color: var(--muted);
+	}
+
+	.callout {
+		border: 1px solid var(--line-strong);
+		border-radius: 12px;
+		padding: 20px 22px;
+		background: linear-gradient(180deg, rgba(244, 164, 61, 0.07), rgba(244, 164, 61, 0.02));
+		margin: 26px 0;
+	}
+	.callout h4 {
+		font-size: 0.9375rem;
+		margin-bottom: 8px;
+		color: var(--accent);
+	}
+	.callout p {
+		font-size: 0.875rem;
+	}
+	.callout p + p {
+		margin-top: 10px;
+	}
+
+	.alert {
+		border: 1px solid rgba(224, 138, 125, 0.4);
+		border-radius: 12px;
+		padding: 20px 22px;
+		background: rgba(224, 138, 125, 0.07);
+		margin: 26px 0;
+	}
+	.alert h4 {
+		font-size: 0.9375rem;
+		margin-bottom: 8px;
+		color: var(--st-danger);
+	}
+	.alert p {
+		font-size: 0.875rem;
+	}
+	.alert p + p {
+		margin-top: 10px;
+	}
+
+	pre {
+		margin: 0;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		padding: 18px 20px;
+		overflow-x: auto;
+		font-family: var(--font-mono);
+		font-size: 0.78125rem;
+		line-height: 1.7;
+		color: var(--headline);
+	}
+	pre .c {
+		color: var(--muted);
+	}
+	pre .k {
+		color: var(--accent-2);
+	}
+
+	.nope {
+		display: grid;
+		gap: 1px;
+		background: var(--line);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		overflow: hidden;
+	}
+	.nope-row {
+		background: var(--surface);
+		padding: 16px 22px;
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: 4px 18px;
+		align-items: start;
+	}
+	.nope-row h4 {
+		font-size: 0.9375rem;
+	}
+	.nope-row p {
+		grid-column: 1 / -1;
+		font-size: 0.84375rem;
+		color: var(--muted);
+	}
+	.tag {
+		font-family: var(--font-mono);
+		font-size: 0.625rem;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		padding: 3px 8px;
+		border-radius: 999px;
+		border: 1px solid currentColor;
+		white-space: nowrap;
+		color: var(--st-danger);
+	}
+
+	.asks {
+		display: grid;
+		gap: 14px;
+	}
+	.ask {
+		border: 1px solid var(--line);
+		border-left: 2px solid var(--st-inflight);
+		border-radius: 0 12px 12px 0;
+		background: var(--surface);
+		padding: 18px 22px;
+	}
+	.ask h4 {
+		font-size: 0.9375rem;
+		margin-bottom: 6px;
+	}
+	.ask p {
+		font-size: 0.84375rem;
+		color: var(--muted);
+	}
+
+	.checklist {
+		display: grid;
+		gap: 10px;
+		margin-top: 8px;
+	}
+	.check {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		gap: 12px;
+		align-items: start;
+		font-size: 0.9375rem;
+	}
+	.check .box {
+		width: 16px;
+		height: 16px;
+		border: 1px solid var(--line-strong);
+		border-radius: 4px;
+		margin-top: 5px;
+	}
+	.check .txt small {
+		display: block;
+		color: var(--muted);
+		font-size: 0.8125rem;
+	}
+
+	footer {
+		padding: 44px 0 68px;
+		color: var(--muted);
+		font-size: 0.84375rem;
+	}
+	@media (max-width: 720px) {
+		.masthead {
+			padding: 44px 0 32px;
+		}
+		section {
+			padding: 44px 0;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		* {
+			transition: none !important;
+			animation: none !important;
+		}
+	}
+</style>
+
+<div class="tocbar">
+	<nav class="inner" aria-label="Sections">
+		<a href="#settled">Settled</a>
+		<a href="#auth">Auth contract</a>
+		<a href="#validation">Validation</a>
+		<a href="#antiscope">Don't build</a>
+		<a href="#setup">Setup</a>
+		<a href="#open">Still needed</a>
+	</nav>
+</div>
+
+<header class="masthead">
+	<div class="shell">
+		<div class="eyebrow">Companion to the Console Blueprint</div>
+		<h1>Blogport Frontend Handoff</h1>
+		<p class="standfirst">
+			Everything the blueprint assumes but does not supply: the real session numbers, the real
+			validation rules, and the list of things that look buildable but have no endpoint behind them.
+			Read this before writing the first component. <b>Updated after backend round one:</b> all
+			fourteen API requests shipped, retiring four entries from the &ldquo;do not build&rdquo; list
+			and reversing one rule. The API Round Two document carries what is still outstanding.
+		</p>
+	</div>
+</header>
+
+<!-- ============================================================ 1 -->
+<section id="settled">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">01</span>
+			<h2>What's settled</h2>
+		</div>
+		<p class="sec-lede">Decisions already made, so nobody reopens them in week two.</p>
+
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Decision</th>
+						<th>Answer</th>
+						<th>Consequence</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>Framework</b></td>
+						<td>
+							<b>Svelte 5</b> (runes) &middot; <b>SvelteKit 2</b> &middot; Tailwind 4
+							<span class="vpin"
+								>svelte ^5.49.2 &middot; @sveltejs/kit ^2.50.2<br />tailwindcss ^4.1.18 &middot;
+								vite ^7.3.1</span
+							>
+						</td>
+						<td class="dim">
+							Svelte and SvelteKit are separate packages on separate version lines &mdash;
+							<b>SvelteKit 2 is not Svelte 2</b>. State is runes (<code>$state</code>,
+							<code>$derived</code>, <code>$effect</code>), not stores. SSR is available, so J9's
+							public pages server-render and carry real metadata
+						</td>
+					</tr>
+					<tr>
+						<td><b>Scope</b></td>
+						<td>Frontend only</td>
+						<td class="dim">
+							The backend is a fixed contract. Anything it can't do goes to
+							<a href="#antiscope">Don't build</a>, not into a workaround
+						</td>
+					</tr>
+					<tr>
+						<td><b>Spec</b></td>
+						<td>The Console Blueprint</td>
+						<td class="dim">Route map, journeys, states, interaction laws, error copy</td>
+					</tr>
+					<tr>
+						<td><b>Types</b></td>
+						<td><code>v1.ts</code>, generated from OpenAPI</td>
+						<td class="dim">
+							1,706 lines, every endpoint. Carry it over from the old frontend on day one
+						</td>
+					</tr>
+					<tr>
+						<td><b>Tokens</b></td>
+						<td><code>theme.css</code>, shipped with this doc</td>
+						<td class="dim">
+							Existing arch palette + the five status values + <code>--font-mono</code>, already
+							merged. <b>v3 or later</b> &mdash; six colour values were corrected by the
+							accessibility audit and <code>--arch-line-control</code> added
+						</td>
+					</tr>
+					<tr>
+						<td><b>Token transport</b></td>
+						<td>httpOnly cookies via SvelteKit server routes</td>
+						<td class="dim">
+							The browser never holds a JWT. The pattern in the old
+							<code>cookies.server.ts</code> is right — the durations in it are not, see below
+						</td>
+					</tr>
+					<tr>
+						<td><b>CORS</b></td>
+						<td>Already configured</td>
+						<td class="dim">
+							Defaults to <code>localhost:5173</code> with credentials on, so dev needs no backend
+							change
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="callout">
+			<h4>What survives the fresh start</h4>
+			<p>
+				Three things from the old frontend are worth carrying over verbatim rather than rewriting:
+				<code>src/shared/api/v1.ts</code> (generated types),
+				<code>src/shared/auth/cookies.server.ts</code> (the proxy pattern, with corrected
+				durations), and the arch token values now folded into <code>theme.css</code>. Everything
+				else — routes, components, widgets — is superseded by the blueprint's map.
+			</p>
+		</div>
+	</div>
+</section>
+
+<!-- ============================================================ 2 -->
+<section id="auth">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">02</span>
+			<h2>The auth and session contract</h2>
+		</div>
+		<p class="sec-lede">
+			Read from <code>jwt_config.rs</code>, <code>refresh_token.rs</code> and
+			<code>logout_user.rs</code> rather than inferred. These are the numbers the session layer has
+			to be built against.
+		</p>
+
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Token</th>
+						<th>Default lifetime</th>
+						<th>Env override</th>
+						<th>Notes</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>Access</b></td>
+						<td class="mono">1800s — 30 min</td>
+						<td class="dim mono">JWT_ACCESS_EXPIRY</td>
+						<td class="dim">Hard-capped at 24h by a startup assertion</td>
+					</tr>
+					<tr>
+						<td><b>Refresh</b></td>
+						<td class="mono">604800s — 7 days</td>
+						<td class="dim mono">JWT_REFRESH_EXPIRY</td>
+						<td class="dim">Must exceed the access expiry or the server panics on boot</td>
+					</tr>
+					<tr>
+						<td><b>Email verification</b></td>
+						<td class="mono">86400s — 24 hours</td>
+						<td class="dim mono">JWT_VERIFICATION_EXPIRY</td>
+						<td class="dim">Drives the "link expired" branch in J1</td>
+					</tr>
+					<tr>
+						<td><b>Password reset</b></td>
+						<td class="mono">3600s — 1 hour</td>
+						<td class="dim mono">JWT_PASSWORD_RESET_EXPIRY</td>
+						<td class="dim">Drives the J3 expiry copy</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="alert">
+			<h4>The old cookie durations were wrong in both directions</h4>
+			<p>
+				<code>cookies.server.ts</code> set the access cookie to <b>15 minutes</b> against a
+				<b>30-minute</b> token — throwing away half of every session — and the refresh cookie to
+				<b>14 days</b> against a <b>7-day</b> token, so for a full week the browser held a cookie
+				the server had already stopped honouring. That second one produces the worst failure mode
+				available: a user who looks signed in and is not.
+			</p>
+			<p>
+				Derive both <code>maxAge</code> values from the same source as the backend, or read
+				<code>exp</code> off the token. Do not hardcode a third opinion.
+			</p>
+		</div>
+
+		<h3 class="block">Three behaviours to build against</h3>
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Question</th>
+						<th>Answer</th>
+						<th>What the frontend must do</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>Does refresh rotate?</b></td>
+						<td><span class="mono" style="color: var(--st-live)">Yes, by default</span></td>
+						<td class="dim">
+							Every <code>POST /api/auth/refresh</code> returns a <b>new refresh token</b>, and the
+							old one is not blacklisted. Persist both tokens on every refresh — dropping the new
+							refresh token silently pins the session to the original 7-day window.
+						</td>
+					</tr>
+					<tr>
+						<td><b>What does logout kill?</b></td>
+						<td><span class="mono">One refresh token</span></td>
+						<td class="dim">
+							Single session, not all devices. Don't offer a "sign out everywhere" control — nothing
+							backs it.
+						</td>
+					</tr>
+					<tr>
+						<td><b>Can logout fail?</b></td>
+						<td><span class="mono" style="color: var(--st-live)">No</span></td>
+						<td class="dim">
+							A missing or unverifiable token is logged and still returns 200. J2's "clear local
+							state regardless of the response" is safe, and now confirmed rather than defensive.
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="callout">
+			<h4>Access tokens are never blacklisted</h4>
+			<p>
+				Logout blacklists the refresh token only. An access token stays cryptographically valid for
+				up to 30 minutes after sign-out, so what actually ends the session in the browser is
+				clearing the cookie. That is an argument for the server-route proxy, not against it — with
+				httpOnly cookies the token is gone from the client the moment it is cleared.
+			</p>
+		</div>
+	</div>
+</section>
+
+<!-- ============================================================ 3 -->
+<section id="validation">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">03</span>
+			<h2>Validation rules</h2>
+		</div>
+		<p class="sec-lede">
+			Mirror these client-side so the blueprint's field-level errors resolve without a round trip.
+			Read from the use cases and services, not from the OpenAPI examples — which are misleading in
+			one important case.
+		</p>
+
+		<div class="scroller">
+			<table>
+				<thead>
+					<tr>
+						<th>Field</th>
+						<th>Rule</th>
+						<th>Normalisation</th>
+						<th>Error code</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><b>username</b></td>
+						<td>3–50 chars, <code>[A-Za-z0-9_]</code> only</td>
+						<td class="dim">trimmed, lowercased</td>
+						<td class="dim mono">INVALID_USERNAME</td>
+					</tr>
+					<tr>
+						<td><b>email</b></td>
+						<td>RFC-valid address</td>
+						<td class="dim">trimmed, lowercased</td>
+						<td class="dim mono">INVALID_EMAIL</td>
+					</tr>
+					<tr>
+						<td><b>password</b></td>
+						<td><b>12–128 chars. Length only.</b></td>
+						<td class="dim">none</td>
+						<td class="dim mono">INVALID_PASSWORD</td>
+					</tr>
+					<tr>
+						<td><b>full_name</b></td>
+						<td>non-empty, max 100 chars</td>
+						<td class="dim">trimmed</td>
+						<td class="dim mono">INVALID_FULL_NAME</td>
+					</tr>
+					<tr>
+						<td><b>slug</b></td>
+						<td>1–200 chars, <code>[a-z0-9-]</code> only</td>
+						<td class="dim">trimmed, lowercased server-side</td>
+						<td class="dim mono">INVALID_SLUG</td>
+					</tr>
+					<tr>
+						<td><b>title</b></td>
+						<td>non-empty, max 200 chars</td>
+						<td class="dim">—</td>
+						<td class="dim mono">EMPTY_TITLE · TITLE_TOO_LONG</td>
+					</tr>
+					<tr>
+						<td><b>upload</b></td>
+						<td>≤ 5 MB · ≤ 6000 px per side · JPEG, PNG, WebP</td>
+						<td class="dim">extension must match MIME</td>
+						<td class="dim mono">
+							FILE_TOO_LARGE · INVALID_DIMENSIONS · INVALID_MIME_TYPE · MIME_EXTENSION_MISMATCH
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="alert">
+			<h4>The password rule is length only — don't invent complexity</h4>
+			<p>
+				<code>BasicPasswordPolicy</code> checks nothing but 12 ≤ length ≤ 128. No uppercase, digit
+				or symbol requirement exists. The OpenAPI example value is <code>SecurePass123!</code>,
+				which strongly implies complexity rules and will mislead anyone who designs the field from
+				the spec alone.
+			</p>
+			<p>
+				Show <span style="color: var(--headline)">"At least 12 characters"</span> and nothing more.
+				A client-side complexity rule the server does not enforce rejects passwords the backend
+				would happily accept — the frontend inventing its own policy is a real bug, not a safety
+				net.
+			</p>
+		</div>
+
+		<div class="callout">
+			<h4>Slug normalisation is server-side, but do it client-side anyway</h4>
+			<p>
+				The server trims and lowercases before validating, so <code>My-Post</code> is accepted and
+				stored as <code>my-post</code>. Normalise in the field as the user types instead: the slug
+				becomes the public URL, and a field that silently changes its value after save is the kind
+				of small dishonesty that erodes trust in an editor.
+			</p>
+		</div>
+	</div>
+</section>
+
+<!-- ============================================================ 4 -->
+<section id="antiscope">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">04</span>
+			<h2>Do not build these — four remain</h2>
+		</div>
+		<p class="sec-lede">
+			Each is a control a competent developer will reach for because the surrounding patterns imply
+			it, and none has an endpoint.
+			<b>This list was eight; backend round one shipped four of them.</b> What survives is below;
+			what was released is in the note under it.
+		</p>
+
+		<div class="nope">
+			<div class="nope-row">
+				<h4>Change email or password while signed in</h4>
+				<span class="tag">no endpoint</span>
+				<p>
+					<code>PUT /api/users/me</code> accepts <code>full_name</code> and nothing else. Password
+					changes go out through the forgot-password flow. Render email and username as read-only
+					facts, not disabled inputs.
+				</p>
+			</div>
+			<div class="nope-row">
+				<h4>Sign out of all devices</h4>
+				<span class="tag">single session</span>
+				<p>
+					Logout blacklists the one refresh token it was handed. There is no all-sessions revocation
+					to hang a control on.
+				</p>
+			</div>
+			<div class="nope-row">
+				<h4>An "all media" library view</h4>
+				<span class="tag">no endpoint</span>
+				<p>
+					Listing is <code>by-target</code> only. A combined library means four parallel calls
+					merged client-side with no paging — scope it as a per-target picker instead.
+				</p>
+			</div>
+			<div class="nope-row">
+				<h4>Reactivating a closed account</h4>
+				<span class="tag">no endpoint</span>
+				<p>
+					<code>DELETE /api/users/me</code> is one-way from the UI's side. The confirmation copy
+					must say reopening requires contacting support.
+				</p>
+			</div>
+		</div>
+
+		<div class="callout">
+			<h4>Now released — build these, they were on the list above</h4>
+			<p>
+				Backend round one shipped every request we filed, and four of them retire an entry from this
+				page. <b>Resend verification</b> — <code>POST /api/auth/email-verification/resend</code>, so
+				the hold screen's button is real. <b>Project restore</b> —
+				<code>POST /api/projects/{id}/restore</code>, so projects follow the same archive ladder as
+				everything else. <b>Topic rename</b> — <code>PATCH /api/topics/{id}</code>, retiring the
+				create-retag-retire workaround. <b>Media metadata and lifecycle</b> —
+				<code>PATCH /api/media/{id}</code> plus restore and hard delete.
+			</p>
+			<p>
+				Two earlier corrections still stand: <b>public topic chips and paging already worked</b> —
+				both public listings accept <code>search</code>, <code>topic_id</code>, <code>sort</code>,
+				<code>page</code> and <code>per_page</code>; and <b>media deletion was always soft</b>, so
+				nothing was ever destroyed by a delete.
+			</p>
+		</div>
+
+		<div class="callout">
+			<h4>Fixed: blog search is no longer case-sensitive</h4>
+			<p>
+				Blog search used a case-sensitive match while project search did not, so <code>Rust</code>
+				missed &ldquo;rust and the borrow checker&rdquo;. Both behave the same way now, and the API
+				did not change &mdash; the same request simply returns more. Do not add client-side case
+				normalisation; there is nothing left to paper over.
+			</p>
+		</div>
+
+		<div class="alert">
+			<h4>One rule reversed: alt text is no longer permanent</h4>
+			<p>
+				The Forms Spec required alt text at upload and called it the only chance, because no
+				<code>PATCH</code> on media existed. It does now. <b>Keep the field required at upload</b>
+				&mdash; that is the moment someone is actually looking at the image &mdash; but drop any
+				copy calling it permanent, and give the media library an edit affordance.
+			</p>
+			<p>
+				Whether <code>position</code> is patchable alongside <code>alt_text</code> is still
+				unconfirmed. Until it is, treat upload order as display order and do not build
+				drag-to-reorder.
+			</p>
+		</div>
+	</div>
+</section>
+
+<!-- ============================================================ 5 -->
+<section id="setup">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">05</span>
+			<h2>Setup</h2>
+		</div>
+		<p class="sec-lede">Four things to do before the first component.</p>
+
+		<h3 class="block">1 · Drop in the theme</h3>
+		<p class="prose" style="color: var(--muted); font-size: 0.875rem; margin-bottom: 14px">
+			<code>theme.css</code> ships alongside this document. It is the merged token set — existing
+			arch palette, the five status values, the mono family — plus the component grammar extracted
+			from the old login form. Import it once; never hardcode a hex value in a component.
+			<b>Use v3 or later:</b> earlier copies carry pre-audit colour values that fail WCAG AA.
+		</p>
+
+		<h3 class="block">2 · Wire type generation</h3>
+		<p class="prose" style="color: var(--muted); font-size: 0.875rem; margin-bottom: 14px">
+			<code>v1.ts</code> is generated and marked "do not edit", but the old repo had no script to
+			regenerate it. Add one now, or it goes stale the first time the backend adds a route:
+		</p>
+		<pre><span class="c">// package.json</span>
+<span class="k">"scripts"</span>: {
+  <span class="k">"gen:api"</span>: <span class="k">"openapi-typescript http://localhost:8080/api-docs/openapi.json -o src/shared/api/v1.ts"</span>
+}</pre>
+
+		<h3 class="block">3 · Point at an API</h3>
+		<p class="prose" style="color: var(--muted); font-size: 0.875rem; margin-bottom: 14px">
+			<code>VITE_BACKEND_BASE_URL</code> is the only variable the frontend needs; it defaults to
+			<code>http://localhost:8080</code>. Running the backend locally additionally requires
+			Postgres, Redis, SMTP and GCS credentials, plus <code>cargo run -p migration -- up</code> —
+			migrations are never automatic. For frontend-only work a seeded staging URL is the better
+			answer.
+		</p>
+
+		<h3 class="block">4 · Confirm the email link targets</h3>
+		<p class="prose" style="color: var(--muted); font-size: 0.875rem; margin-bottom: 0">
+			<code>VERIFICATION_HANDLER_URL</code> and <code>PASSWORD_RESET_HANDLER_URL</code> are backend
+			env vars holding <b>frontend</b> routes — they are what the emailed links point at. If they
+			don't match the SvelteKit routes you build, J1 and J3 break in a way that looks like a
+			frontend bug and isn't. Agree the paths before building those screens.
+		</p>
+	</div>
+</section>
+
+<!-- ============================================================ 6 -->
+<section id="open">
+	<div class="shell">
+		<div class="sec-head">
+			<span class="sec-num">06</span>
+			<h2>Still needed from you</h2>
+		</div>
+		<p class="sec-lede">
+			This section held three open questions. Two were answered by backend round one and the third —
+			the one that blocked the largest dependency in the app — is now decided. What is left is the
+			checklist for day one.
+		</p>
+
+		<div class="asks">
+			<div class="ask" style="border-left-color: var(--st-live)">
+				<h4>The <code>content</code> format &mdash; <b>decided: Markdown</b></h4>
+				<p>
+					GitHub-Flavoured Markdown, stored as source and never as rendered HTML, raw HTML disabled,
+					rendered server-side in <code>+page.server.ts</code>. The editor is source-first with a
+					live preview, not a WYSIWYG. <code>excerpt</code> stays plain text &mdash; it feeds the
+					meta description. One consequence needs reading before you build the editor: media read
+					URLs are signed and expiring, so an image URL cannot be written into the markdown source.
+					Full detail in the Forms &amp; Interaction Spec.
+				</p>
+			</div>
+		</div>
+
+		<h3 class="block">Day-one checklist</h3>
+		<div class="checklist">
+			<div class="check">
+				<div class="box"></div>
+				<div class="txt">
+					Console Blueprint <small>The spec — routes, journeys, states, error copy</small>
+				</div>
+			</div>
+			<div class="check">
+				<div class="box"></div>
+				<div class="txt">
+					This document <small>Auth contract, validation rules, anti-scope</small>
+				</div>
+			</div>
+			<div class="check">
+				<div class="box"></div>
+				<div class="txt">
+					Forms &amp; Interaction Spec
+					<small>Field-level detail, component states, keyboard model</small>
+				</div>
+			</div>
+			<div class="check">
+				<div class="box"></div>
+				<div class="txt">
+					Accessibility Specification
+					<small>Measured contrast, focus, semantics, live regions</small>
+				</div>
+			</div>
+			<div class="check">
+				<div class="box"></div>
+				<div class="txt">
+					Prototype Map &amp; Asset Manifest
+					<small>Six flows, frame inventory, what to export</small>
+				</div>
+			</div>
+			<div class="check">
+				<div class="box"></div>
+				<div class="txt">
+					<code>theme.css</code> v3
+					<small>Merged tokens and component grammar, post-audit values</small>
+				</div>
+			</div>
+			<div class="check">
+				<div class="box"></div>
+				<div class="txt">
+					<code>v1.ts</code> + <code>gen:api</code> script
+					<small>Carried over from the old frontend</small>
+				</div>
+			</div>
+			<div class="check">
+				<div class="box"></div>
+				<div class="txt">
+					OpenAPI spec
+					<small><code>/swagger-ui/</code> and <code>/api-docs/openapi.json</code></small>
+				</div>
+			</div>
+			<div class="check">
+				<div class="box"></div>
+				<div class="txt">
+					<code>docs/API_ERRORS.md</code> <small>Generated error-code reference</small>
+				</div>
+			</div>
+			<div class="check">
+				<div class="box"></div>
+				<div class="txt">Staging URL + test accounts <small>Including one unverified</small></div>
+			</div>
+			<div class="check">
+				<div class="box"></div>
+				<div class="txt">
+					<s>The <code>content</code> format decision</s> &mdash; Markdown
+					<small>Settled. Editor: source-first with live preview.</small>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+
+<footer>
+	<div class="shell prose">
+		<p>
+			Facts read from <code>backend_actix</code> at the current
+			<code>claude/demo-setup-and-logout-fix</code> state: token lifetimes from
+			<code>jwt/jwt_config.rs</code>, rotation from <code>use_cases/refresh_token.rs</code>, logout
+			scope from <code>use_cases/logout_user.rs</code>, validation from
+			<code>use_cases/create_user.rs</code> and <code>blog/application/service/</code>, upload
+			policy from <code>init_upload.rs</code>, CORS from <code>shared/api/cors.rs</code>. Defaults
+			shown are the values used when the corresponding env var is unset — confirm against the
+			staging environment's actual configuration. Package versions read from
+			<code>blogport_frontend/package.json</code>.
+		</p>
+	</div>
+</footer>
