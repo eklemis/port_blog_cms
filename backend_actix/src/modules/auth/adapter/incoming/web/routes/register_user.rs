@@ -12,20 +12,26 @@ use utoipa::ToSchema;
 /// Request body for user registration
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct CreateUserRequest {
-    /// Username (unique identifier)
-    #[schema(example = "johndoe")]
+    /// Username. Unique, and letters, digits and `_` only.
+    #[schema(example = "johndoe", min_length = 3, max_length = 50)]
     pub username: String,
 
-    /// Email address
+    /// Email address.
     #[schema(example = "john@example.com")]
     pub email: String,
 
-    /// Password (minimum 8 characters)
-    #[schema(example = "SecurePass123!")]
+    /// Password. Length is the only rule — there is no complexity requirement,
+    /// and the upper bound exists because the value is hashed with Argon2 on an
+    /// unauthenticated request.
+    #[schema(
+        example = "a-long-and-memorable-passphrase",
+        min_length = 12,
+        max_length = 128
+    )]
     pub password: String,
 
-    /// Full name of the user
-    #[schema(example = "John Doe")]
+    /// Full name of the user.
+    #[schema(example = "John Doe", max_length = 100)]
     pub full_name: String,
 }
 
