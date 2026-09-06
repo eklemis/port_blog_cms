@@ -277,16 +277,12 @@ mod tests {
 
     fn init_tls() {
         TLS_INIT.call_once(|| {
-            // choose ONE provider:
-            // ring:
-            rustls::crypto::ring::default_provider()
-                .install_default()
-                .expect("install rustls ring provider");
-
-            // OR aws-lc-rs:
-            // rustls::crypto::aws_lc_rs::default_provider()
-            //     .install_default()
-            //     .expect("install rustls aws-lc-rs provider");
+            // The provider is process-wide, and more than one test module
+            // installs it. `install_default` reports "someone already did"
+            // as an error, which is the expected outcome for whichever module
+            // runs second — panicking on it would poison this `Once` and fail
+            // every later test in this module for no real reason.
+            let _ = rustls::crypto::ring::default_provider().install_default();
         });
     }
     /// Builds a repository against the Redis instance named by `REDIS_URL`.

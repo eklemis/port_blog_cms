@@ -556,6 +556,57 @@ impl MediaRepository for MediaRepositoryPostgres {
         Ok(())
     }
 
+    async fn delete_stale_pending(
+        &self,
+        older_than_secs: u64,
+    ) -> Result<u64, MediaRepositoryError> {
+        // One transaction for the whole sweep, for the same reason
+        // `hard_delete` takes one: a media row surviving without its variants
+        // is an image that never loads and never explains itself.
+        let txn = self
+            .db
+            .begin()
+            .await
+            .map_err(|e| MediaRepositoryError::DatabaseError(e.to_string()))?;
+
+        // The set is chosen once, in a CTE, and the three deletes all read from
+        // it. Selecting rows separately for each statement would let a row
+        // registered mid-sweep be caught by the later statements but not the
+        // earlier ones, which is exactly the half-deleted state this is meant
+        // to remove.
+        let sql = r#"
+            WITH stale AS (
+                SELECT id FROM media
+                WHERE status = 'pending'
+                  AND created_at < NOW() - ($1 || ' seconds')::INTERVAL
+            ),
+            v AS (DELETE FROM media_variants    WHERE media_id IN (SELECT id FROM stale)),
+            a AS (DELETE FROM media_attachments WHERE media_id IN (SELECT id FROM stale))
+            DELETE FROM media WHERE id IN (SELECT id FROM stale)
+        "#;
+
+        let result = match txn
+            .execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                sql,
+                [older_than_secs.to_string().into()],
+            ))
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                let _ = txn.rollback().await;
+                return Err(MediaRepositoryError::DatabaseError(e.to_string()));
+            }
+        };
+
+        txn.commit()
+            .await
+            .map_err(|e| MediaRepositoryError::DatabaseError(e.to_string()))?;
+
+        Ok(result.rows_affected())
+    }
+
     async fn soft_delete(&self, owner: UserId, media_id: Uuid) -> Result<(), MediaRepositoryError> {
         // `deleted_at IS NULL` keeps this idempotent at the SQL level: a second
         // delete matches no row, which is then reported as success below only

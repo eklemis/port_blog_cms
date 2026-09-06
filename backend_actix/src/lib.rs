@@ -283,7 +283,7 @@ pub async fn start() -> std::io::Result<()> {
             },
             application::ports::incoming::services::{
                 BulkMediaService, CreateUploadMediaUrlService, DeleteMediaService, GetMediaService,
-                GetVariantReadUrlService, ListMediaService,
+                GetVariantReadUrlService, ListMediaService, ReapStaleUploadsService,
             },
             application::ports::incoming::use_cases::{
                 DeleteMediaUseCase, HardDeleteMediaUseCase, RestoreMediaUseCase,
@@ -748,7 +748,18 @@ pub async fn start() -> std::io::Result<()> {
     let media_hard_delete: Arc<dyn HardDeleteMediaUseCase + Send + Sync> =
         Arc::new(hard_delete_media);
 
+    // The staleness window is a deployment setting: a slow processor wants a
+    // longer one. Anything below the signed URL's lifetime is raised by the
+    // service rather than obeyed.
+    let reap_window = std::env::var("MEDIA_STALE_UPLOAD_SECS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok());
+
     let media_use_cases = MultimediaUseCases {
+        reap_stale_uploads: Arc::new(ReapStaleUploadsService::new(
+            Arc::new(MediaRepositoryPostgres::new(Arc::clone(&db_arc))),
+            reap_window,
+        )),
         bulk: Arc::new(BulkMediaService::new(
             Arc::clone(&media_archive),
             Arc::clone(&media_restore),
@@ -956,6 +967,7 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::multimedia::adapter::incoming::web::routes::get_variant_read_url_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::list_media_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::delete_media_handler);
+    cfg.service(crate::multimedia::adapter::incoming::web::routes::reap_uploads_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::get_media_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::patch_media_handler);
     cfg.service(crate::multimedia::adapter::incoming::web::routes::restore_media_handler);

@@ -6,6 +6,7 @@ mod get_variant_url;
 mod init_upload;
 mod list_media;
 mod media_lifecycle;
+mod reap_uploads;
 
 // Glob re-exports carry the hidden `__path_<handler>` structs that
 // `#[utoipa::path]` generates alongside each handler; `ApiDoc` needs them.
@@ -17,3 +18,4 @@ pub use get_variant_url::*;
 pub use init_upload::*;
 pub use list_media::*;
 pub use media_lifecycle::*;
+pub use reap_uploads::*;

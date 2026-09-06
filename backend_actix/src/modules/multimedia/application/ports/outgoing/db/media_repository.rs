@@ -255,4 +255,22 @@ pub trait MediaRepository: Send + Sync {
     ///
     /// Irreversible, unlike [`soft_delete`](Self::soft_delete).
     async fn hard_delete(&self, owner: UserId, media_id: Uuid) -> Result<(), MediaRepositoryError>;
+
+    /// Deletes registrations whose bytes never arrived.
+    ///
+    /// A row is written when a client asks for an upload URL, and only the
+    /// bucket can move it on from `pending`. When the signed URL expires with
+    /// nothing uploaded, the row can never reach `ready` — but it stays, and an
+    /// attachment pointing at it renders as an empty `variants` map, which a
+    /// client cannot tell apart from one still being generated. It waits
+    /// forever on something that will never arrive.
+    ///
+    /// `older_than_secs` must comfortably exceed the signed URL's lifetime plus
+    /// however long the out-of-band processor takes to claim the object;
+    /// otherwise this races an upload that has only just landed.
+    ///
+    /// Storage objects are left alone — the upload bucket is reaped by a GCS
+    /// lifecycle rule, and bytes with no row are already what that rule is for.
+    async fn delete_stale_pending(&self, older_than_secs: u64)
+        -> Result<u64, MediaRepositoryError>;
 }

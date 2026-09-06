@@ -1528,3 +1528,26 @@ impl crate::ai::application::ports::incoming::use_cases::CoverLetterDraftUseCase
         Err(crate::ai::application::ports::incoming::use_cases::AiError::Disabled)
     }
 }
+
+/// Reports a fixed sweep result.
+pub struct StubReapStaleUploads;
+
+#[async_trait::async_trait]
+impl crate::multimedia::application::ports::incoming::use_cases::ReapStaleUploadsUseCase
+    for StubReapStaleUploads
+{
+    async fn execute(
+        &self,
+        older_than_secs: Option<u64>,
+    ) -> Result<
+        crate::multimedia::application::ports::incoming::use_cases::ReapOutcome,
+        crate::multimedia::application::ports::incoming::use_cases::ReapError,
+    > {
+        Ok(
+            crate::multimedia::application::ports::incoming::use_cases::ReapOutcome {
+                deleted: 3,
+                older_than_secs: older_than_secs.unwrap_or(3600),
+            },
+        )
+    }
+}
