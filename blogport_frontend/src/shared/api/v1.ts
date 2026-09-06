@@ -2331,22 +2331,24 @@ export interface components {
         /** @description Request body for user registration */
         CreateUserRequest: {
             /**
-             * @description Email address
+             * @description Email address.
              * @example john@example.com
              */
             email: string;
             /**
-             * @description Full name of the user
+             * @description Full name of the user.
              * @example John Doe
              */
             full_name: string;
             /**
-             * @description Password (minimum 8 characters)
-             * @example SecurePass123!
+             * @description Password. Length is the only rule — there is no complexity requirement,
+             *     and the upper bound exists because the value is hashed with Argon2 on an
+             *     unauthenticated request.
+             * @example a-long-and-memorable-passphrase
              */
             password: string;
             /**
-             * @description Username (unique identifier)
+             * @description Username. Unique, and letters, digits and `_` only.
              * @example johndoe
              */
             username: string;

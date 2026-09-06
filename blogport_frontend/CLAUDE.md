@@ -33,19 +33,22 @@ These are **not copied here.** They live in the backend's own directory in this
 same repo, they are maintained by the backend team, and they change when the API
 changes. Read them where they are, so you always get the current version:
 
-| Question you have                                     | Read                                                                                 |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Token lifetimes, rotation, what logout actually kills | [`../backend_actix/docs/AUTHENTICATION.md`](../backend_actix/docs/AUTHENTICATION.md) |
-| Field rules, limits, normalisation                    | [`../backend_actix/docs/VALIDATION.md`](../backend_actix/docs/VALIDATION.md)         |
-| Page params, cursors, what the envelope looks like    | [`../backend_actix/docs/PAGINATION.md`](../backend_actix/docs/PAGINATION.md)         |
-| What an error code means and how to recover           | [`../backend_actix/docs/API_ERRORS.md`](../backend_actix/docs/API_ERRORS.md)         |
-| Why a constraint exists that looks arbitrary          | [`../backend_actix/docs/adr/`](../backend_actix/docs/adr/) — see the two below       |
+| Question you have                                      | Read                                                                                 |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| Token lifetimes, rotation, what logout actually kills  | [`../backend_actix/docs/AUTHENTICATION.md`](../backend_actix/docs/AUTHENTICATION.md) |
+| Field rules, limits, normalisation                     | [`../backend_actix/docs/VALIDATION.md`](../backend_actix/docs/VALIDATION.md)         |
+| Page params, which endpoints page at all, the envelope | [`../backend_actix/docs/PAGINATION.md`](../backend_actix/docs/PAGINATION.md)         |
+| What an error code means and how to recover            | [`../backend_actix/docs/API_ERRORS.md`](../backend_actix/docs/API_ERRORS.md)         |
+| Why a constraint exists that looks arbitrary           | [`../backend_actix/docs/adr/`](../backend_actix/docs/adr/) — see the two below       |
 
 Two ADRs bind this frontend directly:
 [`0009-reflections-never-feed-generation`](../backend_actix/docs/adr/0009-reflections-never-feed-generation.md)
 — a reflection must never reach a prompt that produces user-facing text; and
 [`0006-public-media-urls`](../backend_actix/docs/adr/0006-public-media-urls.md)
-— public bucket objects cannot be un-shared once shared.
+— the media bucket is **never public**. A public response carries a stable API
+path that 302s to a freshly signed URL, so access stays revocable: unpublish the
+post and the endpoint 404s from the next request. Put the path straight in
+`src`; it never expires, so it is safe in a cached page.
 
 > **Never read `openapi.json`.** It is 16,000 lines and it is a generator input,
 > not a document. Run `bun run gen:api` and read the generated types in
@@ -214,7 +217,7 @@ bun run types:check && bun run test && bun run check && bun run lint
   the FSD layout needs a different mechanism. Do not "fix" the warning by moving
   routes back to `src/routes`.
 - **`src/shared/api/v1.ts` is generated — never hand-patch it.** It had silently
-  rotted to 1,706 lines against a 12,531-line spec, missing every `/api/ai/*`
+  rotted to 1,706 lines against a 16,000-line spec, missing every `/api/ai/*`
   and `/api/applications/*` route, so the whole Career Studio surface was
   invisible to the type checker. `bun run types:check` now fails when that drifts
   again; `bun run gen:api` fixes it. If a type you need is missing, regenerate

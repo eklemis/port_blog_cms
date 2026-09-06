@@ -13087,23 +13087,28 @@
         "properties": {
           "email": {
             "type": "string",
-            "description": "Email address",
+            "description": "Email address.",
             "example": "john@example.com"
           },
           "full_name": {
             "type": "string",
-            "description": "Full name of the user",
-            "example": "John Doe"
+            "description": "Full name of the user.",
+            "example": "John Doe",
+            "maxLength": 100
           },
           "password": {
             "type": "string",
-            "description": "Password (minimum 8 characters)",
-            "example": "SecurePass123!"
+            "description": "Password. Length is the only rule — there is no complexity requirement,\nand the upper bound exists because the value is hashed with Argon2 on an\nunauthenticated request.",
+            "example": "a-long-and-memorable-passphrase",
+            "maxLength": 128,
+            "minLength": 12
           },
           "username": {
             "type": "string",
-            "description": "Username (unique identifier)",
-            "example": "johndoe"
+            "description": "Username. Unique, and letters, digits and `_` only.",
+            "example": "johndoe",
+            "maxLength": 50,
+            "minLength": 3
           }
         }
       },
