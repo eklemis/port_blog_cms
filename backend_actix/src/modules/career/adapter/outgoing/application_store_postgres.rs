@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-    QueryOrder,
+    QueryOrder, QuerySelect, TransactionTrait,
 };
 use std::str::FromStr;
 use std::sync::Arc;
@@ -38,7 +38,15 @@ impl ApplicationStorePostgres {
 }
 
 fn db_err(e: sea_orm::DbErr) -> ApplicationStoreError {
-    ApplicationStoreError::DatabaseError(e.to_string())
+    let text = e.to_string();
+
+    // SQLSTATE 23514 is a check violation. Matching the constraint by name
+    // keeps a future constraint on this table from being reported as this one.
+    if text.contains("applications_sent_requires_snapshot") {
+        return ApplicationStoreError::SnapshotRequired;
+    }
+
+    ApplicationStoreError::DatabaseError(text)
 }
 
 fn to_domain(m: AppModel) -> Application {
@@ -133,10 +141,20 @@ impl ApplicationStore for ApplicationStorePostgres {
         application_id: Uuid,
         data: PatchApplicationData,
     ) -> Result<Application, ApplicationStoreError> {
+        // Read and write commit together.
+        //
+        // The row is read and written in one transaction, and the read
+        // takes an exclusive lock: without it two concurrent writers both
+        // read the same row and the second silently overwrites the first.
+        // A transaction that is neither committed nor rolled back is undone
+        // when it drops, so every `?` below leaves the row untouched.
+        let txn = self.db.begin().await.map_err(db_err)?;
+
         let row = AppEntity::find_by_id(application_id)
             .filter(AppColumn::UserId.eq(owner))
             .filter(AppColumn::IsDeleted.eq(false))
-            .one(self.db.as_ref())
+            .lock_exclusive()
+            .one(&txn)
             .await
             .map_err(db_err)?
             .ok_or(ApplicationStoreError::NotFound)?;
@@ -149,8 +167,17 @@ impl ApplicationStore for ApplicationStorePostgres {
         if let Some(v) = data.cv_snapshot_id {
             active.cv_snapshot_id = Set(Some(v));
         }
+        // Stamped only when the locked row does not already carry one.
+        //
+        // The service asks for this on the transition out of draft, but it asks
+        // based on a row it read earlier. Deciding it here, under the lock, is
+        // what makes "stamp once, never move" hold when two requests send the
+        // same application at once: the date the employer saw does not move
+        // because a second write arrived.
         if let Some(v) = data.applied_at {
-            active.applied_at = Set(Some(v.into()));
+            if active.applied_at.as_ref().is_none() {
+                active.applied_at = Set(Some(v.into()));
+            }
         }
         if let Some(v) = data.next_action {
             active.next_action = Set(v);
@@ -160,7 +187,8 @@ impl ApplicationStore for ApplicationStorePostgres {
         }
         active.updated_at = Set(Utc::now().into());
 
-        let stored = active.update(self.db.as_ref()).await.map_err(db_err)?;
+        let stored = active.update(&txn).await.map_err(db_err)?;
+        txn.commit().await.map_err(db_err)?;
         Ok(to_domain(stored))
     }
 
@@ -169,10 +197,20 @@ impl ApplicationStore for ApplicationStorePostgres {
         owner: Uuid,
         application_id: Uuid,
     ) -> Result<(), ApplicationStoreError> {
+        // Read and write commit together.
+        //
+        // The row is read and written in one transaction, and the read
+        // takes an exclusive lock: without it two concurrent writers both
+        // read the same row and the second silently overwrites the first.
+        // A transaction that is neither committed nor rolled back is undone
+        // when it drops, so every `?` below leaves the row untouched.
+        let txn = self.db.begin().await.map_err(db_err)?;
+
         let row = AppEntity::find_by_id(application_id)
             .filter(AppColumn::UserId.eq(owner))
             .filter(AppColumn::IsDeleted.eq(false))
-            .one(self.db.as_ref())
+            .lock_exclusive()
+            .one(&txn)
             .await
             .map_err(db_err)?
             .ok_or(ApplicationStoreError::NotFound)?;
@@ -180,8 +218,46 @@ impl ApplicationStore for ApplicationStorePostgres {
         let mut active: AppActive = row.into();
         active.is_deleted = Set(true);
         active.updated_at = Set(Utc::now().into());
-        active.update(self.db.as_ref()).await.map_err(db_err)?;
+        active.update(&txn).await.map_err(db_err)?;
+        txn.commit().await.map_err(db_err)?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The constraint is the backstop for a race the service cannot see. When
+    /// it fires, the caller must be told which rule it broke — a 500 here would
+    /// read as a server fault for something the user could act on.
+    #[test]
+    fn a_violation_of_the_snapshot_constraint_is_reported_as_the_rule() {
+        let err = db_err(sea_orm::DbErr::Custom(
+            "error returned from database: new row for relation \"applications\" \
+             violates check constraint \"applications_sent_requires_snapshot\""
+                .to_string(),
+        ));
+
+        assert!(matches!(err, ApplicationStoreError::SnapshotRequired));
+    }
+
+    /// Matching on the constraint name rather than on SQLSTATE 23514 keeps a
+    /// future check on this table from being reported as this one.
+    #[test]
+    fn another_check_violation_stays_a_database_error() {
+        let err = db_err(sea_orm::DbErr::Custom(
+            "violates check constraint \"applications_next_action_at_in_future\"".to_string(),
+        ));
+
+        assert!(matches!(err, ApplicationStoreError::DatabaseError(_)));
+    }
+
+    #[test]
+    fn an_ordinary_failure_is_still_a_database_error() {
+        let err = db_err(sea_orm::DbErr::Custom("connection reset".to_string()));
+
+        assert!(matches!(err, ApplicationStoreError::DatabaseError(_)));
     }
 }

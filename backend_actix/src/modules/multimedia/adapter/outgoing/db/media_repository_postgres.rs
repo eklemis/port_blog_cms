@@ -489,6 +489,19 @@ impl MediaRepository for MediaRepositoryPostgres {
     }
 
     async fn hard_delete(&self, owner: UserId, media_id: Uuid) -> Result<(), MediaRepositoryError> {
+        // All three deletes commit together or none of them do.
+        //
+        // Partway through is the worst outcome this repository can produce: the
+        // media row surviving with its variants gone renders as an image that
+        // never loads, and an empty `variants` map is indistinguishable from one
+        // that is still being generated. Clients poll out of "still processing",
+        // so they would wait on a row that will never gain a variant again.
+        let txn = self
+            .db
+            .begin()
+            .await
+            .map_err(|e| MediaRepositoryError::DatabaseError(e.to_string()))?;
+
         // Attachments and variants first: the schema may not cascade, and
         // leaving them behind would strand rows pointing at a media id that no
         // longer resolves.
@@ -498,31 +511,49 @@ impl MediaRepository for MediaRepositoryPostgres {
             r#"DELETE FROM media_attachments WHERE media_id = $1
                AND EXISTS (SELECT 1 FROM media m WHERE m.id = $1 AND m.user_id = $2)"#,
         ] {
-            self.db
+            if let Err(e) = txn
                 .execute(Statement::from_sql_and_values(
                     DatabaseBackend::Postgres,
                     stmt,
                     [media_id.into(), owner.value().into()],
                 ))
                 .await
-                .map_err(|e| MediaRepositoryError::DatabaseError(e.to_string()))?;
+            {
+                // The rollback's own failure is not the one worth reporting.
+                let _ = txn.rollback().await;
+                return Err(MediaRepositoryError::DatabaseError(e.to_string()));
+            }
         }
 
-        let result = self
-            .db
+        let result = match txn
             .execute(Statement::from_sql_and_values(
                 DatabaseBackend::Postgres,
                 r#"DELETE FROM media WHERE id = $1 AND user_id = $2"#,
                 [media_id.into(), owner.value().into()],
             ))
             .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                let _ = txn.rollback().await;
+                return Err(MediaRepositoryError::DatabaseError(e.to_string()));
+            }
+        };
+
+        // Nothing deleted means the media is absent or belongs to someone else.
+        // Rolling back matters here: the two statements above are scoped by the
+        // same ownership check, so without it a caller could strip another
+        // account's variants and be told "not found".
+        if result.rows_affected() == 0 {
+            let _ = txn.rollback().await;
+            return Err(MediaRepositoryError::NotFound);
+        }
+
+        txn.commit()
+            .await
             .map_err(|e| MediaRepositoryError::DatabaseError(e.to_string()))?;
 
-        if result.rows_affected() > 0 {
-            Ok(())
-        } else {
-            Err(MediaRepositoryError::NotFound)
-        }
+        Ok(())
     }
 
     async fn soft_delete(&self, owner: UserId, media_id: Uuid) -> Result<(), MediaRepositoryError> {

@@ -52,6 +52,17 @@ pub enum ApplicationStoreError {
     #[error("Application not found")]
     NotFound,
 
+    /// The database refused a transition that would leave a sent application
+    /// without a snapshot.
+    ///
+    /// `ApplicationService` checks this first and is the source of the readable
+    /// error. This variant exists for the case the service cannot cover: two
+    /// concurrent transitions that both read a draft and both believe the rule
+    /// is satisfied. One of them loses here, and must be reported as the rule
+    /// it broke rather than as a database fault.
+    #[error("A sent application must carry a CV snapshot")]
+    SnapshotRequired,
+
     /// The job being applied to does not exist, or is not the caller's.
     #[error("Job not found")]
     JobNotFound,

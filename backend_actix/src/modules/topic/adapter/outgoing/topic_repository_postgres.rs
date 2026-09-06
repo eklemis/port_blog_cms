@@ -1,5 +1,8 @@
 use async_trait::async_trait;
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, Set,
+    TransactionTrait,
+};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -60,10 +63,23 @@ impl TopicRepository for TopicRepositoryPostgres {
         // Fetched first so ownership is checked before anything is written,
         // and so an unknown id is a clean TopicNotFound rather than an update
         // that silently matches nothing.
+        //
+        // Read and write commit together, and the read takes an exclusive lock:
+        // without it two concurrent renames both read the same row and the
+        // second silently overwrites the first. A transaction that is neither
+        // committed nor rolled back is undone when it drops, so every `?` below
+        // leaves the row untouched.
+        let txn = self
+            .db
+            .begin()
+            .await
+            .map_err(|e| TopicRepositoryError::DatabaseError(e.to_string()))?;
+
         let existing = TopicEntity::find_by_id(topic_id)
             .filter(TopicColumn::UserId.eq(owner.value()))
             .filter(TopicColumn::IsDeleted.eq(false))
-            .one(&*self.db)
+            .lock_exclusive()
+            .one(&txn)
             .await
             .map_err(|e| TopicRepositoryError::DatabaseError(e.to_string()))?
             .ok_or(TopicRepositoryError::TopicNotFound)?;
@@ -76,7 +92,7 @@ impl TopicRepository for TopicRepositoryPostgres {
             active.description = Set(Some(description));
         }
 
-        let result = active.update(&*self.db).await.map_err(|e| {
+        let result = active.update(&txn).await.map_err(|e| {
             let msg = e.to_string();
             // A rename onto a title the owner already holds trips the unique
             // index. Reported as a conflict rather than a 500, matching how
@@ -87,6 +103,10 @@ impl TopicRepository for TopicRepositoryPostgres {
                 TopicRepositoryError::DatabaseError(msg)
             }
         })?;
+
+        txn.commit()
+            .await
+            .map_err(|e| TopicRepositoryError::DatabaseError(e.to_string()))?;
 
         Ok(result.to_repository_result())
     }
