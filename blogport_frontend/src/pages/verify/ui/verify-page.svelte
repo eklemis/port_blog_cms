@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { PRODUCT_NAME } from '$lib/shared/config/product';
 	import { ResendVerification } from '$lib/features/verify-email';
+	import { SignOutButton } from '$lib/features/sign-out';
 
 	/**
 	 * The hold screen — where every new account starts.
@@ -14,14 +15,17 @@
 	 * long it lasts, what is locked meanwhile, and a resend.
 	 *
 	 * Design: Screen / Verification gate 11:238 light · 11:252 dark ·
-	 * Tablet 131:4187 · Mobile 89:2285. The header is drawn on the mobile frame
-	 * only; at 768px and up the card sits alone on the ground.
+	 * Tablet 166:5260 · Mobile 89:2285.
 	 */
 	let {
 		/** The address the link went to. Read from the session by the route. */
 		email,
-		onsessionexpired
-	}: { email: string; onsessionexpired?: () => void } = $props();
+		onsessionexpired,
+		onsignedout
+	}: { email: string; onsessionexpired?: () => void; onsignedout?: () => void } = $props();
+
+	/** What the resend last reported. Rendered below both controls, per the frame. */
+	let resendMessage = $state<string | undefined>();
 </script>
 
 <div class="flex min-h-screen flex-col bg-arch-bg">
@@ -34,10 +38,14 @@
 		Skip to content
 	</a>
 
-	<header class="flex h-[60px] shrink-0 items-center px-5 py-4 md:hidden">
+	<header
+		class="flex h-[60px] shrink-0 items-center justify-between px-5 py-4
+		       md:h-auto md:px-[30px] md:py-[22px]"
+	>
 		<a
 			href={resolve('/')}
-			class="font-display text-[18px] font-extrabold tracking-tight text-arch-headline"
+			class="font-display text-[18px] font-extrabold tracking-tight text-arch-headline
+			       md:text-[19px]"
 		>
 			{PRODUCT_NAME}
 		</a>
@@ -79,7 +87,29 @@
 				</p>
 			</div>
 
-			<ResendVerification {onsessionexpired} />
+			<!--
+				One card child, so the status region below cannot add an 18px gap to
+				the stack while it is empty.
+			-->
+			<div class="flex flex-col">
+				<!-- Side by side from 768px with the frame's 9px gap; stacked and full
+				     width on a phone, where a primary action goes edge to edge. -->
+				<div class="flex flex-col gap-[18px] md:flex-row md:items-start md:gap-[9px]">
+					<ResendVerification {onsessionexpired} onmessage={(m) => (resendMessage = m)} />
+					<SignOutButton {onsignedout} />
+				</div>
+
+				<!--
+					Rendered before it has anything to say, and never hidden — a live
+					region that is `display: none` while empty leaves the accessibility
+					tree, and a change that both fills and reveals it is not reliably
+					announced. Polite: assertive is reserved for loss, and a link being
+					sent has lost nothing (Accessibility Spec §09).
+				-->
+				<p role="status" class="text-[12px] text-arch-muted {resendMessage ? 'mt-3' : ''}">
+					{resendMessage ?? ''}
+				</p>
+			</div>
 		</div>
 	</main>
 </div>

@@ -47,15 +47,14 @@ test('asks the proxy when pressed', async () => {
 	expect(fetchFn.mock.calls[0][0]).toBe('/api/auth/email-verification/resend');
 });
 
-test('says what happened, where a screen reader will hear it', async () => {
+test('reports what happened, for the screen to announce', async () => {
 	stubFetch(202, { message: ACCEPTED });
-	const screen = render(ResendVerification, {});
+	const said: (string | undefined)[] = [];
+	const screen = render(ResendVerification, { onmessage: (m: string | undefined) => said.push(m) });
 
 	await screen.getByRole('button', button()).click();
 
-	// Polite, not assertive: assertive is reserved for loss, and a link being
-	// sent has lost nothing.
-	await expect.element(screen.getByRole('status')).toHaveTextContent(ACCEPTED);
+	await vi.waitFor(() => expect(said).toContain(ACCEPTED));
 });
 
 test('a second press cannot send two links', async () => {
@@ -76,25 +75,27 @@ test('a second press cannot send two links', async () => {
 
 test('stays pressable after a successful send — five an hour are allowed', async () => {
 	stubFetch(202, { message: ACCEPTED });
-	const screen = render(ResendVerification, {});
+	const said: (string | undefined)[] = [];
+	const screen = render(ResendVerification, { onmessage: (m: string | undefined) => said.push(m) });
 
 	const control = screen.getByRole('button', button());
 	await control.click();
 
-	await expect.element(screen.getByRole('status')).toHaveTextContent(ACCEPTED);
+	await vi.waitFor(() => expect(said).toContain(ACCEPTED));
 	await expect.element(control).not.toBeDisabled();
 });
 
 test('a rate limit holds the button shut and explains why', async () => {
 	stubFetch(429, { error: { code: 'RATE_LIMITED' } }, { 'retry-after': '3600' });
-	const screen = render(ResendVerification, {});
+	const said: (string | undefined)[] = [];
+	const screen = render(ResendVerification, { onmessage: (m: string | undefined) => said.push(m) });
 
 	const control = screen.getByRole('button', button());
 	await control.click();
 
-	await expect
-		.element(screen.getByRole('status'))
-		.toHaveTextContent('Too many attempts. Try again in 60 minutes.');
+	await vi.waitFor(() => expect(said).toContain('Too many attempts. Try again in 60 minutes.'));
+	// A dead button with no explanation reads as a broken product at exactly the
+	// moment someone is already annoyed.
 	await expect.element(control).toBeDisabled();
 	await expect
 		.element(control)
@@ -117,12 +118,12 @@ test('has no accessibility violations at rest', async () => {
 	await expectNoA11yViolations();
 });
 
-test('has no accessibility violations once it has reported', async () => {
-	stubFetch(202, { message: ACCEPTED });
+test('has no accessibility violations while locked out', async () => {
+	stubFetch(429, { error: { code: 'RATE_LIMITED' } }, { 'retry-after': '3600' });
 	const screen = render(ResendVerification, {});
 
 	await screen.getByRole('button', button()).click();
-	await expect.element(screen.getByRole('status')).toHaveTextContent(ACCEPTED);
+	await expect.element(screen.getByRole('button', button())).toBeDisabled();
 
 	await expectNoA11yViolations();
 });

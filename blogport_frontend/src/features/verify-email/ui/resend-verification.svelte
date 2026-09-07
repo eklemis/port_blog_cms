@@ -3,18 +3,23 @@
 	import { resendVerification } from '../api/resend';
 
 	/**
-	 * "Resend the link" — the only control on the hold screen.
+	 * "Resend the link" — secondary, not primary. The gate screen has no amber
+	 * button on purpose: it clears when the emailed link is opened, and a
+	 * primary action would promise the app can move you forward on its own.
 	 *
-	 * Secondary, not primary. This screen has no amber button on purpose: the
-	 * gate clears when the emailed link is opened, and a primary action here
-	 * would promise the app can move you forward on its own.
+	 * It renders the control only and reports its outcome upward, because the
+	 * frame puts a second button beside it and the message below both — layout
+	 * the screen owns, not this.
 	 *
 	 * Design: Screen / Verification gate 11:238.
 	 */
 	let {
 		/** The session ended while they were waiting. Nothing to press until they sign in. */
-		onsessionexpired
-	}: { onsessionexpired?: () => void } = $props();
+		onsessionexpired,
+		/** What to say about the last attempt, or undefined once a lock expires. */
+		onmessage
+	}: { onsessionexpired?: () => void; onmessage?: (message: string | undefined) => void } =
+		$props();
 
 	let sending = $state(false);
 	let outcome = $state<string | undefined>();
@@ -26,6 +31,11 @@
 
 	const locked = $derived(lockedFor !== null && lockedFor > 0);
 
+	function report(message: string | undefined) {
+		outcome = message;
+		onmessage?.(message);
+	}
+
 	function startCountdown(seconds: number) {
 		lockedFor = seconds;
 
@@ -33,7 +43,7 @@
 			const left = (lockedFor ?? 0) - 1;
 			lockedFor = left > 0 ? left : null;
 			if (left <= 0) {
-				outcome = undefined;
+				report(undefined);
 				clearInterval(ticker);
 			}
 		}, 1000);
@@ -43,7 +53,7 @@
 		if (sending || locked) return;
 
 		sending = true;
-		outcome = undefined;
+		report(undefined);
 
 		const result = await resendVerification();
 
@@ -52,7 +62,7 @@
 		if (result.ok) {
 			// Deliberately still pressable: five an hour are allowed, and someone
 			// whose mail has not arrived will reasonably try again.
-			outcome = result.message;
+			report(result.message);
 			return;
 		}
 
@@ -61,38 +71,15 @@
 			return;
 		}
 
-		outcome = result.message;
+		report(result.message);
 		if (result.retryAfterSeconds) startCountdown(result.retryAfterSeconds);
 	}
 </script>
 
-<!--
-	One root, so the card's 18px stack sees a single child. A second root would
-	put the empty status region in that stack and add a gap below the button
-	while saying nothing.
--->
-<div class="flex flex-col">
-	<!-- Full width on a phone, sized to its label from 768px — Mobile 89:2285
-	     puts it edge to edge, and the desktop card sits it on the left. -->
-	<div class="flex flex-col self-stretch md:flex-row md:items-start md:self-start">
-		<Button
-			kind="secondary"
-			label="Resend the link"
-			disabled={sending || locked}
-			disabledReason={locked ? outcome : undefined}
-			onclick={send}
-		/>
-	</div>
-
-	<!--
-		Rendered before it has anything to say, and never hidden — a live region
-		that is `display: none` while empty leaves the accessibility tree, and a
-		change that both fills and reveals it is not reliably announced. The
-		margin is conditional instead, so an empty region takes no space.
-		Polite: assertive is reserved for loss, and a link being sent has lost
-		nothing (Accessibility Spec §09).
-	-->
-	<p role="status" class="text-[12px] text-arch-muted {outcome ? 'mt-3' : ''}">
-		{outcome ?? ''}
-	</p>
-</div>
+<Button
+	kind="secondary"
+	label="Resend the link"
+	disabled={sending || locked}
+	disabledReason={locked ? outcome : undefined}
+	onclick={send}
+/>

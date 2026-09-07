@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { expectNoA11yViolations } from '$lib/shared/test/a11y';
+import { PRODUCT_NAME } from '$lib/shared/config/product';
 import VerifyPage from './verify-page.svelte';
 
 /**
@@ -75,6 +76,51 @@ test('has no amber button, because nothing here moves you forward', async () => 
 	for (const control of screen.getByRole('button').elements()) {
 		expect(control.className).not.toMatch(/bg-arch-accent/);
 	}
+});
+
+test('carries the wordmark, and it goes home', async () => {
+	// All three frames now draw the header; it used to be on mobile only.
+	const screen = render(VerifyPage, props);
+
+	await expect
+		.element(screen.getByRole('link', { name: PRODUCT_NAME }))
+		.toHaveAttribute('href', '/');
+});
+
+test('offers a way off the screen that is not the resend', async () => {
+	// The escape the blueprint asks for. It was "Use a different address" in the
+	// first cut, which no endpoint could back; signing out is a real action.
+	const screen = render(VerifyPage, props);
+
+	await expect.element(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
+});
+
+test('signing out reports upward so the route can navigate', async () => {
+	vi.stubGlobal(
+		'fetch',
+		vi.fn<typeof fetch>(async () => new Response('{}'))
+	);
+	let out = 0;
+	const screen = render(VerifyPage, { ...props, onsignedout: () => out++ });
+
+	await screen.getByRole('button', { name: 'Sign out' }).click();
+
+	await vi.waitFor(() => expect(out).toBe(1));
+});
+
+test('announces what the resend reported, below both controls', async () => {
+	const accepted = 'If that address needs verifying, a new link is on its way.';
+	vi.stubGlobal(
+		'fetch',
+		vi.fn<typeof fetch>(
+			async () => new Response(JSON.stringify({ message: accepted }), { status: 202 })
+		)
+	);
+	const screen = render(VerifyPage, props);
+
+	await screen.getByRole('button', { name: 'Resend the link' }).click();
+
+	await expect.element(screen.getByRole('status')).toHaveTextContent(accepted);
 });
 
 test('has no accessibility violations', async () => {
