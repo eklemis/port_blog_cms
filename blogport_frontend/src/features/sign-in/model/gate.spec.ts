@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
-import { CONSOLE_ROUTE, HOLD_ROUTE, destinationAfterSignIn, safeDestination } from './gate';
+import { CONSOLE_ROUTE, HOLD_ROUTE } from '$lib/shared/config/routes';
+import { destinationAfterSignIn, safeDestination } from './gate';
 
 /**
  * Login is not the gate; verification is.

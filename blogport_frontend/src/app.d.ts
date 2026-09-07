@@ -6,9 +6,9 @@ declare global {
 		interface Locals {
 			/**
 			 * Rebuilt from `GET /api/users/me` on every request by hooks.server.ts,
-			 * so this mirrors `UserProfileResponse` exactly. Note what is NOT here:
-			 * `is_verified`. Only the login response carries it, which is why no
-			 * page load can decide whether an account has verified.
+			 * so this mirrors `UserProfileResponse` exactly. `is_verified` is read
+			 * from the row rather than the token claim, which is what makes it the
+			 * only fresh answer — the claim and the login response are snapshots.
 			 */
 			user: {
 				user_id: string;
@@ -17,6 +17,7 @@ declare global {
 				full_name: string;
 				bio: string | null;
 				locale: string;
+				is_verified: boolean;
 			} | null;
 		}
 		// interface PageData {}
