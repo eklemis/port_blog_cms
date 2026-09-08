@@ -7,3 +7,4 @@ export { InlineAlert } from './inline-alert';
 export { SaveIndicator } from './save-indicator';
 export { SkeletonRows } from './skeleton';
 export { StatusPill } from './status-pill';
+export { Toast } from './toast';

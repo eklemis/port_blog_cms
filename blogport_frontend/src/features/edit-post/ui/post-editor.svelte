@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { Field, InlineAlert, SaveIndicator } from '$lib/shared/ui';
+	import { Field, InlineAlert, SaveIndicator, Toast } from '$lib/shared/ui';
 	import type { HandlingClass } from '$lib/shared/lib/error-class';
 	import { SLUG_MAX, slugError, slugFrom } from '$lib/shared/lib/slug';
-	import { TITLE_COUNTER_FROM, TITLE_MAX, titleError } from '$lib/entities/post';
+	import { TITLE_COUNTER_FROM, TITLE_MAX, publicPostPath, titleError } from '$lib/entities/post';
 	import { createAutosave } from '../model/autosave.svelte';
+	import PublishControl from './publish-control.svelte';
 	import { patchPost, type EditField, type PostChanges } from '../api/update-post';
 
 	/**
@@ -15,8 +16,8 @@
 	 * moved are sent, because PATCH changes what is present and the editor must
 	 * never send an object it did not load first.
 	 *
-	 * Publishing, topics and the cover image are the steps after this one and
-	 * are not here yet.
+	 * Topics and the cover image are the steps after this one and are not here
+	 * yet.
 	 *
 	 * Design: Screen / Post editor.
 	 */
@@ -30,10 +31,13 @@
 
 	let {
 		post,
+		/** Whose post it is. The public address is built from it. */
+		username,
 		/** Injected by the spec; the browser's own otherwise. */
 		fetchFn = undefined
 	}: {
 		post: Post;
+		username: string;
 		fetchFn?: typeof globalThis.fetch;
 	} = $props();
 
@@ -54,7 +58,16 @@
 	let failure = $state<string | undefined>();
 	let failureKind = $state<HandlingClass>('notOurs');
 
-	const published = $derived(Boolean(post.published_at));
+	/**
+	 * Owned here rather than read from the prop: publishing changes it without
+	 * the loader running again, and the header has to follow immediately.
+	 */
+	let publishedAt = $state(untrack(() => post.published_at ?? null));
+	let publishing = $state(false);
+	let toast = $state<string | undefined>();
+
+	const published = $derived(Boolean(publishedAt));
+	const publicPath = $derived(publicPostPath(username, slug));
 
 	/**
 	 * Whether the address still looks like the title's.
@@ -135,15 +148,55 @@
 		autosave.edited();
 	}
 
+	/**
+	 * `null` means now, and the timestamp is stamped here rather than in the
+	 * control — so it is the moment the request went out and not the moment a
+	 * component decided to offer the button.
+	 */
+	async function setPublished(at: string | null) {
+		publishing = true;
+		failure = undefined;
+
+		// Saved first, so a post never goes live carrying words the server has
+		// not taken.
+		await autosave.flush();
+
+		const result = await patchPost(post.id, { published_at: at }, fetchFn);
+
+		publishing = false;
+
+		if (!result.ok) {
+			failure = result.message;
+			failureKind = result.kind;
+			return;
+		}
+
+		publishedAt = at;
+		toast = at ? 'Published.' : 'Back to a draft.';
+	}
+
 	const titleCount = $derived([...title].length);
 	const showCounter = $derived(titleCount >= TITLE_COUNTER_FROM);
 </script>
 
+<!-- eslint-disable svelte/no-navigation-without-resolve --
+	Both links below go to the post's public address, which is a reader surface
+	in the map and not built yet — `resolve()` only takes a route id that
+	exists. Swap them in when /[username]/blog/[slug] lands. -->
 <div class="flex max-w-[720px] flex-col gap-[18px] md:gap-5">
 	<div class="flex items-center justify-between gap-4">
 		<h1 class="sr-only">Edit post</h1>
 		<!-- The only place that reports save state, in a slot that does not move. -->
 		<SaveIndicator state={autosave.state} savedAt={autosave.savedAt} />
+
+		{#if published}
+			<a
+				href={publicPath}
+				class="text-[12px] font-semibold text-arch-accent-ink underline-offset-4 hover:underline"
+			>
+				View post
+			</a>
+		{/if}
 	</div>
 
 	<Field
@@ -217,4 +270,27 @@
 	</div>
 
 	<InlineAlert message={failure} kind={failureKind} />
+
+	<PublishControl
+		{publishedAt}
+		busy={publishing}
+		onpublish={(at) => setPublished(at ?? new Date().toISOString())}
+		onunpublish={() => setPublished(null)}
+	/>
+
+	{#if toast}
+		<div class="fixed inset-x-4 bottom-4 z-10 md:right-6 md:left-auto md:w-[380px]">
+			<Toast message={toast} onclose={() => (toast = undefined)}>
+				{#snippet action()}
+					<a
+						href={publicPath}
+						class="text-[12.5px] font-semibold text-arch-accent-ink underline-offset-4
+						       hover:underline"
+					>
+						View post
+					</a>
+				{/snippet}
+			</Toast>
+		</div>
+	{/if}
 </div>

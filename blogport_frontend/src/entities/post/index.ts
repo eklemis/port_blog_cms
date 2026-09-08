@@ -2,6 +2,7 @@
 export {
 	contentError,
 	postStatus,
+	publicPostPath,
 	titleError,
 	updatedLabel,
 	TITLE_COUNTER_FROM,

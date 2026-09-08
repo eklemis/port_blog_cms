@@ -10,4 +10,4 @@
 	<title>{data.post ? data.post.title : 'Post'}</title>
 </svelte:head>
 
-<PostEditorPage post={data.post} denied={data.denied} />
+<PostEditorPage post={data.post} username={data.user.username} denied={data.denied} />
