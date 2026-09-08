@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { Plus, Search } from 'lucide-svelte';
+	import { Plus, Search } from '@lucide/svelte';
 	import { Button, StatusPill } from '$lib/shared/ui';
 	import { postStatus, updatedLabel } from '$lib/entities/post';
 	import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
