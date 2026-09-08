@@ -4,5 +4,6 @@ export { Button } from './button';
 export { EmptyState } from './empty-state';
 export { Field } from './field';
 export { InlineAlert } from './inline-alert';
+export { SaveIndicator } from './save-indicator';
 export { SkeletonRows } from './skeleton';
 export { StatusPill } from './status-pill';
