@@ -2,3 +2,4 @@
 // from a component file directly — that is what keeps the kit replaceable.
 export { Button } from './button';
 export { Field } from './field';
+export { StatusPill } from './status-pill';

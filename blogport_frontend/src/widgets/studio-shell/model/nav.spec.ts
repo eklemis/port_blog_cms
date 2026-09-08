@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
-import { NAV, TAB_BAR, isCurrent } from './nav';
+import { NAV, TAB_BAR, currentLabel, isCurrent } from './nav';
 
 /**
  * The console's navigation, defined once so the sidebar, the tablet rail and
@@ -50,6 +50,21 @@ test('overview is lit only on overview, never on everything', () => {
 
 test('a sibling whose name merely starts the same is not the current one', () => {
 	expect(isCurrent('/studio/post', '/studio/posts')).toBe(false);
+});
+
+// ── what the screen is called ──────────────────────────────────────────────
+
+test('names the screen from the same list the nav is drawn from', () => {
+	// The mobile bar names the screen; the tab bar lights it. Both read this,
+	// so they cannot disagree — which they did when each page declared its own.
+	expect(currentLabel('/studio')).toBe('Overview');
+	expect(currentLabel('/studio/posts')).toBe('Posts');
+	expect(currentLabel('/studio/posts/new')).toBe('Posts');
+	expect(currentLabel('/studio/account')).toBe('Account');
+});
+
+test('somewhere unrecognised is still called something', () => {
+	expect(currentLabel('/studio/nowhere')).toBe('Console');
 });
 
 test('a trailing slash does not change which item is lit', () => {
