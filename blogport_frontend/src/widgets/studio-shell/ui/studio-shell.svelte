@@ -1,18 +1,21 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { Menu } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { PRODUCT_NAME } from '$lib/shared/config/product';
-	import { ACCOUNT, NAV, TAB_BAR, isCurrent } from '../model/nav';
+	import { ACCOUNT, MORE, NAV, TAB_BAR, isCurrent } from '../model/nav';
 
 	/**
 	 * The console's frame: the same navigation at three widths.
 	 *
 	 * A 212px sidebar from 1024px, a 64px icon rail between 768 and 1023, and a
-	 * five-item tab bar below that with everything else behind More — the three
-	 * shapes the responsive section describes, reading one nav definition so
-	 * they cannot drift apart.
+	 * five-slot tab bar below that — four destinations and More — reading one
+	 * nav definition so the three shapes cannot drift apart.
 	 *
-	 * Design: Screen / Overview 68:2 · Mobile / Overview 90:2188.
+	 * Design: Screen / Overview 68:2 · Mobile / Overview 90:2188. The More sheet
+	 * is specified in the Prototype Map's mobile transform table and is the one
+	 * mobile surface with no frame drawn; two are owed, light and dark. Built to
+	 * the conventions the table and §06 give it rather than invented around.
 	 */
 	let {
 		/** The current path, so the right item is lit. */
@@ -25,6 +28,18 @@
 	// In the script rather than the markup: `{@const}` is only legal as the
 	// immediate child of a block, and this one sits inside an element.
 	const accountCurrent = $derived(isCurrent(ACCOUNT.href, path));
+
+	/**
+	 * A native `<dialog>`, opened modally: the focus trap, Escape and the return
+	 * of focus to whatever opened it are all the platform's, and all three are
+	 * §06 requirements that hand-rolled sheets routinely get wrong.
+	 */
+	let sheet = $state<HTMLDialogElement>();
+
+	/** Closed on navigation too — a client-side route change leaves it standing. */
+	function closeMore() {
+		sheet?.close();
+	}
 </script>
 
 <!-- eslint-disable svelte/no-navigation-without-resolve --
@@ -117,8 +132,56 @@
 				       {current ? 'font-semibold text-arch-accent-ink' : 'text-arch-muted'}"
 			>
 				<item.icon size={21} aria-hidden="true" />
-				{item.label}
+				<!-- The short name where there is one: "Apps" is what the frame
+				     prints, and it is the accessible name too. -->
+				{item.short ?? item.label}
 			</a>
 		{/each}
+
+		<!--
+			The fifth slot is not a destination. It was a link to Account until the
+			mobile transform table was written down, which left Overview, Résumés
+			and Topics with no way in at 390px at all.
+		-->
+		<button
+			type="button"
+			onclick={() => sheet?.showModal()}
+			class="flex flex-1 flex-col items-center justify-center gap-1.5 rounded-lg text-[10px]
+			       text-arch-muted"
+		>
+			<Menu size={21} aria-hidden="true" />
+			More
+		</button>
 	</nav>
+
+	<dialog
+		bind:this={sheet}
+		aria-modal="true"
+		aria-labelledby="more-title"
+		onclick={(event) => {
+			// The scrim is the dialog's own box outside its content, so a click
+			// that lands on the element itself landed on the scrim.
+			if (event.target === sheet) closeMore();
+		}}
+		class="m-0 mt-auto w-full max-w-none rounded-t-2xl border-t border-arch-line
+		       bg-arch-surface p-[18px] backdrop:bg-arch-scrim md:hidden"
+	>
+		<h2 id="more-title" class="font-display text-[15px] font-extrabold text-arch-headline">More</h2>
+
+		<nav aria-label="More" class="mt-3 flex flex-col gap-1">
+			{#each MORE as item (item.href)}
+				{@const current = isCurrent(item.href, path)}
+				<a
+					href={item.href}
+					aria-current={current ? 'page' : undefined}
+					onclick={closeMore}
+					class="flex h-11 items-center gap-2.5 rounded-[7px] px-2.5 text-[13px]
+					       {current ? 'bg-arch-surface-2 font-semibold text-arch-accent-ink' : 'text-arch-muted'}"
+				>
+					<item.icon size={17} aria-hidden="true" />
+					{item.label}
+				</a>
+			{/each}
+		</nav>
+	</dialog>
 </div>
