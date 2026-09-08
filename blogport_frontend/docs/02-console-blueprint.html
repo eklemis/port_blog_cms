@@ -482,8 +482,8 @@ footer .prose { max-width: 62ch; }
       <table>
         <thead><tr><th>Route</th><th>Screen</th><th>Backed by</th></tr></thead>
         <tbody>
-          <tr><td><code>/studio</code></td><td>Overview — counts, drafts needing attention, failed uploads</td><td class="dim mono">GET /api/blog · /api/projects · /api/cvs</td></tr>
-          <tr><td><code>/studio/posts</code></td><td>Posts — search, topic filter, draft/published toggle, sort, paging</td><td class="dim mono">GET /api/blog</td></tr>
+          <tr><td><code>/studio</code></td><td>Overview — four counts, Needs attention, Getting started</td><td class="dim mono">GET /api/blog · /api/projects · /api/cvs · /api/applications<br><span style="color:var(--st-danger)">the stat sub-lines and Needs attention are not backed — see §09</span></td></tr>
+          <tr><td><code>/studio/posts</code></td><td>Posts — search, topic filter, draft/published toggle, sort, paging</td><td class="dim mono">GET /api/blog<br>GET /api/topics — the filter's options</td></tr>
           <tr><td><code>/studio/posts/new</code></td><td>New post</td><td class="dim mono">POST /api/blog</td></tr>
           <tr><td><code>/studio/posts/[id]</code></td><td>Post editor — content, topics, cover, schedule</td><td class="dim mono">GET·PATCH /api/blog/{id}<br>GET·POST·DELETE /api/blog/{id}/topics<br>DELETE /api/blog/{id}/topics/all</td></tr>
           <tr><td><code>/studio/posts/archive</code></td><td>Archived posts — restore or purge</td><td class="dim mono">POST /api/blog/{id}/restore<br>DELETE /api/blog/{id}/hard</td></tr>
@@ -496,6 +496,37 @@ footer .prose { max-width: 62ch; }
           <tr><td><code>/studio/account</code></td><td>Account — name, email, sessions, danger zone</td><td class="dim mono">GET·PUT·DELETE /api/users/me</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <h3 class="block">Career Studio — inside the console shell, same session rules</h3>
+    <p class="sec-lede" style="margin-bottom:20px">
+      Drawn since the first Figma pass and specified in the <b>Career Studio Design Paper</b>, but
+      absent from this table until now — which is why the console sidebar shipped with six items
+      instead of seven. The paper carries the behaviour; these are the routes.
+    </p>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Route</th><th>Screen</th><th>Backed by</th></tr></thead>
+        <tbody>
+          <tr><td><code>/studio/applications</code></td><td>Application tracker — one row per application, status inline</td><td class="dim mono">GET /api/applications<br>GET /api/jobs — role and company, joined by <code>job_id</code><br>PATCH /api/applications/{id} — inline status and next action</td></tr>
+          <tr><td><code>/studio/applications/new</code></td><td>Add a job — paste or link, confirm the extraction</td><td class="dim mono">POST /api/ai/extract-job<br>POST /api/jobs · POST /api/applications</td></tr>
+          <tr><td><code>/studio/applications/[id]/tailor</code></td><td>Tailor CV to job — the two-part match and the recommendation list</td><td class="dim mono">POST /api/applications/{id}/analysis<br>POST /api/ai/tailor · GET /api/cvs<br>POST /api/cvs/{id}/snapshot — freeze on leaving draft</td></tr>
+          <tr><td><code>/studio/applications/[id]/cover-letter</code></td><td>Cover letter — streamed draft, then an ordinary editor</td><td class="dim mono">GET·PATCH·DELETE /api/applications/{id}/cover-letter<br>POST /api/ai/cover-letter</td></tr>
+          <tr><td><code>/studio/applications/[id]/reflection</code></td><td>Reflection prompt — three optional questions, private</td><td class="dim mono">GET·PUT·DELETE /api/applications/{id}/reflection</td></tr>
+          <tr><td colspan="3" class="dim"><b>Not routes.</b> <code>Screen / Export PDF</code> is a modal over the cover letter and the CV builder; <code>Screen / Applications — empty</code> is a state of the tracker; <code>Screen / AI states</code> and <code>Screen / AI assist — post editor</code> document the companion rail wherever it appears. The CV builder itself is <code>/studio/resumes/[id]</code>, already above — the Career Studio writes into the console's résumés, it does not keep its own.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <h4>Reflections are the one thing in this product that never leaves it</h4>
+      <p>
+        <a href="../../backend_actix/docs/adr/0009-reflections-never-feed-generation.md">ADR 0009</a>
+        binds the frontend directly: a reflection must never reach a prompt that produces
+        user-facing text. Practically — the tailoring call and the cover-letter call take the CV, the
+        job and the user's own note, and nothing else. Do not pass the application object wholesale
+        to either one.
+      </p>
     </div>
 
     <h3 class="block">Public — no session</h3>
@@ -1399,7 +1430,7 @@ footer .prose { max-width: 62ch; }
     <div class="sec-head"><span class="sec-num">09</span><h2>Where the API and the journeys don't meet</h2></div>
     <p class="sec-lede">
       This section listed fourteen gaps. <b>Backend round one shipped all fourteen</b>, including the
-      two both sides had written off. Four narrower gaps remain, none of which blocks a journey.
+      two both sides had written off. Seven narrower gaps remain. Three of them, added after the frontend began building, do block a screen.
       What follows is the resolved list first, because several of the rules elsewhere in this
       document only made sense while those gaps existed.
     </p>
@@ -1446,6 +1477,36 @@ footer .prose { max-width: 62ch; }
         <p>The overview screen assembles its counts from the <code>total</code> field of three
         paginated lists fetched at <code>per_page=1</code>. Fine at this scale, worth replacing
         before it isn't.</p>
+      </div>
+      <div class="gap">
+        <h4>The posts list carries no topics</h4>
+        <span class="sev sev-block">blocks</span>
+        <p><code>BlogPostCardResponse</code> is title, slug, excerpt, cover and the three dates.
+        Topics live on the detail response, so the <b>Topics column</b> this document draws on the
+        posts table — and which the Prototype Map names as the column tablet drops — costs one
+        request per row. That is not a column, it is an N+1. Filed as a backend ask: batch the
+        topics for a page of cards into the list query. Until it lands the column is <b>not
+        built</b>; it is never filled with em dashes, which would read as "no topics" on every row.</p>
+      </div>
+      <div class="gap">
+        <h4>Archived posts cannot be listed</h4>
+        <span class="sev sev-block">blocks</span>
+        <p><code>/studio/posts/archive</code> is in the map above with restore and hard-delete, but
+        the owner list hard-codes <code>is_deleted = false</code> and no other endpoint returns
+        archived rows. The screen has two actions and nothing to run them on. Found while ruling on
+        the Topics column, not by reaching the route — the sixth instance of this pattern.</p>
+      </div>
+      <div class="gap">
+        <h4>The overview's sub-lines and Needs attention have no query behind them</h4>
+        <span class="sev sev-block">blocks</span>
+        <p>"12 live · 9 drafts · 3 archived" needs per-status counts, and <code>total</code> does not
+        carry them — <code>archived</code> is unobtainable at all, per the gap above. <b>Needs
+        attention</b> wants failed uploads (<code>/api/media/statuses</code> polls ids you already
+        hold; there is no "show me the failed ones") and applications with no reply
+        (<code>GET /api/applications</code> takes no parameters). The existing <i>No summary
+        endpoint</i> gap below was filed as <span class="sev sev-later">later</span> on the
+        assumption that three <code>per_page=1</code> calls would do. They do for the four headline
+        numbers. They do not for anything beneath them.</p>
       </div>
       <div class="gap">
         <h4>Email and password cannot be changed while signed in</h4>
