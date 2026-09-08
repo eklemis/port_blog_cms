@@ -58,6 +58,18 @@ export const TAB_BAR: NavItem[] = [
  * Not `startsWith`: `/studio` is a prefix of every console path, so that would
  * leave Overview lit on all of them, and `/studio/post` would light `/studio/posts`.
  */
+/**
+ * What to call the screen at `path`.
+ *
+ * Derived from the same list the nav is, so the mobile bar cannot name one
+ * screen while the tab bar lights another — which is exactly what it did when
+ * each page was left to declare its own title.
+ */
+export function currentLabel(path: string): string {
+	const match = [...NAV, ACCOUNT].find((item) => isCurrent(item.href, path));
+	return match?.label ?? 'Console';
+}
+
 export function isCurrent(href: string, path: string): boolean {
 	const here = path.replace(/\/+$/, '') || '/';
 	const section = href.replace(/\/+$/, '');
