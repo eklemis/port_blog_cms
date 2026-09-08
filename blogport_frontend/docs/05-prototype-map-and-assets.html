@@ -293,9 +293,11 @@ footer{padding:46px 0 70px;color:var(--muted);font-size:.84375rem}
       <div class="law">
         <h4>Mobile and tablet frames</h4>
         <p>
-          Drawn but not wired. The navigation model is identical to desktop and the flows above
-          describe it; wiring 140 more frames would restate it rather than test anything new. Worth
-          doing if the prototype is ever used for user testing on a phone.
+          Drawn but not wired. Tablet restates desktop, so wiring it would test nothing new.
+          <b>Mobile does not</b> — its bottom bar carries five of the eight destinations and the
+          rest sit behind <b>More</b>, which is the one mobile surface with no frame. That is the
+          case for wiring the mobile set: it is the only width whose navigation the flows above do
+          not already describe.
         </p>
       </div>
     </div>
@@ -331,6 +333,27 @@ footer{padding:46px 0 70px;color:var(--muted);font-size:.84375rem}
           <tr><td><b>Public pages</b></td><td class="dim">860px centred column</td><td class="dim">770px column, 32px gutters. The <em>column</em> is capped, never the full-bleed row it sits in — capping the row is what leaves a 5px gutter.</td></tr>
           <tr><td><b>Card grids</b></td><td class="dim">3–4 across</td><td class="dim">They <b>wrap</b>, they do not shrink. Media and Projects become 3-up over two rows; four stat tiles stay on one row because they still fit.</td></tr>
           <tr><td><b>Modals</b></td><td class="dim">Centred over a full-bleed scrim</td><td class="dim">Same, re-centred and capped at 770 wide. The scrim covers the frame.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="block">What the mobile set does differently</h3>
+    <p class="sec-lede" style="margin-bottom:20px">
+      The tablet transform above kept every destination. Mobile cannot, and until now that was
+      only legible by opening the frames — which is how the tab bar came to be read off a
+      screenshot rather than a document. Four of these rows transcribe notes already written on
+      the mobile frames themselves; the navigation row is the ruling.
+    </p>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Element</th><th>Desktop</th><th>Mobile · 390px</th></tr></thead>
+        <tbody>
+          <tr><td><b>Console navigation</b></td><td class="dim">212px sidebar, eight destinations</td><td class="dim">A five-slot bottom bar — <b>Posts · Projects · Apps · Media · More</b>, identical on all fourteen console frames that carry it. <b>More</b> is a sheet holding the four that do not fit: <b>Overview · Résumés · Topics · Account</b>, in that order. Overview leads it because it is the home screen, and the page title in the mobile header is a title, not a way back to it.</td></tr>
+          <tr><td><b>Editor rail</b></td><td class="dim">Right rail beside the canvas</td><td class="dim">A bottom sheet, tabbed — three stacked cards would bury the editor.</td></tr>
+          <tr><td><b>Selection toolbar</b></td><td class="dim">Floats above the selection</td><td class="dim">Becomes the sheet header. There is no room to hover a bar above a selection at 390px.</td></tr>
+          <tr><td><b>Modals</b></td><td class="dim">Centred over a full-bleed scrim</td><td class="dim">Become sheets. The PDF preview survives the change — pagination is the one thing nobody can predict.</td></tr>
+          <tr><td><b>CV builder</b></td><td class="dim">Five sections, all reachable</td><td class="dim">An accordion, one open at a time. This works — though a stepped wizard would probably work better, and that is a product decision worth taking deliberately rather than inheriting from a reflow.</td></tr>
+          <tr><td colspan="3" class="dim"><b>The More sheet is specified here and not yet drawn.</b> It is the only mobile surface with no frame, which is why <code>Mobile / Overview</code> currently has no way in. Two frames owed, light and dark.</td></tr>
         </tbody>
       </table>
     </div>

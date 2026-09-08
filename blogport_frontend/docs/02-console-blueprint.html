@@ -482,7 +482,7 @@ footer .prose { max-width: 62ch; }
       <table>
         <thead><tr><th>Route</th><th>Screen</th><th>Backed by</th></tr></thead>
         <tbody>
-          <tr><td><code>/studio</code></td><td>Overview — four counts, Needs attention, Getting started</td><td class="dim mono">GET /api/blog · /api/projects · /api/cvs · /api/applications<br><span style="color:var(--st-danger)">the stat sub-lines and Needs attention are not backed — see §09</span></td></tr>
+          <tr><td><code>/studio</code></td><td>Overview — four counts, Needs attention, Getting started</td><td class="dim mono">GET /api/blog · /api/projects · /api/cvs · /api/applications · /api/topics<br><span style="color:var(--st-danger)">the stat sub-lines and Needs attention are not backed — see §09</span></td></tr>
           <tr><td><code>/studio/posts</code></td><td>Posts — search, topic filter, draft/published toggle, sort, paging</td><td class="dim mono">GET /api/blog<br>GET /api/topics — the filter's options</td></tr>
           <tr><td><code>/studio/posts/new</code></td><td>New post</td><td class="dim mono">POST /api/blog</td></tr>
           <tr><td><code>/studio/posts/[id]</code></td><td>Post editor — content, topics, cover, schedule</td><td class="dim mono">GET·PATCH /api/blog/{id}<br>GET·POST·DELETE /api/blog/{id}/topics<br>DELETE /api/blog/{id}/topics/all</td></tr>
@@ -1474,9 +1474,14 @@ footer .prose { max-width: 62ch; }
       <div class="gap">
         <h4>No summary endpoint</h4>
         <span class="sev sev-later">later</span>
-        <p>The overview screen assembles its counts from the <code>total</code> field of three
-        paginated lists fetched at <code>per_page=1</code>. Fine at this scale, worth replacing
-        before it isn't.</p>
+        <p>The overview screen assembles its counts from five lists, and they do not answer the
+        same way. <code>/api/blog</code>, <code>/api/projects</code> and <code>/api/cvs</code> page,
+        so a <code>per_page=1</code> call returns a <code>total</code> and nothing else.
+        <code>/api/topics</code> and <code>/api/applications</code> <b>do not page</b> — they return
+        a plain array, as <a href="../../backend_actix/docs/PAGINATION.md">PAGINATION.md</a> states —
+        so their counts are the length of a list fetched whole. That is fine at today's volumes and
+        it is the argument for a summary endpoint, because it is the tracker, not the overview, that
+        makes an unpaged <code>/api/applications</code> expensive first.</p>
       </div>
       <div class="gap">
         <h4>The posts list carries no topics</h4>
