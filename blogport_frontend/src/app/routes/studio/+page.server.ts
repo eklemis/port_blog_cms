@@ -4,36 +4,57 @@ import { authenticatedFetch } from '$lib/shared/api/backend.server';
 /**
  * The Overview's counts.
  *
- * Three totals, each from a paginated list fetched at `per_page=1` — the
- * blueprint's own note calls this fine at this scale and worth replacing before
- * it isn't. They are fetched together rather than in series: three round trips
- * one after another is three times the wait for a screen that is mostly numbers.
+ * The four headline numbers the frame draws, and the topic count the first-run
+ * checklist needs to know whether its first item is already done. They are
+ * fetched together rather than in series: five round trips one after another is
+ * five times the wait for a screen that is mostly numbers.
  *
- * Three, not the four the frame draws. The route map sanctions
- * `GET /api/blog · /api/projects · /api/cvs` for this screen and nothing else,
- * and "Applications" appears nowhere in the Console Blueprint — so the fourth
- * card, "Needs attention" and "Getting started" are not built. See the PR.
+ * Blog, projects and CVs page, so a `per_page=1` call answers with the `total`
+ * and one row — the blueprint's own note calls this fine at this scale and
+ * worth replacing before it isn't. Applications and topics do not page at all,
+ * so their count is the length of the list they return.
+ *
+ * `GET /api/topics` is not in the map's row for this screen. It is listed for
+ * the posts list, and the checklist the same row sanctions cannot say whether
+ * "create a topic" is done without it — reported to the designer as an
+ * incomplete row rather than resolved here. Nothing else on this screen reads
+ * it, and a ticked box we cannot substantiate is the thing worth avoiding.
  */
 
 /** `null` when the count could not be had: a stat tile must not invent a zero. */
-async function total(event: Parameters<PageServerLoad>[0], path: string): Promise<number | null> {
+async function count(
+	event: Parameters<PageServerLoad>[0],
+	path: string,
+	read: (data: unknown) => number | null
+): Promise<number | null> {
 	try {
-		const response = await authenticatedFetch(event, `${path}?per_page=1`);
+		const response = await authenticatedFetch(event, path);
 		if (!response.ok) return null;
 
-		const body = (await response.json()) as { data?: { total?: unknown } };
-		return typeof body.data?.total === 'number' ? body.data.total : null;
+		const body = (await response.json()) as { data?: unknown };
+		return read(body.data);
 	} catch {
 		return null;
 	}
 }
 
+/** A paginated envelope: `total` counts every row, not just the page. */
+const fromTotal = (data: unknown) => {
+	const total = (data as { total?: unknown } | undefined)?.total;
+	return typeof total === 'number' ? total : null;
+};
+
+/** An unparameterised list: what came back is all of it. */
+const fromLength = (data: unknown) => (Array.isArray(data) ? data.length : null);
+
 export const load: PageServerLoad = async (event) => {
-	const [posts, projects, resumes] = await Promise.all([
-		total(event, '/api/blog'),
-		total(event, '/api/projects'),
-		total(event, '/api/cvs')
+	const [posts, projects, resumes, applications, topics] = await Promise.all([
+		count(event, '/api/blog?per_page=1', fromTotal),
+		count(event, '/api/projects?per_page=1', fromTotal),
+		count(event, '/api/cvs?per_page=1', fromTotal),
+		count(event, '/api/applications', fromLength),
+		count(event, '/api/topics', fromLength)
 	]);
 
-	return { counts: { posts, projects, resumes } };
+	return { counts: { posts, projects, resumes, applications, topics } };
 };
