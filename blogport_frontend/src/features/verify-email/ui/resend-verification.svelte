@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/shared/ui';
-	import { resendVerification } from '../api/resend';
+	import { RESEND_SENT, resendVerification } from '../api/resend';
 
 	/**
 	 * "Resend the link" — secondary, not primary. The gate screen has no amber
@@ -26,8 +26,29 @@
 	/** Non-null while a rate limit is in force; counts down to zero. */
 	let lockedFor = $state<number | null>(null);
 
+	/**
+	 * Shown only once the request has been slow enough to be worth reporting.
+	 * Forms & Interaction Spec §04: suppressed under 400ms, because a spinner
+	 * that flashes for one frame reads as a glitch rather than as progress.
+	 * Resending is not fast — the server sends mail before it answers.
+	 */
+	let slow = $state(false);
+	let spinner: ReturnType<typeof setTimeout> | undefined;
+
+	function beginWaiting() {
+		spinner = setTimeout(() => (slow = true), 400);
+	}
+
+	function stopWaiting() {
+		clearTimeout(spinner);
+		slow = false;
+	}
+
 	let ticker: ReturnType<typeof setInterval> | undefined;
-	$effect(() => () => clearInterval(ticker));
+	$effect(() => () => {
+		clearInterval(ticker);
+		clearTimeout(spinner);
+	});
 
 	const locked = $derived(lockedFor !== null && lockedFor > 0);
 
@@ -54,15 +75,17 @@
 
 		sending = true;
 		report(undefined);
+		beginWaiting();
 
 		const result = await resendVerification();
 
 		sending = false;
+		stopWaiting();
 
 		if (result.ok) {
 			// Deliberately still pressable: five an hour are allowed, and someone
 			// whose mail has not arrived will reasonably try again.
-			report(result.message);
+			report(RESEND_SENT);
 			return;
 		}
 
@@ -79,6 +102,7 @@
 <Button
 	kind="secondary"
 	label="Resend the link"
+	loading={slow}
 	disabled={sending || locked}
 	disabledReason={locked ? outcome : undefined}
 	onclick={send}

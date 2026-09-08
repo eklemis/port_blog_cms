@@ -109,7 +109,8 @@ test('signing out reports upward so the route can navigate', async () => {
 });
 
 test('announces what the resend reported, below both controls', async () => {
-	const accepted = 'If that address needs verifying, a new link is on its way.';
+	// Ours, not the backend's: an API message is written for a developer.
+	const accepted = 'Sent. Check your inbox — the new link is good for 24 hours.';
 	vi.stubGlobal(
 		'fetch',
 		vi.fn<typeof fetch>(

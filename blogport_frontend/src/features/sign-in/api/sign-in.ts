@@ -1,6 +1,6 @@
 import type { components } from '$lib/shared/api/v1';
 import { UNEXPECTED, rateLimited, retryAfterSeconds } from '$lib/shared/lib/api-failure';
-import { normaliseEmail } from '../model/credentials';
+import { normaliseEmail } from '$lib/shared/lib/email';
 
 /**
  * Sign in through the SvelteKit proxy at `/api/auth/login`.

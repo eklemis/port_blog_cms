@@ -17,5 +17,6 @@
 <EmailVerificationPage
 	verified={data.verified}
 	message={'message' in data ? data.message : undefined}
-	canResend={data.canResend}
+	dead={data.dead}
+	hasSession={data.hasSession}
 />

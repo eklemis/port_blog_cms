@@ -10,10 +10,10 @@ import { UNEXPECTED } from '$lib/shared/lib/api-failure';
  * nothing for the browser to do. It runs on the server so the link works with
  * no JavaScript, which matters for a link opened from a mail client.
  *
- * Two outcomes reach the screen rather than three. The backend answers 200
- * whether the address was just verified or had been verified already, which is
- * what the blueprint asks for — coming back to a link you have already used is
- * a success, not something to scold someone for.
+ * The backend answers 200 whether the address was just verified or had been
+ * verified already, so those two outcomes are one branch here. That satisfies
+ * "already verified is a success" and, unavoidably, gives them the same words —
+ * the wire carries nothing to tell them apart.
  */
 
 /**
@@ -26,27 +26,30 @@ import { UNEXPECTED } from '$lib/shared/lib/api-failure';
  */
 const LINK_DEAD = 'This link has expired.';
 
-/** Every way the link can be past using. Not distinguished: none is actionable. */
+/**
+ * Every way the link can be past using. Not distinguished from one another, so
+ * that nothing leaks about whether a token ever existed.
+ */
 const DEAD = new Set(['TOKEN_EXPIRED', 'TOKEN_INVALID', 'INVALID_TOKEN', 'USER_NOT_FOUND']);
 
 export const load: PageServerLoad = async ({ params, locals }) => {
-	// Resending needs an address, and the proxy takes it from the session. A
-	// link opened on a phone usually has none, so the screen has to know not to
-	// offer a control that cannot work.
-	const canResend = Boolean(locals.user);
+	// Only decides where "next" points. Asking for a new link no longer needs a
+	// session: the screen asks for the address instead.
+	const hasSession = Boolean(locals.user);
 
 	const result = await backendGET('/api/auth/email-verification/{token}', {
 		params: { path: { token: params.token } }
 	}).catch(() => null);
 
-	if (!result) return { verified: false, message: UNEXPECTED, canResend };
+	if (!result) return { verified: false, message: UNEXPECTED, dead: false, hasSession };
 
-	if (!result.error) return { verified: true, canResend };
+	if (!result.error) return { verified: true, dead: false, hasSession };
 
 	const code = (result.error as { error?: { code?: string } })?.error?.code;
+	const dead = DEAD.has(code ?? '');
 
 	// A 500 is ours and must not be dressed up as a stale link — telling someone
 	// their link expired when it did not sends them to ask for another one that
 	// will fail the same way.
-	return { verified: false, message: DEAD.has(code ?? '') ? LINK_DEAD : UNEXPECTED, canResend };
+	return { verified: false, message: dead ? LINK_DEAD : UNEXPECTED, dead, hasSession };
 };

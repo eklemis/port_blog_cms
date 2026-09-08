@@ -118,12 +118,21 @@ test('an unreachable backend does not throw the emailed link at a 500 page', asy
 	expect(data.message).toBe('Something went wrong on our side.');
 });
 
-test('tells the screen whether a resend is even possible', async () => {
-	// Resending needs an address, and the proxy takes it from the session. On a
-	// phone opening the link from mail there usually is no session, so the
-	// screen has to know not to offer a control that cannot work.
+test('tells the screen where "next" points', async () => {
+	// Not whether a resend is possible — it always is now, because the screen
+	// asks for the address. Only whether there is a session to return to.
 	backendRefuses(400, 'TOKEN_EXPIRED');
 
-	expect(await load(event('t', null) as never)).toMatchObject({ canResend: false });
-	expect(await load(event('t', SESSION) as never)).toMatchObject({ canResend: true });
+	expect(await load(event('t', null) as never)).toMatchObject({ hasSession: false });
+	expect(await load(event('t', SESSION) as never)).toMatchObject({ hasSession: true });
+});
+
+test('separates a stale link from a fault on our side', async () => {
+	// The screen offers a new link for one and not the other: asking for another
+	// link when the server is broken just fails the same way.
+	backendRefuses(400, 'TOKEN_EXPIRED');
+	expect(await load(event() as never)).toMatchObject({ dead: true });
+
+	backendRefuses(500, 'INTERNAL_ERROR');
+	expect(await load(event() as never)).toMatchObject({ dead: false });
 });

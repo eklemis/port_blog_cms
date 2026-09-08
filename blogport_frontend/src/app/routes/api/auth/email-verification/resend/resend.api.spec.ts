@@ -24,12 +24,17 @@ const { POST } = await import('./+server');
  * `POST /api/auth/email-verification/resend` — the proxy for the one action the
  * hold screen offers.
  *
- * The address is taken from the session and never from the request body. The
- * backend endpoint is public and deliberately non-committal so that it cannot
- * be used to discover which addresses are registered; putting a body-supplied
- * address through this proxy would make our own origin a way to trigger mail to
- * any address someone likes, which is a different problem the backend's
- * anti-oracle answer does not solve.
+ * The address comes from the request body when one is given, and from the
+ * session otherwise.
+ *
+ * An earlier version of this route required a session. That was a hardening
+ * decision of mine rather than a constraint the API imposes — the operation
+ * carries no security requirement and takes `{ email }` — and it broke the
+ * screen that needs it most: an expired link opened on a phone has no session,
+ * which is exactly when a new one has to be asked for. The backend's own
+ * defences are the right ones here: it answers 202 identically whether the
+ * address is unknown, deleted, already verified or genuinely waiting, and it
+ * rate-limits 5 per hour per caller.
  */
 
 const SESSION = {
@@ -95,21 +100,52 @@ test('asks the backend to re-send to the signed-in address', async () => {
 	expect(await response.json()).toEqual({ message: ACCEPTED });
 });
 
-test('ignores an address supplied in the body', async () => {
-	// Otherwise this route is a way to make our server mail anyone.
+test('takes the address from the body when one is given', async () => {
+	// The expired-link screen asks for it, because a link opened from mail
+	// usually has no session behind it.
 	backendAccepts();
 
-	await POST(event(SESSION, { email: 'someone-else@example.com' }) as never);
+	await POST(event(null, { email: 'typed@example.com' }) as never);
 
 	expect(backendPOST).toHaveBeenCalledWith('/api/auth/email-verification/resend', {
-		body: { email: 'jane@example.com' }
+		body: { email: 'typed@example.com' }
 	});
 });
 
-test('refuses without a session rather than guessing an address', async () => {
+test('a supplied address wins over the session', async () => {
+	// Otherwise someone signed in could not ask for a link to the address they
+	// actually mistyped at registration.
+	backendAccepts();
+
+	await POST(event(SESSION, { email: 'typed@example.com' }) as never);
+
+	expect(backendPOST).toHaveBeenCalledWith('/api/auth/email-verification/resend', {
+		body: { email: 'typed@example.com' }
+	});
+});
+
+test('trims the address before sending it', async () => {
+	backendAccepts();
+
+	await POST(event(null, { email: '  typed@example.com  ' }) as never);
+
+	expect(backendPOST).toHaveBeenCalledWith('/api/auth/email-verification/resend', {
+		body: { email: 'typed@example.com' }
+	});
+});
+
+test('with neither an address nor a session there is nothing to send to', async () => {
 	const response = await POST(event(null) as never);
 
-	expect(response.status).toBe(401);
+	expect(response.status).toBe(400);
+	expect(await response.json()).toMatchObject({ error: { code: 'MISSING_FIELD' } });
+	expect(backendPOST).not.toHaveBeenCalled();
+});
+
+test('a blank address is not an address', async () => {
+	const response = await POST(event(null, { email: '   ' }) as never);
+
+	expect(response.status).toBe(400);
 	expect(backendPOST).not.toHaveBeenCalled();
 });
 

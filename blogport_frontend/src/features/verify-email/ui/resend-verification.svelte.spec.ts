@@ -8,7 +8,7 @@ import ResendVerification from './resend-verification.svelte';
  * screen moves the person forward, because only the emailed link can.
  */
 
-const ACCEPTED = 'If that address needs verifying, a new link is on its way.';
+const SENT = 'Sent. Check your inbox — the new link is good for 24 hours.';
 
 function stubFetch(status: number, body: unknown, headers: Record<string, string> = {}) {
 	const fetchFn = vi.fn<typeof fetch>(
@@ -38,7 +38,7 @@ test('is not the primary action — nothing here is', async () => {
 });
 
 test('asks the proxy when pressed', async () => {
-	const fetchFn = stubFetch(202, { message: ACCEPTED });
+	const fetchFn = stubFetch(202, {});
 	const screen = render(ResendVerification, {});
 
 	await screen.getByRole('button', button()).click();
@@ -47,14 +47,14 @@ test('asks the proxy when pressed', async () => {
 	expect(fetchFn.mock.calls[0][0]).toBe('/api/auth/email-verification/resend');
 });
 
-test('reports what happened, for the screen to announce', async () => {
-	stubFetch(202, { message: ACCEPTED });
+test('reports the copy table’s sentence, not the backend’s', async () => {
+	stubFetch(202, {});
 	const said: (string | undefined)[] = [];
 	const screen = render(ResendVerification, { onmessage: (m: string | undefined) => said.push(m) });
 
 	await screen.getByRole('button', button()).click();
 
-	await vi.waitFor(() => expect(said).toContain(ACCEPTED));
+	await vi.waitFor(() => expect(said).toContain(SENT));
 });
 
 test('a second press cannot send two links', async () => {
@@ -70,18 +70,18 @@ test('a second press cannot send two links', async () => {
 
 	await expect.element(control).toBeDisabled();
 
-	release(new Response(JSON.stringify({ message: ACCEPTED }), { status: 202 }));
+	release(new Response('{}', { status: 202 }));
 });
 
 test('stays pressable after a successful send — five an hour are allowed', async () => {
-	stubFetch(202, { message: ACCEPTED });
+	stubFetch(202, {});
 	const said: (string | undefined)[] = [];
 	const screen = render(ResendVerification, { onmessage: (m: string | undefined) => said.push(m) });
 
 	const control = screen.getByRole('button', button());
 	await control.click();
 
-	await vi.waitFor(() => expect(said).toContain(ACCEPTED));
+	await vi.waitFor(() => expect(said).toContain(SENT));
 	await expect.element(control).not.toBeDisabled();
 });
 
