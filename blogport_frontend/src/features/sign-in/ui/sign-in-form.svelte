@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { Button, Field } from '$lib/shared/ui';
+	import { Button, Field, InlineAlert } from '$lib/shared/ui';
 	import { emailError } from '$lib/shared/lib/email';
+	import type { HandlingClass } from '$lib/shared/lib/error-class';
 	import { PASSWORD_MAX, passwordError } from '$lib/shared/lib/password';
 	import { destinationAfterSignIn } from '../model/gate';
 	import { signIn } from '../api/sign-in';
@@ -36,6 +37,8 @@
 	let emailProblem = $state<string | undefined>();
 	let passwordProblem = $state<string | undefined>();
 	let failure = $state<string | undefined>();
+	/** Which of §07's six it was, so the colour is the class's and not a guess. */
+	let failureKind = $state<HandlingClass>('notOurs');
 
 	let submitting = $state(false);
 	/** Non-null while a rate limit is in force; counts down to zero. */
@@ -104,6 +107,7 @@
 		// Every value stays: losing a filled form to one bad field is the worst
 		// outcome available.
 		failure = result.message;
+		failureKind = result.kind;
 		if (result.retryAfterSeconds) startCountdown(result.retryAfterSeconds);
 	}
 </script>
@@ -155,15 +159,7 @@
 		{/snippet}
 	</Field>
 
-	<!--
-		Always in the DOM so the region exists before it has anything to say —
-		one inserted at the moment of failure is often missed. Polite, not
-		assertive: assertive is reserved for loss (Accessibility Spec §09), and
-		a sign-in that did not go through has lost nothing.
-	-->
-	<p role="status" class="text-[12px] text-st-danger empty:hidden">
-		{failure ?? ''}
-	</p>
+	<InlineAlert message={failure} kind={failureKind} />
 
 	<Button
 		type="submit"

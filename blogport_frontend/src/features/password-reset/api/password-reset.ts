@@ -1,5 +1,6 @@
 import { UNEXPECTED, rateLimited, retryAfterSeconds } from '$lib/shared/lib/api-failure';
 import { normaliseEmail } from '$lib/shared/lib/email';
+import type { HandlingClass } from '$lib/shared/lib/error-class';
 
 /**
  * Recovering a password, in two halves: ask for a link, then use it.
@@ -24,13 +25,25 @@ export function resetRequested(email: string): string {
 
 export type ResetResult =
 	| { ok: true }
-	| { ok: false; message: string; retryAfterSeconds: number | null; expired: boolean };
+	| {
+			ok: false;
+			message: string;
+			retryAfterSeconds: number | null;
+			expired: boolean;
+			/** Which of §07's six this is, so the caller colours it without a code. */
+			kind: HandlingClass;
+	  };
 
+/** `notOurs` by default, the same fallback the mapping itself takes. */
 function failed(
 	message: string,
-	{ seconds = null, expired = false }: { seconds?: number | null; expired?: boolean } = {}
+	{
+		seconds = null,
+		expired = false,
+		kind = 'notOurs'
+	}: { seconds?: number | null; expired?: boolean; kind?: HandlingClass } = {}
 ): ResetResult {
-	return { ok: false, message, retryAfterSeconds: seconds, expired };
+	return { ok: false, message, retryAfterSeconds: seconds, expired, kind };
 }
 
 async function readError(response: Response) {
@@ -63,7 +76,7 @@ export async function requestReset(
 
 	if (error?.code === 'RATE_LIMITED') {
 		const seconds = retryAfterSeconds(response);
-		return failed(rateLimited(seconds), { seconds });
+		return failed(rateLimited(seconds), { seconds, kind: 'wait' });
 	}
 
 	return failed(UNEXPECTED);
@@ -98,19 +111,23 @@ export async function setPassword(
 	switch (error?.code) {
 		case 'RATE_LIMITED': {
 			const seconds = retryAfterSeconds(response);
-			return failed(rateLimited(seconds), { seconds });
+			return failed(rateLimited(seconds), { seconds, kind: 'wait' });
 		}
 		case 'INVALID_RESET_TOKEN':
 		case 'TOKEN_EXPIRED':
 		case 'INVALID_TOKEN':
 		case 'USER_NOT_FOUND':
 			// J3: offer a fresh one from this same screen rather than bouncing.
-			return failed(RESET_LINK_DEAD, { expired: true });
+			// §07 files a dead token under session. That class is written for an
+			// auth token, where the recovery is to sign in again; here it is a
+			// fresh link. The distinction is flagged rather than settled locally,
+			// and it changes nothing on screen — this branch drives its own.
+			return failed(RESET_LINK_DEAD, { expired: true, kind: 'session' });
 		case 'INVALID_PASSWORD':
 			// Keep the token in the URL and let them retype — losing a valid token
 			// to one weak password is a needless restart. The server's message
 			// names the rule it failed.
-			return failed(error.message ?? UNEXPECTED);
+			return failed(error.message ?? UNEXPECTED, { kind: 'field' });
 		default:
 			return failed(UNEXPECTED);
 	}

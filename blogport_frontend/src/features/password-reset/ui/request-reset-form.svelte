@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { Button, Field } from '$lib/shared/ui';
+	import { Button, Field, InlineAlert } from '$lib/shared/ui';
 	import { emailError } from '$lib/shared/lib/email';
+	import type { HandlingClass } from '$lib/shared/lib/error-class';
 	import { requestReset } from '../api/password-reset';
 
 	/**
@@ -16,6 +17,8 @@
 	let touched = $state(false);
 	let problem = $state<string | undefined>();
 	let failure = $state<string | undefined>();
+	/** Which of §07's six it was, so the colour is the class's and not a guess. */
+	let failureKind = $state<HandlingClass>('notOurs');
 	let sending = $state(false);
 	let lockedFor = $state<number | null>(null);
 
@@ -71,6 +74,7 @@
 		}
 
 		failure = result.message;
+		failureKind = result.kind;
 		if (result.retryAfterSeconds) startCountdown(result.retryAfterSeconds);
 	}
 </script>
@@ -90,7 +94,7 @@
 		oninput={() => (touched = true)}
 	/>
 
-	<p role="status" class="text-[12px] text-st-danger empty:hidden">{failure ?? ''}</p>
+	<InlineAlert message={failure} kind={failureKind} />
 
 	<Button
 		type="submit"

@@ -74,7 +74,8 @@ test('an address already registered is a field-level collision', async () => {
 		field: 'email',
 		message: ADDRESS_TAKEN,
 		collision: true,
-		retryAfterSeconds: null
+		retryAfterSeconds: null,
+		kind: 'collision'
 	});
 	expect(ADDRESS_TAKEN).toBe("There's already an account for that address.");
 });
@@ -109,7 +110,8 @@ test('a rate limit names the action that was limited', async () => {
 		field: null,
 		message: 'Too many sign-up attempts. Try again in 42 minutes.',
 		collision: false,
-		retryAfterSeconds: 2520
+		retryAfterSeconds: 2520,
+		kind: 'wait'
 	});
 });
 

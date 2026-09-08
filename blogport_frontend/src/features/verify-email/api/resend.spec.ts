@@ -49,7 +49,8 @@ test('a rate limit counts down against the real Retry-After', async () => {
 		ok: false,
 		message: 'Too many attempts. Try again in 60 minutes.',
 		retryAfterSeconds: 3600,
-		signedOut: false
+		signedOut: false,
+		kind: 'wait'
 	});
 });
 
@@ -62,7 +63,8 @@ test('a lost session is reported as one, not as a server fault', async () => {
 		ok: false,
 		message: SESSION_EXPIRED,
 		retryAfterSeconds: null,
-		signedOut: true
+		signedOut: true,
+		kind: 'session'
 	});
 	expect(SESSION_EXPIRED).toBe('Your session expired. Sign in to pick up where you left off.');
 });
@@ -74,7 +76,8 @@ test('a server fault is ours, and says so', async () => {
 		ok: false,
 		message: UNEXPECTED,
 		retryAfterSeconds: null,
-		signedOut: false
+		signedOut: false,
+		kind: 'notOurs'
 	});
 });
 
