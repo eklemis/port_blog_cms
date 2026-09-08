@@ -1,0 +1,248 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<style>
+			/* Figma injects its own theme variables when themeColors is on, so the
+			   panel follows light and dark without a toggle of its own. */
+			:root {
+				--bg: var(--figma-color-bg, #ffffff);
+				--surface: var(--figma-color-bg-secondary, #f5f5f5);
+				--text: var(--figma-color-text, #1e2224);
+				--muted: var(--figma-color-text-secondary, #5e6469);
+				--line: var(--figma-color-border, rgba(0, 0, 0, 0.1));
+				--accent: var(--figma-color-text-brand, #8f5000);
+				--danger: var(--figma-color-text-danger, #b3453a);
+				--ok: #2e6b45;
+			}
+			* { box-sizing: border-box; }
+			body {
+				margin: 0;
+				background: var(--bg);
+				color: var(--text);
+				font: 12px/1.5 Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+				display: flex;
+				flex-direction: column;
+				height: 100vh;
+			}
+			header { padding: 12px 14px; border-bottom: 1px solid var(--line); }
+			h1 { font-size: 13px; margin: 0 0 8px; font-weight: 600; }
+			.row { display: flex; gap: 8px; align-items: center; }
+			select, button {
+				font: inherit;
+				border-radius: 6px;
+				border: 1px solid var(--line);
+				background: var(--bg);
+				color: var(--text);
+				padding: 6px 10px;
+				min-height: 30px;
+			}
+			button.primary {
+				background: var(--accent);
+				color: #fff;
+				border-color: transparent;
+				font-weight: 600;
+				cursor: pointer;
+			}
+			button:focus-visible, select:focus-visible, .finding:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
+			}
+			.rules { padding: 10px 14px; border-bottom: 1px solid var(--line); }
+			.rules summary { cursor: pointer; color: var(--muted); font-size: 11px; }
+			.rule { display: flex; gap: 8px; padding: 6px 0; align-items: flex-start; }
+			.rule label { font-weight: 500; }
+			.rule p { margin: 2px 0 0; color: var(--muted); font-size: 11px; }
+			#summary { padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 12px; }
+			#summary b { font-weight: 600; }
+			.clean { color: var(--ok); font-weight: 600; }
+			#out { flex: 1; overflow-y: auto; padding: 4px 0 16px; }
+			.frame { border-bottom: 1px solid var(--line); }
+			.frame > h2 {
+				font-size: 12px;
+				margin: 0;
+				padding: 10px 14px 4px;
+				font-weight: 600;
+				display: flex;
+				justify-content: space-between;
+			}
+			.frame > h2 span { color: var(--danger); font-weight: 500; }
+			.group { padding: 0 14px 8px; }
+			.badge {
+				display: inline-block;
+				font-size: 10px;
+				letter-spacing: 0.04em;
+				text-transform: uppercase;
+				color: var(--muted);
+				margin: 6px 0 2px;
+			}
+			.finding {
+				display: block;
+				width: 100%;
+				text-align: left;
+				border: 1px solid var(--line);
+				border-radius: 6px;
+				background: var(--surface);
+				padding: 6px 8px;
+				margin-top: 4px;
+				cursor: pointer;
+			}
+			.finding .n { font-weight: 500; }
+			.finding .d { color: var(--muted); font-size: 11px; }
+			footer {
+				padding: 10px 14px;
+				border-top: 1px solid var(--line);
+				display: flex;
+				gap: 8px;
+				justify-content: space-between;
+			}
+			.empty { padding: 28px 16px; color: var(--muted); text-align: center; }
+		</style>
+	</head>
+	<body>
+		<header>
+			<h1>Design lint</h1>
+			<div class="row">
+				<select id="scope" aria-label="What to scan">
+					<option value="page">All frames on this page</option>
+					<option value="selection">Selected frames only</option>
+				</select>
+				<button class="primary" id="run">Run</button>
+			</div>
+		</header>
+
+		<details class="rules">
+			<summary>Checks — each one exists because it was missed</summary>
+			<div id="ruleList"></div>
+		</details>
+
+		<div id="summary">Not run yet.</div>
+		<div id="out"><p class="empty">Press Run to scan the current page.</p></div>
+
+		<footer>
+			<button id="copy">Copy report</button>
+			<button id="close">Close</button>
+		</footer>
+
+		<script>
+			var RULES = {};
+			var LAST = null;
+
+			function el(tag, cls, text) {
+				var n = document.createElement(tag);
+				if (cls) n.className = cls;
+				if (text !== undefined) n.textContent = text;
+				return n;
+			}
+			function enabledRules() {
+				var on = [];
+				var boxes = document.querySelectorAll('#ruleList input[type=checkbox]');
+				for (var i = 0; i < boxes.length; i++) if (boxes[i].checked) on.push(boxes[i].value);
+				return on;
+			}
+			function renderRules(rules) {
+				RULES = rules;
+				var host = document.getElementById('ruleList');
+				host.innerHTML = '';
+				Object.keys(rules).forEach(function (key) {
+					var wrap = el('div', 'rule');
+					var cb = document.createElement('input');
+					cb.type = 'checkbox';
+					cb.checked = true;
+					cb.value = key;
+					cb.id = 'r-' + key;
+					var body = el('div');
+					var lab = document.createElement('label');
+					lab.htmlFor = 'r-' + key;
+					lab.textContent = rules[key].label;
+					body.appendChild(lab);
+					body.appendChild(el('p', null, rules[key].why));
+					wrap.appendChild(cb);
+					wrap.appendChild(body);
+					host.appendChild(wrap);
+				});
+			}
+			function render(report) {
+				LAST = report;
+				var sum = document.getElementById('summary');
+				var out = document.getElementById('out');
+				out.innerHTML = '';
+				if (!report.total) {
+					sum.innerHTML =
+						'<b>' + report.framesScanned + '</b> frames scanned — <span class="clean">no findings</span>';
+					out.appendChild(el('p', 'empty', 'Nothing to fix on this page.'));
+					return;
+				}
+				sum.innerHTML =
+					'<b>' + report.total + '</b> findings across <b>' + report.framesWithFindings +
+					'</b> of ' + report.framesScanned + ' frames';
+				report.results.forEach(function (r) {
+					var box = el('div', 'frame');
+					var h = el('h2');
+					h.appendChild(el('span', null, r.frame));
+					h.appendChild(el('span', null, r.count + ''));
+					box.appendChild(h);
+					var g = el('div', 'group');
+					Object.keys(r.byRule).forEach(function (rule) {
+						g.appendChild(el('div', 'badge', (RULES[rule] ? RULES[rule].label : rule)));
+						r.byRule[rule].forEach(function (f) {
+							var b = el('button', 'finding');
+							b.appendChild(el('div', 'n', f.type + ' · ' + f.name));
+							b.appendChild(el('div', 'd', f.detail));
+							b.onclick = function () {
+								parent.postMessage({ pluginMessage: { type: 'reveal', id: f.id } }, '*');
+							};
+							g.appendChild(b);
+						});
+					});
+					box.appendChild(g);
+					out.appendChild(box);
+				});
+			}
+			function reportText() {
+				if (!LAST) return 'Not run yet.';
+				if (!LAST.total) return LAST.framesScanned + ' frames scanned — no findings.';
+				var lines = [LAST.total + ' findings across ' + LAST.framesWithFindings + ' frames', ''];
+				LAST.results.forEach(function (r) {
+					lines.push(r.frame + '  (' + r.count + ')');
+					Object.keys(r.byRule).forEach(function (rule) {
+						r.byRule[rule].forEach(function (f) {
+							lines.push('  · ' + (RULES[rule] ? RULES[rule].label : rule) + ' — ' + f.type + ' "' + f.name + '" (' + f.detail + ')');
+						});
+					});
+					lines.push('');
+				});
+				return lines.join('\n');
+			}
+
+			document.getElementById('run').onclick = function () {
+				document.getElementById('summary').textContent = 'Scanning…';
+				parent.postMessage(
+					{ pluginMessage: { type: 'run', scope: document.getElementById('scope').value, rules: enabledRules() } },
+					'*'
+				);
+			};
+			document.getElementById('close').onclick = function () {
+				parent.postMessage({ pluginMessage: { type: 'close' } }, '*');
+			};
+			document.getElementById('copy').onclick = function () {
+				var ta = document.createElement('textarea');
+				ta.value = reportText();
+				document.body.appendChild(ta);
+				ta.select();
+				try { document.execCommand('copy'); } catch (e) {}
+				document.body.removeChild(ta);
+				var b = document.getElementById('copy');
+				b.textContent = 'Copied';
+				setTimeout(function () { b.textContent = 'Copy report'; }, 1200);
+			};
+
+			onmessage = function (event) {
+				var m = event.data.pluginMessage;
+				if (!m) return;
+				if (m.type === 'rules') renderRules(m.rules);
+				if (m.type === 'report') { renderRules(m.rules); render(m.report); }
+			};
+		</script>
+	</body>
+</html>
