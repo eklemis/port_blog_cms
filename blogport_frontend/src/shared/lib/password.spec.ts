@@ -1,12 +1,11 @@
 import { expect, test } from 'vitest';
-import { PASSWORD_MAX, PASSWORD_TOO_SHORT, passwordError } from './credentials';
+import { PASSWORD_MAX, PASSWORD_TOO_SHORT, passwordError } from './password';
 
 /**
- * The sign-in password rule. Mirrored from Frontend Handoff §03 so a field-level
- * error resolves without a round trip — and no further, because a client rule
- * the server does not share rejects input the backend would have accepted.
- *
- * The email rule is tested in shared/lib/email.spec.ts.
+ * The password rule, shared by sign-in and register. Mirrored from Frontend
+ * Handoff §03 so a field-level error resolves without a round trip — and no
+ * further, because a client rule the server does not share rejects input the
+ * backend would have accepted.
  */
 
 // ── password ───────────────────────────────────────────────────────────────

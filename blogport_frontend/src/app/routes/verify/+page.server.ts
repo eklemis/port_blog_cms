@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { CONSOLE_ROUTE, SIGN_IN_ROUTE } from '$lib/shared/config/routes';
+import { PENDING_EMAIL_COOKIE } from '$lib/shared/auth/cookies.server';
 
 /**
  * The hold screen needs one thing the page cannot invent: the address the
@@ -13,13 +14,18 @@ import { CONSOLE_ROUTE, SIGN_IN_ROUTE } from '$lib/shared/config/routes';
  * rebuilds the session from it on every request, this screen lets go of them on
  * their next navigation rather than stranding them until they sign in again.
  */
-export const load: PageServerLoad = async ({ locals }) => {
-	// Without a session there is no address, and the screen's first sentence is
-	// the address — there is nothing honest left to render.
-	if (!locals.user) redirect(303, SIGN_IN_ROUTE);
-
+export const load: PageServerLoad = async ({ locals, cookies }) => {
 	// The screen exists to be left.
-	if (locals.user.is_verified) redirect(303, CONSOLE_ROUTE);
+	if (locals.user?.is_verified) redirect(303, CONSOLE_ROUTE);
 
-	return { email: locals.user.email };
+	// Two ways to arrive: signed in but unverified, or straight from registering,
+	// which returns a user and no token. A live session outranks the cookie the
+	// register proxy left behind.
+	const email = locals.user?.email ?? cookies.get(PENDING_EMAIL_COOKIE);
+
+	// No address means nothing honest left to render — the screen's first
+	// sentence is the address the link went to.
+	if (!email) redirect(303, SIGN_IN_ROUTE);
+
+	return { email };
 };

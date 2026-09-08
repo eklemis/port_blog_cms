@@ -1,12 +1,13 @@
 /**
- * The password rule the sign-in form checks before it spends a round trip. The
- * email rule is in `$lib/shared/lib/email`, because the expired-link screen
- * asks the same question and slices may not import each other.
+ * The password rule, checked before a round trip is spent on it.
  *
- * Both are mirrored from Frontend Handoff §03 — the use cases and services, not
- * the OpenAPI examples — and neither goes further than the server does. A
- * client-side rule the API disagrees with rejects input the backend would have
- * accepted, which is a real bug rather than a safety net.
+ * In `shared` alongside the email rule because sign-in and register both ask
+ * the question and slices in one layer may not import each other.
+ *
+ * Mirrored from Frontend Handoff §03 — the use cases and services, not the
+ * OpenAPI examples — and no further than the server goes. A client-side rule
+ * the API disagrees with rejects input the backend would have accepted, which
+ * is a real bug rather than a safety net.
  */
 
 export const PASSWORD_TOO_SHORT = 'At least 12 characters.';

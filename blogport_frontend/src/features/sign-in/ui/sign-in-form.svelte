@@ -2,7 +2,7 @@
 	import { tick } from 'svelte';
 	import { Button, Field } from '$lib/shared/ui';
 	import { emailError } from '$lib/shared/lib/email';
-	import { PASSWORD_MAX, passwordError } from '../model/credentials';
+	import { PASSWORD_MAX, passwordError } from '$lib/shared/lib/password';
 	import { destinationAfterSignIn } from '../model/gate';
 	import { signIn } from '../api/sign-in';
 
