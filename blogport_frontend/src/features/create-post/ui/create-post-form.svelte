@@ -45,7 +45,18 @@
 	let submitting = $state(false);
 	let check: ReturnType<typeof setTimeout> | undefined;
 
-	$effect(() => () => clearTimeout(check));
+	/**
+	 * Shown only once the request has been slow enough to be worth reporting.
+	 * Forms Spec §05 keeps a 400ms floor: a spinner that appears and vanishes
+	 * inside a blink reads as a glitch rather than as progress.
+	 */
+	let slow = $state(false);
+	let spinner: ReturnType<typeof setTimeout> | undefined;
+
+	$effect(() => () => {
+		clearTimeout(check);
+		clearTimeout(spinner);
+	});
 
 	/**
 	 * Ask whether the address is free, on a pause.
@@ -136,10 +147,13 @@
 
 		submitting = true;
 		failure = undefined;
+		spinner = setTimeout(() => (slow = true), 400);
 
 		const result = await createPost({ title: title.trim(), slug: slug.trim(), content }, fetchFn);
 
 		submitting = false;
+		clearTimeout(spinner);
+		slow = false;
 
 		if (result.ok) {
 			oncreated(result.id);
@@ -234,6 +248,6 @@
 	<InlineAlert message={failure} kind={failureKind} />
 
 	<div class="flex">
-		<Button type="submit" label="Create draft" loading={submitting} disabled={submitting} />
+		<Button type="submit" label="Create draft" loading={slow} disabled={submitting} />
 	</div>
 </form>
