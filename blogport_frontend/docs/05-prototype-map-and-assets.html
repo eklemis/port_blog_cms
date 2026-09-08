@@ -1,1106 +1,564 @@
 <title>Prototype Map and Asset Manifest</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link
-	rel="stylesheet"
-	href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sen:wght@400;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
-/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sen:wght@400;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
 
 <style>
-	:root {
-		--bg: #eeeff0;
-		--surface: #ffffff;
-		--surface-2: #f6f7f8;
-		--headline: #1e2224;
-		--muted: #5e6469;
-		--accent: #f4a43d;
-		--accent-on: #1e2224;
-		--accent-ink: #8f5000;
-		--accent-2: #83671d;
-		--line: rgb(30 34 36 / 0.12);
-		--line-strong: rgb(30 34 36 / 0.26);
-		--line-control: #81888c;
-		--st-neutral: #5e6469;
-		--st-inflight: #8a5a0b;
-		--st-live: #2e6b45;
-		--st-danger: #b3453a;
-		--st-dormant: #666b70;
-		--shadow: 0 1px 2px rgb(30 34 36 / 0.05), 0 1px 3px rgb(30 34 36 / 0.04);
-		--font-display: Sen, Inter, ui-sans-serif, system-ui, sans-serif;
-		--font-sans:
-			Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
-		--font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-		--shell: 1140px;
-		--prose: 68ch;
-	}
-	@media (prefers-color-scheme: dark) {
-		:root:not([data-theme='light']) {
-			--bg: #2f3133;
-			--surface: #3a3c3e;
-			--surface-2: #434547;
-			--headline: #f4e4c9;
-			--muted: #b1b4b7;
-			--accent: #f4a43d;
-			--accent-on: #1e2224;
-			--accent-ink: #f4a43d;
-			--accent-2: #e8c76b;
-			--line: rgb(244 228 201 / 0.1);
-			--line-strong: rgb(244 228 201 / 0.22);
-			--line-control: #919396;
-			--st-neutral: #b1b4b7;
-			--st-inflight: #e8c76b;
-			--st-live: #8fbf9a;
-			--st-danger: #e7a399;
-			--st-dormant: #b2b4b7;
-			--shadow: none;
-		}
-	}
-	:root[data-theme='dark'] {
-		--bg: #2f3133;
-		--surface: #3a3c3e;
-		--surface-2: #434547;
-		--headline: #f4e4c9;
-		--muted: #b1b4b7;
-		--accent: #f4a43d;
-		--accent-on: #1e2224;
-		--accent-ink: #f4a43d;
-		--accent-2: #e8c76b;
-		--line: rgb(244 228 201 / 0.1);
-		--line-strong: rgb(244 228 201 / 0.22);
-		--line-control: #919396;
-		--st-neutral: #b1b4b7;
-		--st-inflight: #e8c76b;
-		--st-live: #8fbf9a;
-		--st-danger: #e7a399;
-		--st-dormant: #b2b4b7;
-		--shadow: none;
-	}
-	* {
-		box-sizing: border-box;
-	}
-	body {
-		margin: 0;
-		background: var(--bg);
-		color: var(--headline);
-		font-family: var(--font-sans);
-		font-size: 16px;
-		line-height: 1.65;
-		-webkit-font-smoothing: antialiased;
-	}
-	h1,
-	h2,
-	h3,
-	h4 {
-		font-family: var(--font-display);
-		text-wrap: balance;
-		margin: 0;
-	}
-	p {
-		margin: 0;
-	}
-	a {
-		color: var(--accent-ink);
-		text-underline-offset: 3px;
-	}
-	a:focus-visible {
-		outline: 2px solid var(--accent-ink);
-		outline-offset: 3px;
-		border-radius: 4px;
-	}
-	code,
-	.mono {
-		font-family: var(--font-mono);
-		font-size: 0.86em;
-	}
-	kbd {
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-		border: 1px solid var(--line-strong);
-		border-bottom-width: 2px;
-		border-radius: 5px;
-		padding: 1px 6px;
-		background: var(--surface-2);
-		white-space: nowrap;
-	}
-	.shell {
-		max-width: var(--shell);
-		margin: 0 auto;
-		padding: 0 24px;
-	}
-	.prose {
-		max-width: var(--prose);
-	}
-	.masthead {
-		padding: 70px 0 42px;
-		border-bottom: 1px solid var(--line);
-	}
-	.eyebrow {
-		font-family: var(--font-mono);
-		font-size: 0.6875rem;
-		letter-spacing: 0.16em;
-		text-transform: uppercase;
-		color: var(--accent-ink);
-		margin-bottom: 18px;
-	}
-	.masthead h1 {
-		font-size: clamp(2.2rem, 5vw, 3.2rem);
-		font-weight: 800;
-		line-height: 1.05;
-		letter-spacing: -0.02em;
-	}
-	.masthead .standfirst {
-		margin-top: 18px;
-		font-size: 1.06rem;
-		color: var(--muted);
-		max-width: 64ch;
-	}
-	.tocbar {
-		position: sticky;
-		top: 0;
-		z-index: 40;
-		background: color-mix(in srgb, var(--bg) 94%, transparent);
-		backdrop-filter: blur(10px);
-		border-bottom: 1px solid var(--line);
-	}
-	.tocbar .inner {
-		display: flex;
-		gap: 4px;
-		overflow-x: auto;
-		padding: 10px 24px;
-		max-width: var(--shell);
-		margin: 0 auto;
-	}
-	.tocbar a {
-		flex: 0 0 auto;
-		font-size: 0.78125rem;
-		color: var(--muted);
-		text-decoration: none;
-		padding: 6px 12px;
-		border-radius: 999px;
-		white-space: nowrap;
-	}
-	.tocbar a:hover {
-		color: var(--headline);
-		background: color-mix(in srgb, var(--headline) 7%, transparent);
-	}
-	section {
-		padding: 60px 0;
-		border-bottom: 1px solid var(--line);
-		scroll-margin-top: 62px;
-	}
-	section:last-of-type {
-		border-bottom: none;
-	}
-	.sec-head {
-		display: flex;
-		align-items: baseline;
-		gap: 14px;
-		margin-bottom: 10px;
-		flex-wrap: wrap;
-	}
-	.sec-num {
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-		color: var(--accent-ink);
-		letter-spacing: 0.08em;
-	}
-	section h2 {
-		font-size: clamp(1.55rem, 3vw, 2.05rem);
-		font-weight: 800;
-		letter-spacing: -0.015em;
-	}
-	.sec-lede {
-		color: var(--muted);
-		margin-bottom: 32px;
-		max-width: var(--prose);
-	}
-	h3.block {
-		font-size: 1.0625rem;
-		font-weight: 700;
-		margin: 38px 0 14px;
-	}
-	.scroller {
-		overflow-x: auto;
-		border: 1px solid var(--line);
-		border-radius: 12px;
-		background: var(--surface);
-		box-shadow: var(--shadow);
-		margin-bottom: 8px;
-	}
-	table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: 0.84375rem;
-		min-width: 660px;
-		font-variant-numeric: tabular-nums;
-	}
-	thead th {
-		text-align: left;
-		font-family: var(--font-mono);
-		font-size: 0.6875rem;
-		font-weight: 500;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--muted);
-		padding: 12px 15px;
-		border-bottom: 1px solid var(--line-strong);
-		white-space: nowrap;
-	}
-	tbody td {
-		padding: 11px 15px;
-		border-bottom: 1px solid var(--line);
-		vertical-align: top;
-	}
-	tbody tr:last-child td {
-		border-bottom: none;
-	}
-	td.dim {
-		color: var(--muted);
-	}
-	td .mono {
-		color: var(--accent-2);
-	}
-	.caption {
-		font-size: 0.78125rem;
-		color: var(--muted);
-		margin-top: 10px;
-	}
+:root {
+  --bg:#eeeff0; --surface:#ffffff; --surface-2:#f6f7f8; --headline:#1e2224; --muted:#5e6469;
+  --accent:#f4a43d; --accent-on:#1e2224; --accent-ink:#8f5000; --accent-2:#83671d;
+  --line:rgb(30 34 36 / 0.12); --line-strong:rgb(30 34 36 / 0.26); --line-control:#81888c;
+  --st-neutral:#5e6469; --st-inflight:#8a5a0b; --st-live:#2e6b45; --st-danger:#b3453a; --st-dormant:#666b70;
+  --shadow:0 1px 2px rgb(30 34 36 / 0.05), 0 1px 3px rgb(30 34 36 / 0.04);
+  --font-display:Sen,Inter,ui-sans-serif,system-ui,sans-serif;
+  --font-sans:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --shell:1140px; --prose:68ch;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:#2f3133; --surface:#3a3c3e; --surface-2:#434547; --headline:#f4e4c9; --muted:#b1b4b7;
+    --accent:#f4a43d; --accent-on:#1e2224; --accent-ink:#f4a43d; --accent-2:#e8c76b;
+    --line:rgb(244 228 201 / 0.10); --line-strong:rgb(244 228 201 / 0.22); --line-control:#919396;
+    --st-neutral:#b1b4b7; --st-inflight:#e8c76b; --st-live:#8fbf9a; --st-danger:#e7a399; --st-dormant:#b2b4b7;
+    --shadow:none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:#2f3133; --surface:#3a3c3e; --surface-2:#434547; --headline:#f4e4c9; --muted:#b1b4b7;
+  --accent:#f4a43d; --accent-on:#1e2224; --accent-ink:#f4a43d; --accent-2:#e8c76b;
+  --line:rgb(244 228 201 / 0.10); --line-strong:rgb(244 228 201 / 0.22); --line-control:#919396;
+  --st-neutral:#b1b4b7; --st-inflight:#e8c76b; --st-live:#8fbf9a; --st-danger:#e7a399; --st-dormant:#b2b4b7;
+  --shadow:none;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--headline);font-family:var(--font-sans);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:var(--font-display);text-wrap:balance;margin:0}
+p{margin:0}
+a{color:var(--accent-ink);text-underline-offset:3px}
+a:focus-visible{outline:2px solid var(--accent-ink);outline-offset:3px;border-radius:4px}
+code,.mono{font-family:var(--font-mono);font-size:.86em}
+kbd{font-family:var(--font-mono);font-size:.75rem;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:5px;padding:1px 6px;background:var(--surface-2);white-space:nowrap}
+.shell{max-width:var(--shell);margin:0 auto;padding:0 24px}
+.prose{max-width:var(--prose)}
+.masthead{padding:70px 0 42px;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:var(--font-mono);font-size:.6875rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-ink);margin-bottom:18px}
+.masthead h1{font-size:clamp(2.2rem,5vw,3.2rem);font-weight:800;line-height:1.05;letter-spacing:-.02em}
+.masthead .standfirst{margin-top:18px;font-size:1.06rem;color:var(--muted);max-width:64ch}
+.tocbar{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.tocbar .inner{display:flex;gap:4px;overflow-x:auto;padding:10px 24px;max-width:var(--shell);margin:0 auto}
+.tocbar a{flex:0 0 auto;font-size:.78125rem;color:var(--muted);text-decoration:none;padding:6px 12px;border-radius:999px;white-space:nowrap}
+.tocbar a:hover{color:var(--headline);background:color-mix(in srgb,var(--headline) 7%,transparent)}
+section{padding:60px 0;border-bottom:1px solid var(--line);scroll-margin-top:62px}
+section:last-of-type{border-bottom:none}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:10px;flex-wrap:wrap}
+.sec-num{font-family:var(--font-mono);font-size:.75rem;color:var(--accent-ink);letter-spacing:.08em}
+section h2{font-size:clamp(1.55rem,3vw,2.05rem);font-weight:800;letter-spacing:-.015em}
+.sec-lede{color:var(--muted);margin-bottom:32px;max-width:var(--prose)}
+h3.block{font-size:1.0625rem;font-weight:700;margin:38px 0 14px}
+.scroller{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:var(--shadow);margin-bottom:8px}
+table{width:100%;border-collapse:collapse;font-size:.84375rem;min-width:660px;font-variant-numeric:tabular-nums}
+thead th{text-align:left;font-family:var(--font-mono);font-size:.6875rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:12px 15px;border-bottom:1px solid var(--line-strong);white-space:nowrap}
+tbody td{padding:11px 15px;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr:last-child td{border-bottom:none}
+td.dim{color:var(--muted)}
+td .mono{color:var(--accent-2)}
+.caption{font-size:.78125rem;color:var(--muted);margin-top:10px}
 
-	/* flow cards: each is a numbered entry point in the Figma prototype */
-	.flows {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-		gap: 16px;
-	}
-	.flow {
-		border: 1px solid var(--line);
-		border-radius: 12px;
-		background: var(--surface);
-		padding: 19px 21px;
-		box-shadow: var(--shadow);
-	}
-	.flow .fnum {
-		font-family: var(--font-mono);
-		font-size: 0.6875rem;
-		letter-spacing: 0.1em;
-		color: var(--accent-ink);
-		margin-bottom: 9px;
-	}
-	.flow h4 {
-		font-size: 0.9375rem;
-		margin-bottom: 9px;
-	}
-	.flow p {
-		font-size: 0.84375rem;
-		color: var(--muted);
-	}
-	.path {
-		font-family: var(--font-mono);
-		font-size: 0.71rem;
-		color: var(--headline);
-		background: var(--surface-2);
-		border: 1px solid var(--line);
-		border-radius: 8px;
-		padding: 9px 11px;
-		margin-top: 11px;
-		line-height: 1.8;
-		word-break: break-word;
-	}
-	.path b {
-		color: var(--accent-ink);
-		font-weight: 500;
-	}
+/* flow cards: each is a numbered entry point in the Figma prototype */
+.flows{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.flow{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:19px 21px;box-shadow:var(--shadow)}
+.flow .fnum{font-family:var(--font-mono);font-size:.6875rem;letter-spacing:.1em;color:var(--accent-ink);margin-bottom:9px}
+.flow h4{font-size:.9375rem;margin-bottom:9px}
+.flow p{font-size:.84375rem;color:var(--muted)}
+.path{font-family:var(--font-mono);font-size:.71rem;color:var(--headline);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin-top:11px;line-height:1.8;word-break:break-word}
+.path b{color:var(--accent-ink);font-weight:500}
 
-	.counts {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-		gap: 14px;
-		margin-bottom: 26px;
-	}
-	.count {
-		border: 1px solid var(--line);
-		border-radius: 11px;
-		background: var(--surface);
-		padding: 16px 18px;
-		box-shadow: var(--shadow);
-	}
-	.count .n {
-		font-family: var(--font-display);
-		font-size: 1.75rem;
-		font-weight: 800;
-		letter-spacing: -0.02em;
-		line-height: 1;
-	}
-	.count .l {
-		font-family: var(--font-mono);
-		font-size: 0.65rem;
-		letter-spacing: 0.09em;
-		text-transform: uppercase;
-		color: var(--muted);
-		margin-top: 7px;
-	}
+.counts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:26px}
+.count{border:1px solid var(--line);border-radius:11px;background:var(--surface);padding:16px 18px;box-shadow:var(--shadow)}
+.count .n{font-family:var(--font-display);font-size:1.75rem;font-weight:800;letter-spacing:-.02em;line-height:1}
+.count .l{font-family:var(--font-mono);font-size:.65rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-top:7px}
 
-	.pill {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		font-family: var(--font-mono);
-		font-size: 0.6875rem;
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-		padding: 3px 9px;
-		border-radius: 999px;
-		border: 1px solid currentColor;
-		white-space: nowrap;
-	}
-	.pill::before {
-		content: '';
-		width: 6px;
-		height: 6px;
-		border-radius: 50%;
-		background: currentColor;
-	}
-	.p-neutral {
-		color: var(--st-neutral);
-	}
-	.p-inflight {
-		color: var(--st-inflight);
-	}
-	.p-live {
-		color: var(--st-live);
-	}
-	.p-danger {
-		color: var(--st-danger);
-	}
-	.p-dormant {
-		color: var(--st-dormant);
-	}
-	.callout {
-		border: 1px solid var(--line-strong);
-		border-radius: 12px;
-		padding: 20px 22px;
-		background: color-mix(in srgb, var(--accent) 8%, var(--surface));
-		margin: 26px 0;
-	}
-	.callout h4 {
-		font-size: 0.9375rem;
-		margin-bottom: 8px;
-		color: var(--accent-ink);
-	}
-	.callout p {
-		font-size: 0.875rem;
-	}
-	.callout p + p {
-		margin-top: 10px;
-	}
-	.alert {
-		border: 1px solid color-mix(in srgb, var(--st-danger) 45%, transparent);
-		border-radius: 12px;
-		padding: 20px 22px;
-		background: color-mix(in srgb, var(--st-danger) 8%, var(--surface));
-		margin: 26px 0;
-	}
-	.alert h4 {
-		font-size: 0.9375rem;
-		margin-bottom: 8px;
-		color: var(--st-danger);
-	}
-	.alert p {
-		font-size: 0.875rem;
-	}
-	.alert p + p {
-		margin-top: 10px;
-	}
-	.laws {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-		gap: 16px;
-	}
-	.law {
-		border: 1px solid var(--line);
-		border-left: 2px solid var(--accent);
-		border-radius: 0 12px 12px 0;
-		background: var(--surface);
-		padding: 19px 21px;
-		box-shadow: var(--shadow);
-	}
-	.law h4 {
-		font-size: 0.9375rem;
-		margin-bottom: 8px;
-	}
-	.law p {
-		font-size: 0.84375rem;
-		color: var(--muted);
-	}
-	.law p + p {
-		margin-top: 9px;
-	}
-	footer {
-		padding: 46px 0 70px;
-		color: var(--muted);
-		font-size: 0.84375rem;
-	}
-	@media (max-width: 720px) {
-		.masthead {
-			padding: 46px 0 32px;
-		}
-		section {
-			padding: 46px 0;
-		}
-	}
-	@media (prefers-reduced-motion: reduce) {
-		* {
-			transition: none !important;
-			animation: none !important;
-		}
-	}
+.pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:.6875rem;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.pill::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.p-neutral{color:var(--st-neutral)}.p-inflight{color:var(--st-inflight)}.p-live{color:var(--st-live)}.p-danger{color:var(--st-danger)}.p-dormant{color:var(--st-dormant)}
+.callout{border:1px solid var(--line-strong);border-radius:12px;padding:20px 22px;background:color-mix(in srgb,var(--accent) 8%,var(--surface));margin:26px 0}
+.callout h4{font-size:.9375rem;margin-bottom:8px;color:var(--accent-ink)}
+.callout p{font-size:.875rem}.callout p+p{margin-top:10px}
+.alert{border:1px solid color-mix(in srgb,var(--st-danger) 45%,transparent);border-radius:12px;padding:20px 22px;background:color-mix(in srgb,var(--st-danger) 8%,var(--surface));margin:26px 0}
+.alert h4{font-size:.9375rem;margin-bottom:8px;color:var(--st-danger)}
+.alert p{font-size:.875rem}.alert p+p{margin-top:10px}
+.laws{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.law{border:1px solid var(--line);border-left:2px solid var(--accent);border-radius:0 12px 12px 0;background:var(--surface);padding:19px 21px;box-shadow:var(--shadow)}
+.law h4{font-size:.9375rem;margin-bottom:8px}
+.law p{font-size:.84375rem;color:var(--muted)}
+.law p+p{margin-top:9px}
+footer{padding:46px 0 70px;color:var(--muted);font-size:.84375rem}
+@media (max-width:720px){.masthead{padding:46px 0 32px}section{padding:46px 0}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
 <div class="tocbar">
-	<nav class="inner" aria-label="Sections">
-		<a href="#open">Opening it</a>
-		<a href="#flows">The six flows</a>
-		<a href="#map">Link map</a>
-		<a href="#unwired">Deliberately unwired</a>
-		<a href="#frames">Frame inventory</a>
-		<a href="#assets">Asset manifest</a>
-		<a href="#fonts">Type and icons</a>
-		<a href="#photos">Photography</a>
-	</nav>
+  <nav class="inner" aria-label="Sections">
+    <a href="#open">Opening it</a>
+    <a href="#flows">The six flows</a>
+    <a href="#map">Link map</a>
+    <a href="#unwired">Deliberately unwired</a>
+    <a href="#frames">Frame inventory</a>
+    <a href="#assets">Asset manifest</a>
+    <a href="#fonts">Type and icons</a>
+    <a href="#photos">Photography</a>
+  </nav>
 </div>
 
 <header class="masthead">
-	<div class="shell">
-		<div class="eyebrow">Seventh paper · the clickable one</div>
-		<h1>Prototype Map and Asset Manifest</h1>
-		<p class="standfirst">
-			The Figma file had 210 drawn screens and not one connection between them. It now has 376,
-			grouped into six named flows, in both themes. This paper says what is wired, what is
-			deliberately not, and what to pull out of the file when you build.
-		</p>
-	</div>
+  <div class="shell">
+    <div class="eyebrow">Seventh paper · the clickable one</div>
+    <h1>Prototype Map and Asset Manifest</h1>
+    <p class="standfirst">
+      The Figma file had 210 drawn screens and not one connection between them. It now has 376,
+      grouped into six named flows, in both themes. This paper says what is wired, what is
+      deliberately not, and what to pull out of the file when you build.
+    </p>
+  </div>
 </header>
 
 <!-- ===================================================== 1 -->
 <section id="open">
-	<div class="shell">
-		<div class="sec-head">
-			<span class="sec-num">01</span>
-			<h2>Opening it</h2>
-		</div>
-		<p class="sec-lede">
-			Press <kbd>Shift</kbd>+<kbd>Space</kbd> in the Figma file, or the play button top right. The
-			flow picker lists six entry points; pick one rather than starting from whatever frame happens
-			to be selected.
-		</p>
-		<div class="callout">
-			<h4>Read it as a navigation model, not a spec of motion</h4>
-			<p>
-				Every connection is an instant <code>NAVIGATE</code> with no transition. That is deliberate:
-				the transitions that matter in this product are described in the Forms and Interaction Spec
-				with real durations and reduced-motion behaviour, and a Figma smart-animate would only
-				invent a second, competing answer.
-			</p>
-			<p>
-				What the prototype is for is the question a static frame cannot answer —
-				<em>how do I get from here to there, and how many steps is it?</em>
-			</p>
-		</div>
-	</div>
+  <div class="shell">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Opening it</h2></div>
+    <p class="sec-lede">
+      Press <kbd>Shift</kbd>+<kbd>Space</kbd> in the Figma file, or the play button top right. The
+      flow picker lists six entry points; pick one rather than starting from whatever frame happens to
+      be selected.
+    </p>
+    <div class="callout">
+      <h4>Read it as a navigation model, not a spec of motion</h4>
+      <p>
+        Every connection is an instant <code>NAVIGATE</code> with no transition. That is deliberate:
+        the transitions that matter in this product are described in the Forms and Interaction Spec
+        with real durations and reduced-motion behaviour, and a Figma smart-animate would only invent
+        a second, competing answer.
+      </p>
+      <p>
+        What the prototype is for is the question a static frame cannot answer — <em>how do I get from
+        here to there, and how many steps is it?</em>
+      </p>
+    </div>
+  </div>
 </section>
 
 <!-- ===================================================== 2 -->
 <section id="flows">
-	<div class="shell">
-		<div class="sec-head">
-			<span class="sec-num">02</span>
-			<h2>The six flows</h2>
-		</div>
-		<p class="sec-lede">
-			Five run in light, one in dark. The dark flow exists so theme parity gets exercised rather
-			than asserted — it is the same console, wired to the same destinations, in the other mode.
-		</p>
+  <div class="shell">
+    <div class="sec-head"><span class="sec-num">02</span><h2>The six flows</h2></div>
+    <p class="sec-lede">
+      Five run in light, one in dark. The dark flow exists so theme parity gets exercised rather than
+      asserted — it is the same console, wired to the same destinations, in the other mode.
+    </p>
 
-		<div class="flows">
-			<div class="flow">
-				<div class="fnum">FLOW 1</div>
-				<h4>Sign in and verify</h4>
-				<p>
-					The whole unauthenticated surface, including the two dead ends that are supposed to be
-					dead ends.
-				</p>
-				<div class="path">
-					Sign in <b>→</b> Overview<br />
-					Sign in <b>→</b> Create an account <b>→</b> Verification gate<br />
-					Sign in <b>→</b> Forgot password <b>→</b> Back to sign in
-				</div>
-			</div>
-			<div class="flow">
-				<div class="fnum">FLOW 2</div>
-				<h4>Console</h4>
-				<p>
-					The sidebar, wired on every console screen. Eight destinations, reachable from anywhere
-					inside the shell.
-				</p>
-				<div class="path">
-					Overview <b>·</b> Posts <b>·</b> Projects <b>·</b> Résumés<br />
-					Applications <b>·</b> Media <b>·</b> Topics <b>·</b> Account<br />
-					Posts <b>→</b> New post <b>·</b> Projects <b>→</b> Project editor
-				</div>
-			</div>
-			<div class="flow">
-				<div class="fnum">FLOW 3</div>
-				<h4>Public site</h4>
-				<p>What a visitor sees. Header nav plus the two index-to-detail jumps.</p>
-				<div class="path">
-					Profile <b>→</b> Writing <b>→</b> Public post<br />
-					Profile <b>→</b> Projects <b>→</b> Public project<br />
-					Profile <b>→</b> Résumé
-				</div>
-			</div>
-			<div class="flow">
-				<div class="fnum">FLOW 4</div>
-				<h4>Career Studio</h4>
-				<p>
-					The tracker is the hub; each row fans out to a different piece of work. This is the flow
-					worth walking first — it is the newest and least obvious part of the product.
-				</p>
-				<div class="path">
-					Tracker <b>→</b> Add a job<br />
-					Tracker <b>→</b> Tailor CV to job<br />
-					Tracker <b>→</b> Cover letter <b>→</b> Export PDF<br />
-					Tracker <b>→</b> Reflection prompt
-				</div>
-			</div>
-			<div class="flow">
-				<div class="fnum">FLOW 5</div>
-				<h4>Reset password (from email)</h4>
-				<p>
-					A separate entry point on purpose. This screen is reached by clicking a link in an email,
-					never from inside the app — starting it anywhere else would misrepresent how it is arrived
-					at.
-				</p>
-				<div class="path">Reset password <b>→</b> Sign in</div>
-			</div>
-			<div class="flow">
-				<div class="fnum">FLOW 6</div>
-				<h4>Console (dark)</h4>
-				<p>
-					The same console wiring in dark mode. Every one of the 376 links exists in both themes;
-					this flow is how you check that without switching files.
-				</p>
-				<div class="path">Overview (dark) <b>→</b> the full sidebar</div>
-			</div>
-		</div>
-	</div>
+    <div class="flows">
+      <div class="flow">
+        <div class="fnum">FLOW 1</div>
+        <h4>Sign in and verify</h4>
+        <p>The whole unauthenticated surface, including the two dead ends that are supposed to be dead ends.</p>
+        <div class="path">
+          Sign in <b>→</b> Overview<br>
+          Sign in <b>→</b> Create an account <b>→</b> Verification gate<br>
+          Sign in <b>→</b> Forgot password <b>→</b> Back to sign in
+        </div>
+      </div>
+      <div class="flow">
+        <div class="fnum">FLOW 2</div>
+        <h4>Console</h4>
+        <p>The sidebar, wired on every console screen. Eight destinations, reachable from anywhere inside the shell.</p>
+        <div class="path">
+          Overview <b>·</b> Posts <b>·</b> Projects <b>·</b> Résumés<br>
+          Applications <b>·</b> Media <b>·</b> Topics <b>·</b> Account<br>
+          Posts <b>→</b> New post <b>·</b> Projects <b>→</b> Project editor
+        </div>
+      </div>
+      <div class="flow">
+        <div class="fnum">FLOW 3</div>
+        <h4>Public site</h4>
+        <p>What a visitor sees. Header nav plus the two index-to-detail jumps.</p>
+        <div class="path">
+          Profile <b>→</b> Writing <b>→</b> Public post<br>
+          Profile <b>→</b> Projects <b>→</b> Public project<br>
+          Profile <b>→</b> Résumé
+        </div>
+      </div>
+      <div class="flow">
+        <div class="fnum">FLOW 4</div>
+        <h4>Career Studio</h4>
+        <p>The tracker is the hub; each row fans out to a different piece of work. This is the flow worth walking first — it is the newest and least obvious part of the product.</p>
+        <div class="path">
+          Tracker <b>→</b> Add a job<br>
+          Tracker <b>→</b> Tailor CV to job<br>
+          Tracker <b>→</b> Cover letter <b>→</b> Export PDF<br>
+          Tracker <b>→</b> Reflection prompt
+        </div>
+      </div>
+      <div class="flow">
+        <div class="fnum">FLOW 5</div>
+        <h4>Reset password (from email)</h4>
+        <p>A separate entry point on purpose. This screen is reached by clicking a link in an email, never from inside the app — starting it anywhere else would misrepresent how it is arrived at.</p>
+        <div class="path">Reset password <b>→</b> Sign in</div>
+      </div>
+      <div class="flow">
+        <div class="fnum">FLOW 6</div>
+        <h4>Console (dark)</h4>
+        <p>The same console wiring in dark mode. Every one of the 376 links exists in both themes; this flow is how you check that without switching files.</p>
+        <div class="path">Overview (dark) <b>→</b> the full sidebar</div>
+      </div>
+    </div>
+  </div>
 </section>
 
 <!-- ===================================================== 3 -->
 <section id="map">
-	<div class="shell">
-		<div class="sec-head">
-			<span class="sec-num">03</span>
-			<h2>Link map</h2>
-		</div>
-		<p class="sec-lede">
-			Every connection, by source. Sidebar links repeat across all console screens, which is where
-			most of the 376 comes from — 8 destinations × 2 themes × the screens that carry the shell.
-		</p>
+  <div class="shell">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Link map</h2></div>
+    <p class="sec-lede">
+      Every connection, by source. Sidebar links repeat across all console screens, which is where
+      most of the 376 comes from — 8 destinations × 2 themes × the screens that carry the shell.
+    </p>
 
-		<div class="scroller">
-			<table>
-				<thead>
-					<tr>
-						<th>From</th>
-						<th>Trigger</th>
-						<th>To</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr>
-						<td class="dim">Any console screen</td>
-						<td>
-							<b>Sidebar</b> · Overview, Posts, Projects, Résumés, Applications, Media, Topics,
-							Account
-						</td>
-						<td class="dim">
-							The matching list or detail screen. The current screen's own item is not wired to
-							itself.
-						</td>
-					</tr>
-					<tr>
-						<td class="dim">Any public screen</td>
-						<td><b>Header</b> · Writing, Projects, Résumé</td>
-						<td class="dim">Public author index, Public projects, Public résumé.</td>
-					</tr>
-					<tr>
-						<td class="dim">Sign in</td>
-						<td>Sign in <span class="pill p-neutral">button</span></td>
-						<td class="dim">Overview</td>
-					</tr>
-					<tr>
-						<td class="dim">Sign in</td>
-						<td>Create an account · Forgot password?</td>
-						<td class="dim">Create account · Forgot password</td>
-					</tr>
-					<tr>
-						<td class="dim">Create account</td>
-						<td>Create account <span class="pill p-neutral">button</span></td>
-						<td class="dim">Verification gate</td>
-					</tr>
-					<tr>
-						<td class="dim">Forgot password</td>
-						<td>Back to sign in</td>
-						<td class="dim">Sign in</td>
-					</tr>
-					<tr>
-						<td class="dim">Reset password</td>
-						<td>Set password</td>
-						<td class="dim">Sign in</td>
-					</tr>
-					<tr>
-						<td class="dim">Posts list</td>
-						<td>New post</td>
-						<td class="dim">New post</td>
-					</tr>
-					<tr>
-						<td class="dim">Projects list</td>
-						<td>Add project</td>
-						<td class="dim">Project editor</td>
-					</tr>
-					<tr>
-						<td class="dim">Application tracker</td>
-						<td>Add a job</td>
-						<td class="dim">Add a job</td>
-					</tr>
-					<tr>
-						<td class="dim">Application tracker</td>
-						<td>Senior Backend · Gojek <span class="pill p-neutral">row</span></td>
-						<td class="dim">Tailor CV to job</td>
-					</tr>
-					<tr>
-						<td class="dim">Application tracker</td>
-						<td>Platform Eng · Xendit <span class="pill p-neutral">row</span></td>
-						<td class="dim">Cover letter</td>
-					</tr>
-					<tr>
-						<td class="dim">Application tracker</td>
-						<td>Add reflection</td>
-						<td class="dim">Reflection prompt</td>
-					</tr>
-					<tr>
-						<td class="dim">Cover letter</td>
-						<td>Export PDF</td>
-						<td class="dim">Export PDF</td>
-					</tr>
-					<tr>
-						<td class="dim">Public profile</td>
-						<td>All posts → · All projects →</td>
-						<td class="dim">Public author index · Public projects</td>
-					</tr>
-					<tr>
-						<td class="dim">Public profile · author index</td>
-						<td>Building a CMS in Rust</td>
-						<td class="dim">Public post</td>
-					</tr>
-					<tr>
-						<td class="dim">Public projects</td>
-						<td>Blogport CMS</td>
-						<td class="dim">Public project</td>
-					</tr>
-				</tbody>
-			</table>
-		</div>
-		<p class="caption">
-			Each link sits on the smallest element that represents one label — a Button instance, or the
-			row frame holding an icon and its text. No two links share a node, so nothing silently
-			overwrites anything else.
-		</p>
-	</div>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>From</th><th>Trigger</th><th>To</th></tr></thead>
+        <tbody>
+          <tr><td class="dim">Any console screen</td><td><b>Sidebar</b> · Overview, Posts, Projects, Résumés, Applications, Media, Topics, Account</td><td class="dim">The matching list or detail screen. The current screen's own item is not wired to itself.</td></tr>
+          <tr><td class="dim">Any public screen</td><td><b>Header</b> · Writing, Projects, Résumé</td><td class="dim">Public author index, Public projects, Public résumé.</td></tr>
+          <tr><td class="dim">Sign in</td><td>Sign in <span class="pill p-neutral">button</span></td><td class="dim">Overview</td></tr>
+          <tr><td class="dim">Sign in</td><td>Create an account · Forgot password?</td><td class="dim">Create account · Forgot password</td></tr>
+          <tr><td class="dim">Create account</td><td>Create account <span class="pill p-neutral">button</span></td><td class="dim">Verification gate</td></tr>
+          <tr><td class="dim">Forgot password</td><td>Back to sign in</td><td class="dim">Sign in</td></tr>
+          <tr><td class="dim">Reset password</td><td>Set password</td><td class="dim">Sign in</td></tr>
+          <tr><td class="dim">Posts list</td><td>New post</td><td class="dim">New post</td></tr>
+          <tr><td class="dim">Projects list</td><td>Add project</td><td class="dim">Project editor</td></tr>
+          <tr><td class="dim">Application tracker</td><td>Add a job</td><td class="dim">Add a job</td></tr>
+          <tr><td class="dim">Application tracker</td><td>Senior Backend · Gojek <span class="pill p-neutral">row</span></td><td class="dim">Tailor CV to job</td></tr>
+          <tr><td class="dim">Application tracker</td><td>Platform Eng · Xendit <span class="pill p-neutral">row</span></td><td class="dim">Cover letter</td></tr>
+          <tr><td class="dim">Application tracker</td><td>Add reflection</td><td class="dim">Reflection prompt</td></tr>
+          <tr><td class="dim">Cover letter</td><td>Export PDF</td><td class="dim">Export PDF</td></tr>
+          <tr><td class="dim">Public profile</td><td>All posts → · All projects →</td><td class="dim">Public author index · Public projects</td></tr>
+          <tr><td class="dim">Public profile · author index</td><td>Building a CMS in Rust</td><td class="dim">Public post</td></tr>
+          <tr><td class="dim">Public projects</td><td>Blogport CMS</td><td class="dim">Public project</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption">
+      Each link sits on the smallest element that represents one label — a Button instance, or the row
+      frame holding an icon and its text. No two links share a node, so nothing silently overwrites
+      anything else.
+    </p>
+  </div>
 </section>
 
 <!-- ===================================================== 4 -->
 <section id="unwired">
-	<div class="shell">
-		<div class="sec-head">
-			<span class="sec-num">04</span>
-			<h2>Deliberately unwired</h2>
-		</div>
-		<p class="sec-lede">
-			Four things a click would misrepresent, and one that is simply outstanding. Read this before
-			concluding something is missing.
-		</p>
+  <div class="shell">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Deliberately unwired</h2></div>
+    <p class="sec-lede">
+      Four things a click would misrepresent, and one that is simply outstanding. Read this before
+      concluding something is missing.
+    </p>
 
-		<div class="laws">
-			<div class="law">
-				<h4>Verification gate → Overview</h4>
-				<p>
-					The gate clears when a verification email is acted on, not when a button is pressed.
-					Wiring a click here would teach the wrong model of a flow whose entire point is that the
-					app cannot move you forward on its own.
-				</p>
-			</div>
-			<div class="law">
-				<h4>Tailor CV → Cover letter</h4>
-				<p>
-					There is no control in the design for this step, so nothing was wired to fake one. Both
-					are reached from the tracker instead. <b>This is a real gap</b> — if the intended journey
-					is tailor-then-write, the tailor screen needs a control it currently lacks.
-				</p>
-			</div>
-			<div class="law">
-				<h4>The state screens</h4>
-				<p>
-					Posts — loading, empty, filtered empty, error and Applications — empty are documentation
-					of one screen's states, not destinations. They are reachable in the file and excluded from
-					the flows on purpose.
-				</p>
-			</div>
-			<div class="law">
-				<h4>Mobile and tablet frames</h4>
-				<p>
-					Drawn but not wired. The navigation model is identical to desktop and the flows above
-					describe it; wiring 140 more frames would restate it rather than test anything new. Worth
-					doing if the prototype is ever used for user testing on a phone.
-				</p>
-			</div>
-		</div>
-	</div>
+    <div class="laws">
+      <div class="law">
+        <h4>Verification gate → Overview</h4>
+        <p>
+          The gate clears when a verification email is acted on, not when a button is pressed. Wiring a
+          click here would teach the wrong model of a flow whose entire point is that the app cannot
+          move you forward on its own.
+        </p>
+      </div>
+      <div class="law">
+        <h4>Tailor CV → Cover letter</h4>
+        <p>
+          There is no control in the design for this step, so nothing was wired to fake one. Both are
+          reached from the tracker instead. <b>This is a real gap</b> — if the intended journey is
+          tailor-then-write, the tailor screen needs a control it currently lacks.
+        </p>
+      </div>
+      <div class="law">
+        <h4>The state screens</h4>
+        <p>
+          Posts — loading, empty, filtered empty, error and Applications — empty are documentation of
+          one screen's states, not destinations. They are reachable in the file and excluded from the
+          flows on purpose.
+        </p>
+      </div>
+      <div class="law">
+        <h4>Mobile and tablet frames</h4>
+        <p>
+          Drawn but not wired. The navigation model is identical to desktop and the flows above
+          describe it; wiring 140 more frames would restate it rather than test anything new. Worth
+          doing if the prototype is ever used for user testing on a phone.
+        </p>
+      </div>
+    </div>
+  </div>
 </section>
 
 <!-- ===================================================== 5 -->
 <section id="frames">
-	<div class="shell">
-		<div class="sec-head">
-			<span class="sec-num">05</span>
-			<h2>Frame inventory</h2>
-		</div>
-		<p class="sec-lede">
-			Three widths, both themes, thirty-five screens each. The tablet set is new — it did not exist
-			when the Forms and Interaction Spec was first written, which described 768–1023px as a rule
-			with no frames behind it.
-		</p>
+  <div class="shell">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Frame inventory</h2></div>
+    <p class="sec-lede">
+      Three widths, both themes, thirty-five screens each. The tablet set is new — it did not exist
+      when the Forms and Interaction Spec was first written, which described 768–1023px as a rule
+      with no frames behind it.
+    </p>
 
-		<div class="counts">
-			<div class="count">
-				<div class="n">210</div>
-				<div class="l">Screens total</div>
-			</div>
-			<div class="count">
-				<div class="n">70</div>
-				<div class="l">390 × 844 mobile</div>
-			</div>
-			<div class="count">
-				<div class="n">70</div>
-				<div class="l">834 × 1112 tablet</div>
-			</div>
-			<div class="count">
-				<div class="n">70</div>
-				<div class="l">1180 desktop</div>
-			</div>
-			<div class="count">
-				<div class="n">376</div>
-				<div class="l">Prototype links</div>
-			</div>
-		</div>
+    <div class="counts">
+      <div class="count"><div class="n">210</div><div class="l">Screens total</div></div>
+      <div class="count"><div class="n">70</div><div class="l">390 × 844 mobile</div></div>
+      <div class="count"><div class="n">70</div><div class="l">834 × 1112 tablet</div></div>
+      <div class="count"><div class="n">70</div><div class="l">1180 desktop</div></div>
+      <div class="count"><div class="n">376</div><div class="l">Prototype links</div></div>
+    </div>
 
-		<h3 class="block">What the tablet set does differently</h3>
-		<div class="scroller">
-			<table>
-				<thead>
-					<tr>
-						<th>Element</th>
-						<th>Desktop</th>
-						<th>Tablet · 834px</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr>
-						<td><b>Console sidebar</b></td>
-						<td class="dim">212px, icon and label</td>
-						<td class="dim">
-							64px icon rail, labels hidden, icons centred. Destinations unchanged.
-						</td>
-					</tr>
-					<tr>
-						<td><b>Tables</b></td>
-						<td class="dim">4–5 columns</td>
-						<td class="dim">
-							Three load-bearing columns. Identity and status are kept, the action or recency column
-							is kept, the middle is dropped — Applications loses <em>CV used</em> and
-							<em>Applied</em>; Posts loses <em>Topics</em>.
-						</td>
-					</tr>
-					<tr>
-						<td><b>Editor rail</b></td>
-						<td class="dim">Right rail beside the canvas</td>
-						<td class="dim">
-							Still a rail. It does not become a sheet — that transformation belongs to mobile.
-						</td>
-					</tr>
-					<tr>
-						<td><b>Public pages</b></td>
-						<td class="dim">860px centred column</td>
-						<td class="dim">
-							770px column, 32px gutters. Cards reflow from three across to three narrower.
-						</td>
-					</tr>
-					<tr>
-						<td><b>Modals</b></td>
-						<td class="dim">Centred over a full-bleed scrim</td>
-						<td class="dim">
-							Same, re-centred and capped at 770 wide. The scrim covers the frame.
-						</td>
-					</tr>
-				</tbody>
-			</table>
-		</div>
-		<p class="caption">
-			Built by transforming the desktop frames rather than redrawing them, so every instance,
-			component binding and variable reference survived — the tablet set has the same zero unbound
-			colours as the rest of the file.
-		</p>
-	</div>
+    <h3 class="block">What the tablet set does differently</h3>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Element</th><th>Desktop</th><th>Tablet · 834px</th></tr></thead>
+        <tbody>
+          <tr><td><b>Console sidebar</b></td><td class="dim">212px, icon and label</td><td class="dim">64px icon rail, labels hidden, icons centred. Destinations unchanged.</td></tr>
+          <tr><td><b>Tables</b></td><td class="dim">4–5 columns</td><td class="dim">Three load-bearing columns. Identity and status are kept, the action or recency column is kept, the middle is dropped — Applications loses <em>CV used</em> and <em>Applied</em>; Posts loses <em>Topics</em>.</td></tr>
+          <tr><td><b>Editor rail</b></td><td class="dim">Right rail beside the canvas</td><td class="dim">Still a rail. It does not become a sheet — that transformation belongs to mobile.</td></tr>
+          <tr><td><b>Public pages</b></td><td class="dim">860px centred column</td><td class="dim">770px column, 32px gutters. The <em>column</em> is capped, never the full-bleed row it sits in — capping the row is what leaves a 5px gutter.</td></tr>
+          <tr><td><b>Card grids</b></td><td class="dim">3–4 across</td><td class="dim">They <b>wrap</b>, they do not shrink. Media and Projects become 3-up over two rows; four stat tiles stay on one row because they still fit.</td></tr>
+          <tr><td><b>Modals</b></td><td class="dim">Centred over a full-bleed scrim</td><td class="dim">Same, re-centred and capped at 770 wide. The scrim covers the frame.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption">
+      Built by transforming the desktop frames rather than redrawing them, so every instance,
+      component binding and variable reference survived — the tablet set has the same zero unbound
+      colours as the rest of the file.
+    </p>
+
+    <h3 class="block">Four sizing rules, learned the hard way</h3>
+    <p class="sec-lede" style="margin-bottom:18px">
+      The tablet set was rebuilt three times. Every defect traced to one of these four, and each is
+      silent — Figma reports nothing, the frame just looks wrong.
+    </p>
+    <div class="laws">
+      <div class="law">
+        <h4>A HUG box cannot hold a FILL child</h4>
+        <p>
+          HUG means "size to content"; FILL means "take what the parent gives". Together the box
+          collapses to its widest hug-sized sibling. This is how a 516px Excerpt field became a 44px
+          column — the width of the word "Excerpt". Promote the box to FILL first, or leave the
+          children fixed.
+        </p>
+      </div>
+      <div class="law">
+        <h4>Cap the column, not the row</h4>
+        <p>
+          On a centred layout the outer row is full-bleed and the column inside it carries the
+          gutter. Cap the row instead and the column keeps its old width, leaving a 5px margin
+          where 32 was intended.
+        </p>
+      </div>
+      <div class="law">
+        <h4>Instances resize; buttons and icons do not</h4>
+        <p>
+          A <code>Field</code> should fill its column. A <code>Button</code> should hug its label.
+          Excluding every instance from resizing pins a 480px field inside a 307px card; including
+          every instance squeezes buttons to slivers. The test is whether it currently overflows.
+        </p>
+      </div>
+      <div class="law">
+        <h4>FILL does nothing outside auto layout</h4>
+        <p>
+          A container with <code>layoutMode: NONE</code> ignores <code>layoutSizingHorizontal</code>
+          silently — the call succeeds and changes nothing, so a repair can report success and have
+          done nothing. Manual boxes need an explicit resize, and their height recomputed too, or
+          reflowed text overlaps whatever sits below.
+        </p>
+      </div>
+    </div>
+
+    <h3 class="block">Six checks before a width is called done</h3>
+    <p class="sec-lede" style="margin-bottom:18px">
+      Run them over every frame, not a sample. Three separate defects here were reported by a person
+      after an audit had called the same frames clean, and each time the fix was to widen the check
+      rather than patch the frame.
+    </p>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Check</th><th>Catches</th></tr></thead>
+        <tbody>
+          <tr><td><b>Overflows its parent box</b></td><td class="dim">Whether or not that parent clips. A non-clipping card hides the overflow from any clip-based check — this is what missed a 176px overrun.</td></tr>
+          <tr><td><b>Outside a manual parent's edge</b></td><td class="dim"><code>layoutMode: NONE</code> containers, where nothing reflows on its own.</td></tr>
+          <tr><td><b>Leaves the artboard</b></td><td class="dim">Absolute bounds against the frame. Catches pinned rails and modals.</td></tr>
+          <tr><td><b>Text at an absurd measure</b></td><td class="dim">Under ~110px with more than 25 characters — one word per line.</td></tr>
+          <tr><td><b>Control squeezed</b></td><td class="dim">A non-icon instance under 40px wide. Icons are legitimately small; exclude them or every tab bar is a false positive.</td></tr>
+          <tr><td><b>Stacked siblings overlapping</b></td><td class="dim">Vertical auto layout where one child's bottom passes the next child's top.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption">
+      Current state: <b>210 screens, zero findings on all six</b>, zero unbound colours.
+    </p>
+  </div>
 </section>
 
 <!-- ===================================================== 6 -->
 <section id="assets">
-	<div class="shell">
-		<div class="sec-head">
-			<span class="sec-num">06</span>
-			<h2>Asset manifest</h2>
-		</div>
-		<p class="sec-lede">
-			Export settings are configured on 228 nodes, so anything below can be pulled straight from the
-			file. Most of it you should not pull at all — that is the point of the third column.
-		</p>
+  <div class="shell">
+    <div class="sec-head"><span class="sec-num">06</span><h2>Asset manifest</h2></div>
+    <p class="sec-lede">
+      Export settings are configured on 228 nodes, so anything below can be pulled straight from the
+      file. Most of it you should not pull at all — that is the point of the third column.
+    </p>
 
-		<div class="scroller">
-			<table>
-				<thead>
-					<tr>
-						<th>Asset</th>
-						<th>In the file</th>
-						<th>Ship it?</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr>
-						<td><b>Icons</b></td>
-						<td class="dim">
-							18 components, <code>SVG</code> export configured, strokes bound to a theme token
-						</td>
-						<td class="dim">
-							<span class="pill p-danger">No</span> Import from <code>lucide-svelte</code>. Each
-							component's description carries its exact import line. Exporting them as SVG files
-							would fork the icon set from its upstream.
-						</td>
-					</tr>
-					<tr>
-						<td><b>Screens</b></td>
-						<td class="dim">210 frames, <code>PNG @2x</code> configured</td>
-						<td class="dim">
-							<span class="pill p-inflight">Reference only</span> For tickets, review and design QA.
-							Never as a build asset.
-						</td>
-					</tr>
-					<tr>
-						<td><b>Logo / wordmark</b></td>
-						<td class="dim">"Arch", set in Sen 800</td>
-						<td class="dim">
-							<span class="pill p-inflight">Type, not an asset</span> It is live text, so it themes
-							and scales for free. If a real mark is ever commissioned, it becomes the one genuine
-							SVG in this product.
-						</td>
-					</tr>
-					<tr>
-						<td><b>Illustrations</b></td>
-						<td class="dim">None</td>
-						<td class="dim">
-							<span class="pill p-neutral">n/a</span> Empty states are set in type. That was a
-							design decision, not an omission — see CollectionState.
-						</td>
-					</tr>
-					<tr>
-						<td><b>Colour tokens</b></td>
-						<td class="dim">
-							<code>Theme</code> collection, 18 variables × 2 modes, WEB code syntax
-						</td>
-						<td class="dim">
-							<span class="pill p-live">Yes</span> Via <code>theme.css</code>. Dev Mode emits
-							<code>var(--color-arch-bg)</code> rather than a hex, so the two stay in step.
-						</td>
-					</tr>
-					<tr>
-						<td><b>Photography</b></td>
-						<td class="dim">88 image fills across 44 positions</td>
-						<td class="dim"><span class="pill p-danger">No</span> Placeholders. See §08.</td>
-					</tr>
-				</tbody>
-			</table>
-		</div>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Asset</th><th>In the file</th><th>Ship it?</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>Icons</b></td>
+            <td class="dim">18 components, <code>SVG</code> export configured, strokes bound to a theme token</td>
+            <td class="dim"><span class="pill p-danger">No</span> Import from <code>lucide-svelte</code>. Each component's description carries its exact import line. Exporting them as SVG files would fork the icon set from its upstream.</td>
+          </tr>
+          <tr>
+            <td><b>Screens</b></td>
+            <td class="dim">210 frames, <code>PNG @2x</code> configured</td>
+            <td class="dim"><span class="pill p-inflight">Reference only</span> For tickets, review and design QA. Never as a build asset.</td>
+          </tr>
+          <tr>
+            <td><b>Logo / wordmark</b></td>
+            <td class="dim">"Arch", set in Sen 800</td>
+            <td class="dim"><span class="pill p-inflight">Type, not an asset</span> It is live text, so it themes and scales for free. If a real mark is ever commissioned, it becomes the one genuine SVG in this product.</td>
+          </tr>
+          <tr>
+            <td><b>Illustrations</b></td>
+            <td class="dim">None</td>
+            <td class="dim"><span class="pill p-neutral">n/a</span> Empty states are set in type. That was a design decision, not an omission — see CollectionState.</td>
+          </tr>
+          <tr>
+            <td><b>Colour tokens</b></td>
+            <td class="dim"><code>Theme</code> collection, 18 variables × 2 modes, WEB code syntax</td>
+            <td class="dim"><span class="pill p-live">Yes</span> Via <code>theme.css</code>. Dev Mode emits <code>var(--color-arch-bg)</code> rather than a hex, so the two stay in step.</td>
+          </tr>
+          <tr>
+            <td><b>Photography</b></td>
+            <td class="dim">88 image fills across 44 positions</td>
+            <td class="dim"><span class="pill p-danger">No</span> Placeholders. See §08.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-		<div class="alert">
-			<h4>One token is new since <code>theme.css</code> was issued</h4>
-			<p>
-				<code>arch/line-control</code> — light <code>#81888c</code>, dark <code>#919396</code> — and
-				six existing values changed in the accessibility audit. Take the corrected set from the
-				Accessibility Specification, §03. The Figma file is already correct.
-			</p>
-		</div>
-	</div>
+    <div class="alert">
+      <h4>One token is new since <code>theme.css</code> was issued</h4>
+      <p>
+        <code>arch/line-control</code> — light <code>#81888c</code>, dark <code>#919396</code> — and six
+        existing values changed in the accessibility audit. Take the corrected set from the
+        Accessibility Specification, §03. The Figma file is already correct.
+      </p>
+    </div>
+  </div>
 </section>
 
 <!-- ===================================================== 7 -->
 <section id="fonts">
-	<div class="shell">
-		<div class="sec-head">
-			<span class="sec-num">07</span>
-			<h2>Type and icons</h2>
-		</div>
-		<p class="sec-lede">Three faces, one icon set, all of them free and self-hostable.</p>
-		<div class="scroller">
-			<table>
-				<thead>
-					<tr>
-						<th>Face</th>
-						<th>Role</th>
-						<th>Weights in use</th>
-						<th>Token</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr>
-						<td><b>Sen</b></td>
-						<td class="dim">Display — headings, numerals in stat tiles</td>
-						<td class="dim">700, 800</td>
-						<td><code>--font-display</code></td>
-					</tr>
-					<tr>
-						<td><b>Inter</b></td>
-						<td class="dim">Body and UI</td>
-						<td class="dim">300, 400, 500, 600, 700</td>
-						<td><code>--font-sans</code></td>
-					</tr>
-					<tr>
-						<td><b>JetBrains Mono</b></td>
-						<td class="dim">Code, slugs, table labels, timestamps</td>
-						<td class="dim">400, 500</td>
-						<td><code>--font-mono</code></td>
-					</tr>
-				</tbody>
-			</table>
-		</div>
-		<p class="caption">
-			Self-host rather than hotlink Google Fonts — a portfolio that loads a third-party font on
-			every public page hands a visitor log to someone else, and this product's public pages are the
-			whole point of it.
-		</p>
+  <div class="shell">
+    <div class="sec-head"><span class="sec-num">07</span><h2>Type and icons</h2></div>
+    <p class="sec-lede">Three faces, one icon set, all of them free and self-hostable.</p>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Face</th><th>Role</th><th>Weights in use</th><th>Token</th></tr></thead>
+        <tbody>
+          <tr><td><b>Sen</b></td><td class="dim">Display — headings, numerals in stat tiles</td><td class="dim">700, 800</td><td><code>--font-display</code></td></tr>
+          <tr><td><b>Inter</b></td><td class="dim">Body and UI</td><td class="dim">300, 400, 500, 600, 700</td><td><code>--font-sans</code></td></tr>
+          <tr><td><b>JetBrains Mono</b></td><td class="dim">Code, slugs, table labels, timestamps</td><td class="dim">400, 500</td><td><code>--font-mono</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption">
+      Self-host rather than hotlink Google Fonts — a portfolio that loads a third-party font on every
+      public page hands a visitor log to someone else, and this product's public pages are the whole
+      point of it.
+    </p>
 
-		<h3 class="block">The 18 icons</h3>
-		<div class="scroller">
-			<table>
-				<thead>
-					<tr>
-						<th>Group</th>
-						<th>Icons</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr>
-						<td class="dim">Navigation</td>
-						<td>
-							<code>layout-dashboard</code> <code>file-text</code> <code>folder</code>
-							<code>user</code> <code>briefcase</code> <code>image</code> <code>tag</code>
-							<code>circle-user</code>
-						</td>
-					</tr>
-					<tr>
-						<td class="dim">Action</td>
-						<td>
-							<code>plus</code> <code>search</code> <code>trash-2</code> <code>download</code>
-							<code>ellipsis</code> <code>check</code> <code>x</code>
-						</td>
-					</tr>
-					<tr>
-						<td class="dim">Direction</td>
-						<td><code>chevron-down</code> <code>chevron-left</code></td>
-					</tr>
-					<tr>
-						<td class="dim">AI</td>
-						<td>
-							<code>sparkles</code> — the only icon that marks model-generated surfaces, used
-							nowhere else
-						</td>
-					</tr>
-				</tbody>
-			</table>
-		</div>
-		<p class="caption">
-			Drawn at 20px, 1.5px stroke, stroke colour bound to a theme token so icons invert with the
-			interface. <code>import { Search } from 'lucide-svelte'</code> — the component description in
-			Figma carries the exact line for each.
-		</p>
-	</div>
+    <h3 class="block">The 18 icons</h3>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Group</th><th>Icons</th></tr></thead>
+        <tbody>
+          <tr><td class="dim">Navigation</td><td><code>layout-dashboard</code> <code>file-text</code> <code>folder</code> <code>user</code> <code>briefcase</code> <code>image</code> <code>tag</code> <code>circle-user</code></td></tr>
+          <tr><td class="dim">Action</td><td><code>plus</code> <code>search</code> <code>trash-2</code> <code>download</code> <code>ellipsis</code> <code>check</code> <code>x</code></td></tr>
+          <tr><td class="dim">Direction</td><td><code>chevron-down</code> <code>chevron-left</code></td></tr>
+          <tr><td class="dim">AI</td><td><code>sparkles</code> — the only icon that marks model-generated surfaces, used nowhere else</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption">
+      Drawn at 20px, 1.5px stroke, stroke colour bound to a theme token so icons invert with the
+      interface. <code>import { Search } from 'lucide-svelte'</code> — the component description in
+      Figma carries the exact line for each.
+    </p>
+  </div>
 </section>
 
 <!-- ===================================================== 8 -->
 <section id="photos">
-	<div class="shell">
-		<div class="sec-head">
-			<span class="sec-num">08</span>
-			<h2>Photography</h2>
-		</div>
-		<p class="sec-lede">
-			Every avatar and cover in the file is a real photograph rather than a grey box, because grey
-			boxes hide layout problems that photographs expose. None of it ships.
-		</p>
+  <div class="shell">
+    <div class="sec-head"><span class="sec-num">08</span><h2>Photography</h2></div>
+    <p class="sec-lede">
+      Every avatar and cover in the file is a real photograph rather than a grey box, because grey
+      boxes hide layout problems that photographs expose. None of it ships.
+    </p>
 
-		<div class="laws">
-			<div class="law">
-				<h4>Where it came from</h4>
-				<p>
-					Lorem Picsum for covers and screenshots, Pravatar for faces — both serve Unsplash-licensed
-					photography and both take a seed, which is what makes this reproducible rather than
-					random.
-				</p>
-			</div>
-			<div class="law">
-				<h4>Why light and dark match</h4>
-				<p>
-					Each image is keyed to its node's structural position — the screen name plus its
-					child-index path — so a light frame and its dark twin resolve to the same seed and the
-					same photograph. Keying on the screen name alone would have given the two clones different
-					pictures, because theme clones share a name.
-				</p>
-			</div>
-			<div class="law">
-				<h4>Media tiles are filled only when ready</h4>
-				<p>
-					<code>uploading</code>, <code>processing</code>, <code>failed</code> and
-					<code>archived</code> stay grey. A thumbnail is precisely what those states do not have
-					yet, and filling them would have made four of the six states illegible as states.
-				</p>
-			</div>
-			<div class="law">
-				<h4>What to do at build time</h4>
-				<p>
-					Ship no photograph from this file. Real content comes from the media pipeline; the public
-					profile's own avatar and covers are uploaded by the person whose portfolio it is. If a
-					marketing page ever needs stock, license it deliberately.
-				</p>
-			</div>
-		</div>
-	</div>
+    <div class="laws">
+      <div class="law">
+        <h4>Where it came from</h4>
+        <p>
+          Lorem Picsum for covers and screenshots, Pravatar for faces — both serve Unsplash-licensed
+          photography and both take a seed, which is what makes this reproducible rather than random.
+        </p>
+      </div>
+      <div class="law">
+        <h4>Why light and dark match</h4>
+        <p>
+          Each image is keyed to its node's structural position — the screen name plus its child-index
+          path — so a light frame and its dark twin resolve to the same seed and the same photograph.
+          Keying on the screen name alone would have given the two clones different pictures, because
+          theme clones share a name.
+        </p>
+      </div>
+      <div class="law">
+        <h4>Media tiles are filled only when ready</h4>
+        <p>
+          <code>uploading</code>, <code>processing</code>, <code>failed</code> and
+          <code>archived</code> stay grey. A thumbnail is precisely what those states do not have yet,
+          and filling them would have made four of the six states illegible as states.
+        </p>
+      </div>
+      <div class="law">
+        <h4>What to do at build time</h4>
+        <p>
+          Ship no photograph from this file. Real content comes from the media pipeline; the public
+          profile's own avatar and covers are uploaded by the person whose portfolio it is. If a
+          marketing page ever needs stock, license it deliberately.
+        </p>
+      </div>
+    </div>
+  </div>
 </section>
 
 <footer>
-	<div class="shell prose">
-		<p>
-			<b>Blogport · Prototype Map and Asset Manifest.</b> Seventh of seven papers. Counts in this
-			document were read out of the Figma file rather than estimated: 210 frames, 376 prototype
-			links on 376 distinct nodes, 6 flows, 228 nodes carrying export settings, 88 image fills
-			across 44 positions.
-		</p>
-	</div>
+  <div class="shell prose">
+    <p>
+      <b>Blogport · Prototype Map and Asset Manifest.</b> Seventh of seven papers. Counts in this
+      document were read out of the Figma file rather than estimated: 210 frames, 376 prototype links
+      on 376 distinct nodes, 6 flows, 228 nodes carrying export settings, 88 image fills across 44
+      positions.
+    </p>
+  </div>
 </footer>
