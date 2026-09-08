@@ -47,6 +47,14 @@ afterEach(() => vi.useRealTimers());
 
 // ── the rows ───────────────────────────────────────────────────────────────
 
+test('a row opens its post, because a list of titles you cannot click is a report', async () => {
+	const screen = render(PostsPage, base);
+
+	await expect
+		.element(screen.getByRole('link', { name: 'Building a CMS in Rust' }))
+		.toHaveAttribute('href', '/studio/posts/1');
+});
+
 test('lists the posts with the state each is in', async () => {
 	const screen = render(PostsPage, base);
 

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { resolve } from '$app/paths';
 	import { Plus, Search } from '@lucide/svelte';
 	import { Button, EmptyState, SkeletonRows, StatusPill } from '$lib/shared/ui';
 	import { postStatus, updatedLabel } from '$lib/entities/post';
@@ -224,8 +225,16 @@
 					{#each posts as post (post.id)}
 						{@const status = postStatus(post.published_at)}
 						<tr class="border-b border-arch-line last:border-b-0">
-							<td class="px-[18px] py-3 text-[13px] font-medium text-arch-headline">
-								{post.title}
+							<td class="px-[18px] py-3 text-[13px] font-medium">
+								<!-- The row's own link rather than a whole-row click target: a
+								     table row that navigates cannot be reached by keyboard, and
+								     the title is the thing being opened. -->
+								<a
+									href={resolve('/studio/posts/[id]', { id: post.id })}
+									class="text-arch-headline underline-offset-4 hover:underline"
+								>
+									{post.title}
+								</a>
 							</td>
 							<td class="px-[18px] py-3">
 								<StatusPill tone={status.tone} label={status.label} />
