@@ -8,6 +8,22 @@ const config = {
 	compilerOptions: {
 		runes: true
 	},
+	vitePlugin: {
+		/**
+		 * Runes stay mandatory for everything in `src`. They cannot be mandatory
+		 * for `node_modules`: `lucide-svelte` is a Svelte 4 library that uses
+		 * `$$props`, which is a compile error under runes, and it is the icon set
+		 * the Figma components name by import. Without this the console cannot
+		 * draw a single icon.
+		 *
+		 * This narrows the rule to the code the rule is about. The longer-term fix
+		 * is `@lucide/svelte`, the Svelte 5 package — a dependency change, so it is
+		 * someone's call rather than mine.
+		 */
+		dynamicCompileOptions({ filename }) {
+			if (filename.includes('node_modules')) return { runes: false };
+		}
+	},
 	kit: {
 		// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
 		// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
