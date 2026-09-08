@@ -1,5 +1,6 @@
 import { UNEXPECTED, rateLimited, retryAfterSeconds } from '$lib/shared/lib/api-failure';
 import { normaliseEmail } from '$lib/shared/lib/email';
+import type { HandlingClass } from '$lib/shared/lib/error-class';
 
 /**
  * Ask for the verification link to be sent again.
@@ -30,13 +31,25 @@ export const RESEND_SENT_NEUTRAL =
 
 export type ResendResult =
 	| { ok: true }
-	| { ok: false; message: string; retryAfterSeconds: number | null; signedOut: boolean };
+	| {
+			ok: false;
+			message: string;
+			retryAfterSeconds: number | null;
+			signedOut: boolean;
+			/** Which of §07's six this is, so the caller colours it without a code. */
+			kind: HandlingClass;
+	  };
 
+/** `notOurs` by default, the same fallback the mapping itself takes. */
 function failed(
 	message: string,
-	{ seconds = null, signedOut = false }: { seconds?: number | null; signedOut?: boolean } = {}
+	{
+		seconds = null,
+		signedOut = false,
+		kind = 'notOurs'
+	}: { seconds?: number | null; signedOut?: boolean; kind?: HandlingClass } = {}
 ): ResendResult {
-	return { ok: false, message, retryAfterSeconds: seconds, signedOut };
+	return { ok: false, message, retryAfterSeconds: seconds, signedOut, kind };
 }
 
 export async function resendVerification(
@@ -64,14 +77,14 @@ export async function resendVerification(
 	switch (body?.error?.code) {
 		case 'RATE_LIMITED': {
 			const seconds = retryAfterSeconds(response);
-			return failed(rateLimited(seconds), { seconds });
+			return failed(rateLimited(seconds), { seconds, kind: 'wait' });
 		}
 		case 'MISSING_AUTH_HEADER':
 		case 'INVALID_TOKEN':
 		case 'TOKEN_EXPIRED':
 			// Not a failure to report in place: there is nothing to press again
 			// until they are signed in, so the caller sends them to do that.
-			return failed(SESSION_EXPIRED, { signedOut: true });
+			return failed(SESSION_EXPIRED, { signedOut: true, kind: 'session' });
 		default:
 			return failed(UNEXPECTED);
 	}

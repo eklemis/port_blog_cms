@@ -1,5 +1,6 @@
 import { UNEXPECTED, rateLimited, retryAfterSeconds } from '$lib/shared/lib/api-failure';
 import { normaliseEmail } from '$lib/shared/lib/email';
+import type { HandlingClass } from '$lib/shared/lib/error-class';
 import { normaliseUsername } from '../model/fields';
 
 /**
@@ -27,6 +28,8 @@ export type RegisterResult =
 			/** The address is taken — the screen offers signing in and resetting. */
 			collision: boolean;
 			retryAfterSeconds: number | null;
+			/** Which of §07's six this is, so the caller colours it without a code. */
+			kind: HandlingClass;
 	  };
 
 const FIELD_OF: Record<string, RegisterField> = {
@@ -36,15 +39,22 @@ const FIELD_OF: Record<string, RegisterField> = {
 	INVALID_PASSWORD: 'password'
 };
 
+/** `notOurs` by default, the same fallback the mapping itself takes. */
 function failed(
 	message: string,
 	{
 		field = null,
 		collision = false,
-		seconds = null
-	}: { field?: RegisterField | null; collision?: boolean; seconds?: number | null } = {}
+		seconds = null,
+		kind = 'notOurs'
+	}: {
+		field?: RegisterField | null;
+		collision?: boolean;
+		seconds?: number | null;
+		kind?: HandlingClass;
+	} = {}
 ): RegisterResult {
-	return { ok: false, field, message, collision, retryAfterSeconds: seconds };
+	return { ok: false, field, message, collision, retryAfterSeconds: seconds, kind };
 }
 
 export async function register(
@@ -78,13 +88,13 @@ export async function register(
 	const code = body?.error?.code ?? '';
 
 	if (code === 'USER_ALREADY_EXISTS') {
-		return failed(ADDRESS_TAKEN, { field: 'email', collision: true });
+		return failed(ADDRESS_TAKEN, { field: 'email', collision: true, kind: 'collision' });
 	}
 
 	if (code === 'RATE_LIMITED') {
 		const seconds = retryAfterSeconds(response);
 		// J1 names the action: someone who has hit a limit wants to know which.
-		return failed(rateLimited(seconds, 'Too many sign-up attempts'), { seconds });
+		return failed(rateLimited(seconds, 'Too many sign-up attempts'), { seconds, kind: 'wait' });
 	}
 
 	const field = FIELD_OF[code];
@@ -92,7 +102,7 @@ export async function register(
 		// The server's message names the failed rule. Ours mirrors the same rule,
 		// so arriving here means they disagreed — and the server is the authority
 		// on what it will accept.
-		return failed(body?.error?.message ?? UNEXPECTED, { field });
+		return failed(body?.error?.message ?? UNEXPECTED, { field, kind: 'field' });
 	}
 
 	return failed(UNEXPECTED);

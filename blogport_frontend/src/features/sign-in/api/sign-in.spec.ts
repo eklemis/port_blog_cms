@@ -78,7 +78,12 @@ test('a failed sign-in says one thing, in the product’s words', async () => {
 	const result = await signIn({ email: 'nobody@example.com', password: 'x' }, fetchFn);
 
 	// Not the backend's prose — the sentence the Console Blueprint chose.
-	expect(result).toEqual({ ok: false, message: SIGN_IN_FAILED, retryAfterSeconds: null });
+	expect(result).toEqual({
+		ok: false,
+		message: SIGN_IN_FAILED,
+		retryAfterSeconds: null,
+		kind: 'field'
+	});
 	expect(SIGN_IN_FAILED).toBe("That email and password don't match.");
 });
 
@@ -112,7 +117,9 @@ test('a rate limit reports how long, from Retry-After', async () => {
 	expect(result).toEqual({
 		ok: false,
 		message: 'Too many attempts. Try again in 5 minutes.',
-		retryAfterSeconds: 300
+		retryAfterSeconds: 300,
+		// Waiting, not failing — the amber class, never red.
+		kind: 'wait'
 	});
 });
 
@@ -134,7 +141,13 @@ test('a closed account is not a failed password', async () => {
 
 	const result = await signIn({ email: 'jane@example.com', password: 'x' }, fetchFn);
 
-	expect(result).toEqual({ ok: false, message: ACCOUNT_CLOSED, retryAfterSeconds: null });
+	expect(result).toEqual({
+		ok: false,
+		message: ACCOUNT_CLOSED,
+		retryAfterSeconds: null,
+		// The gate class: a closed account is not something to retype.
+		kind: 'gate'
+	});
 });
 
 test('a server fault is ours, and says so', async () => {
@@ -144,7 +157,12 @@ test('a server fault is ours, and says so', async () => {
 
 	const result = await signIn({ email: 'jane@example.com', password: 'x' }, fetchFn);
 
-	expect(result).toEqual({ ok: false, message: UNEXPECTED, retryAfterSeconds: null });
+	expect(result).toEqual({
+		ok: false,
+		message: UNEXPECTED,
+		retryAfterSeconds: null,
+		kind: 'notOurs'
+	});
 	expect(UNEXPECTED).toBe('Something went wrong on our side.');
 });
 
@@ -155,7 +173,12 @@ test('a dead network is not a raw exception in the user’s face', async () => {
 
 	const result = await signIn({ email: 'jane@example.com', password: 'x' }, fetchFn);
 
-	expect(result).toEqual({ ok: false, message: UNEXPECTED, retryAfterSeconds: null });
+	expect(result).toEqual({
+		ok: false,
+		message: UNEXPECTED,
+		retryAfterSeconds: null,
+		kind: 'notOurs'
+	});
 });
 
 test('a response that is not JSON at all falls back rather than throwing', async () => {
@@ -165,7 +188,12 @@ test('a response that is not JSON at all falls back rather than throwing', async
 
 	const result = await signIn({ email: 'jane@example.com', password: 'x' }, fetchFn);
 
-	expect(result).toEqual({ ok: false, message: UNEXPECTED, retryAfterSeconds: null });
+	expect(result).toEqual({
+		ok: false,
+		message: UNEXPECTED,
+		retryAfterSeconds: null,
+		kind: 'notOurs'
+	});
 });
 
 test('an unrecognised code never reaches the screen as a code', async () => {
@@ -176,5 +204,10 @@ test('an unrecognised code never reaches the screen as a code', async () => {
 
 	const result = await signIn({ email: 'jane@example.com', password: 'x' }, fetchFn);
 
-	expect(result).toEqual({ ok: false, message: UNEXPECTED, retryAfterSeconds: null });
+	expect(result).toEqual({
+		ok: false,
+		message: UNEXPECTED,
+		retryAfterSeconds: null,
+		kind: 'notOurs'
+	});
 });

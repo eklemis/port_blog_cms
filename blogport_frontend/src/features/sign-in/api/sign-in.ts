@@ -1,5 +1,6 @@
 import type { components } from '$lib/shared/api/v1';
 import { UNEXPECTED, rateLimited, retryAfterSeconds } from '$lib/shared/lib/api-failure';
+import type { HandlingClass } from '$lib/shared/lib/error-class';
 import { normaliseEmail } from '$lib/shared/lib/email';
 
 /**
@@ -7,8 +8,10 @@ import { normaliseEmail } from '$lib/shared/lib/email';
  *
  * The browser never holds a JWT: the proxy calls the backend, puts both tokens
  * in httpOnly cookies, and hands back the user. What is returned from here is a
- * user or a sentence — never a raw error code, which goes to the console and to
- * telemetry instead (Console Blueprint §06).
+ * user or a sentence and the handling class it belongs to — never a raw error
+ * code, which goes to the console and to telemetry instead (Console Blueprint
+ * §06). The class is not the code: it is one of the six §07 defines, and it is
+ * what decides whether the message is red, amber or neither.
  */
 
 type LoginUserInfo = components['schemas']['LoginUserInfo'];
@@ -33,10 +36,10 @@ export const ACCOUNT_CLOSED = 'That account has been closed.';
 
 export type SignInResult =
 	| { ok: true; user: LoginUserInfo }
-	| { ok: false; message: string; retryAfterSeconds: number | null };
+	| { ok: false; message: string; retryAfterSeconds: number | null; kind: HandlingClass };
 
-function failed(message: string, seconds: number | null = null): SignInResult {
-	return { ok: false, message, retryAfterSeconds: seconds };
+function failed(message: string, kind: HandlingClass, seconds: number | null = null): SignInResult {
+	return { ok: false, message, retryAfterSeconds: seconds, kind };
 }
 
 export async function signIn(
@@ -57,7 +60,7 @@ export async function signIn(
 		});
 	} catch {
 		// A dead network, a blocked request. Nothing the person did.
-		return failed(UNEXPECTED);
+		return failed(UNEXPECTED, 'notOurs');
 	}
 
 	const body = (await response.json().catch(() => null)) as {
@@ -69,16 +72,16 @@ export async function signIn(
 
 	switch (body?.error?.code) {
 		case 'INVALID_CREDENTIALS':
-			return failed(SIGN_IN_FAILED);
+			return failed(SIGN_IN_FAILED, 'field');
 		case 'USER_DELETED':
-			return failed(ACCOUNT_CLOSED);
+			return failed(ACCOUNT_CLOSED, 'gate');
 		case 'RATE_LIMITED': {
 			const seconds = retryAfterSeconds(response);
-			return failed(rateLimited(seconds), seconds);
+			return failed(rateLimited(seconds), 'wait', seconds);
 		}
 		default:
 			// Anything else — including a code added to the API after this was
 			// written — is ours to own rather than theirs to decipher.
-			return failed(UNEXPECTED);
+			return failed(UNEXPECTED, 'notOurs');
 	}
 }

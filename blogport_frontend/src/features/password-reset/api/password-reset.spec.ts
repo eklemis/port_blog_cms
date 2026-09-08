@@ -57,7 +57,8 @@ test('a rate limit is reported with a real countdown', async () => {
 		ok: false,
 		message: 'Too many attempts. Try again in 60 minutes.',
 		retryAfterSeconds: 3600,
-		expired: false
+		expired: false,
+		kind: 'wait'
 	});
 });
 
@@ -100,7 +101,12 @@ test('a stale link is reported as one, so the screen can offer a fresh one', asy
 		ok: false,
 		message: RESET_LINK_DEAD,
 		retryAfterSeconds: null,
-		expired: true
+		expired: true,
+		// §07 files a dead token under session. It does not read like one here —
+		// the recovery is a fresh link, not a re-authentication — but the screen
+		// this drives is its own, so the class only decides a colour it never
+		// gets to show. Flagged rather than reclassified locally.
+		kind: 'session'
 	});
 	expect(RESET_LINK_DEAD).toBe('This reset link is no longer valid.');
 });
@@ -116,7 +122,8 @@ test('a refused password keeps the token usable and says why', async () => {
 		ok: false,
 		message: 'Password must be at least 12 characters',
 		retryAfterSeconds: null,
-		expired: false
+		expired: false,
+		kind: 'field'
 	});
 });
 
