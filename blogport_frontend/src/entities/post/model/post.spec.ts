@@ -1,5 +1,12 @@
 import { expect, test } from 'vitest';
-import { TITLE_COUNTER_FROM, TITLE_MAX, postStatus, titleError, updatedLabel } from './post';
+import {
+	TITLE_COUNTER_FROM,
+	TITLE_MAX,
+	postStatus,
+	publicPostPath,
+	titleError,
+	updatedLabel
+} from './post';
 
 /**
  * What a post row can say about itself.
@@ -74,4 +81,16 @@ test('the counter appears before the cap does, not at it', () => {
 	// at submit.
 	expect(TITLE_COUNTER_FROM).toBe(160);
 	expect(TITLE_COUNTER_FROM).toBeLessThan(TITLE_MAX);
+});
+
+// ── where it goes live ─────────────────────────────────────────────────────
+
+test('the public address is the one the surface map gives', () => {
+	// `/[username]/blog/[slug]`. J4's prose shortens it to `/{username}/{slug}`,
+	// which is not a route in the map — see the PR.
+	expect(publicPostPath('janedoe', 'building-a-cms')).toBe('/janedoe/blog/building-a-cms');
+});
+
+test('both halves are escaped, because both come from a person', () => {
+	expect(publicPostPath('jane doe', 'a slug')).toBe('/jane%20doe/blog/a%20slug');
 });

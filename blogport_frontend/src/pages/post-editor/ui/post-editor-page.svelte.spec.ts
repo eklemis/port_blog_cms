@@ -22,14 +22,14 @@ const post = {
 };
 
 test('shows the editor for a post that is yours', async () => {
-	const screen = render(PostEditorPage, { post, denied: false });
+	const screen = render(PostEditorPage, { post, username: 'janedoe', denied: false });
 
 	await expect.element(screen.getByRole('textbox', { name: 'Title' })).toBeInTheDocument();
 });
 
 test('someone else’s post is a plain sentence with a way back', async () => {
 	// Only reachable by pasting a URL, and never a bounce through login.
-	const screen = render(PostEditorPage, { post: null, denied: true });
+	const screen = render(PostEditorPage, { post: null, username: 'janedoe', denied: true });
 
 	await expect.element(screen.getByText("You don't have access to this post.")).toBeInTheDocument();
 	await expect.element(screen.getByRole('link', { name: 'Back to posts' })).toBeInTheDocument();
@@ -37,13 +37,13 @@ test('someone else’s post is a plain sentence with a way back', async () => {
 });
 
 test('has no accessibility violations', async () => {
-	render(PostEditorPage, { post, denied: false });
+	render(PostEditorPage, { post, username: 'janedoe', denied: false });
 
 	await expectNoA11yViolations(document.body, UNSTYLED_GEOMETRY);
 });
 
 test('nor does the no-access page', async () => {
-	render(PostEditorPage, { post: null, denied: true });
+	render(PostEditorPage, { post: null, username: 'janedoe', denied: true });
 
 	await expectNoA11yViolations(document.body, UNSTYLED_GEOMETRY);
 });

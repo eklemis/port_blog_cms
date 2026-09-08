@@ -78,3 +78,17 @@ export const CONTENT_REQUIRED = 'The post needs something in it.';
 export function contentError(content: string): string | undefined {
 	return content.trim() ? undefined : CONTENT_REQUIRED;
 }
+
+/**
+ * Where a published post lives.
+ *
+ * `/[username]/blog/[slug]`, which is the row in §03's public surface map. J4's
+ * prose shortens it to `/{username}/{slug}` — that is not a route in the map,
+ * and the map is the contract.
+ *
+ * Both halves are escaped: a username is chosen by a person and a slug accepts
+ * anything the server accepts, which includes spaces.
+ */
+export function publicPostPath(username: string, slug: string): string {
+	return `/${encodeURIComponent(username)}/blog/${encodeURIComponent(slug)}`;
+}

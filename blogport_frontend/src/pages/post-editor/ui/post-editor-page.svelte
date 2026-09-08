@@ -21,7 +21,16 @@
 		published_at?: string | null;
 	};
 
-	let { post, denied = false }: { post: Post | null; denied?: boolean } = $props();
+	let {
+		post,
+		username,
+		denied = false
+	}: {
+		post: Post | null;
+		/** Whose post it is. The public address is built from it. */
+		username: string;
+		denied?: boolean;
+	} = $props();
 </script>
 
 {#if denied || !post}
@@ -34,5 +43,5 @@
 		{/snippet}
 	</EmptyState>
 {:else}
-	<PostEditor {post} />
+	<PostEditor {post} {username} />
 {/if}
