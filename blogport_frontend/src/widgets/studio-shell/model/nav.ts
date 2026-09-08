@@ -1,4 +1,4 @@
-import { FileText, Folder, Image, LayoutDashboard, Tag, User } from '@lucide/svelte';
+import { Briefcase, FileText, Folder, Image, LayoutDashboard, Tag, User } from '@lucide/svelte';
 import type { Component } from 'svelte';
 import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
 
@@ -23,6 +23,7 @@ export const NAV: NavItem[] = [
 	{ label: 'Posts', href: CONSOLE_ROUTES.posts, icon: FileText },
 	{ label: 'Projects', href: CONSOLE_ROUTES.projects, icon: Folder },
 	{ label: 'Résumés', href: CONSOLE_ROUTES.resumes, icon: User },
+	{ label: 'Applications', href: CONSOLE_ROUTES.applications, icon: Briefcase },
 	{ label: 'Media', href: CONSOLE_ROUTES.media, icon: Image },
 	{ label: 'Topics', href: CONSOLE_ROUTES.topics, icon: Tag }
 ];
@@ -37,12 +38,16 @@ export const ACCOUNT: NavItem = {
 /**
  * Five at 390px, and everything else behind More — a wrapped tab row pushes the
  * first result below the fold, which defeats the point of the screen.
+ *
+ * Résumés is the one that steps off the bar when Applications joins it: a
+ * résumé is built at a desk, an application is checked on a phone between other
+ * things. Flagged to the designer with the frame it came from.
  */
 export const TAB_BAR: NavItem[] = [
 	NAV[1], // Posts
 	NAV[2], // Projects
-	NAV[3], // Résumés
-	NAV[4], // Media
+	NAV[4], // Applications
+	NAV[5], // Media
 	{ label: 'More', href: CONSOLE_ROUTES.account, icon: Tag }
 ];
 
