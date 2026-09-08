@@ -41,3 +41,40 @@ export function postStatus(
  * for it.
  */
 export const updatedLabel = relativeDate;
+
+/**
+ * The title rules, which are the server's.
+ *
+ * `create_blog_post_service` trims, refuses empty, and caps at 200 on
+ * `chars().count()` — code points, so an emoji is one character and not two.
+ * The code it answers with is `INVALID_TITLE` in both cases; `EMPTY_TITLE`
+ * belongs to topics and blog never sends it, whatever J4's branch list says.
+ */
+export const TITLE_MAX = 200;
+
+/** J4: a live counter from here on, rather than a rejection at submit. */
+export const TITLE_COUNTER_FROM = 160;
+
+export const TITLE_REQUIRED = 'A title is required.';
+export const TITLE_TOO_LONG = `Titles are ${TITLE_MAX} characters at most.`;
+
+/** `undefined` when it is usable — the shape every field validator here takes. */
+export function titleError(title: string): string | undefined {
+	const trimmed = title.trim();
+
+	if (!trimmed) return TITLE_REQUIRED;
+	if ([...trimmed].length > TITLE_MAX) return TITLE_TOO_LONG;
+
+	return undefined;
+}
+
+/**
+ * The body rule, which is also the server's: `validate_content` refuses a body
+ * that is empty once trimmed, so a genuinely blank draft cannot be created —
+ * whatever J4's "create the draft first" implies.
+ */
+export const CONTENT_REQUIRED = 'The post needs something in it.';
+
+export function contentError(content: string): string | undefined {
+	return content.trim() ? undefined : CONTENT_REQUIRED;
+}

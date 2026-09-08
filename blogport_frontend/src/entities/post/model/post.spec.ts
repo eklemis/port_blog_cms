@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { postStatus, updatedLabel } from './post';
+import { TITLE_COUNTER_FROM, TITLE_MAX, postStatus, titleError, updatedLabel } from './post';
 
 /**
  * What a post row can say about itself.
@@ -47,4 +47,31 @@ test('when it changed is the shared sentence, not a second one', () => {
 	// its own and drifting from the tracker.
 	expect(updatedLabel('2026-09-08T07:00:00Z', NOW)).toBe('5 hours ago');
 	expect(updatedLabel('not-a-date', NOW)).toBe('—');
+});
+
+// ── the title ──────────────────────────────────────────────────────────────
+
+test('a post needs a title, because the server will not take one without', () => {
+	// `INVALID_TITLE` with "Title cannot be empty" — not the `EMPTY_TITLE` the
+	// blueprint's branch list names, which blog never sends. See the PR.
+	expect(titleError('')).toBeDefined();
+	expect(titleError('   ')).toBeDefined();
+});
+
+test('the cap is 200, counted the way the server counts it', () => {
+	// Rust validates on `chars().count()`, so an emoji is one and not two.
+	expect(titleError('a'.repeat(TITLE_MAX))).toBeUndefined();
+	expect(titleError('a'.repeat(TITLE_MAX + 1))).toBeDefined();
+	expect(titleError('🌱'.repeat(TITLE_MAX))).toBeUndefined();
+});
+
+test('the cap is measured on the trimmed title, as the server measures it', () => {
+	expect(titleError(`  ${'a'.repeat(TITLE_MAX)}  `)).toBeUndefined();
+});
+
+test('the counter appears before the cap does, not at it', () => {
+	// J4: show a live counter from 160 characters onward rather than rejecting
+	// at submit.
+	expect(TITLE_COUNTER_FROM).toBe(160);
+	expect(TITLE_COUNTER_FROM).toBeLessThan(TITLE_MAX);
 });
