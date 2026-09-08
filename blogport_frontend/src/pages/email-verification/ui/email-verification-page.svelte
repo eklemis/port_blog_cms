@@ -89,6 +89,9 @@
 			</p>
 
 			<div class="flex flex-col">
+				<!-- eslint-disable svelte/no-navigation-without-resolve --
+					`resolve()` takes a route id that exists, and /studio is in the surface
+					map without being built yet. Swap both in when it is. -->
 				<div class="flex flex-col gap-[18px] md:flex-row md:items-start md:gap-[9px]">
 					{#if verified}
 						<a
