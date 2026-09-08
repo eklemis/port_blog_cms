@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import { createRawSnippet } from 'svelte';
 import { render } from 'vitest-browser-svelte';
+import { userEvent } from '@vitest/browser/context';
 import { expectNoA11yViolations } from '$lib/shared/test/a11y';
 import StudioShell from './studio-shell.svelte';
 
@@ -72,6 +73,58 @@ test('both navs are labelled, so they are distinguishable to a screen reader', a
 	const screen = render(StudioShell, props());
 
 	expect(screen.getByRole('navigation', { name: 'Console' }).elements().length).toBeGreaterThan(0);
+});
+
+// ── the More sheet ─────────────────────────────────────────────────────────
+
+test('More is a button, not a destination — it has none of its own', async () => {
+	const screen = render(StudioShell, props());
+
+	await expect.element(screen.getByRole('button', { name: 'More' })).toBeInTheDocument();
+	expect(screen.getByRole('link', { name: 'More' }).elements()).toHaveLength(0);
+});
+
+test('the sheet is shut until it is asked for', async () => {
+	const screen = render(StudioShell, props());
+
+	expect(screen.getByRole('dialog').elements()).toHaveLength(0);
+});
+
+test('More opens a sheet holding the four the bar has no room for', async () => {
+	const screen = render(StudioShell, props());
+
+	await screen.getByRole('button', { name: 'More' }).click();
+
+	const sheet = screen.getByRole('dialog', { name: 'More' });
+	await expect.element(sheet).toBeInTheDocument();
+
+	for (const label of ['Overview', 'Résumés', 'Topics', 'Account']) {
+		expect(
+			sheet.getByRole('link', { name: label }).elements(),
+			`${label} is unreachable at 390px without it`
+		).toHaveLength(1);
+	}
+});
+
+test('Escape closes it and gives focus back to what opened it', async () => {
+	// §06: Esc closes a bottom sheet and restores focus. A sheet that strands
+	// the caret on a closed dialog is a keyboard dead end.
+	const screen = render(StudioShell, props());
+	const more = screen.getByRole('button', { name: 'More' });
+
+	await more.click();
+	await userEvent.keyboard('{Escape}');
+
+	expect(screen.getByRole('dialog').elements()).toHaveLength(0);
+	expect(document.activeElement).toBe(more.element());
+});
+
+test('the sheet has no accessibility violations either', async () => {
+	const screen = render(StudioShell, props());
+
+	await screen.getByRole('button', { name: 'More' }).click();
+
+	await expectNoA11yViolations(document.body, UNSTYLED_GEOMETRY);
 });
 
 test('has no accessibility violations', async () => {

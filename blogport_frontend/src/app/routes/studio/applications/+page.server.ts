@@ -11,6 +11,12 @@ import { trackerRows, type Application, type Job } from '$lib/entities/applicati
  * read off the URL — the map says as much, and §09 says the same thing from
  * the other direction when it explains why "no reply" cannot be a filter.
  *
+ * That also means this screen fetches both lists whole, every time. Forty
+ * applications is nothing; four hundred is the first place the missing summary
+ * endpoint actually hurts, and it hurts here before it hurts the Overview,
+ * which reads one of the two. Recorded against that ask rather than worked
+ * around — a page size we invent client-side would only hide the row count.
+ *
  * The join is done here rather than in the page so the page renders rows and
  * nothing else.
  */

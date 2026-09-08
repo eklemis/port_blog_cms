@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
-import { NAV, TAB_BAR, currentLabel, isCurrent } from './nav';
+import { ACCOUNT, MORE, NAV, TAB_BAR, currentLabel, isCurrent } from './nav';
 
 /**
  * The console's navigation, defined once so the sidebar, the tablet rail and
@@ -28,22 +28,41 @@ test('every item points somewhere the map names', () => {
 	for (const item of NAV) expect(known).toContain(item.href);
 });
 
-test('the tab bar is five items, the rest behind More', () => {
-	// A wrapped tab row pushes content below the fold; five is what fits.
-	expect(TAB_BAR).toHaveLength(5);
-	expect(TAB_BAR.at(-1)?.label).toBe('More');
-});
-
-test('the tab bar carries the four the mobile frame puts on the bar', () => {
-	// Résumés is the one the frame drops when Applications joins: a résumé is
-	// edited at a desk, an application is checked on a phone.
-	expect(TAB_BAR.map((item) => item.label)).toEqual([
+test('the bar is the four destinations the mobile frames draw', () => {
+	// Identical on all fourteen console frames that carry a bar, which is what
+	// makes it a decision rather than a screenshot artefact. The fifth slot is
+	// More, and More is not a destination — it opens the sheet.
+	expect(TAB_BAR.map((item) => item.short ?? item.label)).toEqual([
 		'Posts',
 		'Projects',
-		'Applications',
-		'Media',
-		'More'
+		'Apps',
+		'Media'
 	]);
+});
+
+test('a slot that cannot fit the full name says the short one', () => {
+	// "Apps" is what the frame prints. It is also the accessible name — an
+	// aria-label of "Applications" would not contain the visible text, which
+	// is exactly what 2.5.3 forbids.
+	const apps = TAB_BAR.find((item) => item.href === CONSOLE_ROUTES.applications);
+
+	expect(apps?.short).toBe('Apps');
+	expect(apps?.label).toBe('Applications');
+});
+
+test('More holds the four that do not fit, Overview first', () => {
+	// Overview first because it is the home screen — and until this sheet
+	// exists, Mobile / Overview has no way in at all.
+	expect(MORE.map((item) => item.label)).toEqual(['Overview', 'Résumés', 'Topics', 'Account']);
+});
+
+test('between the bar and the sheet, nothing is unreachable at 390px', () => {
+	// The invariant that matters: eight destinations, five slots. Anything
+	// dropped from the bar has to turn up behind More.
+	const reachable = [...TAB_BAR, ...MORE].map((item) => item.href).sort();
+	const every = [...NAV, ACCOUNT].map((item) => item.href).sort();
+
+	expect(reachable).toEqual(every);
 });
 
 // ── which item is lit ──────────────────────────────────────────────────────
