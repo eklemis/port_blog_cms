@@ -16,3 +16,21 @@ export const CONSOLE_ROUTE = '/studio';
 export const HOLD_ROUTE = '/verify';
 
 export const SIGN_IN_ROUTE = '/auth/login';
+
+/**
+ * The console's surfaces, in the order the sidebar lists them.
+ *
+ * Six, not the seven the frames draw. "Applications" is in every Overview frame
+ * and has screens of its own in the file, but the Console Blueprint's route map
+ * does not mention it — the word does not appear in the document at all — so
+ * there is no route to point it at. Omitted rather than invented; see the PR.
+ */
+export const CONSOLE_ROUTES = {
+	overview: '/studio',
+	posts: '/studio/posts',
+	projects: '/studio/projects',
+	resumes: '/studio/resumes',
+	media: '/studio/media',
+	topics: '/studio/topics',
+	account: '/studio/account'
+} as const;
