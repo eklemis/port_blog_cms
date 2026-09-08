@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Plus } from '@lucide/svelte';
-	import { Button, StatusPill } from '$lib/shared/ui';
+	import { Button, EmptyState, SkeletonRows, StatusPill } from '$lib/shared/ui';
 	import type { TrackerRow } from '$lib/entities/application';
 	import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
 
@@ -17,7 +17,15 @@
 	 *
 	 * Design: Screen / Application tracker · Screen / Applications — empty.
 	 */
-	let { rows, failed = false }: { rows: TrackerRow[]; failed?: boolean } = $props();
+	let {
+		rows,
+		failed = false,
+		loading = false
+	}: {
+		rows: TrackerRow[];
+		failed?: boolean;
+		loading?: boolean;
+	} = $props();
 </script>
 
 <div class="flex flex-col gap-5">
@@ -34,29 +42,24 @@
 
 	{#if failed}
 		<!-- Never blames the person; always says their work is safe. -->
-		<div class="rounded-xl border border-arch-line bg-arch-surface p-8 text-center">
-			<h2 class="font-display text-[17px] font-extrabold text-arch-headline">
-				We couldn't load your applications.
-			</h2>
-			<p class="mt-2 text-[13px] text-arch-muted">
-				Nothing has happened to them. Try again in a moment.
-			</p>
-		</div>
+		<EmptyState
+			title="We couldn't load your applications."
+			message="Nothing has happened to them. Try again in a moment."
+		/>
+	{:else if loading}
+		<SkeletonRows label="Loading applications" />
 	{:else if rows.length === 0}
 		<!-- Why it is empty, and the one action that fixes it. -->
-		<div class="rounded-xl border border-arch-line bg-arch-surface p-8 text-center">
-			<h2 class="font-display text-[17px] font-extrabold text-arch-headline">
-				No applications yet.
-			</h2>
-			<p class="mt-2 text-[13px] text-arch-muted">
-				Paste a job posting and this is where it will be tracked.
-			</p>
-			<div class="mt-4 flex justify-center">
+		<EmptyState
+			title="No applications yet."
+			message="Paste a job posting and this is where it will be tracked."
+		>
+			{#snippet action()}
 				<!-- Named differently from the header's button on purpose: two links
 				     with the same accessible name is a list nobody can tell apart. -->
 				<Button label="Add your first job" href={`${CONSOLE_ROUTES.applications}/new`} />
-			</div>
-		</div>
+			{/snippet}
+		</EmptyState>
 	{:else}
 		<div class="overflow-x-auto rounded-xl border border-arch-line bg-arch-surface">
 			<table class="w-full min-w-[560px] border-collapse text-left">

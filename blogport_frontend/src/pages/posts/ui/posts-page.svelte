@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { Plus, Search } from '@lucide/svelte';
-	import { Button, StatusPill } from '$lib/shared/ui';
+	import { Button, EmptyState, SkeletonRows, StatusPill } from '$lib/shared/ui';
 	import { postStatus, updatedLabel } from '$lib/entities/post';
 	import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
 
@@ -87,9 +87,6 @@
 		}, 300);
 	}
 
-	/** Six, because that is what a page of rows looks like before it arrives. */
-	const SKELETON_ROWS = Array.from({ length: 6 }, (_, index) => index);
-
 	const lastPage = $derived(Math.max(1, Math.ceil(total / perPage)));
 	const showing = $derived(posts.length);
 </script>
@@ -172,41 +169,23 @@
 
 	{#if failed}
 		<!-- Never blames the person; always says their work is safe. -->
-		<div class="rounded-xl border border-arch-line bg-arch-surface p-8 text-center">
-			<h2 class="font-display text-[17px] font-extrabold text-arch-headline">
-				We couldn't load your posts.
-			</h2>
-			<p class="mt-2 text-[13px] text-arch-muted">
-				Nothing has happened to them. Try again in a moment.
-			</p>
-			<div class="mt-4 flex justify-center">
+		<EmptyState
+			title="We couldn't load your posts."
+			message="Nothing has happened to them. Try again in a moment."
+		>
+			{#snippet action()}
 				<Button kind="secondary" label="Try again" onclick={() => onquery({})} />
-			</div>
-		</div>
+			{/snippet}
+		</EmptyState>
 	{:else if loading}
-		<!-- Skeleton rows shaped like real rows, never a centred spinner. -->
-		<div class="overflow-hidden rounded-xl border border-arch-line bg-arch-surface">
-			<div role="status" class="sr-only">Loading posts</div>
-			{#each SKELETON_ROWS as row (row)}
-				<div
-					class="flex h-[46px] items-center gap-4 border-b border-arch-line px-[18px] last:border-b-0"
-				>
-					<div class="h-3 w-[46%] rounded bg-arch-surface-2"></div>
-					<div class="h-3 w-16 rounded bg-arch-surface-2"></div>
-					<div class="ml-auto h-3 w-20 rounded bg-arch-surface-2"></div>
-				</div>
-			{/each}
-		</div>
+		<SkeletonRows label="Loading posts" />
 	{:else if posts.length === 0 && filtered}
 		<!-- Distinct from empty, and it says what does exist. -->
-		<div class="rounded-xl border border-arch-line bg-arch-surface p-8 text-center">
-			<h2 class="font-display text-[17px] font-extrabold text-arch-headline">
-				No posts match those filters.
-			</h2>
-			<p class="mt-2 text-[13px] text-arch-muted">
-				You have {total === 0 ? 'posts' : `${total} posts`} in total.
-			</p>
-			<div class="mt-4 flex justify-center">
+		<EmptyState
+			title="No posts match those filters."
+			message="You have {total === 0 ? 'posts' : `${total} posts`} in total."
+		>
+			{#snippet action()}
 				<Button
 					kind="secondary"
 					label="Clear filters"
@@ -216,17 +195,15 @@
 						onquery({ search: null, published: null, topic_id: null, page: null });
 					}}
 				/>
-			</div>
-		</div>
+			{/snippet}
+		</EmptyState>
 	{:else if posts.length === 0}
 		<!-- Why it is empty, and the one action that fixes it. -->
-		<div class="rounded-xl border border-arch-line bg-arch-surface p-8 text-center">
-			<h2 class="font-display text-[17px] font-extrabold text-arch-headline">No posts yet.</h2>
-			<p class="mt-2 text-[13px] text-arch-muted">This is where everything you write will live.</p>
-			<div class="mt-4 flex justify-center">
+		<EmptyState title="No posts yet." message="This is where everything you write will live.">
+			{#snippet action()}
 				<Button label="Write your first post" href={`${CONSOLE_ROUTES.posts}/new`} />
-			</div>
-		</div>
+			{/snippet}
+		</EmptyState>
 	{:else}
 		<div class="overflow-x-auto rounded-xl border border-arch-line bg-arch-surface">
 			<table class="w-full min-w-[520px] border-collapse text-left">
