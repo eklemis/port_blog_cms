@@ -1,5 +1,5 @@
-import { FileText, Folder, Image, LayoutDashboard, Tag, User } from 'lucide-svelte';
-import type { ComponentType } from 'svelte';
+import { FileText, Folder, Image, LayoutDashboard, Tag, User } from '@lucide/svelte';
+import type { Component } from 'svelte';
 import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
 
 /**
@@ -15,13 +15,7 @@ import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
 export type NavItem = {
 	label: string;
 	href: string;
-	/**
-	 * `ComponentType`, not Svelte 5's `Component`: lucide-svelte ships Svelte 4
-	 * class components. That is the second place this dependency has to be
-	 * worked around — see the note in svelte.config.js — and the reason to move
-	 * to `@lucide/svelte`.
-	 */
-	icon: ComponentType;
+	icon: Component;
 };
 
 export const NAV: NavItem[] = [
