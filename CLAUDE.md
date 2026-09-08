@@ -11,6 +11,7 @@ rationale.
 | `media-status-updater/` | Node 22. Marks media ready once variants land. |
 | `blogport_frontend/` | The client. SvelteKit 2 · Svelte 5 (runes) · Tailwind 4 · Feature-Sliced · TDD. Has its own [`CLAUDE.md`](blogport_frontend/CLAUDE.md) — **read it before working there.** |
 | `backend_node/` | Empty stub. Name reserved, no source. |
+| `design/` | Figma tooling. `figma-design-lint/` checks the design file for the silent layout failures that survive review — import it from its manifest. |
 
 ## The Rust workspace
 
