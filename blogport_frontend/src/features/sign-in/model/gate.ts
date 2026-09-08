@@ -10,10 +10,7 @@
  * Console Blueprint §02 and journey J1.
  */
 
-/** The hold screen: what verification unlocks, the address it went to, a resend. */
-export const HOLD_ROUTE = '/verify';
-/** Overview. The console's front door. */
-export const CONSOLE_ROUTE = '/studio';
+import { CONSOLE_ROUTE, HOLD_ROUTE } from '$lib/shared/config/routes';
 
 /**
  * A saved destination arrives in the URL, so it is attacker-controlled: an

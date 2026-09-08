@@ -36,7 +36,10 @@
 		primary: 'bg-arch-accent text-arch-accent-on border-transparent',
 		secondary:
 			'bg-arch-surface text-arch-headline border-arch-line-control hover:bg-arch-surface-2',
-		ghost: 'bg-transparent text-arch-headline border-transparent hover:bg-arch-surface-2',
+		// Muted, not headline: the Figma Button component's ghost variant (18:21)
+		// is the quieter of the two text treatments, and a ghost sitting beside a
+		// secondary should not read as equally weighted.
+		ghost: 'bg-transparent text-arch-muted border-transparent hover:bg-arch-surface-2',
 		danger: 'bg-transparent text-st-danger border-st-danger hover:bg-st-danger/10'
 	};
 

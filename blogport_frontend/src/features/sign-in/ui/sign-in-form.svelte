@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { Button, Field } from '$lib/shared/ui';
-	import { PASSWORD_MAX, emailError, passwordError } from '../model/credentials';
+	import { emailError } from '$lib/shared/lib/email';
+	import { PASSWORD_MAX, passwordError } from '../model/credentials';
 	import { destinationAfterSignIn } from '../model/gate';
 	import { signIn } from '../api/sign-in';
 

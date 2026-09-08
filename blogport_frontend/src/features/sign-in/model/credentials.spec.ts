@@ -1,42 +1,13 @@
 import { expect, test } from 'vitest';
-import {
-	EMAIL_INVALID,
-	PASSWORD_MAX,
-	PASSWORD_TOO_SHORT,
-	emailError,
-	passwordError
-} from './credentials';
+import { PASSWORD_MAX, PASSWORD_TOO_SHORT, passwordError } from './credentials';
 
 /**
- * Sign-in field rules. Mirrored from Frontend Handoff §03 so a field-level
+ * The sign-in password rule. Mirrored from Frontend Handoff §03 so a field-level
  * error resolves without a round trip — and no further, because a client rule
  * the server does not share rejects input the backend would have accepted.
+ *
+ * The email rule is tested in shared/lib/email.spec.ts.
  */
-
-// ── email ──────────────────────────────────────────────────────────────────
-
-test('accepts an ordinary address', () => {
-	expect(emailError('jane@example.com')).toBeUndefined();
-});
-
-test('accepts an address with a plus tag and a multi-part domain', () => {
-	expect(emailError('jane+blog@mail.example.co.uk')).toBeUndefined();
-});
-
-test('rejects half a typed address', () => {
-	expect(emailError('jane@')).toBe(EMAIL_INVALID);
-	expect(emailError('jane')).toBe(EMAIL_INVALID);
-});
-
-test('an empty field is not an address either', () => {
-	expect(emailError('')).toBe(EMAIL_INVALID);
-});
-
-test('surrounding whitespace is not the person’s mistake', () => {
-	// The backend trims before validating; a pasted address with a trailing
-	// space must not be called invalid.
-	expect(emailError('  jane@example.com  ')).toBeUndefined();
-});
 
 // ── password ───────────────────────────────────────────────────────────────
 
