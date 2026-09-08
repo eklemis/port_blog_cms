@@ -44,6 +44,17 @@
 	/** Non-null while a rate limit is in force; counts down to zero. */
 	let lockedFor = $state<number | null>(null);
 
+	/**
+	 * Shown only once the request has been slow enough to be worth reporting.
+	 * Sign-in verifies an Argon2 hash, so it is not instant — but Forms Spec §05
+	 * keeps the 400ms floor so a quick one does not flash a spinner at someone
+	 * who never had time to read it.
+	 */
+	let slow = $state(false);
+	let spinner: ReturnType<typeof setTimeout> | undefined;
+
+	$effect(() => () => clearTimeout(spinner));
+
 	const locked = $derived(lockedFor !== null && lockedFor > 0);
 	const busy = $derived(submitting || locked);
 
@@ -94,10 +105,13 @@
 
 		submitting = true;
 		failure = undefined;
+		spinner = setTimeout(() => (slow = true), 400);
 
 		const result = await signIn({ email, password });
 
 		submitting = false;
+		clearTimeout(spinner);
+		slow = false;
 
 		if (result.ok) {
 			onsignedin(destinationAfterSignIn(result.user, next));
@@ -164,6 +178,7 @@
 	<Button
 		type="submit"
 		label="Sign in"
+		loading={slow}
 		disabled={busy}
 		disabledReason={locked ? failure : undefined}
 	/>

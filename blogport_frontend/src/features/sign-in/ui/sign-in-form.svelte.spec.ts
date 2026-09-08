@@ -42,6 +42,34 @@ function rejected() {
 	});
 }
 
+// ── the spinner ────────────────────────────────────────────────────────────
+
+test('a quick sign-in never flashes a spinner', async () => {
+	// Forms Spec §05 puts a 400ms floor under it: one that appears and vanishes
+	// inside a blink reads as a glitch rather than as progress. This form had
+	// no spinner at all until the floor was added, which is the other way to
+	// fail the same rule.
+	vi.useFakeTimers({ shouldAdvanceTime: true });
+
+	let release: (value: Response) => void = () => {};
+	vi.stubGlobal(
+		'fetch',
+		vi.fn<typeof fetch>(() => new Promise<Response>((resolve) => (release = resolve)))
+	);
+
+	const screen = render(SignInForm, { onsignedin: () => {} });
+	await signIn(screen);
+
+	const button = screen.getByRole('button', { name: 'Sign in' });
+	expect(button.element().getAttribute('aria-busy')).not.toBe('true');
+
+	await vi.advanceTimersByTimeAsync(400);
+	expect(button.element().getAttribute('aria-busy')).toBe('true');
+
+	release(new Response(JSON.stringify({ user: VERIFIED }), { status: 200 }));
+	vi.useRealTimers();
+});
+
 /** Fill both fields and press the one amber button. */
 async function signIn(
 	screen: ReturnType<typeof render>,
