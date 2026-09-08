@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { navigating } from '$app/state';
 	import { ApplicationsPage } from '$lib/pages/applications';
 	import type { PageProps } from './$types';
 
@@ -10,4 +11,4 @@
 	<title>Applications</title>
 </svelte:head>
 
-<ApplicationsPage rows={data.rows} failed={data.failed} />
+<ApplicationsPage rows={data.rows} failed={data.failed} loading={Boolean(navigating.to)} />

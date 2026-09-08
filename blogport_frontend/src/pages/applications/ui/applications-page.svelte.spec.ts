@@ -75,6 +75,15 @@ test('an error says what failed and that nothing was lost', async () => {
 	await expectNoA11yViolations(document.body, UNSTYLED_GEOMETRY);
 });
 
+test('loading is rows, not a spinner, and it is announced', async () => {
+	// The fourth of §06's four states. It was missing: this screen had rows,
+	// empty and error, and nothing at all in between.
+	const screen = render(ApplicationsPage, { rows: [], failed: false, loading: true });
+
+	await expect.element(screen.getByRole('status')).toHaveTextContent('Loading applications');
+	expect(screen.getByText('No applications yet.').elements()).toHaveLength(0);
+});
+
 test('the table names its columns for a screen reader, not just visually', async () => {
 	const screen = render(ApplicationsPage, { rows, failed: false });
 
