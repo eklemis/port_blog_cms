@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { POST as backendPOST } from '$lib/shared/api/client';
 import type { components } from '$lib/shared/api/v1';
+import { PENDING_EMAIL_COOKIE } from '$lib/shared/auth/cookies.server';
 
 /**
  * `POST /api/auth/email-verification/resend` — the one action the hold screen
@@ -38,13 +39,15 @@ function detailOf(error: unknown): ErrorDetail {
 	return shaped?.code ? shaped : UNSHAPED;
 }
 
-export const POST: RequestHandler = async ({ locals, request }) => {
+export const POST: RequestHandler = async ({ locals, request, cookies }) => {
 	const body = (await request.json().catch(() => null)) as { email?: unknown } | null;
 	const supplied = typeof body?.email === 'string' ? body.email.trim() : '';
 
 	// A supplied address wins: someone signed in who mistyped their address at
-	// registration could not otherwise ask for a link to the right one.
-	const email = supplied || (locals.user?.email ?? '');
+	// registration could not otherwise ask for a link to the right one. The
+	// cookie is last, and covers the hold screen straight after registering,
+	// where there is no session yet and the button sends no address.
+	const email = supplied || locals.user?.email || (cookies.get(PENDING_EMAIL_COOKIE) ?? '');
 
 	if (!email) {
 		return json(

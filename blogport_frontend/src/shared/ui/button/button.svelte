@@ -14,6 +14,7 @@
 		label,
 		kind = 'primary',
 		type = 'button',
+		href,
 		disabled = false,
 		loading = false,
 		disabledReason,
@@ -24,6 +25,12 @@
 		kind?: Kind;
 		/** `submit` for the one control that submits its form; everything else stays a button. */
 		type?: 'button' | 'submit';
+		/**
+		 * Renders an anchor instead. Some of these controls navigate, and a button
+		 * that navigates cannot be opened in a new tab and is announced as the
+		 * wrong thing. Loading and disabled do not apply to one.
+		 */
+		href?: string;
 		disabled?: boolean;
 		loading?: boolean;
 		/** Why it is disabled. A disabled control with no reason is a dead end. */
@@ -50,29 +57,46 @@
 	);
 </script>
 
-<button
-	{type}
-	class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border
+<!-- eslint-disable svelte/no-navigation-without-resolve --
+	The destination is the caller's, and resolving it is theirs to do: this
+	component cannot know whether the route exists. -->
+{#if href}
+	<a
+		{href}
+		class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border
 	       px-4 py-2 text-sm font-semibold transition-colors
 	       disabled:cursor-not-allowed disabled:opacity-55 {KIND[kind]}"
-	disabled={disabled || loading}
-	aria-busy={loading}
-	aria-describedby={reasonId}
-	{onclick}
->
-	{#if loading}
-		<!-- Suppressed under 400ms by the caller, per Forms Spec §05: a spinner
-		     that flashes for one frame reads as a glitch, not as progress. -->
-		<span
-			class="size-3.5 animate-spin rounded-full border-2 border-current
-			       border-t-transparent"
-			aria-hidden="true"
-		></span>
-	{:else if icon}
-		{@render icon()}
-	{/if}
-	{label}
-</button>
+	>
+		{#if icon}
+			{@render icon()}
+		{/if}
+		{label}
+	</a>
+{:else}
+	<button
+		{type}
+		class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border
+	       px-4 py-2 text-sm font-semibold transition-colors
+	       disabled:cursor-not-allowed disabled:opacity-55 {KIND[kind]}"
+		disabled={disabled || loading}
+		aria-busy={loading}
+		aria-describedby={reasonId}
+		{onclick}
+	>
+		{#if loading}
+			<!-- Suppressed under 400ms by the caller, per Forms Spec §05: a spinner
+			     that flashes for one frame reads as a glitch, not as progress. -->
+			<span
+				class="size-3.5 animate-spin rounded-full border-2 border-current
+				       border-t-transparent"
+				aria-hidden="true"
+			></span>
+		{:else if icon}
+			{@render icon()}
+		{/if}
+		{label}
+	</button>
+{/if}
 
 {#if reasonId}
 	<span id={reasonId} class="sr-only">{disabledReason}</span>

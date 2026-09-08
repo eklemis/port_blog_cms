@@ -48,9 +48,12 @@ const SESSION = {
 
 const ACCEPTED = 'If that address needs verifying, a new link is on its way.';
 
-function event(user: typeof SESSION | null = SESSION, body: unknown = undefined) {
+function event(user: typeof SESSION | null = SESSION, body: unknown = undefined, pending?: string) {
 	return {
 		locals: { user },
+		cookies: {
+			get: (name: string) => (name === 'pending_verification_email' ? pending : undefined)
+		},
 		request: new Request('http://localhost/api/auth/email-verification/resend', {
 			method: 'POST',
 			body: body === undefined ? null : JSON.stringify(body)
@@ -134,7 +137,19 @@ test('trims the address before sending it', async () => {
 	});
 });
 
-test('with neither an address nor a session there is nothing to send to', async () => {
+test('falls back to the address registration left behind', async () => {
+	// The hold screen straight after registering: no session yet, and its button
+	// sends no address of its own.
+	backendAccepts();
+
+	await POST(event(null, undefined, 'new@example.com') as never);
+
+	expect(backendPOST).toHaveBeenCalledWith('/api/auth/email-verification/resend', {
+		body: { email: 'new@example.com' }
+	});
+});
+
+test('with neither an address, a session, nor a registration there is nothing to send to', async () => {
 	const response = await POST(event(null) as never);
 
 	expect(response.status).toBe(400);

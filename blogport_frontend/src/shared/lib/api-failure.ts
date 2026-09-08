@@ -18,13 +18,17 @@ export const UNEXPECTED = 'Something went wrong on our side.';
  * Rate limits are a designed experience: read `Retry-After`, disable submit and
  * count down visibly. A dead button with no explanation reads as a broken
  * product at exactly the moment someone is already annoyed.
+ *
+ * `lead` because register says "Too many sign-up attempts" — J1 names the
+ * action, since someone who has hit the limit five times wants to know which
+ * limit they hit.
  */
-export function rateLimited(seconds: number | null): string {
-	if (seconds === null || seconds <= 0) return 'Too many attempts. Try again shortly.';
+export function rateLimited(seconds: number | null, lead = 'Too many attempts'): string {
+	if (seconds === null || seconds <= 0) return `${lead}. Try again shortly.`;
 
 	const [amount, unit] = seconds < 60 ? [seconds, 'second'] : [Math.ceil(seconds / 60), 'minute'];
 
-	return `Too many attempts. Try again in ${amount} ${unit}${amount === 1 ? '' : 's'}.`;
+	return `${lead}. Try again in ${amount} ${unit}${amount === 1 ? '' : 's'}.`;
 }
 
 /** `Retry-After` in seconds, or null when the header is absent or nonsense. */

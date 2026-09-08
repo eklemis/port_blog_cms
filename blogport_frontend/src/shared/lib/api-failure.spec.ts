@@ -9,6 +9,16 @@ test('the countdown reads in whole units and gets the singulars right', () => {
 	expect(rateLimited(2520)).toBe('Too many attempts. Try again in 42 minutes.');
 });
 
+test('the lead can name the action that was limited', () => {
+	// J1: "Too many sign-up attempts. Try again in 42 minutes."
+	expect(rateLimited(2520, 'Too many sign-up attempts')).toBe(
+		'Too many sign-up attempts. Try again in 42 minutes.'
+	);
+	expect(rateLimited(null, 'Too many sign-up attempts')).toBe(
+		'Too many sign-up attempts. Try again shortly.'
+	);
+});
+
 test('a missing Retry-After still says something useful', () => {
 	expect(rateLimited(null)).toBe('Too many attempts. Try again shortly.');
 	expect(rateLimited(0)).toBe('Too many attempts. Try again shortly.');

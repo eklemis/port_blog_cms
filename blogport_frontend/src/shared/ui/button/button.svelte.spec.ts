@@ -99,3 +99,32 @@ test('can be the submit control of a form', async () => {
 
 	await expect.element(screen.getByRole('button')).toHaveAttribute('type', 'submit');
 });
+
+test('renders a link when it is given somewhere to go', async () => {
+	// Some of these controls navigate. A button that navigates is not a button:
+	// it cannot be opened in a new tab, and it is announced as the wrong thing.
+	const screen = render(Button, { label: 'Sign in instead', href: '/auth/login' });
+
+	await expect
+		.element(screen.getByRole('link', { name: 'Sign in instead' }))
+		.toHaveAttribute('href', '/auth/login');
+	expect(screen.getByRole('button').elements()).toHaveLength(0);
+});
+
+test('a link still looks like the kind it was asked for', async () => {
+	const screen = render(Button, {
+		label: 'Sign in instead',
+		href: '/auth/login',
+		kind: 'secondary'
+	});
+
+	await expect
+		.element(screen.getByRole('link', { name: 'Sign in instead' }))
+		.toHaveClass(/border-arch-line-control/);
+});
+
+test('a link has no accessibility violations', async () => {
+	render(Button, { label: 'Sign in instead', href: '/auth/login', kind: 'secondary' });
+
+	await expectNoA11yViolations();
+});
