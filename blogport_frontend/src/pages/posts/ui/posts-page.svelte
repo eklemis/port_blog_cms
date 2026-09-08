@@ -16,14 +16,17 @@
 	 *
 	 * The TOPICS column the frame draws is not here: `BlogPostCardResponse`
 	 * carries no topics, and filling it would be one request per row. Same for
-	 * the ARCHIVED pill and the topic filter — see the PR.
+	 * the ARCHIVED pill — see the PR. The topic *filter* is a different thing
+	 * and it is here: `topic_id` was implemented all along.
 	 *
 	 * Design: Screen / Posts list 11:2 and its four state frames.
 	 */
 	type Row = { id: string; title: string; published_at?: string | null; updated_at: string };
+	type Topic = { id: string; title: string };
 
 	let {
 		posts,
+		topics,
 		total,
 		page,
 		perPage,
@@ -32,10 +35,13 @@
 		loading = false,
 		search = '',
 		published = null,
+		topic = null,
 		sort = null,
 		onquery
 	}: {
 		posts: Row[];
+		/** The filter's options. Empty means the request for them failed. */
+		topics: Topic[];
 		total: number;
 		page: number;
 		perPage: number;
@@ -44,6 +50,7 @@
 		loading?: boolean;
 		search?: string;
 		published?: string | null;
+		topic?: string | null;
 		sort?: string | null;
 		/** Every change writes to the URL; the caller decides how. */
 		onquery: (changes: Record<string, string | null>) => void;
@@ -126,9 +133,27 @@
 			       text-[13px] font-semibold text-arch-headline"
 		>
 			<option value="">Drafts &amp; published</option>
-			<option value="true">Published only</option>
+			<option value="true">Published</option>
 			<option value="false">Drafts only</option>
 		</select>
+
+		<!-- No options means the request for them failed. A select with nothing
+		     in it is a worse answer than no control at all. -->
+		{#if topics.length > 0}
+			<label class="sr-only" for="posts-topic">Topic</label>
+			<select
+				id="posts-topic"
+				value={topic ?? ''}
+				onchange={(event) => onquery({ topic_id: event.currentTarget.value || null, page: null })}
+				class="h-[38px] rounded-lg border border-arch-line-control bg-arch-surface px-3
+				       text-[13px] font-semibold text-arch-headline"
+			>
+				<option value="">All topics</option>
+				{#each topics as option (option.id)}
+					<option value={option.id}>{option.title}</option>
+				{/each}
+			</select>
+		{/if}
 
 		<label class="sr-only" for="posts-sort">Sort by</label>
 		<select
@@ -188,7 +213,7 @@
 					onclick={() => {
 						term = '';
 						sent = '';
-						onquery({ search: null, published: null, page: null });
+						onquery({ search: null, published: null, topic_id: null, page: null });
 					}}
 				/>
 			</div>

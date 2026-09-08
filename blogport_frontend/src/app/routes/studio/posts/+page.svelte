@@ -38,6 +38,7 @@
 
 <PostsPage
 	posts={data.posts}
+	topics={data.topics}
 	total={data.total}
 	page={data.page}
 	perPage={data.perPage}
@@ -46,6 +47,7 @@
 	loading={Boolean(navigating.to)}
 	search={data.search}
 	published={data.published}
+	topic={data.topic}
 	sort={data.sort}
 	onquery={apply}
 />
