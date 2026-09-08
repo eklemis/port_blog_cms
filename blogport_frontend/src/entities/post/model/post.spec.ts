@@ -41,21 +41,10 @@ test('an unparseable date is not silently called live', () => {
 
 // ── when it changed ────────────────────────────────────────────────────────
 
-test('recent changes read in the units people use', () => {
+test('when it changed is the shared sentence, not a second one', () => {
+	// The wording itself is covered in shared/lib/relative-time.spec.ts; what
+	// matters here is that the posts table asks for it rather than rolling
+	// its own and drifting from the tracker.
 	expect(updatedLabel('2026-09-08T07:00:00Z', NOW)).toBe('5 hours ago');
-	expect(updatedLabel('2026-09-06T12:00:00Z', NOW)).toBe('2 days ago');
-	expect(updatedLabel('2026-09-07T12:00:00Z', NOW)).toBe('yesterday');
-});
-
-test('weeks are weeks, not twenty-one days', () => {
-	expect(updatedLabel('2026-08-18T12:00:00Z', NOW)).toBe('3 weeks ago');
-});
-
-test('anything old enough gets a date instead of a countdown', () => {
-	// "34 weeks ago" is arithmetic, not information.
-	expect(updatedLabel('2026-04-02T12:00:00Z', NOW)).toBe('Apr 2026');
-});
-
-test('a missing or broken timestamp says nothing rather than lying', () => {
 	expect(updatedLabel('not-a-date', NOW)).toBe('—');
 });

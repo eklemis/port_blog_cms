@@ -8,14 +8,16 @@ import { NAV, TAB_BAR, currentLabel, isCurrent } from './nav';
  */
 
 test('lists the surfaces the route map sanctions, and only those', () => {
-	// "Applications" is drawn in every Overview frame and has screens of its
-	// own, but the blueprint's route map never mentions it — so it has no
-	// destination and is not here. See the PR.
+	// Seven, in the order the Prototype Map's sidebar row gives them. It shipped
+	// with six because the Console Blueprint's route table did not carry the
+	// Career Studio; the designer has since added it, and confirmed the frames
+	// were right all along.
 	expect(NAV.map((item) => item.label)).toEqual([
 		'Overview',
 		'Posts',
 		'Projects',
 		'Résumés',
+		'Applications',
 		'Media',
 		'Topics'
 	]);
@@ -30,6 +32,18 @@ test('the tab bar is five items, the rest behind More', () => {
 	// A wrapped tab row pushes content below the fold; five is what fits.
 	expect(TAB_BAR).toHaveLength(5);
 	expect(TAB_BAR.at(-1)?.label).toBe('More');
+});
+
+test('the tab bar carries the four the mobile frame puts on the bar', () => {
+	// Résumés is the one the frame drops when Applications joins: a résumé is
+	// edited at a desk, an application is checked on a phone.
+	expect(TAB_BAR.map((item) => item.label)).toEqual([
+		'Posts',
+		'Projects',
+		'Applications',
+		'Media',
+		'More'
+	]);
 });
 
 // ── which item is lit ──────────────────────────────────────────────────────
@@ -53,6 +67,14 @@ test('a sibling whose name merely starts the same is not the current one', () =>
 });
 
 // ── what the screen is called ──────────────────────────────────────────────
+
+test('the career studio is inside the console, not beside it', () => {
+	// Its own section in the map, but the same shell and the same session
+	// rules — so it lights the sidebar like everything else.
+	expect(isCurrent(CONSOLE_ROUTES.applications, '/studio/applications')).toBe(true);
+	expect(isCurrent(CONSOLE_ROUTES.applications, '/studio/applications/new')).toBe(true);
+	expect(currentLabel('/studio/applications/abc/tailor')).toBe('Applications');
+});
 
 test('names the screen from the same list the nav is drawn from', () => {
 	// The mobile bar names the screen; the tab bar lights it. Both read this,

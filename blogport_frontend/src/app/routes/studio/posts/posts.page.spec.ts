@@ -26,8 +26,16 @@ const { load } = await import('./+page.server');
  * back-button-safe address.
  */
 
-function page(body: unknown, ok = true) {
-	fetchImpl.mockResolvedValue({ ok, json: async () => body });
+/**
+ * The blog list's answer. Topics answer separately and always succeed unless a
+ * test says otherwise — they are the filter's options, not the list itself.
+ */
+function page(body: unknown, ok = true, topics: unknown = { data: [] }) {
+	fetchImpl.mockImplementation(async (_event: unknown, path: string) =>
+		String(path).startsWith('/api/topics')
+			? { ok: true, json: async () => topics }
+			: { ok, json: async () => body }
+	);
 }
 
 const rows = { data: { items: [{ id: '1', title: 'A post' }], page: 1, per_page: 10, total: 24 } };
@@ -36,9 +44,10 @@ function event(query = '') {
 	return { url: new URL(`http://localhost/studio/posts${query}`) };
 }
 
-/** The path the loader asked the backend for. */
+/** The path the loader asked for the rows with. */
 function askedFor() {
-	return String(fetchImpl.mock.calls[0][1]);
+	const call = fetchImpl.mock.calls.find((entry) => String(entry[1]).startsWith('/api/blog'));
+	return String(call?.[1]);
 }
 
 beforeEach(() => {
@@ -119,6 +128,36 @@ test('nonsense paging falls back rather than asking for page NaN', async () => {
 	await load(event('?page=-2') as never);
 
 	expect(askedFor()).toContain('page=1');
+});
+
+// ── topics ─────────────────────────────────────────────────────────────────
+
+test('carries the topic to the API, and fetches the options to choose from', async () => {
+	page(rows, true, { data: [{ id: 'topic-1', title: 'Rust', description: '' }] });
+
+	const data = await load(event('?topic_id=topic-1') as never);
+
+	expect(askedFor()).toContain('topic_id=topic-1');
+	expect(data).toMatchObject({ topics: [{ id: 'topic-1', title: 'Rust' }], topic: 'topic-1' });
+});
+
+test('a topic is a filter, so filtered-empty stays distinguishable', async () => {
+	page(rows);
+
+	expect(await load(event('?topic_id=topic-1') as never)).toMatchObject({ filtered: true });
+});
+
+test('losing the topics loses the control, not the list', async () => {
+	// A select with no options is a dead control; the rows are what matter.
+	fetchImpl.mockImplementation(async (_event: unknown, path: string) =>
+		String(path).startsWith('/api/topics')
+			? { ok: false, json: async () => ({}) }
+			: { ok: true, json: async () => rows }
+	);
+
+	const data = await load(event() as never);
+
+	expect(data).toMatchObject({ topics: [], failed: false });
 });
 
 test('a failed fetch is a state, not an exception', async () => {

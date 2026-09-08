@@ -1,3 +1,5 @@
+import { relativeDate } from '$lib/shared/lib/relative-time';
+
 /**
  * What a post row can say about itself, from what the list actually returns.
  *
@@ -31,29 +33,11 @@ export function postStatus(
 		: { tone: 'live', label: 'Live' };
 }
 
-const MINUTE = 60_000;
-const HOUR = 60 * MINUTE;
-const DAY = 24 * HOUR;
-const WEEK = 7 * DAY;
-
 /**
- * "5 hours ago", "yesterday", "3 weeks ago", "Apr 2026".
+ * When the post last changed: "5 hours ago", "3 weeks ago", "Apr 2026".
  *
- * Relative while relative still means something, and a plain month beyond that:
- * "thirty-four weeks ago" is arithmetic rather than information. Formatted
- * through Intl so it follows the interface locale.
+ * The shared helper under another name. The application tracker needs the same
+ * sentence for its "Applied" column, and one entity may not reach into another
+ * for it.
  */
-export function updatedLabel(updatedAt: string, now: Date = new Date()): string {
-	const when = new Date(updatedAt);
-	if (Number.isNaN(when.getTime())) return '—';
-
-	const elapsed = now.getTime() - when.getTime();
-	const relative = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
-
-	if (elapsed < HOUR) return relative.format(-Math.round(elapsed / MINUTE), 'minute');
-	if (elapsed < DAY) return relative.format(-Math.round(elapsed / HOUR), 'hour');
-	if (elapsed < WEEK) return relative.format(-Math.round(elapsed / DAY), 'day');
-	if (elapsed < 5 * WEEK) return relative.format(-Math.round(elapsed / WEEK), 'week');
-
-	return new Intl.DateTimeFormat(undefined, { month: 'short', year: 'numeric' }).format(when);
-}
+export const updatedLabel = relativeDate;

@@ -20,16 +20,18 @@ export const SIGN_IN_ROUTE = '/auth/login';
 /**
  * The console's surfaces, in the order the sidebar lists them.
  *
- * Six, not the seven the frames draw. "Applications" is in every Overview frame
- * and has screens of its own in the file, but the Console Blueprint's route map
- * does not mention it — the word does not appear in the document at all — so
- * there is no route to point it at. Omitted rather than invented; see the PR.
+ * Seven. It shipped with six: "Applications" was in every Overview frame and
+ * had screens of its own, but the Console Blueprint's route map did not carry
+ * the Career Studio at all, so there was no route to point it at and it was
+ * omitted rather than invented. The map now carries it, and the Prototype Map's
+ * sidebar row gives the order — Applications between Résumés and Media.
  */
 export const CONSOLE_ROUTES = {
 	overview: '/studio',
 	posts: '/studio/posts',
 	projects: '/studio/projects',
 	resumes: '/studio/resumes',
+	applications: '/studio/applications',
 	media: '/studio/media',
 	topics: '/studio/topics',
 	account: '/studio/account'

@@ -27,8 +27,14 @@ const rows = [
 	}
 ];
 
+const TOPICS = [
+	{ id: 'topic-1', title: 'Rust', description: '' },
+	{ id: 'topic-2', title: 'Distributed Systems', description: '' }
+];
+
 const base = {
 	posts: rows,
+	topics: [] as typeof TOPICS,
 	total: 24,
 	page: 1,
 	perPage: 10,
@@ -98,7 +104,37 @@ test('clearing filters drops them from the query, not just the box', async () =>
 
 	await screen.getByRole('button', { name: 'Clear filters' }).click();
 
-	expect(asked[0]).toEqual({ search: null, published: null, page: null });
+	expect(asked[0]).toEqual({ search: null, published: null, topic_id: null, page: null });
+});
+
+// ── the topic filter ───────────────────────────────────────────────────────
+
+test('offers the topics it was given, and every post as the default', async () => {
+	const screen = render(PostsPage, { ...base, topics: TOPICS });
+
+	await expect.element(screen.getByRole('option', { name: 'All topics' })).toBeInTheDocument();
+	await expect.element(screen.getByRole('option', { name: 'Rust' })).toBeInTheDocument();
+});
+
+test('choosing a topic filters the list and returns to the first page', async () => {
+	const asked: Record<string, string | null>[] = [];
+	const screen = render(PostsPage, {
+		...base,
+		topics: TOPICS,
+		onquery: (c: Record<string, string | null>) => asked.push(c)
+	});
+
+	await screen.getByRole('combobox', { name: 'Topic' }).selectOptions('topic-1');
+
+	expect(asked).toEqual([{ topic_id: 'topic-1', page: null }]);
+});
+
+test('no topics means no control, rather than a select with nothing in it', async () => {
+	// The options come from a second request. Losing it costs the control, and
+	// an empty dropdown is a worse answer than none.
+	const screen = render(PostsPage, { ...base, topics: [] });
+
+	expect(screen.getByRole('combobox', { name: 'Topic' }).elements()).toHaveLength(0);
 });
 
 test('error never blames the person, and says the work is safe', async () => {
