@@ -159,6 +159,7 @@ mod tests {
             let now = Utc::now();
             Ok(BlogPageResult {
                 items: vec![BlogPostCard {
+                    topics: vec![],
                     cover: None,
                     id: Uuid::new_v4(),
                     title: "Post".into(),

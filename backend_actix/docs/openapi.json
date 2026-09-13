@@ -2921,7 +2921,8 @@
                               "title",
                               "slug",
                               "created_at",
-                              "updated_at"
+                              "updated_at",
+                              "topics"
                             ],
                             "properties": {
                               "cover": {
@@ -2969,6 +2970,13 @@
                                 "type": "string",
                                 "description": "Display title.",
                                 "example": "Building a CMS in Rust"
+                              },
+                              "topics": {
+                                "type": "array",
+                                "items": {
+                                  "$ref": "#/components/schemas/BlogPostTopicResponse"
+                                },
+                                "description": "Topics attached to this post, loaded with the page rather than per row.\n\nAlways present, unlike `cover`. Empty means the post has no topics — it\nnever means \"not loaded\", so a Topics column can be rendered straight\nfrom the list without a second request per row."
                               },
                               "updated_at": {
                                 "type": "string",
@@ -10060,7 +10068,8 @@
                               "title",
                               "slug",
                               "created_at",
-                              "updated_at"
+                              "updated_at",
+                              "topics"
                             ],
                             "properties": {
                               "cover": {
@@ -10108,6 +10117,13 @@
                                 "type": "string",
                                 "description": "Display title.",
                                 "example": "Building a CMS in Rust"
+                              },
+                              "topics": {
+                                "type": "array",
+                                "items": {
+                                  "$ref": "#/components/schemas/BlogPostTopicResponse"
+                                },
+                                "description": "Topics attached to this post, loaded with the page rather than per row.\n\nAlways present, unlike `cover`. Empty means the post has no topics — it\nnever means \"not loaded\", so a Topics column can be rendered straight\nfrom the list without a second request per row."
                               },
                               "updated_at": {
                                 "type": "string",
@@ -12177,7 +12193,8 @@
                 "title",
                 "slug",
                 "created_at",
-                "updated_at"
+                "updated_at",
+                "topics"
               ],
               "properties": {
                 "cover": {
@@ -12226,6 +12243,13 @@
                   "description": "Display title.",
                   "example": "Building a CMS in Rust"
                 },
+                "topics": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BlogPostTopicResponse"
+                  },
+                  "description": "Topics attached to this post, loaded with the page rather than per row.\n\nAlways present, unlike `cover`. Empty means the post has no topics — it\nnever means \"not loaded\", so a Topics column can be rendered straight\nfrom the list without a second request per row."
+                },
                 "updated_at": {
                   "type": "string",
                   "format": "date-time",
@@ -12266,7 +12290,8 @@
           "title",
           "slug",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "topics"
         ],
         "properties": {
           "cover": {
@@ -12314,6 +12339,13 @@
             "type": "string",
             "description": "Display title.",
             "example": "Building a CMS in Rust"
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BlogPostTopicResponse"
+            },
+            "description": "Topics attached to this post, loaded with the page rather than per row.\n\nAlways present, unlike `cover`. Empty means the post has no topics — it\nnever means \"not loaded\", so a Topics column can be rendered straight\nfrom the list without a second request per row."
           },
           "updated_at": {
             "type": "string",

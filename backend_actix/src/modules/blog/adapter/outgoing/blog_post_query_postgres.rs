@@ -47,6 +47,14 @@ struct CardRow {
 }
 
 #[derive(Debug, FromQueryResult)]
+struct PostTopicRow {
+    blog_post_id: Uuid,
+    id: Uuid,
+    title: String,
+    description: Option<String>,
+}
+
+#[derive(Debug, FromQueryResult)]
 struct TopicRow {
     id: Uuid,
     title: String,
@@ -172,10 +180,16 @@ impl BlogPostQueryPostgres {
             std::collections::HashMap::new()
         };
 
+        // One extra query for the page, on both the owner and public paths —
+        // the Topics column exists on each.
+        let ids: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
+        let mut topics = self.topics_for_many(&ids).await?;
+
         let items = rows
             .into_iter()
             .map(|m| BlogPostCard {
                 cover: covers.remove(&m.id),
+                topics: topics.remove(&m.id).unwrap_or_default(),
                 id: m.id,
                 title: m.title,
                 slug: m.slug,
@@ -192,6 +206,53 @@ impl BlogPostQueryPostgres {
             per_page: per_page as u32,
             total,
         })
+    }
+
+    /// Topics for a page of posts, in one query.
+    ///
+    /// The single-post version below is still used where only one post is in
+    /// hand. This exists because a list screen showing topics would otherwise
+    /// call it once per row.
+    async fn topics_for_many(
+        &self,
+        post_ids: &[Uuid],
+    ) -> Result<std::collections::HashMap<Uuid, Vec<BlogPostTopic>>, BlogPostQueryError> {
+        use std::collections::HashMap;
+
+        if post_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let rows = blog_post_topics::Entity::find()
+            .filter(blog_post_topics::Column::BlogPostId.is_in(post_ids.to_vec()))
+            .join(
+                JoinType::InnerJoin,
+                blog_post_topics::Relation::Topics.def(),
+            )
+            .filter(topics::Column::IsDeleted.eq(false))
+            .select_only()
+            .column(blog_post_topics::Column::BlogPostId)
+            .column(topics::Column::Id)
+            .column(topics::Column::Title)
+            .column(topics::Column::Description)
+            .into_model::<PostTopicRow>()
+            .all(&*self.db)
+            .await
+            .map_err(Self::db_err)?;
+
+        let mut grouped: HashMap<Uuid, Vec<BlogPostTopic>> = HashMap::new();
+        for r in rows {
+            grouped
+                .entry(r.blog_post_id)
+                .or_default()
+                .push(BlogPostTopic {
+                    id: r.id,
+                    title: r.title,
+                    description: r.description.unwrap_or_default(),
+                });
+        }
+
+        Ok(grouped)
     }
 
     async fn topics_for(&self, post_id: Uuid) -> Result<Vec<BlogPostTopic>, BlogPostQueryError> {
@@ -394,6 +455,8 @@ mod tests {
         let db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_results(vec![vec![count_row(7)]])
             .append_query_results(vec![vec![model(user_id, None), model(user_id, None)]])
+            // The page now costs a third query: topics for these rows.
+            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
             .into_connection();
 
         let result = query(db)
@@ -423,6 +486,7 @@ mod tests {
             MockDatabase::new(DatabaseBackend::Postgres)
                 .append_query_results(vec![vec![count_row(1)]])
                 .append_query_results(vec![vec![model(user_id, None)]])
+                .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
                 .into_connection(),
         );
 
@@ -961,6 +1025,48 @@ mod tests {
 
     /// per_page is clamped, so a caller cannot ask for an unbounded page and
     /// pull the whole table in one request.
+    /// The point of putting topics on the card at all.
+    ///
+    /// A Topics column that cost one query per row would be worse than no
+    /// column, so this asserts the shape of the work: a count, a page, and
+    /// **one** topics query — not one per post.
+    #[tokio::test]
+    async fn topics_are_fetched_once_for_the_page_not_once_per_post() {
+        let user_id = Uuid::new_v4();
+        let conn = Arc::new(
+            MockDatabase::new(DatabaseBackend::Postgres)
+                .append_query_results(vec![vec![count_row(3)]])
+                .append_query_results(vec![vec![
+                    model(user_id, None),
+                    model(user_id, None),
+                    model(user_id, None),
+                ]])
+                .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
+                .into_connection(),
+        );
+
+        BlogPostQueryPostgres::new(Arc::clone(&conn))
+            .list_by_owner(
+                UserId::from(user_id),
+                BlogPostListFilter::default(),
+                BlogPostSort::Newest,
+                BlogPageRequest::default(),
+            )
+            .await
+            .unwrap();
+
+        let log = Arc::try_unwrap(conn).unwrap().into_transaction_log();
+        let topic_queries = log
+            .iter()
+            .filter(|t| format!("{t:?}").contains("blog_post_topics"))
+            .count();
+
+        assert_eq!(
+            topic_queries, 1,
+            "three posts should cost one topics query, not three"
+        );
+    }
+
     /// The archive screen's whole reason to exist: restore and hard-delete
     /// have nothing to act on unless archived posts can be listed.
     #[tokio::test]

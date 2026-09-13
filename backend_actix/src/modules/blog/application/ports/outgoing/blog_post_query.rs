@@ -129,6 +129,16 @@ pub struct BlogPostCard {
     /// owner-facing listing — the console reads media through the media
     /// endpoints, which return signed URLs.
     pub cover: Option<PublicMedia>,
+
+    /// The topics attached to this post.
+    ///
+    /// Batched for the page, not fetched per row — a Topics column on a list
+    /// screen would otherwise cost one request per post, which is the whole
+    /// reason this is on the card rather than left to the caller.
+    ///
+    /// Empty when the post has none. An empty list means "no topics"; it is
+    /// never a signal that they were not loaded.
+    pub topics: Vec<BlogPostTopic>,
 }
 
 /// A post plus its topics, for detail views.

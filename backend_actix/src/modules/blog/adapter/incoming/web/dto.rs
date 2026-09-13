@@ -168,12 +168,20 @@ pub struct BlogPostCardResponse {
     /// as "this row has an image" without a null check.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cover: Option<PublicMedia>,
+
+    /// Topics attached to this post, loaded with the page rather than per row.
+    ///
+    /// Always present, unlike `cover`. Empty means the post has no topics — it
+    /// never means "not loaded", so a Topics column can be rendered straight
+    /// from the list without a second request per row.
+    pub topics: Vec<BlogPostTopicResponse>,
 }
 
 impl From<BlogPostCard> for BlogPostCardResponse {
     fn from(c: BlogPostCard) -> Self {
         Self {
             cover: c.cover,
+            topics: c.topics.into_iter().map(Into::into).collect(),
             id: c.id,
             title: c.title,
             slug: c.slug,
