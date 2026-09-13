@@ -484,7 +484,7 @@ footer .prose { max-width: 62ch; }
         <tbody>
           <tr><td><code>/studio</code></td><td>Overview — four counts, Needs attention, Getting started</td><td class="dim mono">GET /api/blog · /api/projects · /api/cvs · /api/applications · /api/topics<br><span style="color:var(--st-danger)">the stat sub-lines and Needs attention are not backed — see §09</span></td></tr>
           <tr><td><code>/studio/posts</code></td><td>Posts — search, topic filter, draft/published toggle, sort, paging</td><td class="dim mono">GET /api/blog<br>GET /api/topics — the filter's options</td></tr>
-          <tr><td><code>/studio/posts/new</code></td><td>New post</td><td class="dim mono">POST /api/blog</td></tr>
+          <tr><td><code>/studio/posts/new</code></td><td>New post</td><td class="dim mono">POST /api/blog<br>GET /api/blog/slug-available — checked, not guessed</td></tr>
           <tr><td><code>/studio/posts/[id]</code></td><td>Post editor — content, topics, cover, schedule</td><td class="dim mono">GET·PATCH /api/blog/{id}<br>GET·POST·DELETE /api/blog/{id}/topics<br>DELETE /api/blog/{id}/topics/all</td></tr>
           <tr><td><code>/studio/posts/archive</code></td><td>Archived posts — restore or purge</td><td class="dim mono">POST /api/blog/{id}/restore<br>DELETE /api/blog/{id}/hard</td></tr>
           <tr><td><code>/studio/projects</code></td><td>Projects — search, topic filter, sort, paging</td><td class="dim mono">GET /api/projects</td></tr>
@@ -690,7 +690,7 @@ footer .prose { max-width: 62ch; }
         <div class="j-head">
           <span class="j-id">J4</span>
           <h3>Publish a post</h3>
-          <p class="j-goal">The flagship loop. Blank page → live at <code>/{username}/{slug}</code>, and back again if needed.</p>
+          <p class="j-goal">The flagship loop. Blank page → live at <code>/{username}/blog/{slug}</code>, and back again if needed.</p>
         </div>
         <div class="j-body">
           <ol class="steps">
@@ -698,6 +698,11 @@ footer .prose { max-width: 62ch; }
               <div class="step-title">Create the draft first</div>
               <div class="step-note">Title, slug, content. Omitting <code>published_at</code> creates a draft. Creating early matters: media attaches to a <code>target_id</code>, so a post must exist before it can have a cover image.</div>
               <div class="step-call">POST /api/blog → 201 { id }</div>
+            </li>
+            <li>
+              <div class="step-title">Know that "create first" is currently blocked</div>
+              <div class="step-note"><code>create_blog_post_service::validate_content</code> rejects a body that is empty once trimmed, so the frame above — title, address and excerpt, with "You write the body next" under the button — cannot post. <b>The frame is right and the constraint is in the wrong place.</b> What should be refused is <em>publishing</em> an empty post, not drafting one; and the create-then-write order exists precisely because media attaches to a <code>target_id</code>, so a post that cannot exist before its body also cannot have a cover while you write it. Backend ask filed. Until it lands the screen carries a required body field, which works and is not what is drawn.</div>
+              <div class="step-call">400 INVALID_CONTENT — "Content cannot be empty"</div>
             </li>
             <li>
               <div class="step-title">Derive the slug, let it be overridden, then lock it</div>
@@ -729,9 +734,9 @@ footer .prose { max-width: 62ch; }
           </ol>
           <div class="branches">
             <div class="bh">Branches</div>
-            <div class="branch"><div class="cond">SLUG_ALREADY_EXISTS</div><div class="fix"><b>409.</b> Slugs are unique per author. Mark the field, suggest an available variant (<code>-2</code>), and never lose the draft body to a slug collision.</div></div>
-            <div class="branch"><div class="cond">TITLE_TOO_LONG · EMPTY_TITLE</div><div class="fix"><b>400, 200-char cap.</b> Show a live counter from 160 characters onward rather than rejecting at submit.</div></div>
-            <div class="branch"><div class="cond">POST_UNAUTHORIZED</div><div class="fix"><b>403 — someone else's post.</b> Only reachable via a pasted URL. Show a plain "You don't have access to this post" page with a route back to the list.</div></div>
+            <div class="branch"><div class="cond">SLUG_ALREADY_EXISTS</div><div class="fix"><b>409.</b> Slugs are unique per author. Mark the field and offer the variant <code>GET /api/blog/slug-available</code> returns — it checks the database, so its suggestion cannot itself be taken, which a guessed <code>-2</code> can. Never lose the draft body to a slug collision.</div></div>
+            <div class="branch"><div class="cond">INVALID_TITLE</div><div class="fix"><b>400, 200-char cap.</b> One code for both the empty and the over-long case — <code>EMPTY_TITLE</code> and <code>TITLE_TOO_LONG</code> exist, but only <code>POST /api/topics</code> sends them. Show a live counter from 160 characters onward rather than rejecting at submit.</div></div>
+            <div class="branch"><div class="cond">POST_NOT_FOUND</div><div class="fix"><b>404 on read — someone else's post, an archived one, or a bad id, and deliberately indistinguishable.</b> Only reachable via a pasted URL. <code>POST_UNAUTHORIZED</code> is real but <code>PATCH</code>-only; the read path answers 404 so it cannot be used to confirm a post exists. Show "That post doesn't exist, or it isn't published yet" with a route back to the list.</div></div>
             <div class="branch"><div class="cond">Autosave fails</div><div class="fix"><b>Keep the buffer.</b> Switch the status line to <span class="say">"Couldn't save — retrying"</span> in the danger colour, retry with backoff, and block navigation with a confirm while changes are unsaved.</div></div>
           </div>
         </div>
@@ -1284,11 +1289,30 @@ footer .prose { max-width: 62ch; }
   <div class="shell">
     <div class="sec-head"><span class="sec-num">07</span><h2>Feedback</h2></div>
     <p class="sec-lede">
-      The backend has 41 error codes across eight groups. People do not need 41 experiences — they
-      need six, chosen by what they can do next. Classify first, then write the sentence.
+      The backend has <b>60</b> error codes across eight groups — it had 41 when this section was
+      written, and the Career Studio, bulk actions and the upload hardening added nineteen more.
+      People do not need sixty experiences; they need ten, chosen by what they can do next.
+      Classify first, then write the sentence.
     </p>
 
-    <h3 class="block">Six handling classes</h3>
+    <div class="callout">
+      <h4>The class is chosen by where the code arrives, not by the code</h4>
+      <p>
+        <code>TOKEN_EXPIRED</code> on an API call means a session died: refresh silently, then
+        re-authenticate. The same code on <code>/email/verification/[token]</code> means an emailed
+        link went stale, and refreshing a session does nothing for it — the recovery is a new link,
+        offered on that screen. One code, two classes. Read the row for where you are, not for the
+        string you got back.
+      </p>
+      <p>
+        Four of the ten classes below are new. <b>Twenty-eight of the sixty codes previously had no
+        class at all</b>, which is not a drafting slip so much as this section ageing while the API
+        grew underneath it — every <code>*_NOT_FOUND</code>, every upload rejection and the whole AI
+        surface were unhandled.
+      </p>
+    </div>
+
+    <h3 class="block">Ten handling classes</h3>
     <div class="scroller">
       <table>
         <thead><tr><th>Class</th><th>Where it lands</th><th>Recovery offered</th><th>Codes</th></tr></thead>
@@ -1297,7 +1321,7 @@ footer .prose { max-width: 62ch; }
             <td><b>Field-level</b></td>
             <td class="dim">Under the input, on submit or on blur</td>
             <td class="dim">Fix and resubmit; form state preserved</td>
-            <td class="dim mono">INVALID_EMAIL · INVALID_PASSWORD · INVALID_USERNAME · INVALID_FULL_NAME · INVALID_SLUG · INVALID_TITLE · EMPTY_TITLE · TITLE_TOO_LONG · INVALID_CONTENT · MISSING_FIELD · VALIDATION_ERROR</td>
+            <td class="dim mono">INVALID_EMAIL · INVALID_PASSWORD · INVALID_USERNAME · INVALID_FULL_NAME · INVALID_SLUG · INVALID_TITLE · EMPTY_TITLE · TITLE_TOO_LONG · INVALID_CONTENT · MISSING_FIELD · VALIDATION_ERROR · INVALID_REQUEST · INVALID_CREDENTIALS<br>BULK_EMPTY · BULK_TOO_LARGE · SNAPSHOT_REQUIRED — these three have no field, so they land on the control that submitted: the selection toolbar, or the CV cell on a tracker row.</td>
           </tr>
           <tr>
             <td><b>Collision</b></td>
@@ -1328,6 +1352,30 @@ footer .prose { max-width: 62ch; }
             <td class="dim">Inline banner scoped to the failed region</td>
             <td class="dim">Retry, with an assurance that other work is safe</td>
             <td class="dim mono">STORAGE_ERROR · INTERNAL_ERROR · MEDIA_FAILED</td>
+          </tr>
+          <tr>
+            <td><b>Not found</b> <em style="color:var(--st-inflight);font-style:normal">new</em></td>
+            <td class="dim">A full-page state where the item would have been</td>
+            <td class="dim">Back to the list it was reached from</td>
+            <td class="dim mono">POST_NOT_FOUND · PROJECT_NOT_FOUND · CV_NOT_FOUND · TOPIC_NOT_FOUND · MEDIA_NOT_FOUND · USER_NOT_FOUND · JOB_NOT_FOUND · APPLICATION_NOT_FOUND · VARIANT_NOT_FOUND · TARGET_NOT_FOUND</td>
+          </tr>
+          <tr>
+            <td><b>File rejected</b> <em style="color:var(--st-inflight);font-style:normal">new</em></td>
+            <td class="dim">On the drop zone, before anything uploads</td>
+            <td class="dim">Choose or re-export another file; the form is untouched</td>
+            <td class="dim mono">FILE_TOO_LARGE · INVALID_MIME_TYPE · MIME_EXTENSION_MISMATCH · INVALID_EXTENSION · INVALID_FILE_NAME · INVALID_DIMENSIONS</td>
+          </tr>
+          <tr>
+            <td><b>Generation</b> <em style="color:var(--st-inflight);font-style:normal">new</em></td>
+            <td class="dim">In the companion rail, where the suggestion would have been</td>
+            <td class="dim">Retry; the document is never blocked on the model</td>
+            <td class="dim mono">AI_DISABLED · AI_QUOTA_EXCEEDED · AI_REFUSED · AI_TIMEOUT · AI_UPSTREAM_ERROR · AI_FETCH_FAILED</td>
+          </tr>
+          <tr>
+            <td><b>Expired link</b> <em style="color:var(--st-inflight);font-style:normal">new</em></td>
+            <td class="dim">The token screen itself — never a redirect</td>
+            <td class="dim">Send a fresh link from that screen</td>
+            <td class="dim mono">INVALID_RESET_TOKEN<br>INVALID_TOKEN · TOKEN_EXPIRED — <b>only</b> when they arrive on a token screen; on an API call they are Session</td>
           </tr>
         </tbody>
       </table>
@@ -1404,8 +1452,8 @@ footer .prose { max-width: 62ch; }
           <tr><td><b>MediaTile</b></td><td class="dim">entities/media</td><td class="dim">All four media states, variant-aware, expiry-aware URLs</td><td class="dim">J8</td></tr>
           <tr><td><b>RepeatableSection</b></td><td class="dim">features/cv</td><td class="dim">Add, remove, reorder, collapse — all five CV collections</td><td class="dim">J6</td></tr>
           <tr><td><b>DangerZone</b></td><td class="dim">widgets</td><td class="dim">Irreversible actions, isolated and outlined</td><td class="dim">J10</td></tr>
-          <tr><td><b>VerificationBanner</b></td><td class="dim">widgets</td><td class="dim">The gate, wherever an unverified session reaches</td><td class="dim">J1</td></tr>
           <tr><td><b>StudioShell</b></td><td class="dim">widgets</td><td class="dim">Console nav, breadcrumb, account menu; distinct from the public navbar</td><td class="dim">J1</td></tr>
+          <tr><td colspan="4" class="dim"><b><code>VerificationBanner</code> was here and has been struck.</b> It was specified as "the gate, wherever an unverified session reaches" — and there is no such place. §02 sends an unverified session to <code>/verify</code> and keeps it there, so a banner inside the shell can never render. It is a leftover from the same early draft that had the nav rendering read-only, which §02 already corrected: a hold screen is a hold screen. The hold screen <em>is</em> the banner's job, done properly, on a surface that can actually show it. Do not mount it.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1430,7 +1478,7 @@ footer .prose { max-width: 62ch; }
     <div class="sec-head"><span class="sec-num">09</span><h2>Where the API and the journeys don't meet</h2></div>
     <p class="sec-lede">
       This section listed fourteen gaps. <b>Backend round one shipped all fourteen</b>, including the
-      two both sides had written off. Seven narrower gaps remain. Three of them, added after the frontend began building, do block a screen.
+      two both sides had written off. Eight narrower gaps remain. Four of them, added after the frontend began building, do block a screen.
       What follows is the resolved list first, because several of the rules elsewhere in this
       document only made sense while those gaps existed.
     </p>
@@ -1512,6 +1560,16 @@ footer .prose { max-width: 62ch; }
         endpoint</i> gap below was filed as <span class="sev sev-later">later</span> on the
         assumption that three <code>per_page=1</code> calls would do. They do for the four headline
         numbers. They do not for anything beneath them.</p>
+      </div>
+      <div class="gap">
+        <h4>A draft cannot be created empty</h4>
+        <span class="sev sev-block">blocks</span>
+        <p><code>POST /api/blog</code> refuses content that is empty once trimmed, so the New post
+        frame — which asks for title, address and excerpt and promises "you write the body next" —
+        cannot post what it draws. The constraint belongs on <em>publish</em>, not on create: a post
+        must exist before media can attach to its <code>target_id</code>, so a body-before-post rule
+        also means no cover image while you write. Filed with the backend; the screen carries a
+        required body field until it lands.</p>
       </div>
       <div class="gap">
         <h4>Email and password cannot be changed while signed in</h4>

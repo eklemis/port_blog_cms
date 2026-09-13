@@ -309,14 +309,14 @@ footer{padding:46px 0 70px;color:var(--muted);font-size:.84375rem}
   <div class="shell">
     <div class="sec-head"><span class="sec-num">05</span><h2>Frame inventory</h2></div>
     <p class="sec-lede">
-      Three widths, both themes, thirty-five screens each. The tablet set is new — it did not exist
+      Three widths, both themes, thirty-five screens each — plus <code>Mobile / More</code>, which exists only at 390px because it is the transform itself. The tablet set is new — it did not exist
       when the Forms and Interaction Spec was first written, which described 768–1023px as a rule
       with no frames behind it.
     </p>
 
     <div class="counts">
-      <div class="count"><div class="n">210</div><div class="l">Screens total</div></div>
-      <div class="count"><div class="n">70</div><div class="l">390 × 844 mobile</div></div>
+      <div class="count"><div class="n">212</div><div class="l">Screens total</div></div>
+      <div class="count"><div class="n">72</div><div class="l">390 × 844 mobile</div></div>
       <div class="count"><div class="n">70</div><div class="l">834 × 1112 tablet</div></div>
       <div class="count"><div class="n">70</div><div class="l">1180 desktop</div></div>
       <div class="count"><div class="n">376</div><div class="l">Prototype links</div></div>
@@ -353,7 +353,7 @@ footer{padding:46px 0 70px;color:var(--muted);font-size:.84375rem}
           <tr><td><b>Selection toolbar</b></td><td class="dim">Floats above the selection</td><td class="dim">Becomes the sheet header. There is no room to hover a bar above a selection at 390px.</td></tr>
           <tr><td><b>Modals</b></td><td class="dim">Centred over a full-bleed scrim</td><td class="dim">Become sheets. The PDF preview survives the change — pagination is the one thing nobody can predict.</td></tr>
           <tr><td><b>CV builder</b></td><td class="dim">Five sections, all reachable</td><td class="dim">An accordion, one open at a time. This works — though a stepped wizard would probably work better, and that is a product decision worth taking deliberately rather than inheriting from a reflow.</td></tr>
-          <tr><td colspan="3" class="dim"><b>The More sheet is specified here and not yet drawn.</b> It is the only mobile surface with no frame, which is why <code>Mobile / Overview</code> currently has no way in. Two frames owed, light and dark.</td></tr>
+          <tr><td colspan="3" class="dim"><b>The More sheet is drawn.</b> <code>Mobile / More</code>, light and dark — the sheet over a dimmed Posts list with the More tab lit, which is the state it is actually seen in. It closes the hole that left <code>Mobile / Overview</code> with no way in.</td></tr>
         </tbody>
       </table>
     </div>
@@ -425,7 +425,7 @@ footer{padding:46px 0 70px;color:var(--muted);font-size:.84375rem}
       </table>
     </div>
     <p class="caption">
-      Current state: <b>210 screens, zero findings on all six</b>, zero unbound colours.
+      Current state: <b>212 screens, zero findings on all six</b>, zero unbound colours.
     </p>
   </div>
 </section>
