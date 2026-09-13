@@ -96,6 +96,25 @@ where
             ));
         }
 
+        // Publishing is the moment the body stops being private, so it is the
+        // moment the body has to exist. The value compared is what the post
+        // will hold after this patch: the incoming content when the same
+        // request supplies it, and the stored content otherwise, since
+        // publishing an already-written post sends no content at all.
+        if matches!(data.published_at, BlogPatchField::Value(_)) {
+            let will_be = match &data.content {
+                BlogPatchField::Value(c) => c.as_str(),
+                BlogPatchField::Null => "",
+                BlogPatchField::Unset => existing.content.as_str(),
+            };
+
+            if will_be.trim().is_empty() {
+                return Err(PatchBlogPostError::InvalidContent(
+                    "A post cannot be published with an empty body".to_string(),
+                ));
+            }
+        }
+
         self.repository
             .patch(post_id, data)
             .await
@@ -303,6 +322,112 @@ mod tests {
     /// The repository is consulted twice — once to establish ownership, once to
     /// write — and each call maps its errors independently. Both mappings are
     /// exercised here, since a mistake in either turns a 404 or 409 into a 500.
+    /// The guard that moved here from creation. A post may sit blank for as
+    /// long as its author likes; it may not go in front of a reader that way.
+    #[tokio::test]
+    async fn publishing_an_empty_post_is_refused() {
+        let user_id = Uuid::new_v4();
+        let mut blank = a_post(user_id);
+        blank.content = "   ".into();
+
+        let err = service(Some(blank))
+            .execute(
+                UserId::from(user_id),
+                Uuid::new_v4(),
+                PatchBlogPostData {
+                    published_at: BlogPatchField::Value(Utc::now()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, PatchBlogPostError::InvalidContent(_)));
+    }
+
+    /// The body can arrive in the same request that publishes it, which is what
+    /// "write it, then hit publish" looks like when the editor saves once.
+    #[tokio::test]
+    async fn publishing_with_a_body_in_the_same_patch_is_allowed() {
+        let user_id = Uuid::new_v4();
+        let mut blank = a_post(user_id);
+        blank.content = "".into();
+
+        assert!(service(Some(blank))
+            .execute(
+                UserId::from(user_id),
+                Uuid::new_v4(),
+                PatchBlogPostData {
+                    published_at: BlogPatchField::Value(Utc::now()),
+                    content: BlogPatchField::Value("Now it says something".into()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .is_ok());
+    }
+
+    /// Publishing an already-written post sends no content at all, so the
+    /// stored body is what has to be checked.
+    #[tokio::test]
+    async fn publishing_an_already_written_post_sends_no_content() {
+        let user_id = Uuid::new_v4();
+
+        assert!(service(Some(a_post(user_id)))
+            .execute(
+                UserId::from(user_id),
+                Uuid::new_v4(),
+                PatchBlogPostData {
+                    published_at: BlogPatchField::Value(Utc::now()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .is_ok());
+    }
+
+    /// Emptying the body of a post being published is still publishing an
+    /// empty post, however it is spelled.
+    #[tokio::test]
+    async fn clearing_the_body_while_publishing_is_refused() {
+        let user_id = Uuid::new_v4();
+
+        let err = service(Some(a_post(user_id)))
+            .execute(
+                UserId::from(user_id),
+                Uuid::new_v4(),
+                PatchBlogPostData {
+                    published_at: BlogPatchField::Value(Utc::now()),
+                    content: BlogPatchField::Null,
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, PatchBlogPostError::InvalidContent(_)));
+    }
+
+    /// Editing a draft is untouched by any of this.
+    #[tokio::test]
+    async fn a_blank_draft_can_still_be_patched() {
+        let user_id = Uuid::new_v4();
+        let mut blank = a_post(user_id);
+        blank.content = "".into();
+
+        assert!(service(Some(blank))
+            .execute(
+                UserId::from(user_id),
+                Uuid::new_v4(),
+                PatchBlogPostData {
+                    title: BlogPatchField::Value("A better title".into()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .is_ok());
+    }
+
     #[tokio::test]
     async fn errors_from_the_ownership_read_are_mapped() {
         struct FailingFetch(BlogPostRepositoryError);

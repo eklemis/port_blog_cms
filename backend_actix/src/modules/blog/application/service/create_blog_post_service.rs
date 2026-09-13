@@ -68,12 +68,18 @@ where
         Ok(trimmed.to_string())
     }
 
-    fn validate_content(content: &str) -> Result<(), CreateBlogPostError> {
-        if content.trim().is_empty() {
-            return Err(CreateBlogPostError::InvalidContent(
-                "Content cannot be empty".to_string(),
-            ));
-        }
+    /// Creation accepts an empty body on purpose.
+    ///
+    /// Media attaches to a target id, so a cover image needs the post to exist
+    /// first. Requiring a body at creation meant writing prose before a cover
+    /// could be added, which is backwards for an authoring flow that starts
+    /// from a picture and a title.
+    ///
+    /// The guard this used to provide has not been dropped, only moved: an
+    /// empty post cannot be *published*. Nothing empty reaches a reader, which
+    /// is what the rule was actually protecting — an unfinished draft in
+    /// somebody's own console was never the problem.
+    fn validate_content(_content: &str) -> Result<(), CreateBlogPostError> {
         Ok(())
     }
 }
@@ -252,13 +258,28 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn rejects_empty_content() {
+    async fn accepts_an_empty_body_so_a_post_can_exist_before_it_is_written() {
         let svc = CreateBlogPostService::new(MockRepo::ok());
-        let err = svc
-            .execute(command("Hello", "hello", "  "))
+
+        assert!(svc.execute(command("Hello", "hello", "  ")).await.is_ok());
+    }
+
+    /// The inverse of the rule this replaced. Creation is permissive because
+    /// media needs a post to attach to; the guard against an empty post
+    /// reaching a reader lives on the publish path now, and
+    /// `patch_blog_post_service` is where it is tested.
+    #[tokio::test]
+    async fn a_body_is_still_stored_when_one_is_given() {
+        let svc = CreateBlogPostService::new(MockRepo::ok());
+
+        svc.execute(command("Hello", "hello", "Some words"))
             .await
-            .unwrap_err();
-        assert!(matches!(err, CreateBlogPostError::InvalidContent(_)));
+            .unwrap();
+
+        // The mock returns a canned post, so what matters is what the service
+        // handed it, not what came back.
+        let sent = svc.repository.seen.lock().unwrap();
+        assert_eq!(sent.as_ref().unwrap().content, "Some words");
     }
 
     #[tokio::test]

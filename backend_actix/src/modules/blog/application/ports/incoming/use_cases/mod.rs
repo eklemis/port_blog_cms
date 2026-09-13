@@ -113,6 +113,13 @@ pub enum PatchBlogPostError {
     #[error("Invalid slug: {0}")]
     InvalidSlug(String),
 
+    /// Publishing was requested for a post with an empty body.
+    ///
+    /// A post may be created and kept blank for as long as its author likes;
+    /// what it may not do is go in front of a reader that way.
+    #[error("Invalid content: {0}")]
+    InvalidContent(String),
+
     /// The author already has a post with that slug.
     #[error("Slug already exists")]
     SlugAlreadyExists,
