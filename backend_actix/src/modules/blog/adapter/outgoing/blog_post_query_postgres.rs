@@ -78,9 +78,14 @@ impl BlogPostQueryPostgres {
         page: BlogPageRequest,
         published_only: bool,
     ) -> Result<BlogPageResult<BlogPostCard>, BlogPostQueryError> {
+        // An archived post is never public, whatever the query string says.
+        // Same reasoning as `published_only` itself: the public endpoint must
+        // not be talkable into returning something the author took down.
+        let deleted = !published_only && filter.deleted.unwrap_or(false);
+
         let mut condition = Condition::all()
             .add(PostColumn::UserId.eq(owner.value()))
-            .add(PostColumn::IsDeleted.eq(false));
+            .add(PostColumn::IsDeleted.eq(deleted));
 
         if published_only {
             // A future published_at is scheduled, not live, so this is a
@@ -956,6 +961,71 @@ mod tests {
 
     /// per_page is clamped, so a caller cannot ask for an unbounded page and
     /// pull the whole table in one request.
+    /// The archive screen's whole reason to exist: restore and hard-delete
+    /// have nothing to act on unless archived posts can be listed.
+    #[tokio::test]
+    async fn deleted_true_asks_for_archived_posts() {
+        let conn = Arc::new(
+            MockDatabase::new(DatabaseBackend::Postgres)
+                .append_query_results(vec![vec![count_row(0)]])
+                .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
+                .into_connection(),
+        );
+
+        BlogPostQueryPostgres::new(Arc::clone(&conn))
+            .list_by_owner(
+                UserId::from(Uuid::new_v4()),
+                BlogPostListFilter {
+                    deleted: Some(true),
+                    ..Default::default()
+                },
+                BlogPostSort::Newest,
+                BlogPageRequest::default(),
+            )
+            .await
+            .unwrap();
+
+        // is_deleted is a bound parameter, not a literal, so the value is what
+        // carries the meaning — the SQL text says `= $2` either way.
+        let log = format!(
+            "{:?}",
+            Arc::try_unwrap(conn).unwrap().into_transaction_log()
+        );
+        assert!(
+            log.contains("Bool(Some(true))"),
+            "expected the archived flag to be bound as true, got: {log}"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_default_listing_is_still_live_posts() {
+        let conn = Arc::new(
+            MockDatabase::new(DatabaseBackend::Postgres)
+                .append_query_results(vec![vec![count_row(0)]])
+                .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
+                .into_connection(),
+        );
+
+        BlogPostQueryPostgres::new(Arc::clone(&conn))
+            .list_by_owner(
+                UserId::from(Uuid::new_v4()),
+                BlogPostListFilter::default(),
+                BlogPostSort::Newest,
+                BlogPageRequest::default(),
+            )
+            .await
+            .unwrap();
+
+        let log = format!(
+            "{:?}",
+            Arc::try_unwrap(conn).unwrap().into_transaction_log()
+        );
+        assert!(
+            log.contains("Bool(Some(false))") && !log.contains("Bool(Some(true))"),
+            "an unfiltered listing must still exclude archived posts: {log}"
+        );
+    }
+
     #[tokio::test]
     async fn per_page_is_clamped_and_page_is_at_least_one() {
         let conn = Arc::new(

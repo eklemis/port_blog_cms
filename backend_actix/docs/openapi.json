@@ -2844,6 +2844,16 @@
             }
           },
           {
+            "name": "deleted",
+            "in": "query",
+            "description": "Return archived posts instead of live ones.\n\nOmitted or `false` lists live posts. `true` lists only archived ones —\nwhat the archive screen needs, since restore and hard-delete have\nnothing to act on otherwise.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "example": false
+          },
+          {
             "name": "sort",
             "in": "query",
             "description": "Listing order.",
@@ -9971,6 +9981,16 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "name": "deleted",
+            "in": "query",
+            "description": "Return archived posts instead of live ones.\n\nOmitted or `false` lists live posts. `true` lists only archived ones —\nwhat the archive screen needs, since restore and hard-delete have\nnothing to act on otherwise.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "example": false
           },
           {
             "name": "sort",

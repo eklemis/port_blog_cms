@@ -35,6 +35,16 @@ pub struct BlogPostListFilter {
     /// Owner-facing listings can ask for drafts only, published only, or both.
     /// Public listings ignore this and always force published.
     pub published: Option<bool>,
+
+    /// Archived posts instead of live ones.
+    ///
+    /// `None` and `Some(false)` both mean "not archived", which is what every
+    /// ordinary listing wants. `Some(true)` returns only archived posts, which
+    /// is the archive screen and the only thing that can restore or
+    /// hard-delete them.
+    ///
+    /// Ignored entirely on the public path — see `list`'s `published_only`.
+    pub deleted: Option<bool>,
 }
 
 /// Listing order. Defaults to [`PublishedNewest`](Self::PublishedNewest),

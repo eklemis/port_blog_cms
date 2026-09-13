@@ -33,6 +33,14 @@ pub struct GetBlogPostsQuery {
     /// Ignored by the public listing, which always forces published only.
     pub published: Option<bool>,
 
+    /// Return archived posts instead of live ones.
+    ///
+    /// Omitted or `false` lists live posts. `true` lists only archived ones —
+    /// what the archive screen needs, since restore and hard-delete have
+    /// nothing to act on otherwise.
+    #[param(example = false)]
+    pub deleted: Option<bool>,
+
     /// Listing order.
     #[serde(default)]
     pub sort: BlogPostSort,
@@ -55,6 +63,7 @@ impl From<GetBlogPostsQuery> for (BlogPostListFilter, BlogPageRequest, BlogPostS
                 search: q.search,
                 topic_id: q.topic_id,
                 published: q.published,
+                deleted: q.deleted,
             },
             BlogPageRequest {
                 page: if q.page == 0 { 1 } else { q.page },
