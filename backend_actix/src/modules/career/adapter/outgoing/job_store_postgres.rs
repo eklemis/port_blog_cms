@@ -7,8 +7,8 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-    QueryOrder, QuerySelect, TransactionTrait,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, TransactionTrait,
 };
 use std::sync::Arc;
 use uuid::Uuid;
@@ -17,7 +17,7 @@ use crate::career::adapter::outgoing::sea_orm_entity::jobs::{
     ActiveModel as JobActive, Column as JobColumn, Entity as JobEntity, Model as JobModel,
 };
 use crate::career::application::ports::outgoing::{
-    CreateJobData, JobStore, JobStoreError, PatchJobData,
+    CareerPageRequest, CareerPageResult, CreateJobData, JobStore, JobStoreError, PatchJobData,
 };
 use crate::career::domain::entities::Job;
 
@@ -97,16 +97,31 @@ impl JobStore for JobStorePostgres {
         Ok(to_domain(stored))
     }
 
-    async fn list(&self, owner: Uuid) -> Result<Vec<Job>, JobStoreError> {
-        let rows = JobEntity::find()
+    async fn list(
+        &self,
+        owner: Uuid,
+        page: CareerPageRequest,
+    ) -> Result<CareerPageResult<Job>, JobStoreError> {
+        let page = page.normalised();
+
+        let paginator = JobEntity::find()
             .filter(JobColumn::UserId.eq(owner))
             .filter(JobColumn::IsDeleted.eq(false))
             .order_by_desc(JobColumn::CreatedAt)
-            .all(self.db.as_ref())
+            .paginate(self.db.as_ref(), page.per_page as u64);
+
+        let total = paginator.num_items().await.map_err(db_err)?;
+        let rows = paginator
+            .fetch_page((page.page - 1) as u64)
             .await
             .map_err(db_err)?;
 
-        Ok(rows.into_iter().map(to_domain).collect())
+        Ok(CareerPageResult {
+            items: rows.into_iter().map(to_domain).collect(),
+            page: page.page,
+            per_page: page.per_page,
+            total,
+        })
     }
 
     async fn find(&self, owner: Uuid, job_id: Uuid) -> Result<Option<Job>, JobStoreError> {

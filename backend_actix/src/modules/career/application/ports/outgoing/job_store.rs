@@ -84,7 +84,11 @@ pub trait JobStore: Send + Sync {
     async fn create(&self, owner: Uuid, data: CreateJobData) -> Result<Job, JobStoreError>;
 
     /// The caller's postings, newest first. Archived ones are excluded.
-    async fn list(&self, owner: Uuid) -> Result<Vec<Job>, JobStoreError>;
+    async fn list(
+        &self,
+        owner: Uuid,
+        page: crate::career::application::ports::outgoing::CareerPageRequest,
+    ) -> Result<crate::career::application::ports::outgoing::CareerPageResult<Job>, JobStoreError>;
 
     /// One posting.
     async fn find(&self, owner: Uuid, job_id: Uuid) -> Result<Option<Job>, JobStoreError>;

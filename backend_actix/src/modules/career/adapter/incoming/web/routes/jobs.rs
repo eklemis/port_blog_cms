@@ -7,6 +7,7 @@ use tracing::error;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use crate::career::application::ports::outgoing::{CareerPageRequest, CareerPageResult};
 use crate::{
     api::schemas::{ErrorResponse, SuccessResponse},
     auth::{
@@ -172,29 +173,65 @@ pub async fn create_job_handler(
     }
 }
 
+/// Which page of the listing to return.
+#[derive(Debug, Default, Deserialize, utoipa::IntoParams)]
+pub struct ListPageQuery {
+    /// 1-based page number. Omitted or `0` means the first page.
+    #[param(example = 1, minimum = 1)]
+    #[serde(default)]
+    pub page: u32,
+
+    /// Rows per page. Omitted or `0` means 10; anything above 100 is trimmed
+    /// to 100 rather than refused.
+    #[param(example = 10, minimum = 1, maximum = 100)]
+    #[serde(default)]
+    pub per_page: u32,
+}
+
+impl From<ListPageQuery> for CareerPageRequest {
+    fn from(q: ListPageQuery) -> Self {
+        Self {
+            page: q.page,
+            per_page: q.per_page,
+        }
+    }
+}
+
 /// List captured postings
 #[utoipa::path(
     get,
     path = "/api/jobs",
     tag = "career",
     responses(
-        (status = 200, description = "Postings, newest first", body = inline(SuccessResponse<Vec<JobResponse>>)),
+        (status = 200, description = "Postings, newest first", body = inline(SuccessResponse<CareerPageResult<JobResponse>>)),
         (status = 401, description = "Not authenticated", body = ErrorResponse),
         (status = 403, description = "Email not verified", body = ErrorResponse),
     ),
+    params(ListPageQuery),
     security(("BearerAuth" = []))
 )]
 #[get("/api/jobs")]
-pub async fn get_jobs_handler(user: VerifiedUser, data: web::Data<AppState>) -> impl Responder {
+pub async fn get_jobs_handler(
+    user: VerifiedUser,
+    query: web::Query<ListPageQuery>,
+    data: web::Data<AppState>,
+) -> impl Responder {
     match data
         .career
         .list_jobs
-        .execute(UserId::from(user.user_id))
+        .execute(UserId::from(user.user_id), query.into_inner().into())
         .await
     {
-        Ok(jobs) => {
-            ApiResponse::success(jobs.into_iter().map(JobResponse::from).collect::<Vec<_>>())
-        }
+        Ok(page) => ApiResponse::success(CareerPageResult {
+            items: page
+                .items
+                .into_iter()
+                .map(JobResponse::from)
+                .collect::<Vec<_>>(),
+            page: page.page,
+            per_page: page.per_page,
+            total: page.total,
+        }),
         Err(e) => map_error(e),
     }
 }

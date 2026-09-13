@@ -6,8 +6,8 @@
 use async_trait::async_trait;
 use chrono::Utc;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-    QueryOrder, QuerySelect, TransactionTrait,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, TransactionTrait,
 };
 use std::str::FromStr;
 use std::sync::Arc;
@@ -20,7 +20,8 @@ use crate::career::adapter::outgoing::sea_orm_entity::jobs::{
     Column as JobColumn, Entity as JobEntity,
 };
 use crate::career::application::ports::outgoing::{
-    ApplicationStore, ApplicationStoreError, CreateApplicationData, PatchApplicationData,
+    ApplicationStore, ApplicationStoreError, CareerPageRequest, CareerPageResult,
+    CreateApplicationData, PatchApplicationData,
 };
 use crate::career::domain::entities::{Application, ApplicationStatus};
 
@@ -108,16 +109,31 @@ impl ApplicationStore for ApplicationStorePostgres {
         Ok(to_domain(stored))
     }
 
-    async fn list(&self, owner: Uuid) -> Result<Vec<Application>, ApplicationStoreError> {
-        let rows = AppEntity::find()
+    async fn list(
+        &self,
+        owner: Uuid,
+        page: CareerPageRequest,
+    ) -> Result<CareerPageResult<Application>, ApplicationStoreError> {
+        let page = page.normalised();
+
+        let paginator = AppEntity::find()
             .filter(AppColumn::UserId.eq(owner))
             .filter(AppColumn::IsDeleted.eq(false))
             .order_by_desc(AppColumn::CreatedAt)
-            .all(self.db.as_ref())
+            .paginate(self.db.as_ref(), page.per_page as u64);
+
+        let total = paginator.num_items().await.map_err(db_err)?;
+        let rows = paginator
+            .fetch_page((page.page - 1) as u64)
             .await
             .map_err(db_err)?;
 
-        Ok(rows.into_iter().map(to_domain).collect())
+        Ok(CareerPageResult {
+            items: rows.into_iter().map(to_domain).collect(),
+            page: page.page,
+            per_page: page.per_page,
+            total,
+        })
     }
 
     async fn find(

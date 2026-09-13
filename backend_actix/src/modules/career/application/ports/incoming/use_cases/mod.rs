@@ -119,7 +119,11 @@ pub trait CreateJobUseCase: Send + Sync {
 #[async_trait]
 pub trait GetJobsUseCase: Send + Sync {
     /// Newest first.
-    async fn execute(&self, owner: UserId) -> Result<Vec<Job>, JobError>;
+    async fn execute(
+        &self,
+        owner: UserId,
+        page: crate::career::application::ports::outgoing::CareerPageRequest,
+    ) -> Result<crate::career::application::ports::outgoing::CareerPageResult<Job>, JobError>;
 }
 
 /// Reads one posting.
@@ -163,7 +167,14 @@ pub trait CreateApplicationUseCase: Send + Sync {
 #[async_trait]
 pub trait GetApplicationsUseCase: Send + Sync {
     /// Newest first.
-    async fn execute(&self, owner: UserId) -> Result<Vec<Application>, ApplicationError>;
+    async fn execute(
+        &self,
+        owner: UserId,
+        page: crate::career::application::ports::outgoing::CareerPageRequest,
+    ) -> Result<
+        crate::career::application::ports::outgoing::CareerPageResult<Application>,
+        ApplicationError,
+    >;
 }
 
 /// Reads one application.

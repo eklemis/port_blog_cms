@@ -7,6 +7,7 @@ use crate::auth::application::domain::entities::UserId;
 use crate::career::application::ports::incoming::use_cases::{
     ArchiveJobUseCase, CreateJobUseCase, GetJobUseCase, GetJobsUseCase, JobError, PatchJobUseCase,
 };
+use crate::career::application::ports::outgoing::{CareerPageRequest, CareerPageResult};
 use crate::career::application::ports::outgoing::{CreateJobData, JobStore, PatchJobData};
 use crate::career::domain::entities::Job;
 
@@ -54,8 +55,12 @@ impl<S> GetJobsUseCase for JobService<S>
 where
     S: JobStore + Send + Sync,
 {
-    async fn execute(&self, owner: UserId) -> Result<Vec<Job>, JobError> {
-        Ok(self.store.list(owner.value()).await?)
+    async fn execute(
+        &self,
+        owner: UserId,
+        page: CareerPageRequest,
+    ) -> Result<CareerPageResult<Job>, JobError> {
+        Ok(self.store.list(owner.value(), page).await?)
     }
 }
 

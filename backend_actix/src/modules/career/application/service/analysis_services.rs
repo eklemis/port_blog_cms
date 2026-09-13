@@ -208,6 +208,7 @@ mod tests {
     use crate::career::application::ports::outgoing::{
         ApplicationStoreError, CreateApplicationData, CvReaderError, PatchApplicationData,
     };
+    use crate::career::application::ports::outgoing::{CareerPageRequest, CareerPageResult};
     use crate::career::domain::entities::{Application, ApplicationStatus};
     use crate::cv::domain::entities::{CoreSkill, Education, Experience};
     use std::sync::{Arc, Mutex};
@@ -276,8 +277,9 @@ mod tests {
         async fn list(
             &self,
             _o: Uuid,
+            _p: CareerPageRequest,
         ) -> Result<
-            Vec<crate::career::domain::entities::Job>,
+            CareerPageResult<crate::career::domain::entities::Job>,
             crate::career::application::ports::outgoing::JobStoreError,
         > {
             unimplemented!()
@@ -372,7 +374,11 @@ mod tests {
         ) -> Result<Application, ApplicationStoreError> {
             unimplemented!()
         }
-        async fn list(&self, _o: Uuid) -> Result<Vec<Application>, ApplicationStoreError> {
+        async fn list(
+            &self,
+            _o: Uuid,
+            _p: CareerPageRequest,
+        ) -> Result<CareerPageResult<Application>, ApplicationStoreError> {
             unimplemented!()
         }
         async fn find(

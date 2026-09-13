@@ -83,7 +83,14 @@ pub trait ApplicationStore: Send + Sync {
     ) -> Result<Application, ApplicationStoreError>;
 
     /// The caller's applications, newest first.
-    async fn list(&self, owner: Uuid) -> Result<Vec<Application>, ApplicationStoreError>;
+    async fn list(
+        &self,
+        owner: Uuid,
+        page: crate::career::application::ports::outgoing::CareerPageRequest,
+    ) -> Result<
+        crate::career::application::ports::outgoing::CareerPageResult<Application>,
+        ApplicationStoreError,
+    >;
 
     /// One application.
     async fn find(

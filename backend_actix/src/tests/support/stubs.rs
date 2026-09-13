@@ -1234,11 +1234,22 @@ impl crate::career::application::ports::incoming::use_cases::GetJobsUseCase for 
     async fn execute(
         &self,
         _owner: crate::auth::application::domain::entities::UserId,
+        page: crate::career::application::ports::outgoing::CareerPageRequest,
     ) -> Result<
-        Vec<crate::career::domain::entities::Job>,
+        crate::career::application::ports::outgoing::CareerPageResult<
+            crate::career::domain::entities::Job,
+        >,
         crate::career::application::ports::incoming::use_cases::JobError,
     > {
-        Ok(vec![])
+        let page = page.normalised();
+        Ok(
+            crate::career::application::ports::outgoing::CareerPageResult {
+                items: vec![],
+                page: page.page,
+                per_page: page.per_page,
+                total: 0,
+            },
+        )
     }
 }
 
@@ -1303,11 +1314,22 @@ impl crate::career::application::ports::incoming::use_cases::GetApplicationsUseC
     async fn execute(
         &self,
         _owner: crate::auth::application::domain::entities::UserId,
+        page: crate::career::application::ports::outgoing::CareerPageRequest,
     ) -> Result<
-        Vec<crate::career::domain::entities::Application>,
+        crate::career::application::ports::outgoing::CareerPageResult<
+            crate::career::domain::entities::Application,
+        >,
         crate::career::application::ports::incoming::use_cases::ApplicationError,
     > {
-        Ok(vec![])
+        let page = page.normalised();
+        Ok(
+            crate::career::application::ports::outgoing::CareerPageResult {
+                items: vec![],
+                page: page.page,
+                per_page: page.per_page,
+                total: 0,
+            },
+        )
     }
 }
 

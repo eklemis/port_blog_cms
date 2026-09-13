@@ -16,6 +16,7 @@ use crate::career::application::ports::incoming::use_cases::{
 use crate::career::application::ports::outgoing::{
     ApplicationStore, CreateApplicationData, CvSnapshotter, PatchApplicationData,
 };
+use crate::career::application::ports::outgoing::{CareerPageRequest, CareerPageResult};
 use crate::career::domain::entities::Application;
 
 /// Implements the corresponding use-case contract.
@@ -53,8 +54,12 @@ impl<S> GetApplicationsUseCase for ApplicationService<S>
 where
     S: ApplicationStore + Send + Sync,
 {
-    async fn execute(&self, owner: UserId) -> Result<Vec<Application>, ApplicationError> {
-        Ok(self.store.list(owner.value()).await?)
+    async fn execute(
+        &self,
+        owner: UserId,
+        page: CareerPageRequest,
+    ) -> Result<CareerPageResult<Application>, ApplicationError> {
+        Ok(self.store.list(owner.value(), page).await?)
     }
 }
 
@@ -182,7 +187,11 @@ mod tests {
         ) -> Result<Application, ApplicationStoreError> {
             unimplemented!()
         }
-        async fn list(&self, _o: Uuid) -> Result<Vec<Application>, ApplicationStoreError> {
+        async fn list(
+            &self,
+            _o: Uuid,
+            _p: CareerPageRequest,
+        ) -> Result<CareerPageResult<Application>, ApplicationStoreError> {
             unimplemented!()
         }
         async fn find(
