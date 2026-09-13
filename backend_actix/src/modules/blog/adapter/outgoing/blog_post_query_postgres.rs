@@ -3,8 +3,9 @@ use chrono::Utc;
 use sea_orm::sea_query::extension::postgres::PgExpr;
 use sea_orm::sea_query::Expr;
 use sea_orm::{
-    ColumnTrait, Condition, DatabaseConnection, EntityTrait, FromQueryResult, JoinType,
-    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait,
+    ColumnTrait, Condition, ConnectionTrait, DatabaseBackend, DatabaseConnection, EntityTrait,
+    FromQueryResult, JoinType, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait,
+    Statement,
 };
 use std::sync::Arc;
 use uuid::Uuid;
@@ -15,8 +16,8 @@ use crate::blog::adapter::outgoing::sea_orm_entity::{
     blog_posts::{Column as PostColumn, Entity as PostEntity},
 };
 use crate::blog::application::ports::outgoing::{
-    BlogPageRequest, BlogPageResult, BlogPostCard, BlogPostListFilter, BlogPostQuery,
-    BlogPostQueryError, BlogPostSort, BlogPostView,
+    BlogPageRequest, BlogPageResult, BlogPostCard, BlogPostCounts, BlogPostListFilter,
+    BlogPostQuery, BlogPostQueryError, BlogPostSort, BlogPostView,
 };
 use crate::blog::domain::entities::BlogPostTopic;
 use crate::multimedia::adapter::outgoing::db::public_media_loader::{
@@ -322,6 +323,49 @@ impl BlogPostQueryPostgres {
 
 #[async_trait]
 impl BlogPostQuery for BlogPostQueryPostgres {
+    async fn counts_by_owner(&self, owner: UserId) -> Result<BlogPostCounts, BlogPostQueryError> {
+        // One statement rather than three round trips. The CASE arms mirror
+        // the listing's own rules exactly — a future published_at is scheduled,
+        // not live — so this line and the lists beneath it cannot disagree.
+        let sql = r#"
+            SELECT
+              COUNT(*) FILTER (
+                WHERE is_deleted = false
+                  AND published_at IS NOT NULL
+                  AND published_at <= NOW()
+              ) AS live,
+              COUNT(*) FILTER (
+                WHERE is_deleted = false
+                  AND (published_at IS NULL OR published_at > NOW())
+              ) AS drafts,
+              COUNT(*) FILTER (WHERE is_deleted = true) AS archived
+            FROM blog_posts
+            WHERE user_id = $1
+        "#;
+
+        let row = self
+            .db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                sql,
+                [owner.value().into()],
+            ))
+            .await
+            .map_err(Self::db_err)?;
+
+        // No rows at all still produces one row of zeroes, so an author with
+        // nothing gets three zeroes rather than a 404.
+        let Some(row) = row else {
+            return Ok(BlogPostCounts::default());
+        };
+
+        Ok(BlogPostCounts {
+            live: row.try_get::<i64>("", "live").map_err(Self::db_err)? as u64,
+            drafts: row.try_get::<i64>("", "drafts").map_err(Self::db_err)? as u64,
+            archived: row.try_get::<i64>("", "archived").map_err(Self::db_err)? as u64,
+        })
+    }
+
     async fn list_by_owner(
         &self,
         owner: UserId,
@@ -1065,6 +1109,56 @@ mod tests {
             topic_queries, 1,
             "three posts should cost one topics query, not three"
         );
+    }
+
+    /// A scheduled post is a draft, not a live one — the same rule the public
+    /// listing applies, so the dashboard line cannot disagree with the list
+    /// beneath it.
+    #[tokio::test]
+    async fn counts_treat_a_scheduled_post_as_a_draft() {
+        let sql = {
+            let conn = Arc::new(
+                MockDatabase::new(DatabaseBackend::Postgres)
+                    .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
+                    .into_connection(),
+            );
+
+            BlogPostQueryPostgres::new(Arc::clone(&conn))
+                .counts_by_owner(UserId::from(Uuid::new_v4()))
+                .await
+                .unwrap();
+
+            format!(
+                "{:?}",
+                Arc::try_unwrap(conn).unwrap().into_transaction_log()
+            )
+        };
+
+        assert!(
+            sql.contains("published_at > NOW()"),
+            "a future publication date must count as a draft: {sql}"
+        );
+        assert!(
+            sql.contains("published_at <= NOW()"),
+            "only a past publication date counts as live: {sql}"
+        );
+    }
+
+    /// An author with nothing gets three zeroes, not an error.
+    #[tokio::test]
+    async fn an_author_with_no_posts_counts_zero() {
+        let conn = Arc::new(
+            MockDatabase::new(DatabaseBackend::Postgres)
+                .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
+                .into_connection(),
+        );
+
+        let counts = BlogPostQueryPostgres::new(conn)
+            .counts_by_owner(UserId::from(Uuid::new_v4()))
+            .await
+            .unwrap();
+
+        assert_eq!(counts, BlogPostCounts::default());
     }
 
     /// The archive screen's whole reason to exist: restore and hard-delete

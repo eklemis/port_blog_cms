@@ -11,9 +11,9 @@ use uuid::Uuid;
 
 use crate::auth::application::domain::entities::UserId;
 use crate::blog::application::ports::outgoing::{
-    BlogPageRequest, BlogPageResult, BlogPostArchiverError, BlogPostCard, BlogPostListFilter,
-    BlogPostQueryError, BlogPostRepositoryError, BlogPostSort, BlogPostTopicRepositoryError,
-    BlogPostView, PatchBlogPostData,
+    BlogPageRequest, BlogPageResult, BlogPostArchiverError, BlogPostCard, BlogPostCounts,
+    BlogPostListFilter, BlogPostQueryError, BlogPostRepositoryError, BlogPostSort,
+    BlogPostTopicRepositoryError, BlogPostView, PatchBlogPostData,
 };
 use crate::blog::domain::entities::{BlogPost, BlogPostTopic};
 use crate::shared::api::{BulkOutcome, BulkRequestError};
@@ -225,6 +225,14 @@ pub trait CreateBlogPostUseCase: Send + Sync {
 ///
 /// Honours `filter.published`, so the author can ask for drafts, published
 /// posts, or both.
+/// Counts an author's posts, for the dashboard line.
+#[async_trait]
+pub trait GetBlogPostCountsUseCase: Send + Sync {
+    /// Counts the author's posts by state.
+    async fn execute(&self, owner: UserId) -> Result<BlogPostCounts, GetBlogPostsError>;
+}
+
+/// Lists an author's posts.
 #[async_trait]
 pub trait GetBlogPostsUseCase: Send + Sync {
     /// Runs the operation.

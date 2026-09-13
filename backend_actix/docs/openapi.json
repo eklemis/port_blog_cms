@@ -3530,6 +3530,63 @@
         ]
       }
     },
+    "/api/blog/summary": {
+      "get": {
+        "tags": [
+          "blog"
+        ],
+        "summary": "Count the author's posts by state",
+        "description": "The numbers behind a dashboard line like \"12 live · 9 drafts · 3 archived\".\n\nThree counts in one round trip. Two of them could be had by listing with a\nfilter and reading `total`, at the cost of two requests that also transfer\nrows nobody renders; `archived` could not be had at all until the archive\nlisting existed, and even then only as a third request.\n\nA post scheduled for the future counts as a draft, not as live, matching\nwhat the public listing will actually show.",
+        "operationId": "get_blog_post_counts_handler",
+        "responses": {
+          "200": {
+            "description": "Counts by state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlogPostCounts"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Email not verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/blog/{post_id}": {
       "get": {
         "tags": [
@@ -12473,6 +12530,38 @@
             "type": "string",
             "format": "date-time",
             "description": "When it was last edited."
+          }
+        }
+      },
+      "BlogPostCounts": {
+        "type": "object",
+        "description": "Reads blog posts.\n\nWrites belong to [`BlogPostRepository`](super::blog_post_repository::BlogPostRepository).\nPublic callers must force `published = Some(true)` in the filter — this port\ndoes not do it for them.\nHow many posts an author has, by state.\n\nThe three add up to every post the author owns. `archived` counts rows the\nordinary listing hides, so it is the only one that cannot be derived by\npaging with a filter and reading `total`.",
+        "required": [
+          "live",
+          "drafts",
+          "archived"
+        ],
+        "properties": {
+          "archived": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Archived. Restorable, and invisible to every other listing.",
+            "example": 3,
+            "minimum": 0
+          },
+          "drafts": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Not published, or scheduled for later.",
+            "example": 9,
+            "minimum": 0
+          },
+          "live": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Published, with a publication date at or before now.\n\nA post scheduled for the future is counted as a draft, not as live —\nthe same rule the public listing applies, so the number here matches\nwhat a reader can actually see.",
+            "example": 12,
+            "minimum": 0
           }
         }
       },

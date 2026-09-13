@@ -267,6 +267,7 @@ where
 mod tests {
     use super::*;
     use crate::auth::application::ports::outgoing::user_query::{UserQueryError, UserQueryResult};
+    use crate::blog::application::ports::outgoing::BlogPostCounts;
     use crate::blog::application::ports::outgoing::{
         BlogPageRequest, BlogPageResult, BlogPostCard, BlogPostListFilter, BlogPostQueryError,
         BlogPostSort, BlogPostView, DraftPreviewStoreError, LivePreview,
@@ -357,6 +358,13 @@ mod tests {
 
     #[async_trait]
     impl BlogPostQuery for FakePosts {
+        async fn counts_by_owner(
+            &self,
+            _owner: UserId,
+        ) -> Result<BlogPostCounts, BlogPostQueryError> {
+            unimplemented!()
+        }
+
         async fn get_by_id(
             &self,
             owner: UserId,

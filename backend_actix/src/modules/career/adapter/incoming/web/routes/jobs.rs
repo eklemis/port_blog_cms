@@ -7,7 +7,8 @@ use tracing::error;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use crate::career::application::ports::outgoing::{CareerPageRequest, CareerPageResult};
+use crate::career::adapter::incoming::web::routes::ListPageQuery;
+use crate::career::application::ports::outgoing::CareerPageResult;
 use crate::{
     api::schemas::{ErrorResponse, SuccessResponse},
     auth::{
@@ -170,30 +171,6 @@ pub async fn create_job_handler(
     {
         Ok(job) => ApiResponse::created(JobResponse::from(job)),
         Err(e) => map_error(e),
-    }
-}
-
-/// Which page of the listing to return.
-#[derive(Debug, Default, Deserialize, utoipa::IntoParams)]
-pub struct ListPageQuery {
-    /// 1-based page number. Omitted or `0` means the first page.
-    #[param(example = 1, minimum = 1)]
-    #[serde(default)]
-    pub page: u32,
-
-    /// Rows per page. Omitted or `0` means 10; anything above 100 is trimmed
-    /// to 100 rather than refused.
-    #[param(example = 10, minimum = 1, maximum = 100)]
-    #[serde(default)]
-    pub per_page: u32,
-}
-
-impl From<ListPageQuery> for CareerPageRequest {
-    fn from(q: ListPageQuery) -> Self {
-        Self {
-            page: q.page,
-            per_page: q.per_page,
-        }
     }
 }
 

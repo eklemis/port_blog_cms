@@ -252,11 +252,12 @@ pub async fn start() -> std::io::Result<()> {
             application::service::{
                 ArchiveBlogPostService, AttachBlogPostTopicService, BulkBlogPostsService,
                 ClearBlogPostTopicsService, CreateBlogPostService, DetachBlogPostTopicService,
-                GetBlogPostTopicsService, GetBlogPostsService, GetDraftPreviewService,
-                GetPublicBlogPostService, GetPublicBlogPostsService, GetSingleBlogPostService,
-                HardDeleteBlogPostService, PatchBlogPostService, ReadDraftPreviewService,
-                ReadPreviewMediaService, RestoreBlogPostService, RevokeDraftPreviewService,
-                ShareDraftService, SlugAvailableService, UnpublishBlogPostService,
+                GetBlogPostCountsService, GetBlogPostTopicsService, GetBlogPostsService,
+                GetDraftPreviewService, GetPublicBlogPostService, GetPublicBlogPostsService,
+                GetSingleBlogPostService, HardDeleteBlogPostService, PatchBlogPostService,
+                ReadDraftPreviewService, ReadPreviewMediaService, RestoreBlogPostService,
+                RevokeDraftPreviewService, ShareDraftService, SlugAvailableService,
+                UnpublishBlogPostService,
             },
         },
         career::{
@@ -533,6 +534,8 @@ pub async fn start() -> std::io::Result<()> {
         slug_available: Arc::new(SlugAvailableService::new(blog_query.clone())),
         create: Arc::new(CreateBlogPostService::new(blog_repo.clone())),
         list: Arc::new(GetBlogPostsService::new(blog_query.clone())),
+        // Same service, a second contract — the counts read the same table.
+        counts: Arc::new(GetBlogPostCountsService::new(blog_query.clone())),
         list_public: Arc::new(GetPublicBlogPostsService::new(blog_query.clone())),
         get_single: Arc::new(GetSingleBlogPostService::new(blog_query.clone())),
         get_public: Arc::new(GetPublicBlogPostService::new(blog_query.clone())),
@@ -920,6 +923,7 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(crate::blog::adapter::incoming::web::routes::create_blog_post_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::blog_slug_available_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::get_blog_posts_handler);
+    cfg.service(crate::blog::adapter::incoming::web::routes::get_blog_post_counts_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::get_public_blog_posts_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::get_public_blog_post_handler);
     cfg.service(crate::blog::adapter::incoming::web::routes::get_single_blog_post_handler);

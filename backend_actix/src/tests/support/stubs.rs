@@ -1574,3 +1574,25 @@ impl crate::multimedia::application::ports::incoming::use_cases::ReapStaleUpload
         )
     }
 }
+
+/// Reports a fixed set of post counts.
+pub struct StubBlogPostCounts;
+
+#[async_trait::async_trait]
+impl crate::blog::application::ports::incoming::use_cases::GetBlogPostCountsUseCase
+    for StubBlogPostCounts
+{
+    async fn execute(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+    ) -> Result<
+        crate::blog::application::ports::outgoing::BlogPostCounts,
+        crate::blog::application::ports::incoming::use_cases::GetBlogPostsError,
+    > {
+        Ok(crate::blog::application::ports::outgoing::BlogPostCounts {
+            live: 12,
+            drafts: 9,
+            archived: 3,
+        })
+    }
+}

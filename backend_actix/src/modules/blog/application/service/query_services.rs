@@ -9,13 +9,13 @@ use uuid::Uuid;
 
 use crate::auth::application::domain::entities::UserId;
 use crate::blog::application::ports::incoming::use_cases::{
-    GetBlogPostError, GetBlogPostTopicsUseCase, GetBlogPostsError, GetBlogPostsUseCase,
-    GetPublicBlogPostUseCase, GetPublicBlogPostsUseCase, GetSingleBlogPostUseCase,
-    SlugAvailableUseCase,
+    GetBlogPostCountsUseCase, GetBlogPostError, GetBlogPostTopicsUseCase, GetBlogPostsError,
+    GetBlogPostsUseCase, GetPublicBlogPostUseCase, GetPublicBlogPostsUseCase,
+    GetSingleBlogPostUseCase, SlugAvailableUseCase,
 };
 use crate::blog::application::ports::outgoing::{
-    BlogPageRequest, BlogPageResult, BlogPostCard, BlogPostListFilter, BlogPostQuery,
-    BlogPostQueryError, BlogPostSort, BlogPostView,
+    BlogPageRequest, BlogPageResult, BlogPostCard, BlogPostCounts, BlogPostListFilter,
+    BlogPostQuery, BlogPostQueryError, BlogPostSort, BlogPostView,
 };
 use crate::blog::domain::entities::BlogPostTopic;
 
@@ -43,6 +43,10 @@ macro_rules! query_service {
 }
 
 query_service!(GetBlogPostsService);
+// Its own type rather than a second trait on GetBlogPostsService: both
+// contracts spell their method `execute`, so sharing a struct makes every
+// call site ambiguous and forces callers to disambiguate by trait.
+query_service!(GetBlogPostCountsService);
 query_service!(GetPublicBlogPostsService);
 query_service!(GetSingleBlogPostService);
 query_service!(GetPublicBlogPostService);
@@ -54,6 +58,16 @@ fn list_err(e: BlogPostQueryError) -> GetBlogPostsError {
             GetBlogPostsError::QueryFailed("post not found".to_string())
         }
         BlogPostQueryError::DatabaseError(m) => GetBlogPostsError::QueryFailed(m),
+    }
+}
+
+#[async_trait]
+impl<Q> GetBlogPostCountsUseCase for GetBlogPostCountsService<Q>
+where
+    Q: BlogPostQuery + Send + Sync,
+{
+    async fn execute(&self, owner: UserId) -> Result<BlogPostCounts, GetBlogPostsError> {
+        self.query.counts_by_owner(owner).await.map_err(list_err)
     }
 }
 
@@ -209,6 +223,13 @@ mod tests {
 
     #[async_trait]
     impl BlogPostQuery for SpyQuery {
+        async fn counts_by_owner(
+            &self,
+            _owner: UserId,
+        ) -> Result<BlogPostCounts, BlogPostQueryError> {
+            unimplemented!()
+        }
+
         async fn slug_exists(
             &self,
             _owner: UserId,
