@@ -122,6 +122,7 @@ pub trait GetJobsUseCase: Send + Sync {
     async fn execute(
         &self,
         owner: UserId,
+        filter: crate::career::application::ports::outgoing::JobFilter,
         page: crate::career::application::ports::outgoing::CareerPageRequest,
     ) -> Result<crate::career::application::ports::outgoing::CareerPageResult<Job>, JobError>;
 }

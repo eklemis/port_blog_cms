@@ -102,11 +102,10 @@ test('a stale link is reported as one, so the screen can offer a fresh one', asy
 		message: RESET_LINK_DEAD,
 		retryAfterSeconds: null,
 		expired: true,
-		// §07 files a dead token under session. It does not read like one here —
-		// the recovery is a fresh link, not a re-authentication — but the screen
-		// this drives is its own, so the class only decides a colour it never
-		// gets to show. Flagged rather than reclassified locally.
-		kind: 'session'
+		// §07 now has a class for this, and it is not session: a stale emailed
+		// link is answered on the screen it opened, with a fresh link, and
+		// refreshing a session does nothing for it.
+		kind: 'expiredLink'
 	});
 	expect(RESET_LINK_DEAD).toBe('This reset link is no longer valid.');
 });

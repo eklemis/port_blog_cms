@@ -7,7 +7,7 @@ use crate::auth::application::domain::entities::UserId;
 use crate::career::application::ports::incoming::use_cases::{
     ArchiveJobUseCase, CreateJobUseCase, GetJobUseCase, GetJobsUseCase, JobError, PatchJobUseCase,
 };
-use crate::career::application::ports::outgoing::{CareerPageRequest, CareerPageResult};
+use crate::career::application::ports::outgoing::{CareerPageRequest, CareerPageResult, JobFilter};
 use crate::career::application::ports::outgoing::{CreateJobData, JobStore, PatchJobData};
 use crate::career::domain::entities::Job;
 
@@ -58,9 +58,10 @@ where
     async fn execute(
         &self,
         owner: UserId,
+        filter: JobFilter,
         page: CareerPageRequest,
     ) -> Result<CareerPageResult<Job>, JobError> {
-        Ok(self.store.list(owner.value(), page).await?)
+        Ok(self.store.list(owner.value(), filter, page).await?)
     }
 }
 

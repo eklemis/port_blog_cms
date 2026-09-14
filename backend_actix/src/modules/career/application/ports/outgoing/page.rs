@@ -70,6 +70,21 @@ pub struct CareerPageResult<T> {
     pub total: u64,
 }
 
+/// Narrows a jobs listing.
+#[derive(Debug, Clone, Default)]
+pub struct JobFilter {
+    /// Return only these postings.
+    ///
+    /// For joining a page of applications back to the jobs they name. Without
+    /// it a caller has to ask for a large page and hope the ones it needs are
+    /// in it, which is wrong rather than slow the moment they are not.
+    ///
+    /// Ids that do not exist, belong to someone else, or have been archived
+    /// are simply absent from the result. A join must not fail because one of
+    /// its rows was tidied away.
+    pub ids: Option<Vec<uuid::Uuid>>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

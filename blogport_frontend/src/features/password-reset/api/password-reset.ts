@@ -118,11 +118,10 @@ export async function setPassword(
 		case 'INVALID_TOKEN':
 		case 'USER_NOT_FOUND':
 			// J3: offer a fresh one from this same screen rather than bouncing.
-			// §07 files a dead token under session. That class is written for an
-			// auth token, where the recovery is to sign in again; here it is a
-			// fresh link. The distinction is flagged rather than settled locally,
-			// and it changes nothing on screen — this branch drives its own.
-			return failed(RESET_LINK_DEAD, { expired: true, kind: 'session' });
+			// The class is §07's "expired link", which exists because this report
+			// went in: a stale emailed link is not a dead session, and refreshing
+			// one does nothing for the other.
+			return failed(RESET_LINK_DEAD, { expired: true, kind: 'expiredLink' });
 		case 'INVALID_PASSWORD':
 			// Keep the token in the URL and let them retype — losing a valid token
 			// to one weak password is a needless restart. The server's message
