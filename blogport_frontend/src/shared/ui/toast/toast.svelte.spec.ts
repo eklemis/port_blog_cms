@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { createRawSnippet } from 'svelte';
+import { createRawSnippet, flushSync } from 'svelte';
 import { render } from 'vitest-browser-svelte';
 import { expectNoA11yViolations } from '$lib/shared/test/a11y';
 import Toast from './toast.svelte';
@@ -34,8 +34,19 @@ test('carries what to do next, when there is something', async () => {
 test('it goes away on its own after eight seconds', async () => {
 	// §08's number. Long enough to read a link and follow it, short enough not
 	// to sit over the screen.
+	//
+	// Two things have to be true before the clock is touched, or this measures
+	// the wrong interval. The component arms its timer in an `$effect`, which
+	// runs after mount rather than during it, so `flushSync` is what guarantees
+	// the eight seconds start at zero instead of at whenever the effect
+	// happened to run. And `shouldAdvanceTime` is off here so that real elapsed
+	// time — awaiting, rendering, a slow CI machine — does not move the fake
+	// clock underneath the assertions.
+	vi.useFakeTimers({ shouldAdvanceTime: false });
+
 	const closed: boolean[] = [];
 	render(Toast, { message: 'Published.', onclose: () => closed.push(true) });
+	flushSync();
 
 	await vi.advanceTimersByTimeAsync(7999);
 	expect(closed).toHaveLength(0);
@@ -56,12 +67,17 @@ test('it can be dismissed before then', async () => {
 test('the clock does not run out while someone is reading it', async () => {
 	// A toast that vanishes under the pointer on its way to the link is the
 	// reason people distrust them.
+	vi.useFakeTimers({ shouldAdvanceTime: false });
+
 	const closed: boolean[] = [];
 	const screen = render(Toast, {
 		message: 'Published.',
 		action,
 		onclose: () => closed.push(true)
 	});
+	// Without this the timer may not be armed yet, and the test would pass
+	// because nothing was counting rather than because hovering stopped it.
+	flushSync();
 
 	await screen.getByText('Published.').hover();
 	await vi.advanceTimersByTimeAsync(10_000);
