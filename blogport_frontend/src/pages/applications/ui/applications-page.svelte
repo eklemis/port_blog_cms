@@ -8,9 +8,9 @@
 	 * `/studio/applications` — the tracker.
 	 *
 	 * One row per application, status inline, in the order the API sent them.
-	 * There is no search, filter, sort or paging: neither `GET /api/applications`
-	 * nor `GET /api/jobs` takes a parameter, and a control that filters a page
-	 * of rows while claiming to filter the list is worse than no control.
+	 * Paged, since both listings page now — but still no search, filter or sort:
+	 * neither endpoint takes one, and a control that filters a page of rows
+	 * while claiming to filter the list is worse than no control.
 	 *
 	 * Read-only. Inline status and next action are `PATCH /api/applications/{id}`
 	 * and adding a job is `/studio/applications/new`; both are their own slices.
@@ -19,13 +19,24 @@
 	 */
 	let {
 		rows,
+		total,
+		page,
+		perPage,
 		failed = false,
-		loading = false
+		loading = false,
+		onpage = () => {}
 	}: {
 		rows: TrackerRow[];
+		total: number;
+		page: number;
+		perPage: number;
 		failed?: boolean;
 		loading?: boolean;
+		/** Paging writes to the URL; the caller decides how. */
+		onpage?: (page: number) => void;
 	} = $props();
+
+	const lastPage = $derived(Math.max(1, Math.ceil(total / perPage)));
 </script>
 
 <div class="flex flex-col gap-5">
@@ -101,6 +112,27 @@
 			</table>
 		</div>
 
-		<p class="text-[12px] text-arch-muted">{rows.length} applications</p>
+		<div class="flex items-center justify-between text-[12px] text-arch-muted">
+			<p>{rows.length} of {total} applications</p>
+			{#if lastPage > 1}
+				<div class="flex items-center gap-1">
+					<Button
+						kind="ghost"
+						label="Previous"
+						disabled={page <= 1}
+						disabledReason={page <= 1 ? 'You are on the first page.' : undefined}
+						onclick={() => onpage(page - 1)}
+					/>
+					<span class="font-mono">{page} / {lastPage}</span>
+					<Button
+						kind="ghost"
+						label="Next"
+						disabled={page >= lastPage}
+						disabledReason={page >= lastPage ? 'You are on the last page.' : undefined}
+						onclick={() => onpage(page + 1)}
+					/>
+				</div>
+			{/if}
+		</div>
 	{/if}
 </div>

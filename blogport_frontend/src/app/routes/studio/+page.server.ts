@@ -9,10 +9,12 @@ import { authenticatedFetch } from '$lib/shared/api/backend.server';
  * fetched together rather than in series: five round trips one after another is
  * five times the wait for a screen that is mostly numbers.
  *
- * Blog, projects and CVs page, so a `per_page=1` call answers with the `total`
+ * Everything but topics pages, so a `per_page=1` call answers with the `total`
  * and one row — the blueprint's own note calls this fine at this scale and
- * worth replacing before it isn't. Applications and topics do not page at all,
- * so their count is the length of the list they return.
+ * worth replacing before it isn't. Applications joined that list after this
+ * screen was written; reading the length of its first page would have reported
+ * ten applications for anyone with more than ten. Topics still does not page,
+ * so its count is the length of what comes back.
  *
  * `GET /api/topics` is not in the map's row for this screen. It is listed for
  * the posts list, and the checklist the same row sanctions cannot say whether
@@ -52,7 +54,7 @@ export const load: PageServerLoad = async (event) => {
 		count(event, '/api/blog?per_page=1', fromTotal),
 		count(event, '/api/projects?per_page=1', fromTotal),
 		count(event, '/api/cvs?per_page=1', fromTotal),
-		count(event, '/api/applications', fromLength),
+		count(event, '/api/applications?per_page=1', fromTotal),
 		count(event, '/api/topics', fromLength)
 	]);
 
