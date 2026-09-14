@@ -17,7 +17,8 @@ use crate::career::adapter::outgoing::sea_orm_entity::jobs::{
     ActiveModel as JobActive, Column as JobColumn, Entity as JobEntity, Model as JobModel,
 };
 use crate::career::application::ports::outgoing::{
-    CareerPageRequest, CareerPageResult, JobFilter, CreateJobData, JobStore, JobStoreError, PatchJobData,
+    CareerPageRequest, CareerPageResult, CreateJobData, JobFilter, JobStore, JobStoreError,
+    PatchJobData,
 };
 use crate::career::domain::entities::Job;
 
