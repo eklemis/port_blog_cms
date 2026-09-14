@@ -6431,6 +6431,19 @@
               "minimum": 1
             },
             "example": 10
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "description": "Comma-separated posting ids.\n\nFor joining a page of applications back to the jobs they name, instead\nof asking for a large page and hoping the right ones are in it.\n\nIds that do not exist, belong to someone else, or have been archived\ncome back absent rather than as an error — a join must not fail because\none of its rows was tidied away.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "3f1b2c3d-...,7a2e9f10-..."
           }
         ],
         "responses": {

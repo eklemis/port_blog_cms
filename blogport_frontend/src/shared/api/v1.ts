@@ -8700,6 +8700,18 @@ export interface operations {
                  * @example 10
                  */
                 per_page?: number;
+                /**
+                 * @description Comma-separated posting ids.
+                 *
+                 *     For joining a page of applications back to the jobs they name, instead
+                 *     of asking for a large page and hoping the right ones are in it.
+                 *
+                 *     Ids that do not exist, belong to someone else, or have been archived
+                 *     come back absent rather than as an error — a join must not fail because
+                 *     one of its rows was tidied away.
+                 * @example 3f1b2c3d-...,7a2e9f10-...
+                 */
+                ids?: string | null;
             };
             header?: never;
             path?: never;

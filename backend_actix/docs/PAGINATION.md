@@ -103,6 +103,32 @@ CVs, which blog does not offer.
 These values are generated into [`openapi.json`](openapi.json) as enums, so a
 generated client will have them right. Hand-written calls are where this bites.
 
+## Fetching a named set of jobs
+
+`GET /api/jobs?ids=<uuid>,<uuid>,…`
+
+For joining a page of applications back to the postings they name. Without it a
+caller has to ask for a large page and hope the ones it needs are in it — which
+is wrong rather than slow the moment they are not.
+
+| Rule | Behaviour |
+| --- | --- |
+| Unknown, archived, or another account's id | **Absent from the result**, not an error |
+| More than 100 ids | `400` `INVALID_REQUEST` |
+| Anything that is not a uuid | `400` `INVALID_REQUEST` |
+| `?ids=` with nothing after it | Returns nothing |
+
+**Too many ids is refused rather than trimmed.** A join built from a silently
+shortened set renders rows with no role and no company, and nothing anywhere
+says why — so the request fails instead. The ceiling matches `per_page`'s,
+since the caller is joining against at most one page of applications.
+
+An id that resolves to nothing is deliberately *not* an error: a join must not
+fail because one of its rows was archived.
+
+`page` and `per_page` still apply, so a set of ids larger than the page comes
+back paged.
+
 ## Bulk is not paginated, and not atomic
 
 `POST /api/blog/bulk`, `/api/projects/bulk`, `/api/media/bulk` take up to 100 ids

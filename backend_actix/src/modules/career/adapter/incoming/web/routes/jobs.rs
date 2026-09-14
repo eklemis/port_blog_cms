@@ -222,9 +222,7 @@ impl JobIdsQuery {
 
         let mut ids = Vec::with_capacity(parts.len());
         for p in parts {
-            ids.push(
-                uuid::Uuid::parse_str(p).map_err(|_| format!("`{p}` is not a valid id"))?,
-            );
+            ids.push(uuid::Uuid::parse_str(p).map_err(|_| format!("`{p}` is not a valid id"))?);
         }
 
         Ok(JobFilter { ids: Some(ids) })
@@ -259,7 +257,11 @@ pub async fn get_jobs_handler(
     match data
         .career
         .list_jobs
-        .execute(UserId::from(user.user_id), filter, query.into_inner().into())
+        .execute(
+            UserId::from(user.user_id),
+            filter,
+            query.into_inner().into(),
+        )
         .await
     {
         Ok(page) => ApiResponse::success(CareerPageResult {
