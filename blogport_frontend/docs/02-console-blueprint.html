@@ -701,7 +701,7 @@ footer .prose { max-width: 62ch; }
             </li>
             <li>
               <div class="step-title">Know that "create first" is currently blocked</div>
-              <div class="step-note"><code>create_blog_post_service::validate_content</code> rejects a body that is empty once trimmed, so the frame above — title, address and excerpt, with "You write the body next" under the button — cannot post. <b>The frame is right and the constraint is in the wrong place.</b> What should be refused is <em>publishing</em> an empty post, not drafting one; and the create-then-write order exists precisely because media attaches to a <code>target_id</code>, so a post that cannot exist before its body also cannot have a cover while you write it. Backend ask filed. Until it lands the screen carries a required body field, which works and is not what is drawn.</div>
+              <div class="step-note"><code>create_blog_post_service::validate_content</code> rejects a body that is empty once trimmed, so the frame above — title, address and excerpt, with "You write the body next" under the button — cannot post. <b>The frame is right and the constraint is in the wrong place.</b> What should be refused is <em>publishing</em> an empty post, not drafting one; and the create-then-write order exists precisely because media attaches to a <code>target_id</code>, so a post that cannot exist before its body also cannot have a cover while you write it. Backend ask filed. Until it lands the screen carries a required body field, which works and is not what is drawn — and while it does, the copy under the button has to change with it. The frame's string is <span class="say">"Creates a draft. You write the body next — nothing is public yet."</span> and it is false the moment a body is required above it. Interim: <span class="say">"Creates a draft. Nothing is public yet."</span> Restore the first when the constraint moves.</div>
               <div class="step-call">400 INVALID_CONTENT — "Content cannot be empty"</div>
             </li>
             <li>
@@ -1439,7 +1439,7 @@ footer .prose { max-width: 62ch; }
           <tr><td><b>StatusPill</b></td><td class="dim">shared/ui</td><td class="dim">The five status tokens; one component, never ad-hoc spans</td><td class="dim">J4</td></tr>
           <tr><td><b>Button</b></td><td class="dim">shared/ui</td><td class="dim">primary · secondary · ghost · danger; loading and disabled states</td><td class="dim">J1</td></tr>
           <tr><td><b>Field</b></td><td class="dim">shared/ui</td><td class="dim">Label, input, help, error — the login form's grammar, extracted</td><td class="dim">J1</td></tr>
-          <tr><td><b>InlineAlert</b></td><td class="dim">shared/ui</td><td class="dim">The six handling classes, colour-mapped</td><td class="dim">J1</td></tr>
+          <tr><td><b>InlineAlert</b></td><td class="dim">shared/ui</td><td class="dim">The ten handling classes, colour-mapped</td><td class="dim">J1</td></tr>
           <tr><td><b>Toast</b></td><td class="dim">shared/ui</td><td class="dim">Confirmations with an optional 8-second Undo</td><td class="dim">J4</td></tr>
           <tr><td><b>ConfirmDialog</b></td><td class="dim">shared/ui</td><td class="dim">Focus trap, type-to-confirm, Cancel-focused by default</td><td class="dim">J4</td></tr>
           <tr><td><b>EmptyState</b></td><td class="dim">shared/ui</td><td class="dim">Empty vs filtered-empty vs error, each with its action</td><td class="dim">J4</td></tr>

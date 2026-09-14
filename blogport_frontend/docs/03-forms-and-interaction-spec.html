@@ -436,6 +436,23 @@
 			field list rather than a fresh design problem.
 		</p>
 
+		<div class="callout">
+			<h4>Required is the default and goes unmarked. Optional fields say so, in the label.</h4>
+			<p>
+				Across twenty-two forms the required fields outnumber the optional ones heavily, so
+				marking the majority puts an asterisk on almost every row and tells a reader nothing.
+				Mark the exception instead: <span class="say">Excerpt (optional)</span>,
+				<span class="say">Caption (optional)</span> — in the label itself, in the same weight
+				and colour as the label, never as a separate glyph a screen reader has to explain.
+			</p>
+			<p>
+				The <code>Field</code> component has no required flag and does not need one; the label
+				carries it. Where a field is optional and the frame does not say so, <b>the frame is
+				wrong</b> — that ambiguity is what sent <code>Excerpt</code> back as a question, and it
+				now reads <span class="say">Excerpt (optional)</span> on all six New post frames.
+			</p>
+		</div>
+
 		<div class="scroller">
 			<table>
 				<thead>
