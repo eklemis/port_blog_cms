@@ -3,8 +3,9 @@ use chrono::Utc;
 use sea_orm::sea_query::extension::postgres::PgExpr;
 use sea_orm::sea_query::Expr;
 use sea_orm::{
-    ColumnTrait, Condition, DatabaseConnection, EntityTrait, FromQueryResult, JoinType,
-    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait,
+    ColumnTrait, Condition, ConnectionTrait, DatabaseBackend, DatabaseConnection, EntityTrait,
+    FromQueryResult, JoinType, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait,
+    Statement,
 };
 use std::sync::Arc;
 use uuid::Uuid;
@@ -15,8 +16,8 @@ use crate::blog::adapter::outgoing::sea_orm_entity::{
     blog_posts::{Column as PostColumn, Entity as PostEntity},
 };
 use crate::blog::application::ports::outgoing::{
-    BlogPageRequest, BlogPageResult, BlogPostCard, BlogPostListFilter, BlogPostQuery,
-    BlogPostQueryError, BlogPostSort, BlogPostView,
+    BlogPageRequest, BlogPageResult, BlogPostCard, BlogPostCounts, BlogPostListFilter,
+    BlogPostQuery, BlogPostQueryError, BlogPostSort, BlogPostView,
 };
 use crate::blog::domain::entities::BlogPostTopic;
 use crate::multimedia::adapter::outgoing::db::public_media_loader::{
@@ -44,6 +45,14 @@ struct CardRow {
     published_at: Option<sea_orm::prelude::DateTimeWithTimeZone>,
     created_at: sea_orm::prelude::DateTimeWithTimeZone,
     updated_at: sea_orm::prelude::DateTimeWithTimeZone,
+}
+
+#[derive(Debug, FromQueryResult)]
+struct PostTopicRow {
+    blog_post_id: Uuid,
+    id: Uuid,
+    title: String,
+    description: Option<String>,
 }
 
 #[derive(Debug, FromQueryResult)]
@@ -78,9 +87,14 @@ impl BlogPostQueryPostgres {
         page: BlogPageRequest,
         published_only: bool,
     ) -> Result<BlogPageResult<BlogPostCard>, BlogPostQueryError> {
+        // An archived post is never public, whatever the query string says.
+        // Same reasoning as `published_only` itself: the public endpoint must
+        // not be talkable into returning something the author took down.
+        let deleted = !published_only && filter.deleted.unwrap_or(false);
+
         let mut condition = Condition::all()
             .add(PostColumn::UserId.eq(owner.value()))
-            .add(PostColumn::IsDeleted.eq(false));
+            .add(PostColumn::IsDeleted.eq(deleted));
 
         if published_only {
             // A future published_at is scheduled, not live, so this is a
@@ -167,10 +181,16 @@ impl BlogPostQueryPostgres {
             std::collections::HashMap::new()
         };
 
+        // One extra query for the page, on both the owner and public paths —
+        // the Topics column exists on each.
+        let ids: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
+        let mut topics = self.topics_for_many(&ids).await?;
+
         let items = rows
             .into_iter()
             .map(|m| BlogPostCard {
                 cover: covers.remove(&m.id),
+                topics: topics.remove(&m.id).unwrap_or_default(),
                 id: m.id,
                 title: m.title,
                 slug: m.slug,
@@ -187,6 +207,53 @@ impl BlogPostQueryPostgres {
             per_page: per_page as u32,
             total,
         })
+    }
+
+    /// Topics for a page of posts, in one query.
+    ///
+    /// The single-post version below is still used where only one post is in
+    /// hand. This exists because a list screen showing topics would otherwise
+    /// call it once per row.
+    async fn topics_for_many(
+        &self,
+        post_ids: &[Uuid],
+    ) -> Result<std::collections::HashMap<Uuid, Vec<BlogPostTopic>>, BlogPostQueryError> {
+        use std::collections::HashMap;
+
+        if post_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let rows = blog_post_topics::Entity::find()
+            .filter(blog_post_topics::Column::BlogPostId.is_in(post_ids.to_vec()))
+            .join(
+                JoinType::InnerJoin,
+                blog_post_topics::Relation::Topics.def(),
+            )
+            .filter(topics::Column::IsDeleted.eq(false))
+            .select_only()
+            .column(blog_post_topics::Column::BlogPostId)
+            .column(topics::Column::Id)
+            .column(topics::Column::Title)
+            .column(topics::Column::Description)
+            .into_model::<PostTopicRow>()
+            .all(&*self.db)
+            .await
+            .map_err(Self::db_err)?;
+
+        let mut grouped: HashMap<Uuid, Vec<BlogPostTopic>> = HashMap::new();
+        for r in rows {
+            grouped
+                .entry(r.blog_post_id)
+                .or_default()
+                .push(BlogPostTopic {
+                    id: r.id,
+                    title: r.title,
+                    description: r.description.unwrap_or_default(),
+                });
+        }
+
+        Ok(grouped)
     }
 
     async fn topics_for(&self, post_id: Uuid) -> Result<Vec<BlogPostTopic>, BlogPostQueryError> {
@@ -256,6 +323,49 @@ impl BlogPostQueryPostgres {
 
 #[async_trait]
 impl BlogPostQuery for BlogPostQueryPostgres {
+    async fn counts_by_owner(&self, owner: UserId) -> Result<BlogPostCounts, BlogPostQueryError> {
+        // One statement rather than three round trips. The CASE arms mirror
+        // the listing's own rules exactly — a future published_at is scheduled,
+        // not live — so this line and the lists beneath it cannot disagree.
+        let sql = r#"
+            SELECT
+              COUNT(*) FILTER (
+                WHERE is_deleted = false
+                  AND published_at IS NOT NULL
+                  AND published_at <= NOW()
+              ) AS live,
+              COUNT(*) FILTER (
+                WHERE is_deleted = false
+                  AND (published_at IS NULL OR published_at > NOW())
+              ) AS drafts,
+              COUNT(*) FILTER (WHERE is_deleted = true) AS archived
+            FROM blog_posts
+            WHERE user_id = $1
+        "#;
+
+        let row = self
+            .db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                sql,
+                [owner.value().into()],
+            ))
+            .await
+            .map_err(Self::db_err)?;
+
+        // No rows at all still produces one row of zeroes, so an author with
+        // nothing gets three zeroes rather than a 404.
+        let Some(row) = row else {
+            return Ok(BlogPostCounts::default());
+        };
+
+        Ok(BlogPostCounts {
+            live: row.try_get::<i64>("", "live").map_err(Self::db_err)? as u64,
+            drafts: row.try_get::<i64>("", "drafts").map_err(Self::db_err)? as u64,
+            archived: row.try_get::<i64>("", "archived").map_err(Self::db_err)? as u64,
+        })
+    }
+
     async fn list_by_owner(
         &self,
         owner: UserId,
@@ -389,6 +499,8 @@ mod tests {
         let db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_results(vec![vec![count_row(7)]])
             .append_query_results(vec![vec![model(user_id, None), model(user_id, None)]])
+            // The page now costs a third query: topics for these rows.
+            .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
             .into_connection();
 
         let result = query(db)
@@ -418,6 +530,7 @@ mod tests {
             MockDatabase::new(DatabaseBackend::Postgres)
                 .append_query_results(vec![vec![count_row(1)]])
                 .append_query_results(vec![vec![model(user_id, None)]])
+                .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
                 .into_connection(),
         );
 
@@ -956,6 +1069,163 @@ mod tests {
 
     /// per_page is clamped, so a caller cannot ask for an unbounded page and
     /// pull the whole table in one request.
+    /// The point of putting topics on the card at all.
+    ///
+    /// A Topics column that cost one query per row would be worse than no
+    /// column, so this asserts the shape of the work: a count, a page, and
+    /// **one** topics query — not one per post.
+    #[tokio::test]
+    async fn topics_are_fetched_once_for_the_page_not_once_per_post() {
+        let user_id = Uuid::new_v4();
+        let conn = Arc::new(
+            MockDatabase::new(DatabaseBackend::Postgres)
+                .append_query_results(vec![vec![count_row(3)]])
+                .append_query_results(vec![vec![
+                    model(user_id, None),
+                    model(user_id, None),
+                    model(user_id, None),
+                ]])
+                .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
+                .into_connection(),
+        );
+
+        BlogPostQueryPostgres::new(Arc::clone(&conn))
+            .list_by_owner(
+                UserId::from(user_id),
+                BlogPostListFilter::default(),
+                BlogPostSort::Newest,
+                BlogPageRequest::default(),
+            )
+            .await
+            .unwrap();
+
+        let log = Arc::try_unwrap(conn).unwrap().into_transaction_log();
+        let topic_queries = log
+            .iter()
+            .filter(|t| format!("{t:?}").contains("blog_post_topics"))
+            .count();
+
+        assert_eq!(
+            topic_queries, 1,
+            "three posts should cost one topics query, not three"
+        );
+    }
+
+    /// A scheduled post is a draft, not a live one — the same rule the public
+    /// listing applies, so the dashboard line cannot disagree with the list
+    /// beneath it.
+    #[tokio::test]
+    async fn counts_treat_a_scheduled_post_as_a_draft() {
+        let sql = {
+            let conn = Arc::new(
+                MockDatabase::new(DatabaseBackend::Postgres)
+                    .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
+                    .into_connection(),
+            );
+
+            BlogPostQueryPostgres::new(Arc::clone(&conn))
+                .counts_by_owner(UserId::from(Uuid::new_v4()))
+                .await
+                .unwrap();
+
+            format!(
+                "{:?}",
+                Arc::try_unwrap(conn).unwrap().into_transaction_log()
+            )
+        };
+
+        assert!(
+            sql.contains("published_at > NOW()"),
+            "a future publication date must count as a draft: {sql}"
+        );
+        assert!(
+            sql.contains("published_at <= NOW()"),
+            "only a past publication date counts as live: {sql}"
+        );
+    }
+
+    /// An author with nothing gets three zeroes, not an error.
+    #[tokio::test]
+    async fn an_author_with_no_posts_counts_zero() {
+        let conn = Arc::new(
+            MockDatabase::new(DatabaseBackend::Postgres)
+                .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
+                .into_connection(),
+        );
+
+        let counts = BlogPostQueryPostgres::new(conn)
+            .counts_by_owner(UserId::from(Uuid::new_v4()))
+            .await
+            .unwrap();
+
+        assert_eq!(counts, BlogPostCounts::default());
+    }
+
+    /// The archive screen's whole reason to exist: restore and hard-delete
+    /// have nothing to act on unless archived posts can be listed.
+    #[tokio::test]
+    async fn deleted_true_asks_for_archived_posts() {
+        let conn = Arc::new(
+            MockDatabase::new(DatabaseBackend::Postgres)
+                .append_query_results(vec![vec![count_row(0)]])
+                .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
+                .into_connection(),
+        );
+
+        BlogPostQueryPostgres::new(Arc::clone(&conn))
+            .list_by_owner(
+                UserId::from(Uuid::new_v4()),
+                BlogPostListFilter {
+                    deleted: Some(true),
+                    ..Default::default()
+                },
+                BlogPostSort::Newest,
+                BlogPageRequest::default(),
+            )
+            .await
+            .unwrap();
+
+        // is_deleted is a bound parameter, not a literal, so the value is what
+        // carries the meaning — the SQL text says `= $2` either way.
+        let log = format!(
+            "{:?}",
+            Arc::try_unwrap(conn).unwrap().into_transaction_log()
+        );
+        assert!(
+            log.contains("Bool(Some(true))"),
+            "expected the archived flag to be bound as true, got: {log}"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_default_listing_is_still_live_posts() {
+        let conn = Arc::new(
+            MockDatabase::new(DatabaseBackend::Postgres)
+                .append_query_results(vec![vec![count_row(0)]])
+                .append_query_results(vec![Vec::<BTreeMap<String, Value>>::new()])
+                .into_connection(),
+        );
+
+        BlogPostQueryPostgres::new(Arc::clone(&conn))
+            .list_by_owner(
+                UserId::from(Uuid::new_v4()),
+                BlogPostListFilter::default(),
+                BlogPostSort::Newest,
+                BlogPageRequest::default(),
+            )
+            .await
+            .unwrap();
+
+        let log = format!(
+            "{:?}",
+            Arc::try_unwrap(conn).unwrap().into_transaction_log()
+        );
+        assert!(
+            log.contains("Bool(Some(false))") && !log.contains("Bool(Some(true))"),
+            "an unfiltered listing must still exclude archived posts: {log}"
+        );
+    }
+
     #[tokio::test]
     async fn per_page_is_clamped_and_page_is_at_least_one() {
         let conn = Arc::new(

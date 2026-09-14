@@ -11,9 +11,9 @@ use uuid::Uuid;
 
 use crate::auth::application::domain::entities::UserId;
 use crate::blog::application::ports::outgoing::{
-    BlogPageRequest, BlogPageResult, BlogPostArchiverError, BlogPostCard, BlogPostListFilter,
-    BlogPostQueryError, BlogPostRepositoryError, BlogPostSort, BlogPostTopicRepositoryError,
-    BlogPostView, PatchBlogPostData,
+    BlogPageRequest, BlogPageResult, BlogPostArchiverError, BlogPostCard, BlogPostCounts,
+    BlogPostListFilter, BlogPostQueryError, BlogPostRepositoryError, BlogPostSort,
+    BlogPostTopicRepositoryError, BlogPostView, PatchBlogPostData,
 };
 use crate::blog::domain::entities::{BlogPost, BlogPostTopic};
 use crate::shared::api::{BulkOutcome, BulkRequestError};
@@ -112,6 +112,13 @@ pub enum PatchBlogPostError {
     /// The slug is empty, too long, or has characters outside `[a-z0-9-]`.
     #[error("Invalid slug: {0}")]
     InvalidSlug(String),
+
+    /// Publishing was requested for a post with an empty body.
+    ///
+    /// A post may be created and kept blank for as long as its author likes;
+    /// what it may not do is go in front of a reader that way.
+    #[error("Invalid content: {0}")]
+    InvalidContent(String),
 
     /// The author already has a post with that slug.
     #[error("Slug already exists")]
@@ -218,6 +225,14 @@ pub trait CreateBlogPostUseCase: Send + Sync {
 ///
 /// Honours `filter.published`, so the author can ask for drafts, published
 /// posts, or both.
+/// Counts an author's posts, for the dashboard line.
+#[async_trait]
+pub trait GetBlogPostCountsUseCase: Send + Sync {
+    /// Counts the author's posts by state.
+    async fn execute(&self, owner: UserId) -> Result<BlogPostCounts, GetBlogPostsError>;
+}
+
+/// Lists an author's posts.
 #[async_trait]
 pub trait GetBlogPostsUseCase: Send + Sync {
     /// Runs the operation.

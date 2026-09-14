@@ -3,9 +3,9 @@ use std::sync::Arc;
 use crate::blog::application::ports::incoming::use_cases::{
     ArchiveBlogPostUseCase, AttachBlogPostTopicUseCase, BulkBlogPostsUseCase,
     ClearBlogPostTopicsUseCase, CreateBlogPostUseCase, DetachBlogPostTopicUseCase,
-    GetBlogPostTopicsUseCase, GetBlogPostsUseCase, GetPublicBlogPostUseCase,
-    GetPublicBlogPostsUseCase, GetSingleBlogPostUseCase, HardDeleteBlogPostUseCase,
-    PatchBlogPostUseCase, RestoreBlogPostUseCase, SlugAvailableUseCase,
+    GetBlogPostCountsUseCase, GetBlogPostTopicsUseCase, GetBlogPostsUseCase,
+    GetPublicBlogPostUseCase, GetPublicBlogPostsUseCase, GetSingleBlogPostUseCase,
+    HardDeleteBlogPostUseCase, PatchBlogPostUseCase, RestoreBlogPostUseCase, SlugAvailableUseCase,
 };
 
 /// Bundles the blog use cases so `AppState` gains one field rather than
@@ -16,6 +16,8 @@ pub struct BlogUseCases {
     pub create: Arc<dyn CreateBlogPostUseCase + Send + Sync>,
     /// The [`GetBlogPostsUseCase`] implementation.
     pub list: Arc<dyn GetBlogPostsUseCase + Send + Sync>,
+    /// The [`GetBlogPostCountsUseCase`] implementation.
+    pub counts: Arc<dyn GetBlogPostCountsUseCase + Send + Sync>,
     /// The [`GetPublicBlogPostsUseCase`] implementation.
     pub list_public: Arc<dyn GetPublicBlogPostsUseCase + Send + Sync>,
     /// The [`GetSingleBlogPostUseCase`] implementation.

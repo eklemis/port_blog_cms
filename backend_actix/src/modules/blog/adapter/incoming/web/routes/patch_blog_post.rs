@@ -87,6 +87,9 @@ pub async fn patch_blog_post_handler(
         Err(PatchBlogPostError::InvalidSlug(m)) => {
             ApiResponse::bad_request(ErrorCode::InvalidSlug, &m)
         }
+        Err(PatchBlogPostError::InvalidContent(m)) => {
+            ApiResponse::bad_request(ErrorCode::InvalidContent, &m)
+        }
         Err(PatchBlogPostError::NotFound) => {
             ApiResponse::not_found(ErrorCode::PostNotFound, "Blog post not found")
         }

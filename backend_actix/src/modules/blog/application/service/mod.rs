@@ -18,8 +18,9 @@ pub use lifecycle_services::{
 };
 pub use patch_blog_post_service::PatchBlogPostService;
 pub use query_services::{
-    GetBlogPostTopicsService, GetBlogPostsService, GetPublicBlogPostService,
-    GetPublicBlogPostsService, GetSingleBlogPostService, SlugAvailableService,
+    GetBlogPostCountsService, GetBlogPostTopicsService, GetBlogPostsService,
+    GetPublicBlogPostService, GetPublicBlogPostsService, GetSingleBlogPostService,
+    SlugAvailableService,
 };
 pub use topic_link_services::{
     AttachBlogPostTopicService, ClearBlogPostTopicsService, DetachBlogPostTopicService,

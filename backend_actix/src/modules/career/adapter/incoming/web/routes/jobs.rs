@@ -7,6 +7,8 @@ use tracing::error;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use crate::career::adapter::incoming::web::routes::ListPageQuery;
+use crate::career::application::ports::outgoing::CareerPageResult;
 use crate::{
     api::schemas::{ErrorResponse, SuccessResponse},
     auth::{
@@ -178,23 +180,35 @@ pub async fn create_job_handler(
     path = "/api/jobs",
     tag = "career",
     responses(
-        (status = 200, description = "Postings, newest first", body = inline(SuccessResponse<Vec<JobResponse>>)),
+        (status = 200, description = "Postings, newest first", body = inline(SuccessResponse<CareerPageResult<JobResponse>>)),
         (status = 401, description = "Not authenticated", body = ErrorResponse),
         (status = 403, description = "Email not verified", body = ErrorResponse),
     ),
+    params(ListPageQuery),
     security(("BearerAuth" = []))
 )]
 #[get("/api/jobs")]
-pub async fn get_jobs_handler(user: VerifiedUser, data: web::Data<AppState>) -> impl Responder {
+pub async fn get_jobs_handler(
+    user: VerifiedUser,
+    query: web::Query<ListPageQuery>,
+    data: web::Data<AppState>,
+) -> impl Responder {
     match data
         .career
         .list_jobs
-        .execute(UserId::from(user.user_id))
+        .execute(UserId::from(user.user_id), query.into_inner().into())
         .await
     {
-        Ok(jobs) => {
-            ApiResponse::success(jobs.into_iter().map(JobResponse::from).collect::<Vec<_>>())
-        }
+        Ok(page) => ApiResponse::success(CareerPageResult {
+            items: page
+                .items
+                .into_iter()
+                .map(JobResponse::from)
+                .collect::<Vec<_>>(),
+            page: page.page,
+            per_page: page.per_page,
+            total: page.total,
+        }),
         Err(e) => map_error(e),
     }
 }

@@ -145,6 +145,7 @@ impl Default for TestAppStateBuilder {
             get_topics: Some(Arc::new(StubGetTopicsUseCase::success(vec![]))),
             soft_delete_topic: Some(Arc::new(StubSoftDeleteTopicUseCase)),
             blog: Some(BlogUseCases {
+                counts: Arc::new(StubBlogPostCounts),
                 slug_available: Arc::new(StubSlugAvailable),
                 create: Arc::new(StubCreateBlogPost),
                 list: Arc::new(StubGetBlogPosts),

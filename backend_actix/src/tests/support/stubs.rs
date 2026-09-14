@@ -1234,11 +1234,22 @@ impl crate::career::application::ports::incoming::use_cases::GetJobsUseCase for 
     async fn execute(
         &self,
         _owner: crate::auth::application::domain::entities::UserId,
+        page: crate::career::application::ports::outgoing::CareerPageRequest,
     ) -> Result<
-        Vec<crate::career::domain::entities::Job>,
+        crate::career::application::ports::outgoing::CareerPageResult<
+            crate::career::domain::entities::Job,
+        >,
         crate::career::application::ports::incoming::use_cases::JobError,
     > {
-        Ok(vec![])
+        let page = page.normalised();
+        Ok(
+            crate::career::application::ports::outgoing::CareerPageResult {
+                items: vec![],
+                page: page.page,
+                per_page: page.per_page,
+                total: 0,
+            },
+        )
     }
 }
 
@@ -1303,11 +1314,22 @@ impl crate::career::application::ports::incoming::use_cases::GetApplicationsUseC
     async fn execute(
         &self,
         _owner: crate::auth::application::domain::entities::UserId,
+        page: crate::career::application::ports::outgoing::CareerPageRequest,
     ) -> Result<
-        Vec<crate::career::domain::entities::Application>,
+        crate::career::application::ports::outgoing::CareerPageResult<
+            crate::career::domain::entities::Application,
+        >,
         crate::career::application::ports::incoming::use_cases::ApplicationError,
     > {
-        Ok(vec![])
+        let page = page.normalised();
+        Ok(
+            crate::career::application::ports::outgoing::CareerPageResult {
+                items: vec![],
+                page: page.page,
+                per_page: page.per_page,
+                total: 0,
+            },
+        )
     }
 }
 
@@ -1550,5 +1572,27 @@ impl crate::multimedia::application::ports::incoming::use_cases::ReapStaleUpload
                 older_than_secs: older_than_secs.unwrap_or(3600),
             },
         )
+    }
+}
+
+/// Reports a fixed set of post counts.
+pub struct StubBlogPostCounts;
+
+#[async_trait::async_trait]
+impl crate::blog::application::ports::incoming::use_cases::GetBlogPostCountsUseCase
+    for StubBlogPostCounts
+{
+    async fn execute(
+        &self,
+        _owner: crate::auth::application::domain::entities::UserId,
+    ) -> Result<
+        crate::blog::application::ports::outgoing::BlogPostCounts,
+        crate::blog::application::ports::incoming::use_cases::GetBlogPostsError,
+    > {
+        Ok(crate::blog::application::ports::outgoing::BlogPostCounts {
+            live: 12,
+            drafts: 9,
+            archived: 3,
+        })
     }
 }

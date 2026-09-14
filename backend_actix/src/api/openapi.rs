@@ -96,6 +96,7 @@ use crate::topic::application::ports::outgoing::{TopicResult, TopicUsage};
         crate::blog::adapter::incoming::web::routes::create_blog_post_handler,
         crate::blog::adapter::incoming::web::routes::blog_slug_available_handler,
         crate::blog::adapter::incoming::web::routes::get_blog_posts_handler,
+        crate::blog::adapter::incoming::web::routes::get_blog_post_counts_handler,
         crate::blog::adapter::incoming::web::routes::get_single_blog_post_handler,
         crate::blog::adapter::incoming::web::routes::patch_blog_post_handler,
         crate::blog::adapter::incoming::web::routes::archive_blog_post_handler,

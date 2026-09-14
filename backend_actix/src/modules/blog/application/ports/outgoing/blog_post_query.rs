@@ -35,6 +35,16 @@ pub struct BlogPostListFilter {
     /// Owner-facing listings can ask for drafts only, published only, or both.
     /// Public listings ignore this and always force published.
     pub published: Option<bool>,
+
+    /// Archived posts instead of live ones.
+    ///
+    /// `None` and `Some(false)` both mean "not archived", which is what every
+    /// ordinary listing wants. `Some(true)` returns only archived posts, which
+    /// is the archive screen and the only thing that can restore or
+    /// hard-delete them.
+    ///
+    /// Ignored entirely on the public path — see `list`'s `published_only`.
+    pub deleted: Option<bool>,
 }
 
 /// Listing order. Defaults to [`PublishedNewest`](Self::PublishedNewest),
@@ -119,6 +129,16 @@ pub struct BlogPostCard {
     /// owner-facing listing — the console reads media through the media
     /// endpoints, which return signed URLs.
     pub cover: Option<PublicMedia>,
+
+    /// The topics attached to this post.
+    ///
+    /// Batched for the page, not fetched per row — a Topics column on a list
+    /// screen would otherwise cost one request per post, which is the whole
+    /// reason this is on the card rather than left to the caller.
+    ///
+    /// Empty when the post has none. An empty list means "no topics"; it is
+    /// never a signal that they were not loaded.
+    pub topics: Vec<BlogPostTopic>,
 }
 
 /// A post plus its topics, for detail views.
@@ -141,8 +161,43 @@ pub struct BlogPostView {
 /// Writes belong to [`BlogPostRepository`](super::blog_post_repository::BlogPostRepository).
 /// Public callers must force `published = Some(true)` in the filter — this port
 /// does not do it for them.
+/// How many posts an author has, by state.
+///
+/// The three add up to every post the author owns. `archived` counts rows the
+/// ordinary listing hides, so it is the only one that cannot be derived by
+/// paging with a filter and reading `total`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, utoipa::ToSchema)]
+pub struct BlogPostCounts {
+    /// Published, with a publication date at or before now.
+    ///
+    /// A post scheduled for the future is counted as a draft, not as live —
+    /// the same rule the public listing applies, so the number here matches
+    /// what a reader can actually see.
+    #[schema(example = 12)]
+    pub live: u64,
+
+    /// Not published, or scheduled for later.
+    #[schema(example = 9)]
+    pub drafts: u64,
+
+    /// Archived. Restorable, and invisible to every other listing.
+    #[schema(example = 3)]
+    pub archived: u64,
+}
+
+/// Read-side access to blog posts.
+///
+/// Separate from the repository because listings, counts and detail reads
+/// project different shapes out of the same table and none of them write.
 #[async_trait]
 pub trait BlogPostQuery: Send + Sync {
+    /// Counts an author's posts by state, for a dashboard line.
+    ///
+    /// Three counts in one round trip rather than three list calls made only
+    /// to read `total` off each — and `archived` cannot be had that way at
+    /// all until something lists archived posts.
+    async fn counts_by_owner(&self, owner: UserId) -> Result<BlogPostCounts, BlogPostQueryError>;
+
     /// Lists an author's posts, drafts included, honouring `filter.published`.
     async fn list_by_owner(
         &self,

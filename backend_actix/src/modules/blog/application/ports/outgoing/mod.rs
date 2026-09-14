@@ -8,8 +8,8 @@ mod draft_preview_store;
 
 pub use blog_post_archiver::{BlogPostArchiver, BlogPostArchiverError};
 pub use blog_post_query::{
-    BlogPageRequest, BlogPageResult, BlogPostCard, BlogPostListFilter, BlogPostQuery,
-    BlogPostQueryError, BlogPostSort, BlogPostView,
+    BlogPageRequest, BlogPageResult, BlogPostCard, BlogPostCounts, BlogPostListFilter,
+    BlogPostQuery, BlogPostQueryError, BlogPostSort, BlogPostView,
 };
 pub use blog_post_repository::{
     BlogPatchField, BlogPostRepository, BlogPostRepositoryError, CreateBlogPostData,

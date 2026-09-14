@@ -536,6 +536,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/blog/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Count the author's posts by state
+         * @description The numbers behind a dashboard line like "12 live · 9 drafts · 3 archived".
+         *
+         *     Three counts in one round trip. Two of them could be had by listing with a
+         *     filter and reading `total`, at the cost of two requests that also transfer
+         *     rows nobody renders; `archived` could not be had at all until the archive
+         *     listing existed, and even then only as a third request.
+         *
+         *     A post scheduled for the future counts as a draft, not as live, matching
+         *     what the public listing will actually show.
+         */
+        get: operations["get_blog_post_counts_handler"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/blog/{post_id}": {
         parameters: {
             query?: never;
@@ -1866,6 +1894,14 @@ export interface components {
                  */
                 title: string;
                 /**
+                 * @description Topics attached to this post, loaded with the page rather than per row.
+                 *
+                 *     Always present, unlike `cover`. Empty means the post has no topics — it
+                 *     never means "not loaded", so a Topics column can be rendered straight
+                 *     from the list without a second request per row.
+                 */
+                topics: components["schemas"]["BlogPostTopicResponse"][];
+                /**
                  * Format: date-time
                  * @description When it was last edited.
                  */
@@ -1924,10 +1960,54 @@ export interface components {
              */
             title: string;
             /**
+             * @description Topics attached to this post, loaded with the page rather than per row.
+             *
+             *     Always present, unlike `cover`. Empty means the post has no topics — it
+             *     never means "not loaded", so a Topics column can be rendered straight
+             *     from the list without a second request per row.
+             */
+            topics: components["schemas"]["BlogPostTopicResponse"][];
+            /**
              * Format: date-time
              * @description When it was last edited.
              */
             updated_at: string;
+        };
+        /**
+         * @description Reads blog posts.
+         *
+         *     Writes belong to [`BlogPostRepository`](super::blog_post_repository::BlogPostRepository).
+         *     Public callers must force `published = Some(true)` in the filter — this port
+         *     does not do it for them.
+         *     How many posts an author has, by state.
+         *
+         *     The three add up to every post the author owns. `archived` counts rows the
+         *     ordinary listing hides, so it is the only one that cannot be derived by
+         *     paging with a filter and reading `total`.
+         */
+        BlogPostCounts: {
+            /**
+             * Format: int64
+             * @description Archived. Restorable, and invisible to every other listing.
+             * @example 3
+             */
+            archived: number;
+            /**
+             * Format: int64
+             * @description Not published, or scheduled for later.
+             * @example 9
+             */
+            drafts: number;
+            /**
+             * Format: int64
+             * @description Published, with a publication date at or before now.
+             *
+             *     A post scheduled for the future is counted as a draft, not as live —
+             *     the same rule the public listing applies, so the number here matches
+             *     what a reader can actually see.
+             * @example 12
+             */
+            live: number;
         };
         /** @description A post together with its topics, for detail views. */
         BlogPostDetailResponse: components["schemas"]["BlogPostResponse"] & {
@@ -4389,7 +4469,19 @@ export interface operations {
     };
     get_applications_handler: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description 1-based page number. Omitted or `0` means the first page.
+                 * @example 1
+                 */
+                page?: number;
+                /**
+                 * @description Rows per page. Omitted or `0` means 10; anything above 100 is trimmed
+                 *     to 100 rather than refused.
+                 * @example 10
+                 */
+                per_page?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4403,47 +4495,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @description One page of results. */
                         data: {
+                            /** @description The rows on this page. */
+                            items: {
+                                /**
+                                 * Format: date-time
+                                 * @description When it was sent. `null` while still a draft.
+                                 */
+                                applied_at?: string | null;
+                                /**
+                                 * Format: date-time
+                                 * @description When the row was created.
+                                 */
+                                created_at: string;
+                                /**
+                                 * Format: uuid
+                                 * @description The frozen CV that was sent. `null` only while this is a draft.
+                                 */
+                                cv_snapshot_id?: string | null;
+                                /**
+                                 * Format: uuid
+                                 * @description Identifier.
+                                 */
+                                id: string;
+                                /**
+                                 * Format: uuid
+                                 * @description The posting applied to.
+                                 */
+                                job_id: string;
+                                /** @description What you owe it next, in your own words. Empty when nothing is due. */
+                                next_action: string;
+                                /**
+                                 * Format: date-time
+                                 * @description When that is due.
+                                 */
+                                next_action_at?: string | null;
+                                /** @description Where it has got to. */
+                                status: components["schemas"]["ApplicationStatus"];
+                                /**
+                                 * Format: date-time
+                                 * @description Last edit.
+                                 */
+                                updated_at: string;
+                            }[];
                             /**
-                             * Format: date-time
-                             * @description When it was sent. `null` while still a draft.
+                             * Format: int32
+                             * @description 1-based page number.
+                             * @example 1
                              */
-                            applied_at?: string | null;
+                            page: number;
                             /**
-                             * Format: date-time
-                             * @description When the row was created.
+                             * Format: int32
+                             * @description Rows per page, after clamping.
+                             * @example 10
                              */
-                            created_at: string;
+                            per_page: number;
                             /**
-                             * Format: uuid
-                             * @description The frozen CV that was sent. `null` only while this is a draft.
+                             * Format: int64
+                             * @description Rows matching across *all* pages, not just this one.
+                             * @example 42
                              */
-                            cv_snapshot_id?: string | null;
-                            /**
-                             * Format: uuid
-                             * @description Identifier.
-                             */
-                            id: string;
-                            /**
-                             * Format: uuid
-                             * @description The posting applied to.
-                             */
-                            job_id: string;
-                            /** @description What you owe it next, in your own words. Empty when nothing is due. */
-                            next_action: string;
-                            /**
-                             * Format: date-time
-                             * @description When that is due.
-                             */
-                            next_action_at?: string | null;
-                            /** @description Where it has got to. */
-                            status: components["schemas"]["ApplicationStatus"];
-                            /**
-                             * Format: date-time
-                             * @description Last edit.
-                             */
-                            updated_at: string;
-                        }[];
+                            total: number;
+                        };
                         /**
                          * @description Always true for successful responses
                          * @example true
@@ -6060,6 +6174,15 @@ export interface operations {
                  *     Ignored by the public listing, which always forces published only.
                  */
                 published?: boolean;
+                /**
+                 * @description Return archived posts instead of live ones.
+                 *
+                 *     Omitted or `false` lists live posts. `true` lists only archived ones —
+                 *     what the archive screen needs, since restore and hard-delete have
+                 *     nothing to act on otherwise.
+                 * @example false
+                 */
+                deleted?: boolean;
                 /** @description Listing order. */
                 sort?: components["schemas"]["BlogPostSort"];
                 /**
@@ -6122,6 +6245,14 @@ export interface operations {
                                  * @example Building a CMS in Rust
                                  */
                                 title: string;
+                                /**
+                                 * @description Topics attached to this post, loaded with the page rather than per row.
+                                 *
+                                 *     Always present, unlike `cover`. Empty means the post has no topics — it
+                                 *     never means "not loaded", so a Topics column can be rendered straight
+                                 *     from the list without a second request per row.
+                                 */
+                                topics: components["schemas"]["BlogPostTopicResponse"][];
                                 /**
                                  * Format: date-time
                                  * @description When it was last edited.
@@ -6496,6 +6627,53 @@ export interface operations {
             };
             /** @description Not authenticated */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_blog_post_counts_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Counts by state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlogPostCounts"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Email not verified */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8510,7 +8688,19 @@ export interface operations {
     };
     get_jobs_handler: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description 1-based page number. Omitted or `0` means the first page.
+                 * @example 1
+                 */
+                page?: number;
+                /**
+                 * @description Rows per page. Omitted or `0` means 10; anything above 100 is trimmed
+                 *     to 100 rather than refused.
+                 * @example 10
+                 */
+                per_page?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -8524,39 +8714,61 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @description One page of results. */
                         data: {
-                            /** @description Hiring company. */
-                            company: string;
+                            /** @description The rows on this page. */
+                            items: {
+                                /** @description Hiring company. */
+                                company: string;
+                                /**
+                                 * Format: date-time
+                                 * @description When it was captured.
+                                 */
+                                created_at: string;
+                                /**
+                                 * Format: uuid
+                                 * @description Identifier.
+                                 */
+                                id: string;
+                                /** @description Where the role is. Empty when unstated. */
+                                location: string;
+                                /** @description Extracted nice-to-haves. */
+                                nice_to_have: string[];
+                                /** @description Extracted must-haves. */
+                                required_skills: string[];
+                                /** @description Seniority as advertised. Empty when unstated. */
+                                seniority: string;
+                                /** @description The posting verbatim. Kept because postings get taken down. */
+                                source_text: string;
+                                /** @description Where it was found. Empty when pasted rather than linked. */
+                                source_url: string;
+                                /** @description Role title. */
+                                title: string;
+                                /**
+                                 * Format: date-time
+                                 * @description Last edit.
+                                 */
+                                updated_at: string;
+                            }[];
                             /**
-                             * Format: date-time
-                             * @description When it was captured.
+                             * Format: int32
+                             * @description 1-based page number.
+                             * @example 1
                              */
-                            created_at: string;
+                            page: number;
                             /**
-                             * Format: uuid
-                             * @description Identifier.
+                             * Format: int32
+                             * @description Rows per page, after clamping.
+                             * @example 10
                              */
-                            id: string;
-                            /** @description Where the role is. Empty when unstated. */
-                            location: string;
-                            /** @description Extracted nice-to-haves. */
-                            nice_to_have: string[];
-                            /** @description Extracted must-haves. */
-                            required_skills: string[];
-                            /** @description Seniority as advertised. Empty when unstated. */
-                            seniority: string;
-                            /** @description The posting verbatim. Kept because postings get taken down. */
-                            source_text: string;
-                            /** @description Where it was found. Empty when pasted rather than linked. */
-                            source_url: string;
-                            /** @description Role title. */
-                            title: string;
+                            per_page: number;
                             /**
-                             * Format: date-time
-                             * @description Last edit.
+                             * Format: int64
+                             * @description Rows matching across *all* pages, not just this one.
+                             * @example 42
                              */
-                            updated_at: string;
-                        }[];
+                            total: number;
+                        };
                         /**
                          * @description Always true for successful responses
                          * @example true
@@ -11081,6 +11293,15 @@ export interface operations {
                  *     Ignored by the public listing, which always forces published only.
                  */
                 published?: boolean;
+                /**
+                 * @description Return archived posts instead of live ones.
+                 *
+                 *     Omitted or `false` lists live posts. `true` lists only archived ones —
+                 *     what the archive screen needs, since restore and hard-delete have
+                 *     nothing to act on otherwise.
+                 * @example false
+                 */
+                deleted?: boolean;
                 /** @description Listing order. */
                 sort?: components["schemas"]["BlogPostSort"];
                 /**
@@ -11146,6 +11367,14 @@ export interface operations {
                                  * @example Building a CMS in Rust
                                  */
                                 title: string;
+                                /**
+                                 * @description Topics attached to this post, loaded with the page rather than per row.
+                                 *
+                                 *     Always present, unlike `cover`. Empty means the post has no topics — it
+                                 *     never means "not loaded", so a Topics column can be rendered straight
+                                 *     from the list without a second request per row.
+                                 */
+                                topics: components["schemas"]["BlogPostTopicResponse"][];
                                 /**
                                  * Format: date-time
                                  * @description When it was last edited.
