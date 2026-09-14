@@ -45,7 +45,7 @@ it *is* declared in the spec as `ResetPasswordDto.password`.
 | `POST /api/blog` | `slug` | Trimmed, lowercased, non-empty, ≤ 200 chars | `INVALID_SLUG` |
 | `POST /api/blog` | `slug` | **`a-z`, `0-9` and `-` only** | `INVALID_SLUG` |
 | `POST /api/blog` | `title` | Non-empty, ≤ 200 characters | `INVALID_TITLE` |
-| `POST /api/blog` | `content` | **Non-empty** — a post cannot be created blank | `INVALID_CONTENT` |
+| `PATCH /api/blog/{id}` | `content` | **Non-empty when publishing** — a draft may be blank | `INVALID_CONTENT` |
 | `POST /api/topics` | `title` | 1–100 characters | `INVALID_TITLE` |
 | `PATCH /api/topics/{id}` | `title` | 1–100 characters | `INVALID_TITLE` |
 
@@ -63,21 +63,34 @@ refused too** — `café` and `日本語` are not storable as slugs even though 
 perfectly good titles. If you generate a slug from a title, transliterate it;
 lowercasing and replacing spaces is not enough.
 
-**`content` cannot be empty on create.** A post has to be written before it can
-be saved, which means it cannot be created blank and filled in afterwards — see
-the note on ordering below.
+**`content` may be empty on create, but not on publish.** A post can be created
+blank and written into afterwards; what it cannot do is go in front of a reader
+that way — see below.
 
 ### Creating a post before writing it
 
-`content` is required and must be non-empty, so there is no "create an empty
-draft, then write into it" path. That matters more than it looks: media attaches
-to a target id, so a cover image needs the post to exist first — which means
-today somebody has to write body text before they can add a cover.
+`POST /api/blog` accepts an empty `content`, so a post can exist before it has
+been written. Media attaches to a target id, so a cover image needs the post to
+exist first, and requiring a body at creation meant writing prose before a
+picture could be added.
 
-The rule is deliberate as a guard against accidental empty posts, not as a
-statement about ordering, and the ordering consequence was not designed. If it
-gets in the way of the authoring journey, it is worth revisiting rather than
-working around.
+**The key must still be present.** `content` is a required *field* — send
+`"content": ""`, not nothing at all. Omitting it fails to deserialise, which is
+a 400 about a malformed body rather than an empty post.
+
+The guard against empty posts was not dropped, only moved. **Publishing a post
+with an empty body is refused** — `PATCH /api/blog/{id}` setting `published_at`
+returns `400` `INVALID_CONTENT` unless the post will have a body afterwards.
+The body may arrive in the same request that publishes it.
+
+What is checked is what the post *will* hold: the incoming `content` when the
+request supplies it, the stored content when it does not, and empty when the
+request clears it. So publishing an already-written post needs to send no
+content at all, and `{"published_at": "…", "content": null}` is refused rather
+than quietly publishing a blank page.
+
+An unfinished draft sitting in its author's own console was never the thing the
+rule protected against.
 
 ## Uploads
 

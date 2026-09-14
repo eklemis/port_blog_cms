@@ -16,5 +16,5 @@ pub use cv_reader::{CvReader, CvReaderError};
 pub use cv_snapshotter::{CvSnapshotter, CvSnapshotterError};
 pub use job_store::{CreateJobData, JobStore, JobStoreError, PatchJobData};
 pub use letter_store::{LetterStore, LetterStoreError, PatchCoverLetterData, ReflectionData};
-pub use page::{CareerPageRequest, CareerPageResult};
+pub use page::{CareerPageRequest, CareerPageResult, JobFilter};
 pub use relevance_estimator::{RelevanceEstimator, RelevanceEstimatorError};

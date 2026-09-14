@@ -87,6 +87,7 @@ pub trait JobStore: Send + Sync {
     async fn list(
         &self,
         owner: Uuid,
+        filter: crate::career::application::ports::outgoing::JobFilter,
         page: crate::career::application::ports::outgoing::CareerPageRequest,
     ) -> Result<crate::career::application::ports::outgoing::CareerPageResult<Job>, JobStoreError>;
 
