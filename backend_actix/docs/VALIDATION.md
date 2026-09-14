@@ -42,8 +42,10 @@ it *is* declared in the spec as `ResetPasswordDto.password`.
 
 | Endpoint | Field | Rule | Code |
 | --- | --- | --- | --- |
-| `POST /api/blog` | `slug` | Trimmed and lowercased, non-empty, ≤ 200 chars | `INVALID_SLUG` |
-| `POST /api/blog` | `title` | ≤ 200 characters | `INVALID_TITLE` |
+| `POST /api/blog` | `slug` | Trimmed, lowercased, non-empty, ≤ 200 chars | `INVALID_SLUG` |
+| `POST /api/blog` | `slug` | **`a-z`, `0-9` and `-` only** | `INVALID_SLUG` |
+| `POST /api/blog` | `title` | Non-empty, ≤ 200 characters | `INVALID_TITLE` |
+| `POST /api/blog` | `content` | **Non-empty** — a post cannot be created blank | `INVALID_CONTENT` |
 | `POST /api/topics` | `title` | 1–100 characters | `INVALID_TITLE` |
 | `PATCH /api/topics/{id}` | `title` | 1–100 characters | `INVALID_TITLE` |
 
@@ -51,6 +53,31 @@ it *is* declared in the spec as `ResetPasswordDto.password`.
 `My-Post` and `my-post` collide; a duplicate is `409`, not a silent overwrite.
 Check availability first with `GET /api/blog/slug-available` or
 `GET /api/projects/slug-available` if you want to warn before submitting.
+
+**A slug is `[a-z0-9-]` and nothing else.** Spaces and punctuation are refused
+rather than escaped, so `My Post Title` is an `INVALID_SLUG`, not a slug with
+`%20` in it. The check runs on `POST /api/blog` and on `PATCH` alike.
+
+Note the test is `is_ascii_alphanumeric`, so **accented and non-Latin letters are
+refused too** — `café` and `日本語` are not storable as slugs even though they are
+perfectly good titles. If you generate a slug from a title, transliterate it;
+lowercasing and replacing spaces is not enough.
+
+**`content` cannot be empty on create.** A post has to be written before it can
+be saved, which means it cannot be created blank and filled in afterwards — see
+the note on ordering below.
+
+### Creating a post before writing it
+
+`content` is required and must be non-empty, so there is no "create an empty
+draft, then write into it" path. That matters more than it looks: media attaches
+to a target id, so a cover image needs the post to exist first — which means
+today somebody has to write body text before they can add a cover.
+
+The rule is deliberate as a guard against accidental empty posts, not as a
+statement about ordering, and the ordering consequence was not designed. If it
+gets in the way of the authoring journey, it is worth revisiting rather than
+working around.
 
 ## Uploads
 
