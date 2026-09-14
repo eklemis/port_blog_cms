@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { SLUG_MAX, slugError, slugFrom } from './slug';
+import { SLUG_CHARACTERS, SLUG_MAX, SLUG_TOO_LONG, slugError, slugFrom } from './slug';
 
 /**
  * The public address a post or a project will live at.
@@ -47,16 +47,36 @@ test('an address is required, because the public URL is built from it', () => {
 });
 
 test('the length rule is the server’s, counted the way the server counts', () => {
-	// Trimmed, non-empty, at most 200 — VALIDATION.md. Rust counts chars, so
-	// an emoji is one, not two.
+	// Trimmed, non-empty, at most 200. Rust counts `chars()`, so an emoji is
+	// one character and not the two UTF-16 units JavaScript stores it in.
 	expect(slugError('a'.repeat(SLUG_MAX))).toBeUndefined();
-	expect(slugError('a'.repeat(SLUG_MAX + 1))).toBeDefined();
-	expect(slugError('🌱'.repeat(SLUG_MAX))).toBeUndefined();
+	expect(slugError('a'.repeat(SLUG_MAX + 1))).toBe(SLUG_TOO_LONG);
+
+	// 200 emoji is 200 characters and 400 units. Counting units would call
+	// this too long; counting characters lets it through to the rule it
+	// actually breaks, which is the alphabet.
+	expect(slugError('🌱'.repeat(SLUG_MAX))).toBe(SLUG_CHARACTERS);
 });
 
-test('nothing else is rejected, because the server rejects nothing else', () => {
-	// It trims and lowercases and asks for non-empty. Inventing a character
-	// rule here would refuse addresses the API would have accepted.
-	expect(slugError('Mixed Case With Spaces')).toBeUndefined();
-	expect(slugError('ünïcode-slug')).toBeUndefined();
+test('a slug is a-z, 0-9 and hyphen, and nothing else', () => {
+	// The rule was missing from VALIDATION.md when this was written, so the
+	// first cut of it accepted anything the doc did not forbid. Both services
+	// test `is_ascii_alphanumeric() || c == '-'`, so a space is an
+	// INVALID_SLUG rather than an address with %20 in it.
+	expect(slugError('Mixed Case With Spaces')).toBeDefined();
+	expect(slugError('what?')).toBeDefined();
+	expect(slugError('under_score')).toBeDefined();
+	expect(slugError('building-a-cms-2')).toBeUndefined();
+});
+
+test('ascii means ascii, so an accented address is refused too', () => {
+	// `café` and `日本語` are good titles and impossible slugs. Deriving one
+	// folds the accents; typing one by hand has to be refused, because the
+	// server will refuse it.
+	expect(slugError('café')).toBeDefined();
+	expect(slugError('日本語')).toBeDefined();
+});
+
+test('the trimmed value is what is judged, since the server trims first', () => {
+	expect(slugError('  building-a-cms  ')).toBeUndefined();
 });

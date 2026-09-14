@@ -43,7 +43,7 @@ const ALL = {
 	'/api/blog': paged(24),
 	'/api/projects': paged(8),
 	'/api/cvs': paged(3),
-	'/api/applications': listed(5),
+	'/api/applications': paged(5),
 	'/api/topics': listed(6)
 };
 
@@ -74,9 +74,11 @@ test('asks the paginated resources for one row, not for all of them', async () =
 
 	const asked = fetchImpl.mock.calls.map((call) => String(call[1]));
 	expect(asked).toContain('/api/blog?per_page=1');
-	// Applications and topics take no parameters at all, so asking for a page
-	// of one would be a query string the backend quietly ignores.
-	expect(asked).toContain('/api/applications');
+	// Applications pages now too, so it answers with a total like the rest.
+	expect(asked).toContain('/api/applications?per_page=1');
+	// Topics still does not page, and a query string it ignores would only
+	// look like a request that meant something.
+	expect(asked).toContain('/api/topics');
 });
 
 test('a count that could not be had is null, never zero', async () => {
@@ -110,4 +112,17 @@ test('a body in a shape we did not expect is unknown, not a guess', async () => 
 	const { counts } = await loaded();
 
 	expect(counts.topics).toBeNull();
+});
+
+test('the applications count comes from the total, not from the rows returned', async () => {
+	// It used to be a bare array, so the count was its length. Reading the
+	// length of one page of ten would report "10 applications" forever.
+	backend({
+		...ALL,
+		'/api/applications': { body: { data: { total: 42, items: [{}] } } }
+	});
+
+	const { counts } = await loaded();
+
+	expect(counts.applications).toBe(42);
 });

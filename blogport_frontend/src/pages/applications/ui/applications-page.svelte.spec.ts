@@ -34,7 +34,7 @@ const rows = [
 ];
 
 test('lists an application per row, with where each has got to', async () => {
-	const screen = render(ApplicationsPage, { rows, failed: false });
+	const screen = render(ApplicationsPage, { rows, failed: false, total: 2, page: 1, perPage: 10 });
 
 	await expect.element(screen.getByText('Senior Backend')).toBeInTheDocument();
 	await expect.element(screen.getByText('Gojek')).toBeInTheDocument();
@@ -46,13 +46,19 @@ test('lists an application per row, with where each has got to', async () => {
 });
 
 test('a draft says it has not been sent rather than showing a date', async () => {
-	const screen = render(ApplicationsPage, { rows, failed: false });
+	const screen = render(ApplicationsPage, { rows, failed: false, total: 2, page: 1, perPage: 10 });
 
 	await expect.element(screen.getByText('Not sent')).toBeInTheDocument();
 });
 
 test('empty says what the screen is for and offers the one action', async () => {
-	const screen = render(ApplicationsPage, { rows: [], failed: false });
+	const screen = render(ApplicationsPage, {
+		rows: [],
+		failed: false,
+		total: 0,
+		page: 1,
+		perPage: 10
+	});
 
 	await expect.element(screen.getByText('No applications yet.')).toBeInTheDocument();
 	// Not "Add a job" twice: the header already says that, and two links with
@@ -67,7 +73,13 @@ test('empty says what the screen is for and offers the one action', async () => 
 test('an error says what failed and that nothing was lost', async () => {
 	// Never blames the person, and never leaves them wondering whether the
 	// applications themselves are gone.
-	const screen = render(ApplicationsPage, { rows: [], failed: true });
+	const screen = render(ApplicationsPage, {
+		rows: [],
+		failed: true,
+		total: 0,
+		page: 1,
+		perPage: 10
+	});
 
 	await expect.element(screen.getByText("We couldn't load your applications.")).toBeInTheDocument();
 	await expect.element(screen.getByText(/Nothing has happened to them/)).toBeInTheDocument();
@@ -75,17 +87,59 @@ test('an error says what failed and that nothing was lost', async () => {
 	await expectNoA11yViolations(document.body, UNSTYLED_GEOMETRY);
 });
 
+test('it says how many there are, not just how many are shown', async () => {
+	const screen = render(ApplicationsPage, {
+		rows,
+		failed: false,
+		total: 24,
+		page: 1,
+		perPage: 10
+	});
+
+	await expect.element(screen.getByText('2 of 24 applications')).toBeInTheDocument();
+});
+
+test('a second page can be reached, and the first cannot be gone back past', async () => {
+	const asked: number[] = [];
+	const screen = render(ApplicationsPage, {
+		rows,
+		failed: false,
+		total: 24,
+		page: 1,
+		perPage: 10,
+		onpage: (n: number) => asked.push(n)
+	});
+
+	await expect.element(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
+	await screen.getByRole('button', { name: 'Next' }).click();
+
+	expect(asked).toEqual([2]);
+});
+
+test('one page of rows needs no pager at all', async () => {
+	const screen = render(ApplicationsPage, { rows, failed: false, total: 2, page: 1, perPage: 10 });
+
+	expect(screen.getByRole('button', { name: 'Next' }).elements()).toHaveLength(0);
+});
+
 test('loading is rows, not a spinner, and it is announced', async () => {
 	// The fourth of §06's four states. It was missing: this screen had rows,
 	// empty and error, and nothing at all in between.
-	const screen = render(ApplicationsPage, { rows: [], failed: false, loading: true });
+	const screen = render(ApplicationsPage, {
+		rows: [],
+		failed: false,
+		loading: true,
+		total: 0,
+		page: 1,
+		perPage: 10
+	});
 
 	await expect.element(screen.getByRole('status')).toHaveTextContent('Loading applications');
 	expect(screen.getByText('No applications yet.').elements()).toHaveLength(0);
 });
 
 test('the table names its columns for a screen reader, not just visually', async () => {
-	const screen = render(ApplicationsPage, { rows, failed: false });
+	const screen = render(ApplicationsPage, { rows, failed: false, total: 2, page: 1, perPage: 10 });
 
 	await expect.element(screen.getByRole('columnheader', { name: 'Role' })).toBeInTheDocument();
 	await expect.element(screen.getByRole('columnheader', { name: 'Status' })).toBeInTheDocument();
