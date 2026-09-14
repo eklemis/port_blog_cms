@@ -277,6 +277,7 @@ mod tests {
         async fn list(
             &self,
             _o: Uuid,
+            _f: crate::career::application::ports::outgoing::JobFilter,
             _p: CareerPageRequest,
         ) -> Result<
             CareerPageResult<crate::career::domain::entities::Job>,

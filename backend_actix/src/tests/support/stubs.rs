@@ -1234,6 +1234,7 @@ impl crate::career::application::ports::incoming::use_cases::GetJobsUseCase for 
     async fn execute(
         &self,
         _owner: crate::auth::application::domain::entities::UserId,
+        _filter: crate::career::application::ports::outgoing::JobFilter,
         page: crate::career::application::ports::outgoing::CareerPageRequest,
     ) -> Result<
         crate::career::application::ports::outgoing::CareerPageResult<

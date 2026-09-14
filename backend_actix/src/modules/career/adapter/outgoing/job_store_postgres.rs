@@ -17,7 +17,8 @@ use crate::career::adapter::outgoing::sea_orm_entity::jobs::{
     ActiveModel as JobActive, Column as JobColumn, Entity as JobEntity, Model as JobModel,
 };
 use crate::career::application::ports::outgoing::{
-    CareerPageRequest, CareerPageResult, CreateJobData, JobStore, JobStoreError, PatchJobData,
+    CareerPageRequest, CareerPageResult, CreateJobData, JobFilter, JobStore, JobStoreError,
+    PatchJobData,
 };
 use crate::career::domain::entities::Job;
 
@@ -100,13 +101,23 @@ impl JobStore for JobStorePostgres {
     async fn list(
         &self,
         owner: Uuid,
+        filter: JobFilter,
         page: CareerPageRequest,
     ) -> Result<CareerPageResult<Job>, JobStoreError> {
         let page = page.normalised();
 
-        let paginator = JobEntity::find()
+        let mut query = JobEntity::find()
             .filter(JobColumn::UserId.eq(owner))
-            .filter(JobColumn::IsDeleted.eq(false))
+            .filter(JobColumn::IsDeleted.eq(false));
+
+        if let Some(ids) = filter.ids {
+            // An empty list asks for nothing, which is what it gets — the
+            // alternative reading, "no filter", would return the whole table
+            // to a caller that asked for none of it.
+            query = query.filter(JobColumn::Id.is_in(ids));
+        }
+
+        let paginator = query
             .order_by_desc(JobColumn::CreatedAt)
             .paginate(self.db.as_ref(), page.per_page as u64);
 
