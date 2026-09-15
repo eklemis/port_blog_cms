@@ -47,7 +47,7 @@ test('scheduling says plainly that nothing else will happen', async () => {
 	// call, and nothing happens on screen when it does.
 	const screen = render(PublishControl, props());
 
-	await screen.getByRole('button', { name: 'Schedule instead' }).click();
+	await screen.getByRole('button', { name: 'Schedule', exact: true }).click();
 
 	await expect.element(screen.getByText(/goes live on its own/)).toBeInTheDocument();
 });
@@ -59,9 +59,9 @@ test('a scheduled time is sent as an instant, not as what the clock said', async
 		props({ onpublish: (at: string | null) => asked.push(at) })
 	);
 
-	await screen.getByRole('button', { name: 'Schedule instead' }).click();
+	await screen.getByRole('button', { name: 'Schedule', exact: true }).click();
 	await screen.getByLabelText('Goes live').fill('2026-09-09T09:00');
-	await screen.getByRole('button', { name: 'Schedule' }).click();
+	await screen.getByRole('button', { name: 'Schedule post' }).click();
 
 	expect(asked).toHaveLength(1);
 	expect(new Date(asked[0] as string).getTime()).toBe(new Date('2026-09-09T09:00').getTime());
@@ -76,9 +76,9 @@ test('a time in the past is refused rather than silently publishing', async () =
 		props({ onpublish: (at: string | null) => asked.push(at) })
 	);
 
-	await screen.getByRole('button', { name: 'Schedule instead' }).click();
+	await screen.getByRole('button', { name: 'Schedule', exact: true }).click();
 	await screen.getByLabelText('Goes live').fill('2026-09-07T09:00');
-	await screen.getByRole('button', { name: 'Schedule' }).click();
+	await screen.getByRole('button', { name: 'Schedule post' }).click();
 
 	expect(asked).toHaveLength(0);
 	await expect.element(screen.getByText('Pick a time in the future.')).toBeInTheDocument();
@@ -86,26 +86,15 @@ test('a time in the past is refused rather than silently publishing', async () =
 
 // ── once it is live ────────────────────────────────────────────────────────
 
-test('a live post says so, and offers the way back', async () => {
+test('a live post offers the way back, and not the way forward', async () => {
+	// Screen / Post editor 32:934 puts the status pill beside the save state;
+	// this control is the buttons at the other end of that bar.
 	const screen = render(PublishControl, props({ publishedAt: '2026-09-01T09:00:00Z' }));
 
-	await expect.element(screen.getByText('Live')).toBeInTheDocument();
 	await expect.element(screen.getByRole('button', { name: 'Unpublish' })).toBeInTheDocument();
-	// Exact: "Unpublish" contains "Publish", and a substring match would find
-	// the very button whose absence is the point.
+	// Exact: "Unpublish" contains "Publish".
 	expect(screen.getByRole('button', { name: 'Publish', exact: true }).elements()).toHaveLength(0);
-});
-
-test('a scheduled post is not called live, because it is not', async () => {
-	const screen = render(PublishControl, props({ publishedAt: '2026-09-09T09:00:00Z' }));
-
-	await expect.element(screen.getByText('Scheduled')).toBeInTheDocument();
-});
-
-test('unpublishing says what it costs before it is pressed', async () => {
-	const screen = render(PublishControl, props({ publishedAt: '2026-09-01T09:00:00Z' }));
-
-	await expect.element(screen.getByText(/public address stops working/)).toBeInTheDocument();
+	expect(screen.getByRole('button', { name: 'Schedule', exact: true }).elements()).toHaveLength(0);
 });
 
 test('nothing can be pressed twice while a call is in the air', async () => {

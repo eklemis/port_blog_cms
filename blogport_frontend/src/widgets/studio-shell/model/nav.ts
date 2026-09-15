@@ -128,6 +128,8 @@ export type MobileChrome = {
 	back: string | null;
 	action: { label: string; href: string } | null;
 	tabs: boolean;
+	/** The screen draws its own header, and the shell draws none. */
+	bare?: boolean;
 };
 
 const SECTION_ACTIONS: Record<string, { label: string; href: string }> = {
@@ -146,7 +148,9 @@ export function mobileChrome(path: string): MobileChrome {
 		return { title: 'Archive', back: posts, action: null, tabs: true };
 	}
 	if (here.startsWith(`${posts}/`)) {
-		return { title: 'Edit post', back: posts, action: null, tabs: false };
+		// Mobile / Post editor 73:236: the editor's own bar carries back, the
+		// status pill and Publish, so the shell's would only be a second one.
+		return { title: 'Edit post', back: posts, action: null, tabs: false, bare: true };
 	}
 
 	return {

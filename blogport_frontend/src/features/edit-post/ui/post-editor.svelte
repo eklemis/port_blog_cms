@@ -1,9 +1,17 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { Field, InlineAlert, SaveIndicator, Toast } from '$lib/shared/ui';
+	import { ChevronLeft } from '@lucide/svelte';
+	import { InlineAlert, SaveIndicator, StatusPill, Toast } from '$lib/shared/ui';
+	import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
 	import type { HandlingClass } from '$lib/shared/lib/error-class';
 	import { SLUG_MAX, slugError, slugFrom } from '$lib/shared/lib/slug';
-	import { TITLE_COUNTER_FROM, TITLE_MAX, publicPostPath, titleError } from '$lib/entities/post';
+	import {
+		TITLE_COUNTER_FROM,
+		TITLE_MAX,
+		postStatus,
+		publicPostPath,
+		titleError
+	} from '$lib/entities/post';
 	import { createAutosave } from '../model/autosave.svelte';
 	import PublishControl from './publish-control.svelte';
 	import { patchPost, type EditField, type PostChanges } from '../api/update-post';
@@ -16,10 +24,14 @@
 	 * moved are sent, because PATCH changes what is present and the editor must
 	 * never send an object it did not load first.
 	 *
-	 * Topics and the cover image are the steps after this one and are not here
-	 * yet.
+	 * Design: Screen / Post editor 32:934 · Mobile / Post editor 73:236. A top bar
+	 * with the status pill, the save state and the publish buttons; the post in
+	 * one card, its title and address inline; a rail beside it. On a phone the
+	 * editor draws its own bar — back, pill, Publish — and the shell draws none.
 	 *
-	 * Design: Screen / Post editor.
+	 * The rail's Assist and Cover image cards and the topic picker's "+ Add" are
+	 * drawn and not built: the companion rail, the upload flow and TopicPicker
+	 * are their own slices. The rail lists the post's topics as they are.
 	 */
 	type Post = {
 		id: string;
@@ -27,6 +39,7 @@
 		slug: string;
 		content: string;
 		published_at?: string | null;
+		topics?: { id: string; title: string }[];
 	};
 
 	let {
@@ -175,6 +188,10 @@
 		toast = at ? 'Published.' : 'Back to a draft.';
 	}
 
+	const status = $derived(postStatus(publishedAt));
+	/** The fixed part of the public address, muted in the frame. */
+	const addressPrefix = $derived(`/${username}/blog/`);
+
 	const titleCount = $derived([...title].length);
 	const showCounter = $derived(titleCount >= TITLE_COUNTER_FROM);
 </script>
@@ -183,100 +200,170 @@
 	Both links below go to the post's public address, which is a reader surface
 	in the map and not built yet — `resolve()` only takes a route id that
 	exists. Swap them in when /[username]/blog/[slug] lands. -->
-<div class="flex max-w-[720px] flex-col gap-[18px] md:gap-5">
-	<div class="flex items-center justify-between gap-4">
-		<h1 class="sr-only">Edit post</h1>
-		<!-- The only place that reports save state, in a slot that does not move. -->
-		<SaveIndicator state={autosave.state} savedAt={autosave.savedAt} />
+<div class="flex flex-col gap-4">
+	<h1 class="sr-only">Edit post</h1>
 
-		{#if published}
+	<!-- The top bar: status and save state on the left, the one decision on the right. -->
+	<section aria-label="Post status" class="flex min-h-[38px] items-center justify-between gap-3">
+		<div class="flex items-center gap-3">
 			<a
-				href={publicPath}
-				class="text-[12px] font-semibold text-arch-accent-ink underline-offset-4 hover:underline"
+				href={CONSOLE_ROUTES.posts}
+				aria-label="Back to Posts"
+				class="-ml-2 flex size-8 items-center justify-center text-arch-headline md:hidden"
 			>
-				View post
+				<ChevronLeft size={19} aria-hidden="true" />
 			</a>
-		{/if}
-	</div>
+			<StatusPill tone={status.tone} label={status.label} />
+			<!-- The only place that reports save state. Mobile / Post editor draws it
+			     under the body; it stays here at every width, because a second copy
+			     would be a second live region announcing the same thing. -->
+			<div class="font-mono">
+				<SaveIndicator state={autosave.state} savedAt={autosave.savedAt} />
+			</div>
+		</div>
 
-	<Field
-		id="editor-title"
-		label="Title"
-		name="title"
-		required
-		bind:value={title}
-		error={titleProblem}
-		oninput={typedTitle}
-		onblur={() => (titleProblem = titleError(title))}
-	/>
+		<div class="flex items-center gap-2">
+			{#if published}
+				<a
+					href={publicPath}
+					class="px-3 text-[13px] font-semibold text-arch-muted hover:text-arch-headline max-md:hidden"
+				>
+					View post
+				</a>
+			{/if}
+			<PublishControl
+				{publishedAt}
+				busy={publishing}
+				onpublish={(at) => setPublished(at ?? new Date().toISOString())}
+				onunpublish={() => setPublished(null)}
+			/>
+		</div>
+	</section>
 
-	{#if showCounter}
-		<p class="-mt-3 text-[11.5px] {titleCount > TITLE_MAX ? 'text-st-danger' : 'text-arch-muted'}">
-			{titleCount} / {TITLE_MAX}
+	{#if published}
+		<p class="-mt-2 text-[11.5px] text-arch-muted">
+			Live at {publicPath}. Unpublishing puts it back to a draft, and that address stops working.
 		</p>
 	{/if}
 
-	{#if published}
-		<!-- Behind a disclosure, with the consequence stated: the post is live at
-		     this address and changing it breaks every link to it. -->
-		<details class="rounded-lg border border-arch-line bg-arch-surface p-3.5">
-			<summary class="cursor-pointer text-[12.5px] font-semibold text-arch-headline">
-				Change address
-			</summary>
-			<p class="mt-2 text-[12px] text-arch-muted">
-				This post is live. Changing its address breaks the link anyone already has.
-			</p>
-			<div class="mt-3">
-				<Field
-					id="editor-slug"
-					label="Web address"
-					name="slug"
-					maxlength={SLUG_MAX}
-					required
-					bind:value={slug}
-					error={slugProblem}
-					oninput={typedSlug}
-					onblur={() => (slugProblem = slugError(slug))}
-				/>
-			</div>
-		</details>
-	{:else}
-		<Field
-			id="editor-slug"
-			label="Web address"
-			name="slug"
-			maxlength={SLUG_MAX}
-			help="This becomes the post's public address."
-			required
-			bind:value={slug}
-			error={slugProblem}
-			oninput={typedSlug}
-			onblur={() => (slugProblem = slugError(slug))}
-		/>
-	{/if}
-
-	<div class="flex flex-col gap-1.5">
-		<label for="editor-content" class="text-[12.5px] font-medium text-arch-headline">Post</label>
-		<!-- Not a Field: that component is a single-line input by specification. -->
-		<textarea
-			id="editor-content"
-			name="content"
-			rows="18"
-			bind:value={content}
-			oninput={() => autosave.edited()}
-			class="w-full rounded-lg border border-arch-line-control bg-arch-surface px-3 py-2.5
-			       font-mono text-[13px] text-arch-headline placeholder:text-arch-muted"
-		></textarea>
-	</div>
-
 	<InlineAlert message={failure} kind={failureKind} />
 
-	<PublishControl
-		{publishedAt}
-		busy={publishing}
-		onpublish={(at) => setPublished(at ?? new Date().toISOString())}
-		onunpublish={() => setPublished(null)}
-	/>
+	<div class="flex flex-col gap-4 lg:flex-row lg:items-start">
+		<!-- The post itself: title, address, rule, body — one card. -->
+		<div
+			class="flex min-w-0 flex-1 flex-col gap-3 md:rounded-xl md:border md:border-arch-line
+			       md:bg-arch-surface md:p-5"
+		>
+			<label for="editor-title" class="sr-only">Title</label>
+			<input
+				id="editor-title"
+				name="title"
+				bind:value={title}
+				oninput={typedTitle}
+				onblur={() => (titleProblem = titleError(title))}
+				aria-invalid={titleProblem ? 'true' : undefined}
+				aria-describedby={titleProblem ? 'editor-title-error' : undefined}
+				class="w-full bg-transparent font-display text-[24px] font-extrabold text-arch-headline
+				       focus:outline-none md:text-[26px]"
+			/>
+			{#if titleProblem}
+				<p id="editor-title-error" class="-mt-2 text-[11px] text-st-danger">{titleProblem}</p>
+			{/if}
+			{#if showCounter}
+				<p
+					class="-mt-2 text-[11px] {titleCount > TITLE_MAX ? 'text-st-danger' : 'text-arch-muted'}"
+				>
+					{titleCount} / {TITLE_MAX}
+				</p>
+			{/if}
+
+			<div class="flex flex-col gap-1">
+				<div class="flex items-center font-mono text-[11px]">
+					<span aria-hidden="true" class="text-arch-muted">{addressPrefix}</span>
+					<label for="editor-slug" class="sr-only">Address</label>
+					{#if published}
+						<!-- Live: the address is read here and changed only through the
+						     disclosure below, because changing it breaks every link. -->
+						<span class="text-arch-accent-ink">{slug}</span>
+					{:else}
+						<input
+							id="editor-slug"
+							name="slug"
+							maxlength={SLUG_MAX}
+							bind:value={slug}
+							oninput={typedSlug}
+							onblur={() => (slugProblem = slugError(slug))}
+							aria-invalid={slugProblem ? 'true' : undefined}
+							aria-describedby={slugProblem ? 'editor-slug-error' : undefined}
+							class="min-w-0 flex-1 bg-transparent text-arch-accent-ink focus:outline-none"
+						/>
+					{/if}
+				</div>
+				{#if published}
+					<details>
+						<summary class="cursor-pointer text-[11.5px] text-arch-muted">Change address</summary>
+						<p class="mt-1.5 text-[11.5px] text-arch-muted">
+							This post is live. Changing its address breaks the link anyone already has.
+						</p>
+						<input
+							id="editor-slug"
+							name="slug"
+							maxlength={SLUG_MAX}
+							bind:value={slug}
+							oninput={typedSlug}
+							onblur={() => (slugProblem = slugError(slug))}
+							aria-invalid={slugProblem ? 'true' : undefined}
+							aria-describedby={slugProblem ? 'editor-slug-error' : undefined}
+							class="mt-2 w-full rounded-lg border border-arch-line-control bg-arch-surface px-3 py-2
+							       font-mono text-[12px] text-arch-headline"
+						/>
+					</details>
+				{/if}
+				{#if slugProblem}
+					<p id="editor-slug-error" class="text-[11px] text-st-danger">{slugProblem}</p>
+				{/if}
+			</div>
+
+			<div class="h-px bg-arch-line" role="presentation"></div>
+
+			<label for="editor-content" class="sr-only">Post</label>
+			<textarea
+				id="editor-content"
+				name="content"
+				rows="20"
+				bind:value={content}
+				oninput={() => autosave.edited()}
+				placeholder="Write the post."
+				class="min-h-[420px] w-full resize-none bg-transparent text-[13px] leading-[22px]
+				       text-arch-headline placeholder:text-arch-muted focus:outline-none"
+			></textarea>
+		</div>
+
+		<!-- The rail. Topics as the post has them; picking them is TopicPicker's. -->
+		<div class="flex w-full flex-col gap-3.5 lg:w-[346px]">
+			<section
+				aria-label="Topics"
+				class="flex flex-col gap-2.5 rounded-xl border border-arch-line bg-arch-surface px-4 py-[15px]"
+			>
+				<h2 class="font-mono text-[9px] font-normal tracking-[0.9px] text-arch-muted uppercase">
+					Topics
+				</h2>
+				{#if post.topics?.length}
+					<ul class="flex flex-wrap gap-[7px]">
+						{#each post.topics as topic (topic.id)}
+							<li
+								class="rounded-full bg-arch-surface-2 px-2.5 py-[5px] text-[11px] text-arch-headline"
+							>
+								{topic.title}
+							</li>
+						{/each}
+					</ul>
+				{:else}
+					<p class="text-[11.5px] text-arch-muted">No topics yet.</p>
+				{/if}
+			</section>
+		</div>
+	</div>
 
 	{#if toast}
 		<div class="fixed inset-x-4 bottom-4 z-10 md:right-6 md:left-auto md:w-[380px]">

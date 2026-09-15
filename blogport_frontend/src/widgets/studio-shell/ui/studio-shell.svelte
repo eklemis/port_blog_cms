@@ -57,29 +57,31 @@
 	</a>
 
 	<!-- Mobile: the sidebar has no room, so the screen names itself instead. -->
-	<header
-		class="flex h-[58px] shrink-0 items-center justify-between gap-3 bg-arch-surface px-[18px]
+	{#if !chrome.bare}
+		<header
+			class="flex h-[58px] shrink-0 items-center justify-between gap-3 bg-arch-surface px-[18px]
 		       py-3.5 md:hidden"
-	>
-		<div class="flex items-center gap-2">
-			{#if chrome.back}
-				<!-- A 32px target around a 19px chevron, named for where it goes. -->
-				<a
-					href={chrome.back}
-					aria-label="Back to {currentLabel(chrome.back)}"
-					class="-ml-2 flex size-8 items-center justify-center text-arch-headline"
-				>
-					<ChevronLeft size={19} aria-hidden="true" />
-				</a>
-			{/if}
-			<!-- Not a heading: each screen keeps its own h1, visually hidden on a
+		>
+			<div class="flex items-center gap-2">
+				{#if chrome.back}
+					<!-- A 32px target around a 19px chevron, named for where it goes. -->
+					<a
+						href={chrome.back}
+						aria-label="Back to {currentLabel(chrome.back)}"
+						class="-ml-2 flex size-8 items-center justify-center text-arch-headline"
+					>
+						<ChevronLeft size={19} aria-hidden="true" />
+					</a>
+				{/if}
+				<!-- Not a heading: each screen keeps its own h1, visually hidden on a
 			     phone, so there is exactly one at every width. -->
-			<p class="font-display text-[18px] font-bold text-arch-headline">{chrome.title}</p>
-		</div>
-		{#if chrome.action}
-			<Button label={chrome.action.label} href={chrome.action.href} />
-		{/if}
-	</header>
+				<p class="font-display text-[18px] font-bold text-arch-headline">{chrome.title}</p>
+			</div>
+			{#if chrome.action}
+				<Button label={chrome.action.label} href={chrome.action.href} />
+			{/if}
+		</header>
+	{/if}
 
 	<!-- Sidebar from 768px: icons only until 1024, then labels too. -->
 	<nav

@@ -18,7 +18,11 @@ const DRAFT = {
 	title: 'Building a CMS',
 	slug: 'building-a-cms',
 	content: 'The first line.',
-	published_at: null
+	published_at: null,
+	topics: [
+		{ id: 'topic-1', title: 'Rust' },
+		{ id: 'topic-2', title: 'Systems' }
+	]
 };
 
 function backend(answer: () => Response) {
@@ -138,7 +142,7 @@ test('a refused address lands under the address and keeps the body', async () =>
 	);
 	const screen = render(PostEditor, props({ fetchFn }));
 
-	await screen.getByRole('textbox', { name: 'Web address' }).fill('taken');
+	await screen.getByRole('textbox', { name: 'Address' }).fill('taken');
 	await vi.advanceTimersByTimeAsync(2000);
 
 	await expect.element(screen.getByText('That address is already in use.')).toBeInTheDocument();
@@ -155,18 +159,18 @@ test('a draft’s address follows the title while it still looks derived', async
 	await screen.getByRole('textbox', { name: 'Title' }).fill('A completely new title');
 
 	await expect
-		.element(screen.getByRole('textbox', { name: 'Web address' }))
+		.element(screen.getByRole('textbox', { name: 'Address' }))
 		.toHaveValue('a-completely-new-title');
 });
 
 test('an address someone wrote themselves is left alone', async () => {
 	const screen = render(PostEditor, props());
 
-	await screen.getByRole('textbox', { name: 'Web address' }).fill('my-own-address');
+	await screen.getByRole('textbox', { name: 'Address' }).fill('my-own-address');
 	await screen.getByRole('textbox', { name: 'Title' }).fill('A completely new title');
 
 	await expect
-		.element(screen.getByRole('textbox', { name: 'Web address' }))
+		.element(screen.getByRole('textbox', { name: 'Address' }))
 		.toHaveValue('my-own-address');
 });
 
@@ -192,7 +196,7 @@ test('a published post’s address never follows the title', async () => {
 	await screen.getByText('Change address').click();
 
 	await expect
-		.element(screen.getByRole('textbox', { name: 'Web address' }))
+		.element(screen.getByRole('textbox', { name: 'Address' }))
 		.toHaveValue('building-a-cms');
 });
 
@@ -260,6 +264,58 @@ test('a publish that fails leaves the post a draft and says so', async () => {
 
 	await expect.element(screen.getByText('Something went wrong on our side.')).toBeInTheDocument();
 	await expect.element(screen.getByRole('button', { name: 'Publish' })).toBeInTheDocument();
+});
+
+// ── Screen / Post editor 32:934 ────────────────────────────────────────────
+
+test('the top bar says what state the post is in, beside the save state', async () => {
+	const screen = render(PostEditor, props());
+
+	const bar = screen.getByRole('region', { name: 'Post status' });
+	await expect.element(bar.getByText('Draft', { exact: true })).toBeInTheDocument();
+	await expect.element(bar.getByRole('status', { name: 'Save state' })).toBeInTheDocument();
+	await expect
+		.element(bar.getByRole('button', { name: 'Publish', exact: true }))
+		.toBeInTheDocument();
+});
+
+test('a scheduled post is not called live, because it is not', async () => {
+	const future = new Date(Date.now() + 3 * 24 * 3_600_000).toISOString();
+	const screen = render(PostEditor, props({ post: { ...DRAFT, published_at: future } }));
+
+	await expect
+		.element(
+			screen.getByRole('region', { name: 'Post status' }).getByText('Scheduled', { exact: true })
+		)
+		.toBeInTheDocument();
+});
+
+test('a live post says what unpublishing costs before it is pressed', async () => {
+	const screen = render(
+		PostEditor,
+		props({ post: { ...DRAFT, published_at: '2026-09-01T09:00:00Z' } })
+	);
+
+	await expect.element(screen.getByText(/stops working/)).toBeInTheDocument();
+});
+
+test('the address is shown as it will be read, under the title', async () => {
+	// "/janedoe/blog/ building-a-cms-in-rust" in the frame: the fixed part
+	// muted, the part that can change in accent ink.
+	const screen = render(PostEditor, props());
+
+	await expect.element(screen.getByText('/janedoe/blog/')).toBeInTheDocument();
+	await expect
+		.element(screen.getByRole('textbox', { name: 'Address' }))
+		.toHaveValue('building-a-cms');
+});
+
+test('the rail lists the post’s topics', async () => {
+	const screen = render(PostEditor, props());
+
+	const topics = screen.getByRole('region', { name: 'Topics' });
+	await expect.element(topics.getByText('Rust', { exact: true })).toBeInTheDocument();
+	await expect.element(topics.getByText('Systems', { exact: true })).toBeInTheDocument();
 });
 
 test('has no accessibility violations', async () => {
