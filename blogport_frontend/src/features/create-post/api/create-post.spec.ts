@@ -20,18 +20,32 @@ function respond(status: number, body: unknown, headers: Record<string, string> 
 	);
 }
 
-const DRAFT = { title: 'Building a CMS', slug: 'building-a-cms', content: 'The first line.' };
+const DRAFT = { title: 'Building a CMS', slug: 'building-a-cms' };
 
-test('sends the three fields the API requires, and no published_at', async () => {
-	// Omitting `published_at` is what makes it a draft. Sending null would be a
-	// different thing to say and the API reads it as clearing a date.
+test('sends an empty body, because the key is required and the body comes later', async () => {
+	// Screen / New post: "You write the body next". The backend accepts an
+	// empty `content` now, but the key itself is required — omitting it is a
+	// malformed request, not an empty post. And no `published_at`: omitting it
+	// is what makes this a draft.
 	const fetchFn = respond(201, { id: 'post-1', slug: 'building-a-cms' });
 
 	await createPost(DRAFT, fetchFn);
 
 	const body = JSON.parse(fetchFn.mock.calls[0][1]?.body as string);
-	expect(body).toEqual(DRAFT);
+	expect(body).toEqual({ ...DRAFT, content: '' });
 	expect('published_at' in body).toBe(false);
+});
+
+test('an excerpt goes when there is one, and is left out when there is not', async () => {
+	const fetchFn = respond(201, { id: 'post-1' });
+
+	await createPost({ ...DRAFT, excerpt: 'A walk through the layout.' }, fetchFn);
+	await createPost({ ...DRAFT, excerpt: '   ' }, fetchFn);
+
+	expect(JSON.parse(fetchFn.mock.calls[0][1]?.body as string).excerpt).toBe(
+		'A walk through the layout.'
+	);
+	expect('excerpt' in JSON.parse(fetchFn.mock.calls[1][1]?.body as string)).toBe(false);
 });
 
 test('the new post’s id comes back, because the editor is the next screen', async () => {

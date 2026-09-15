@@ -41,7 +41,7 @@ test('the address is derived from the title, so nobody has to invent one', async
 	await screen.getByRole('textbox', { name: 'Title' }).fill('Building a CMS in Rust');
 
 	await expect
-		.element(screen.getByRole('textbox', { name: 'Web address' }))
+		.element(screen.getByRole('textbox', { name: 'Address' }))
 		.toHaveValue('building-a-cms-in-rust');
 });
 
@@ -51,11 +51,11 @@ test('once someone writes their own address, the title stops overwriting it', as
 	const screen = render(CreatePostForm, props());
 
 	await screen.getByRole('textbox', { name: 'Title' }).fill('First title');
-	await screen.getByRole('textbox', { name: 'Web address' }).fill('my-own-address');
+	await screen.getByRole('textbox', { name: 'Address' }).fill('my-own-address');
 	await screen.getByRole('textbox', { name: 'Title' }).fill('A completely new title');
 
 	await expect
-		.element(screen.getByRole('textbox', { name: 'Web address' }))
+		.element(screen.getByRole('textbox', { name: 'Address' }))
 		.toHaveValue('my-own-address');
 });
 
@@ -91,7 +91,7 @@ test('taking the suggestion puts it in the field', async () => {
 	await screen.getByRole('textbox', { name: 'Title' }).fill('Taken');
 	await screen.getByRole('button', { name: 'Use taken-2' }).click();
 
-	await expect.element(screen.getByRole('textbox', { name: 'Web address' })).toHaveValue('taken-2');
+	await expect.element(screen.getByRole('textbox', { name: 'Address' })).toHaveValue('taken-2');
 });
 
 test('an empty form is not sent, and says what is missing', async () => {
@@ -104,15 +104,40 @@ test('an empty form is not sent, and says what is missing', async () => {
 	expect(fetchFn.mock.calls.filter((call) => call[1]?.method === 'POST')).toHaveLength(0);
 });
 
-test('the body is required, because the API refuses a post without one', async () => {
-	// `validate_content` rejects an empty body outright — so a genuinely blank
-	// draft is not a thing that can exist. See the PR.
+test('there is no body field, because the body is written in the editor', async () => {
+	// Screen / New post 27:2 — title, address, an optional excerpt, and
+	// "You write the body next".
 	const screen = render(CreatePostForm, props());
 
-	await screen.getByRole('textbox', { name: 'Title' }).fill('A post');
-	await screen.getByRole('button', { name: 'Create draft' }).click();
+	expect(screen.getByRole('textbox', { name: 'Post' }).elements()).toHaveLength(0);
+	await expect
+		.element(screen.getByRole('textbox', { name: 'Excerpt (optional)' }))
+		.toBeInTheDocument();
+	await expect
+		.element(screen.getByText('Creates a draft. You write the body next — nothing is public yet.'))
+		.toBeInTheDocument();
+});
 
-	await expect.element(screen.getByText('The post needs something in it.')).toBeInTheDocument();
+test('the address explains itself before anyone changes it', async () => {
+	const screen = render(CreatePostForm, props());
+
+	await expect
+		.element(
+			screen.getByText(
+				'Derived from the title. Editable until the post is published — after that, changing it breaks the live URL.'
+			)
+		)
+		.toBeInTheDocument();
+});
+
+test('cancel goes back to the list without creating anything', async () => {
+	const fetchFn = backend();
+	const screen = render(CreatePostForm, props({ fetchFn }));
+
+	await expect
+		.element(screen.getByRole('link', { name: 'Cancel' }))
+		.toHaveAttribute('href', '/studio/posts');
+	expect(fetchFn.mock.calls.filter((call) => call[1]?.method === 'POST')).toHaveLength(0);
 });
 
 test('creating hands the id on, because the editor is the next screen', async () => {
@@ -120,14 +145,13 @@ test('creating hands the id on, because the editor is the next screen', async ()
 	const screen = render(CreatePostForm, props({ oncreated: (id: string) => created.push(id) }));
 
 	await screen.getByRole('textbox', { name: 'Title' }).fill('A post');
-	await screen.getByRole('textbox', { name: 'Post' }).fill('The first line.');
 	await screen.getByRole('button', { name: 'Create draft' }).click();
 
 	await vi.waitFor(() => expect(created).toEqual(['post-1']));
 });
 
 test('a collision on save keeps everything that was typed', async () => {
-	// J4: never lose the draft body to a slug collision.
+	// J4: never lose what was typed to a slug collision.
 	const fetchFn = vi.fn<typeof fetch>(async (input, init) => {
 		if (init?.method === 'POST') {
 			return new Response(
@@ -143,13 +167,15 @@ test('a collision on save keeps everything that was typed', async () => {
 	const screen = render(CreatePostForm, props({ fetchFn }));
 
 	await screen.getByRole('textbox', { name: 'Title' }).fill('A post');
-	await screen.getByRole('textbox', { name: 'Post' }).fill('The first line.');
+	await screen
+		.getByRole('textbox', { name: 'Excerpt (optional)' })
+		.fill('A walk through the layout.');
 	await screen.getByRole('button', { name: 'Create draft' }).click();
 
 	await expect.element(screen.getByText('That address is already in use.')).toBeInTheDocument();
 	await expect
-		.element(screen.getByRole('textbox', { name: 'Post' }))
-		.toHaveValue('The first line.');
+		.element(screen.getByRole('textbox', { name: 'Excerpt (optional)' }))
+		.toHaveValue('A walk through the layout.');
 });
 
 test('has no accessibility violations', async () => {

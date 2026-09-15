@@ -6,7 +6,8 @@ import type { HandlingClass } from '$lib/shared/lib/error-class';
  *
  * Deliberately small: media attaches to a `target_id`, so the post has to exist
  * before it can have a cover image, and everything after the first save belongs
- * to the editor.
+ * to the editor — the body included. Screen / New post asks for a title, an
+ * address and an optional excerpt, and says "You write the body next".
  */
 
 export const CREATE_ROUTE = '/api/blog';
@@ -51,19 +52,31 @@ function failed(
 }
 
 export async function createPost(
-	draft: { title: string; slug: string; content: string },
+	draft: { title: string; slug: string; excerpt?: string },
 	fetchFn: typeof globalThis.fetch = (...args) => globalThis.fetch(...args)
 ): Promise<CreateResult> {
 	let response: Response;
+
+	const excerpt = draft.excerpt?.trim();
 
 	try {
 		response = await fetchFn(CREATE_ROUTE, {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
-			// No `published_at` at all. Omitting it is what makes this a draft;
-			// sending null is a different statement, and the API reads it as
-			// clearing a date rather than never having set one.
-			body: JSON.stringify(draft)
+			body: JSON.stringify({
+				title: draft.title,
+				slug: draft.slug,
+				// The body is written in the editor. The key is still required —
+				// omitting it is a malformed request, not an empty post — so it
+				// goes out empty, which the backend now accepts.
+				content: '',
+				// Left out rather than sent empty: an absent excerpt and a blank one
+				// are the same to a reader, and only one of them is a value.
+				...(excerpt ? { excerpt } : {})
+				// No `published_at` at all. Omitting it is what makes this a draft;
+				// sending null is a different statement, and the API reads it as
+				// clearing a date rather than never having set one.
+			})
 		});
 	} catch {
 		return failed(UNEXPECTED);
