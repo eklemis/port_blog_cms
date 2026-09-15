@@ -54,3 +54,61 @@ export function purgePost(
 ) {
 	return call(at(id, 'hard'), 'DELETE', fetchFn);
 }
+
+/**
+ * The three operations the archive screen runs over a selection. The backend
+ * also takes `archive` and the topic operations; this screen has no use for
+ * them, so they are not spelled here.
+ */
+export type BulkOp = 'restore' | 'hard_delete';
+
+export type BulkResult =
+	| {
+			ok: true;
+			succeeded: string[];
+			/** Each failed id with a sentence of its own, classified by its own code. */
+			failed: Record<string, string>;
+	  }
+	| { ok: false; message: string; kind: HandlingClass };
+
+/**
+ * One operation over a selection.
+ *
+ * "success: true means the batch ran, not that every item did" — so a 200 is
+ * not a yes. Failures come back per item with the same codes a single call
+ * would have, and each keeps its own sentence.
+ */
+export async function bulkPosts(
+	op: BulkOp,
+	ids: string[],
+	fetchFn: typeof globalThis.fetch = (...args) => globalThis.fetch(...args)
+): Promise<BulkResult> {
+	let response: Response;
+
+	try {
+		response = await fetchFn('/api/blog/bulk', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ op, ids })
+		});
+	} catch {
+		return { ok: false, message: UNEXPECTED, kind: 'notOurs' };
+	}
+
+	const body = (await response.json().catch(() => null)) as {
+		succeeded?: string[];
+		failed?: { id: string; code: string }[];
+		error?: { code?: string };
+	} | null;
+
+	if (!response.ok || !body) {
+		return { ok: false, message: UNEXPECTED, kind: handlingClass(body?.error?.code) };
+	}
+
+	const failed: Record<string, string> = {};
+	for (const item of body.failed ?? []) {
+		failed[item.id] = handlingClass(item.code) === 'notFound' ? GONE : UNEXPECTED;
+	}
+
+	return { ok: true, succeeded: body.succeeded ?? [], failed };
+}

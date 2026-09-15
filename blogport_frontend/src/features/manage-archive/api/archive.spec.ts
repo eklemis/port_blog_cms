@@ -1,6 +1,7 @@
 import { expect, test, vi } from 'vitest';
 import { UNEXPECTED } from '$lib/shared/lib/api-failure';
-import { purgePost, restorePost } from './archive';
+import { GONE } from './archive';
+import { bulkPosts, purgePost, restorePost } from './archive';
 
 /**
  * The two ways out of the archive — §06's second and third rungs.
@@ -63,4 +64,60 @@ test('a dead network is a failure to report, not an exception', async () => {
 	});
 
 	expect(await restorePost('post-1', fetchFn)).toMatchObject({ ok: false, kind: 'notOurs' });
+});
+
+// ── several at once ────────────────────────────────────────────────────────
+
+test('a batch names its operation and its ids', async () => {
+	const fetchFn = vi.fn<typeof fetch>(
+		async () =>
+			new Response(JSON.stringify({ succeeded: ['a', 'b'], failed: [] }), {
+				status: 200,
+				headers: { 'content-type': 'application/json' }
+			})
+	);
+
+	await bulkPosts('restore', ['a', 'b'], fetchFn);
+
+	expect(fetchFn.mock.calls[0][0]).toBe('/api/blog/bulk');
+	expect(JSON.parse(fetchFn.mock.calls[0][1]?.body as string)).toEqual({
+		op: 'restore',
+		ids: ['a', 'b']
+	});
+});
+
+test('a partial batch reports each failure with its own reason', async () => {
+	// "success: true means the batch ran, not that every item did." Each failed
+	// row keeps a sentence of its own, classified by its own code.
+	const fetchFn = vi.fn<typeof fetch>(
+		async () =>
+			new Response(
+				JSON.stringify({
+					succeeded: ['a'],
+					failed: [
+						{ id: 'b', code: 'POST_NOT_FOUND', message: 'x' },
+						{ id: 'c', code: 'INTERNAL_ERROR', message: 'x' }
+					]
+				}),
+				{ status: 200, headers: { 'content-type': 'application/json' } }
+			)
+	);
+
+	expect(await bulkPosts('hard_delete', ['a', 'b', 'c'], fetchFn)).toEqual({
+		ok: true,
+		succeeded: ['a'],
+		failed: { b: GONE, c: UNEXPECTED }
+	});
+});
+
+test('a batch that could not run at all is one failure for all of it', async () => {
+	const fetchFn = vi.fn<typeof fetch>(async () => {
+		throw new TypeError('Failed to fetch');
+	});
+
+	expect(await bulkPosts('restore', ['a'], fetchFn)).toEqual({
+		ok: false,
+		message: UNEXPECTED,
+		kind: 'notOurs'
+	});
 });
