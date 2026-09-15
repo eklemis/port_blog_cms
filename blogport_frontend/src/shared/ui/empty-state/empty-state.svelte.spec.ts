@@ -19,12 +19,12 @@ const action = createRawSnippet(() => ({ render: () => '<button>Write your first
 
 test('says what has happened and what to do about it', async () => {
 	const screen = render(EmptyState, {
-		title: 'No posts yet.',
+		title: 'No posts yet',
 		message: 'This is where everything you write will live.',
 		action
 	});
 
-	await expect.element(screen.getByText('No posts yet.')).toBeInTheDocument();
+	await expect.element(screen.getByText('No posts yet')).toBeInTheDocument();
 	await expect
 		.element(screen.getByText('This is where everything you write will live.'))
 		.toBeInTheDocument();
@@ -36,10 +36,10 @@ test('says what has happened and what to do about it', async () => {
 test('the title is a heading, so it is reachable by one', async () => {
 	// A list that has gone empty is where someone lands; skipping by headings
 	// should find the reason rather than nothing at all.
-	const screen = render(EmptyState, { title: 'No posts match those filters.', message: 'x' });
+	const screen = render(EmptyState, { title: 'No posts match those filters', message: 'x' });
 
 	await expect
-		.element(screen.getByRole('heading', { name: 'No posts match those filters.' }))
+		.element(screen.getByRole('heading', { name: 'No posts match those filters' }))
 		.toBeInTheDocument();
 });
 
@@ -49,8 +49,25 @@ test('an action is optional — an error that cannot be retried offers none', as
 	expect(screen.getByRole('button').elements()).toHaveLength(0);
 });
 
+test('an error is said in the danger colour, and nothing else is', async () => {
+	// CollectionState 20:18: only the error title carries a status colour.
+	const error = render(EmptyState, {
+		title: 'Couldn’t load your posts',
+		message: 'x',
+		tone: 'danger'
+	});
+	await expect
+		.element(error.getByRole('heading', { name: 'Couldn’t load your posts' }))
+		.toHaveClass(/text-st-danger/);
+
+	const empty = render(EmptyState, { title: 'No posts yet', message: 'x' });
+	expect(empty.getByRole('heading', { name: 'No posts yet' }).element().className).not.toMatch(
+		/text-st-danger/
+	);
+});
+
 test('has no accessibility violations', async () => {
-	render(EmptyState, { title: 'No posts yet.', message: 'A sentence.', action });
+	render(EmptyState, { title: 'No posts yet', message: 'A sentence.', action });
 
 	await expectNoA11yViolations(document.body, UNSTYLED_GEOMETRY);
 });

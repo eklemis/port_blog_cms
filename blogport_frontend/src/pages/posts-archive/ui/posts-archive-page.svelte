@@ -224,14 +224,15 @@
 
 	{#if failed}
 		<EmptyState
-			title="We couldn't load your archive."
-			message="Nothing has happened to those posts. Try again in a moment."
+			tone="danger"
+			title="Couldn’t load your archive"
+			message="Something went wrong on our side. Your posts are safe."
 		/>
 	{:else if loading}
 		<SkeletonRows label="Loading archived posts" />
 	{:else if posts.length === 0}
 		<EmptyState
-			title="Nothing archived."
+			title="Nothing archived"
 			message="Posts you archive wait here until you restore them or purge them for good."
 		/>
 	{:else}

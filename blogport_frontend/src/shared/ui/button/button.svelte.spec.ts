@@ -128,3 +128,11 @@ test('a link has no accessibility violations', async () => {
 
 	await expectNoA11yViolations();
 });
+
+test('the compact size is the one a collection state uses', async () => {
+	// CollectionState 20:23 draws its action at 12.5px with 14/9 padding, not
+	// the 13px, 16/10 of a toolbar button. Same kinds, smaller box.
+	const screen = render(Button, { label: 'Try again', kind: 'secondary', size: 'compact' });
+
+	await expect.element(screen.getByRole('button')).toHaveClass(/text-\[12\.5px\]/);
+});

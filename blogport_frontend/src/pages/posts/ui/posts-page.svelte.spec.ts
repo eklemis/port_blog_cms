@@ -124,18 +124,43 @@ test('the update time carries its exact value for anything that needs it', async
 test('empty says why, and offers the one action that fixes it', async () => {
 	const screen = render(PostsPage, { ...base, posts: [], total: 0 });
 
-	await expect.element(screen.getByText('No posts yet.')).toBeInTheDocument();
+	await expect.element(screen.getByText('No posts yet', { exact: true })).toBeInTheDocument();
+	await expect
+		.element(screen.getByText('Your first post is the one that turns this into a blog.'))
+		.toBeInTheDocument();
 	await expect
 		.element(screen.getByRole('link', { name: 'Write your first post' }))
 		.toHaveAttribute('href', '/studio/posts/new');
 });
 
-test('filtered-empty is a different screen from empty', async () => {
-	const screen = render(PostsPage, { ...base, posts: [], filtered: true });
+test('with no posts at all there is no toolbar, because there is nothing to search', async () => {
+	// Screen / Posts — empty: "offering controls that cannot do anything is noise."
+	const screen = render(PostsPage, { ...base, posts: [], total: 0 });
 
-	await expect.element(screen.getByText('No posts match those filters.')).toBeInTheDocument();
-	// It says what does exist, so nobody thinks their work is gone.
-	await expect.element(screen.getByText('You have 24 posts in total.')).toBeInTheDocument();
+	expect(screen.getByRole('searchbox').elements()).toHaveLength(0);
+});
+
+test('filtered-empty is a different screen from empty', async () => {
+	const screen = render(PostsPage, {
+		...base,
+		posts: [],
+		total: 0,
+		everything: 24,
+		filtered: true,
+		published: 'false',
+		topic: 'topic-1',
+		topics: TOPICS
+	});
+
+	await expect
+		.element(screen.getByText('No posts match those filters', { exact: true }))
+		.toBeInTheDocument();
+	// It says what does exist, and which filter is the reason, so nobody thinks
+	// their work is gone. The toolbar stays, because the filters are the answer.
+	await expect
+		.element(screen.getByText('You have 24 posts — none of them are drafts tagged “Rust”.'))
+		.toBeInTheDocument();
+	await expect.element(screen.getByRole('searchbox')).toBeInTheDocument();
 	await expect.element(screen.getByRole('button', { name: 'Clear filters' })).toBeInTheDocument();
 });
 
@@ -187,16 +212,22 @@ test('no topics means no control, rather than a select with nothing in it', asyn
 test('error never blames the person, and says the work is safe', async () => {
 	const screen = render(PostsPage, { ...base, posts: [], failed: true });
 
-	await expect.element(screen.getByText("We couldn't load your posts.")).toBeInTheDocument();
-	await expect.element(screen.getByText(/Nothing has happened to them/)).toBeInTheDocument();
+	await expect
+		.element(screen.getByRole('heading', { name: 'Couldn’t load your posts' }))
+		.toBeInTheDocument();
+	await expect
+		.element(screen.getByText('Something went wrong on our side. Your posts are safe.'))
+		.toBeInTheDocument();
 	await expect.element(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+	// The toolbar stays, so the query is not lost on retry.
+	await expect.element(screen.getByRole('searchbox')).toBeInTheDocument();
 });
 
 test('loading is rows, not a spinner, and it is announced', async () => {
 	const screen = render(PostsPage, { ...base, posts: [], loading: true });
 
 	await expect.element(screen.getByRole('status')).toHaveTextContent('Loading posts');
-	expect(screen.getByText('No posts yet.').elements()).toHaveLength(0);
+	expect(screen.getByText('No posts yet', { exact: true }).elements()).toHaveLength(0);
 });
 
 // ── the control bar ────────────────────────────────────────────────────────
