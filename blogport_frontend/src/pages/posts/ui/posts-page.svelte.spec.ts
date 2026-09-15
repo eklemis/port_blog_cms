@@ -60,6 +60,14 @@ test('a row opens its post, because a list of titles you cannot click is a repor
 		.toHaveAttribute('href', '/studio/posts/1');
 });
 
+test('the archive is one step away, because nothing else leads there', async () => {
+	const screen = render(PostsPage, base);
+
+	await expect
+		.element(screen.getByRole('link', { name: 'Archived' }))
+		.toHaveAttribute('href', '/studio/posts/archive');
+});
+
 test('each row names its topics, straight from the list', async () => {
 	// The card carries them now, loaded once for the page — so this is a
 	// column and not one request per row.
