@@ -12,6 +12,7 @@
 	import { bulkPosts, purgePost, restorePost } from '$lib/features/manage-archive';
 	import type { HandlingClass } from '$lib/shared/lib/error-class';
 	import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
+	import { Pager } from '$lib/widgets/pager';
 
 	/**
 	 * `/studio/posts/archive` — §06's second and third rungs of destruction.
@@ -65,7 +66,6 @@
 	/** What the open dialog would purge: one post by title, or the selection. */
 	let purging = $state<{ ids: string[]; match: string; label: string } | null>(null);
 
-	const lastPage = $derived(Math.max(1, Math.ceil(total / perPage)));
 	const count = $derived(selected.size);
 
 	/** "Restore both" for two, as the frame draws it; "Restore all 3" past that. */
@@ -339,25 +339,7 @@
 			{/each}
 		</ul>
 
-		{#if lastPage > 1}
-			<div class="flex items-center justify-end gap-1 text-[12px] text-arch-muted">
-				<Button
-					kind="ghost"
-					label="Previous"
-					disabled={page <= 1}
-					disabledReason={page <= 1 ? 'You are on the first page.' : undefined}
-					onclick={() => onpage(page - 1)}
-				/>
-				<span class="font-mono">{page} / {lastPage}</span>
-				<Button
-					kind="ghost"
-					label="Next"
-					disabled={page >= lastPage}
-					disabledReason={page >= lastPage ? 'You are on the last page.' : undefined}
-					onclick={() => onpage(page + 1)}
-				/>
-			</div>
-		{/if}
+		<Pager shown={posts.length} {total} {page} {perPage} noun="archived posts" {onpage} />
 	{/if}
 </div>
 

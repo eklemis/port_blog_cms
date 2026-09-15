@@ -3,7 +3,8 @@
 	import { resolve } from '$app/paths';
 	import { Plus, Search } from '@lucide/svelte';
 	import { Button, EmptyState, SkeletonRows, StatusPill } from '$lib/shared/ui';
-	import { postStatus, updatedLabel } from '$lib/entities/post';
+	import { postStatus, scheduledLabel, updatedLabel } from '$lib/entities/post';
+	import { Pager } from '$lib/widgets/pager';
 	import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
 	import { filteredSentence } from '../model/filtered-sentence';
 
@@ -105,7 +106,35 @@
 
 	const topicTitle = $derived(topics.find((option) => option.id === topic)?.title ?? null);
 
-	const lastPage = $derived(Math.max(1, Math.ceil(total / perPage)));
+	/** A filter at rest: the secondary button's box, 13px semibold (Button 75:83). */
+	const PILL =
+		'appearance-none rounded-lg border border-arch-line-control bg-arch-surface px-4 py-2.5 text-[13px] font-semibold text-arch-headline';
+
+	const statusChip = $derived(
+		published === 'false' ? 'Drafts' : published === 'true' ? 'Published' : null
+	);
+
+	/**
+	 * The phone's status filter. The frame's third chip reads "Live"; it says
+	 * "Published" here because `published=true` includes scheduled posts, which
+	 * are not live — the same reason the designer ruled "Published" on desktop.
+	 */
+	const STATUS_CHIPS = [
+		{ label: 'All', value: '' },
+		{ label: 'Drafts', value: 'false' },
+		{ label: 'Published', value: 'true' }
+	];
+
+	/** "Rust · Systems · 2 days ago", or "Rust · goes live tomorrow". */
+	function meta(post: Row) {
+		const status = postStatus(post.published_at);
+		const when =
+			status.label === 'Scheduled' && post.published_at
+				? scheduledLabel(post.published_at)
+				: updatedLabel(post.updated_at);
+		return [...post.topics.map((item) => item.title), when].join(' · ');
+	}
+
 	const showing = $derived(posts.length);
 </script>
 
@@ -141,10 +170,10 @@
 		and filtered states, where the query is the thing worth keeping.
 	-->
 	{#if !(posts.length === 0 && !filtered && !failed && !loading)}
-		<div class="flex flex-wrap items-center gap-2.5">
+		<div class="flex flex-wrap items-center gap-2.5 max-md:gap-3">
 			<div
-				class="flex h-[38px] w-full items-center gap-2.5 rounded-lg border border-arch-line
-			       bg-arch-surface px-3 md:w-[280px]"
+				class="flex h-10 w-full items-center gap-[9px] rounded-[9px] border border-arch-line
+				       bg-arch-surface px-[13px] md:h-[38px] md:w-[280px] md:rounded-lg"
 			>
 				<Search size={16} aria-hidden="true" class="shrink-0 text-arch-muted" />
 				<input
@@ -154,38 +183,86 @@
 					value={term}
 					oninput={(event) => typeSearch(event.currentTarget.value)}
 					class="w-full min-w-0 bg-transparent text-[13px] text-arch-headline
-				       placeholder:text-arch-muted focus:outline-none"
+					       placeholder:text-arch-muted focus:outline-none"
 				/>
 			</div>
 
-			<label class="sr-only" for="posts-published">Show</label>
-			<select
-				id="posts-published"
-				value={published ?? ''}
-				onchange={(event) => onquery({ published: event.currentTarget.value || null, page: null })}
-				class="h-[38px] rounded-lg border border-arch-line-control bg-arch-surface px-3
-			       text-[13px] font-semibold text-arch-headline"
-			>
-				<option value="">Drafts &amp; published</option>
-				<option value="true">Published</option>
-				<option value="false">Drafts only</option>
-			</select>
+			<!-- Phone: three chips, one on. Mobile / Posts list 73:10. -->
+			<div role="group" aria-label="Show" class="flex gap-[7px] md:hidden">
+				{#each STATUS_CHIPS as chip (chip.label)}
+					{@const on = (published ?? '') === chip.value}
+					<button
+						type="button"
+						aria-pressed={on}
+						onclick={() => onquery({ published: chip.value || null, page: null })}
+						class="rounded-full border px-3 py-1.5 text-[11.5px]
+						       {on
+							? 'border-arch-accent-ink bg-arch-surface-2 font-semibold text-arch-accent-ink'
+							: 'border-arch-line text-arch-muted'}"
+					>
+						{chip.label}
+					</button>
+				{/each}
+			</div>
 
-			<!-- No options means the request for them failed. A select with nothing
-		     in it is a worse answer than no control at all. -->
+			<!--
+				From 768px: a filter at rest looks like a secondary button, and an
+				active one becomes a chip that takes it off — Screen / Posts — filtered
+				empty 84:557. Native selects underneath, so choosing keeps the
+				platform's own list and its keyboard behaviour.
+			-->
 			{#if topics.length > 0}
-				<label class="sr-only" for="posts-topic">Topic</label>
-				<select
-					id="posts-topic"
-					value={topic ?? ''}
-					onchange={(event) => onquery({ topic_id: event.currentTarget.value || null, page: null })}
-					class="h-[38px] rounded-lg border border-arch-line-control bg-arch-surface px-3
-				       text-[13px] font-semibold text-arch-headline"
+				{#if topicTitle}
+					<button
+						type="button"
+						aria-label="{topicTitle}, remove filter"
+						onclick={() => onquery({ topic_id: null, page: null })}
+						class="flex items-center gap-1.5 rounded-full border border-arch-accent-ink
+						       bg-arch-surface-2 px-3 py-2 text-arch-accent-ink max-md:hidden"
+					>
+						<span class="text-[11.5px] font-semibold">{topicTitle}</span>
+						<span aria-hidden="true" class="text-[11px]">×</span>
+					</button>
+				{:else}
+					<label class="sr-only" for="posts-topic">Topic</label>
+					<select
+						id="posts-topic"
+						value=""
+						onchange={(event) =>
+							onquery({ topic_id: event.currentTarget.value || null, page: null })}
+						class="{PILL} max-md:hidden"
+					>
+						<option value="">All topics</option>
+						{#each topics as option (option.id)}
+							<option value={option.id}>{option.title}</option>
+						{/each}
+					</select>
+				{/if}
+			{/if}
+
+			{#if statusChip}
+				<button
+					type="button"
+					aria-label="{statusChip}, remove filter"
+					onclick={() => onquery({ published: null, page: null })}
+					class="flex items-center gap-1.5 rounded-full border border-arch-accent-ink
+					       bg-arch-surface-2 px-3 py-2 text-arch-accent-ink max-md:hidden"
 				>
-					<option value="">All topics</option>
-					{#each topics as option (option.id)}
-						<option value={option.id}>{option.title}</option>
-					{/each}
+					<span class="text-[11.5px] font-semibold">{statusChip}</span>
+					<span aria-hidden="true" class="text-[11px]">×</span>
+				</button>
+			{:else}
+				<label class="sr-only" for="posts-published">Show</label>
+				<select
+					id="posts-published"
+					value=""
+					onchange={(event) =>
+						onquery({ published: event.currentTarget.value || null, page: null })}
+					class="{PILL} max-md:hidden"
+				>
+					<option value="">Drafts &amp; published</option>
+					<option value="true">Published</option>
+					<option value="false">Drafts</option>
 				</select>
 			{/if}
 
@@ -194,8 +271,8 @@
 				id="posts-sort"
 				value={sort ?? 'published_newest'}
 				onchange={(event) => onquery({ sort: event.currentTarget.value, page: null })}
-				class="ml-auto h-[38px] rounded-lg bg-transparent px-3 text-[13px] font-semibold
-			       text-arch-muted"
+				class="appearance-none rounded-lg bg-transparent px-4 py-2.5 text-[13px] font-semibold
+				       text-arch-muted max-md:hidden"
 			>
 				<option value="published_newest">Recently published</option>
 				<option value="updated_newest">Recently updated</option>
@@ -248,8 +325,8 @@
 			{/snippet}
 		</EmptyState>
 	{:else}
-		<div class="overflow-x-auto rounded-xl border border-arch-line bg-arch-surface">
-			<table class="w-full min-w-[520px] border-collapse text-left">
+		<div class="overflow-x-auto rounded-xl border border-arch-line bg-arch-surface max-md:hidden">
+			<table class="w-full border-collapse text-left">
 				<thead>
 					<tr class="border-b border-arch-line">
 						{#each ['Title', 'Status', 'Topics', 'Updated'] as heading (heading)}
@@ -296,27 +373,35 @@
 			</table>
 		</div>
 
-		<div class="flex items-center justify-between text-[12px] text-arch-muted">
-			<p>{showing} of {total} posts</p>
-			{#if lastPage > 1}
-				<div class="flex items-center gap-1">
-					<Button
-						kind="ghost"
-						label="Previous"
-						disabled={page <= 1}
-						disabledReason={page <= 1 ? 'You are on the first page.' : undefined}
-						onclick={() => onquery({ page: String(page - 1) })}
-					/>
-					<span class="font-mono">{page} / {lastPage}</span>
-					<Button
-						kind="ghost"
-						label="Next"
-						disabled={page >= lastPage}
-						disabledReason={page >= lastPage ? 'You are on the last page.' : undefined}
-						onclick={() => onquery({ page: String(page + 1) })}
-					/>
-				</div>
-			{/if}
-		</div>
+		<!-- Below 768px: a card per post, as Mobile / Posts list 73:17 draws it. -->
+		<ul class="flex flex-col gap-3 md:hidden">
+			{#each posts as post (post.id)}
+				{@const status = postStatus(post.published_at)}
+				<li
+					class="flex flex-col gap-2 rounded-[11px] border border-arch-line bg-arch-surface px-[15px]
+					       py-3.5"
+				>
+					<a
+						href={resolve('/studio/posts/[id]', { id: post.id })}
+						class="text-[14.5px] leading-5 font-semibold text-arch-headline"
+					>
+						{post.title}
+					</a>
+					<div class="flex items-center gap-[9px]">
+						<StatusPill tone={status.tone} label={status.label} />
+						<p class="text-[10.5px] text-arch-muted">{meta(post)}</p>
+					</div>
+				</li>
+			{/each}
+		</ul>
+
+		<Pager
+			shown={showing}
+			{total}
+			{page}
+			{perPage}
+			noun="posts"
+			onpage={(next) => onquery({ page: String(next) })}
+		/>
 	{/if}
 </div>

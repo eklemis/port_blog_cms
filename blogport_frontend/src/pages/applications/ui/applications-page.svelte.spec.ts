@@ -144,8 +144,8 @@ test('a second page can be reached, and the first cannot be gone back past', asy
 		onpage: (n: number) => asked.push(n)
 	});
 
-	await expect.element(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
-	await screen.getByRole('button', { name: 'Next' }).click();
+	await expect.element(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
+	await screen.getByRole('button', { name: 'Next page' }).click();
 
 	expect(asked).toEqual([2]);
 });
@@ -153,7 +153,7 @@ test('a second page can be reached, and the first cannot be gone back past', asy
 test('one page of rows needs no pager at all', async () => {
 	const screen = render(ApplicationsPage, { rows, failed: false, total: 2, page: 1, perPage: 10 });
 
-	expect(screen.getByRole('button', { name: 'Next' }).elements()).toHaveLength(0);
+	expect(screen.getByRole('button', { name: 'Next page' }).elements()).toHaveLength(0);
 });
 
 test('loading is rows, not a spinner, and it is announced', async () => {

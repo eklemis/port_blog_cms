@@ -3,6 +3,7 @@
 	import { Button, EmptyState, SkeletonRows, StatusPill } from '$lib/shared/ui';
 	import type { TrackerRow } from '$lib/entities/application';
 	import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
+	import { Pager } from '$lib/widgets/pager';
 
 	/**
 	 * `/studio/applications` — the tracker.
@@ -44,8 +45,6 @@
 		/** Paging writes to the URL; the caller decides how. */
 		onpage?: (page: number) => void;
 	} = $props();
-
-	const lastPage = $derived(Math.max(1, Math.ceil(total / perPage)));
 </script>
 
 <div class="flex flex-col gap-5">
@@ -155,27 +154,6 @@
 			{/each}
 		</ul>
 
-		<div class="flex items-center justify-between text-[12px] text-arch-muted">
-			<p>{rows.length} of {total} applications</p>
-			{#if lastPage > 1}
-				<div class="flex items-center gap-1">
-					<Button
-						kind="ghost"
-						label="Previous"
-						disabled={page <= 1}
-						disabledReason={page <= 1 ? 'You are on the first page.' : undefined}
-						onclick={() => onpage(page - 1)}
-					/>
-					<span class="font-mono">{page} / {lastPage}</span>
-					<Button
-						kind="ghost"
-						label="Next"
-						disabled={page >= lastPage}
-						disabledReason={page >= lastPage ? 'You are on the last page.' : undefined}
-						onclick={() => onpage(page + 1)}
-					/>
-				</div>
-			{/if}
-		</div>
+		<Pager shown={rows.length} {total} {page} {perPage} noun="applications" {onpage} />
 	{/if}
 </div>

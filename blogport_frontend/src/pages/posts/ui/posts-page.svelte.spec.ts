@@ -55,8 +55,10 @@ afterEach(() => vi.useRealTimers());
 test('a row opens its post, because a list of titles you cannot click is a report', async () => {
 	const screen = render(PostsPage, base);
 
+	// Scoped to the table: the phone's cards carry the same link, and both are
+	// in the DOM with one hidden by CSS.
 	await expect
-		.element(screen.getByRole('link', { name: 'Building a CMS in Rust' }))
+		.element(screen.getByRole('table').getByRole('link', { name: 'Building a CMS in Rust' }))
 		.toHaveAttribute('href', '/studio/posts/1');
 });
 
@@ -97,11 +99,14 @@ test('a post with no topics shows the dash the frame draws', async () => {
 test('lists the posts with the state each is in', async () => {
 	const screen = render(PostsPage, base);
 
-	await expect.element(screen.getByText('Building a CMS in Rust')).toBeInTheDocument();
+	await expect
+		.element(screen.getByRole('table').getByText('Building a CMS in Rust'))
+		.toBeInTheDocument();
 	// Exact: "Drafts & published" and "Drafts only" are options in the filter,
 	// and a substring match would find those too.
-	await expect.element(screen.getByText('Live', { exact: true })).toBeInTheDocument();
-	await expect.element(screen.getByText('Draft', { exact: true })).toBeInTheDocument();
+	const table = screen.getByRole('table');
+	await expect.element(table.getByText('Live', { exact: true })).toBeInTheDocument();
+	await expect.element(table.getByText('Draft', { exact: true })).toBeInTheDocument();
 });
 
 test('says how many of how many', async () => {
@@ -264,14 +269,14 @@ test('searching returns to the first page', async () => {
 test('the pager does not offer a page that is not there', async () => {
 	const screen = render(PostsPage, { ...base, page: 1, total: 24 });
 
-	await expect.element(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
-	await expect.element(screen.getByRole('button', { name: 'Next' })).not.toBeDisabled();
+	await expect.element(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
+	await expect.element(screen.getByRole('button', { name: 'Next page' })).not.toBeDisabled();
 });
 
 test('one page of results needs no pager at all', async () => {
 	const screen = render(PostsPage, { ...base, total: 2 });
 
-	expect(screen.getByRole('button', { name: 'Next' }).elements()).toHaveLength(0);
+	expect(screen.getByRole('button', { name: 'Next page' }).elements()).toHaveLength(0);
 });
 
 // ── accessibility ──────────────────────────────────────────────────────────
@@ -285,4 +290,81 @@ test.each([
 	render(PostsPage, { ...base, ...over });
 
 	await expectNoA11yViolations(document.body, UNSTYLED_GEOMETRY);
+});
+
+// ── Screen / Posts list 11:2 and Mobile / Posts list 73:2 ──────────────────
+
+test('an active filter becomes a chip that takes it off', async () => {
+	// Screen / Posts — filtered empty 84:557: "Rust ×", "Drafts ×". The filters
+	// are the reason for what is on screen, so they stay visible as themselves.
+	const asked: Record<string, string | null>[] = [];
+	const screen = render(PostsPage, {
+		...base,
+		topics: TOPICS,
+		topic: 'topic-1',
+		published: 'false',
+		onquery: (c: Record<string, string | null>) => asked.push(c)
+	});
+
+	await screen.getByRole('button', { name: 'Rust, remove filter' }).first().click();
+	await screen.getByRole('button', { name: 'Drafts, remove filter' }).first().click();
+
+	expect(asked).toEqual([
+		{ topic_id: null, page: null },
+		{ published: null, page: null }
+	]);
+});
+
+test('on a phone the status filter is three chips, and one of them is on', async () => {
+	// Mobile / Posts list: All · Drafts · Published.
+	const asked: Record<string, string | null>[] = [];
+	const screen = render(PostsPage, {
+		...base,
+		onquery: (c: Record<string, string | null>) => asked.push(c)
+	});
+
+	const group = screen.getByRole('group', { name: 'Show' });
+	await expect
+		.element(group.getByRole('button', { name: 'All' }))
+		.toHaveAttribute('aria-pressed', 'true');
+	await group.getByRole('button', { name: 'Drafts' }).click();
+
+	expect(asked).toEqual([{ published: 'false', page: null }]);
+});
+
+test('on a phone each post is a card with its status, topics and age', async () => {
+	const screen = render(PostsPage, base);
+
+	const cards = screen.getByRole('listitem');
+	await expect
+		.element(cards.nth(0).getByRole('link', { name: 'Building a CMS in Rust' }))
+		.toBeInTheDocument();
+	await expect
+		.element(cards.nth(0).getByText(/^Rust · Distributed Systems · /))
+		.toBeInTheDocument();
+});
+
+test('a scheduled post’s card says when it goes live', async () => {
+	const future = new Date(Date.now() + 3 * 24 * 3_600_000).toISOString();
+	const screen = render(PostsPage, {
+		...base,
+		posts: [{ ...base.posts[0], published_at: future }]
+	});
+
+	await expect
+		.element(
+			screen
+				.getByRole('listitem')
+				.first()
+				.getByText(/goes live in 3 days/)
+		)
+		.toBeInTheDocument();
+});
+
+test('the pager numbers its pages', async () => {
+	const screen = render(PostsPage, { ...base, page: 2, total: 24 });
+
+	await expect
+		.element(screen.getByRole('button', { name: 'Page 2' }))
+		.toHaveAttribute('aria-current', 'page');
 });
