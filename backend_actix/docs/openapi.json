@@ -12365,6 +12365,113 @@
           "blog_post"
         ]
       },
+      "BlogBulkOp": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Hide each post. Reversible.",
+            "required": [
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "archive"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Un-hide each post.",
+            "required": [
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "restore"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Remove each post permanently.",
+            "required": [
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "hard_delete"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Take each post down, back to draft.\n\nThere is no bulk `publish`, and that is deliberate rather than an\nomission. Publishing is per-post considered work — the slug, the cover,\nthe topics — and it carries an ambiguity this operation does not: does\n\"publish these\" mean now, or at each post's scheduled time? Taking\nseveral down at once has no such question, is reversible, and is\nexactly the moment you do not want to click six times.",
+            "required": [
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "unpublish"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Link one topic to each post.",
+            "required": [
+              "topic_id",
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "attach_topic"
+                ]
+              },
+              "topic_id": {
+                "type": "string",
+                "format": "uuid",
+                "description": "The topic to link."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Remove one topic's link from each post.",
+            "required": [
+              "topic_id",
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "detach_topic"
+                ]
+              },
+              "topic_id": {
+                "type": "string",
+                "format": "uuid",
+                "description": "The topic to unlink."
+              }
+            }
+          }
+        ],
+        "description": "One operation applied across many posts.\n\nModelled as a tagged enum rather than an operation string beside an optional\n`topic_id`, so \"attach, but no topic given\" cannot be expressed — the\nrequest fails to deserialise instead of failing halfway through a batch."
+      },
       "BlogPageResult_BlogPostCardResponse": {
         "type": "object",
         "description": "One page of results, plus the totals a client needs to paginate.\n\n`total` counts every row matching the filter, not just this page.",
@@ -12734,8 +12841,8 @@
       "BulkBlogRequest": {
         "allOf": [
           {
-            "type": "object",
-            "description": "What to do. One of `archive`, `restore`, `hard_delete`,\n`attach_topic`, `detach_topic`; the topic operations also take\n`topic_id`."
+            "$ref": "#/components/schemas/BlogBulkOp",
+            "description": "What to do, and its arguments. The operations are the variants of\n[`BlogBulkOp`] — listed there rather than here, so the schema clients\ngenerate from cannot disagree with what the server accepts."
           },
           {
             "type": "object",
@@ -12784,8 +12891,8 @@
       "BulkMediaRequest": {
         "allOf": [
           {
-            "type": "object",
-            "description": "What to do. One of `archive`, `restore`, `hard_delete`. Media carries\nno topics, so there are no topic operations here."
+            "$ref": "#/components/schemas/MediaBulkOp",
+            "description": "What to do. The operations are the variants of [`MediaBulkOp`] —\nlisted there rather than here, so the schema clients generate from\ncannot disagree with what the server accepts. Media carries no topics,\nso there are no topic operations."
           },
           {
             "type": "object",
@@ -12834,8 +12941,8 @@
       "BulkProjectRequest": {
         "allOf": [
           {
-            "type": "object",
-            "description": "What to do. One of `archive`, `restore`, `hard_delete`,\n`attach_topic`, `detach_topic`; the topic operations also take\n`topic_id`."
+            "$ref": "#/components/schemas/ProjectBulkOp",
+            "description": "What to do, and its arguments. The operations are the variants of\n[`ProjectBulkOp`] — listed there rather than here, so the schema clients\ngenerate from cannot disagree with what the server accepts."
           },
           {
             "type": "object",
@@ -14236,6 +14343,53 @@
           }
         }
       },
+      "MediaBulkOp": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "archive"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "restore"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "hard_delete"
+                ]
+              }
+            }
+          }
+        ],
+        "description": "One operation applied across many media items.\n\nNo topic operations: media carries no topics. Lifecycle only."
+      },
       "MediaDetail": {
         "type": "object",
         "description": "A single media item with the variant sizes that are ready to read.\n\nCarries the same fields as a listing row, plus `available_sizes`. Bucket\nnames and object keys are deliberately not exposed: callers reach the bytes\nthrough `GET /api/media/{media_id}/{media_size}`, which issues a signed URL,\nso storage layout stays an internal detail.\nOne media item in full, including which sizes exist.\n\n`available_sizes` is derived from the variant rows, so an item still being\nprocessed comes back with an empty list rather than an error — check\n`status` to tell \"none yet\" from \"none ever\".",
@@ -14949,6 +15103,98 @@
             "minLength": 1
           }
         }
+      },
+      "ProjectBulkOp": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Hide each project. Reversible.",
+            "required": [
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "archive"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Un-hide each project.",
+            "required": [
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "restore"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Remove each project permanently.",
+            "required": [
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "hard_delete"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Link one topic to each project.",
+            "required": [
+              "topic_id",
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "attach_topic"
+                ]
+              },
+              "topic_id": {
+                "type": "string",
+                "format": "uuid",
+                "description": "The topic to link."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Remove one topic's link from each project.",
+            "required": [
+              "topic_id",
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "detach_topic"
+                ]
+              },
+              "topic_id": {
+                "type": "string",
+                "format": "uuid",
+                "description": "The topic to unlink."
+              }
+            }
+          }
+        ],
+        "description": "One operation applied across many projects.\n\nTagged so that \"attach, but no topic given\" cannot be expressed — the\nrequest fails to deserialise rather than failing halfway through a batch."
       },
       "ProjectCardView": {
         "type": "object",

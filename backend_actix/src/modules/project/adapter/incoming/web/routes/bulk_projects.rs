@@ -22,11 +22,10 @@ use crate::{
 /// `{"op": "attach_topic", "topic_id": "...", "ids": [...]}`.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct BulkProjectRequest {
-    /// What to do. One of `archive`, `restore`, `hard_delete`,
-    /// `attach_topic`, `detach_topic`; the topic operations also take
-    /// `topic_id`.
+    /// What to do, and its arguments. The operations are the variants of
+    /// [`ProjectBulkOp`] — listed there rather than here, so the schema clients
+    /// generate from cannot disagree with what the server accepts.
     #[serde(flatten)]
-    #[schema(value_type = Object)]
     pub op: ProjectBulkOp,
 
     /// The projects to apply it to. Duplicates are collapsed.

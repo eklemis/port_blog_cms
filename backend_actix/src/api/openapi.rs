@@ -466,6 +466,86 @@ mod tests {
         );
     }
 
+    /// Each bulk request must publish its operations, and every published one
+    /// must be accepted.
+    ///
+    /// `op` is a tagged enum flattened into the request. It was once overridden
+    /// to a bare `Object`, which published nothing: generated clients typed the
+    /// field as `never`, so `{ op: 'restore', ids }` failed to compile, and the
+    /// only list of operations left was prose that had already fallen behind
+    /// (it omitted `unpublish`). Nothing failed on the server side, which is why
+    /// this has to be checked here.
+    #[test]
+    fn every_bulk_operation_is_published_and_accepted() {
+        use crate::blog::adapter::incoming::web::routes::BulkBlogRequest;
+        use crate::multimedia::adapter::incoming::web::routes::BulkMediaRequest;
+        use crate::project::adapter::incoming::web::routes::BulkProjectRequest;
+
+        let doc = doc();
+        let schemas = &doc["components"]["schemas"];
+
+        fn accepts<T: serde::de::DeserializeOwned>(body: Value) -> bool {
+            serde_json::from_value::<T>(body).is_ok()
+        }
+
+        /// The request schema, the op schema it must reference, and a
+        /// deserialiser for the real Rust type behind it.
+        type BulkCase = (&'static str, &'static str, fn(Value) -> bool);
+
+        let cases: [BulkCase; 3] = [
+            ("BulkBlogRequest", "BlogBulkOp", accepts::<BulkBlogRequest>),
+            (
+                "BulkProjectRequest",
+                "ProjectBulkOp",
+                accepts::<BulkProjectRequest>,
+            ),
+            (
+                "BulkMediaRequest",
+                "MediaBulkOp",
+                accepts::<BulkMediaRequest>,
+            ),
+        ];
+
+        for (request, op_schema, accepts) in cases {
+            let reference = format!("#/components/schemas/{op_schema}");
+            let refers = schemas[request]["allOf"]
+                .as_array()
+                .unwrap_or_else(|| panic!("{request} must flatten its operation with allOf"))
+                .iter()
+                .any(|part| part["$ref"] == reference.as_str());
+            assert!(
+                refers,
+                "{request} must reference {op_schema}, not an opaque object"
+            );
+
+            let ops: Vec<&str> = schemas[op_schema]["oneOf"]
+                .as_array()
+                .unwrap_or_else(|| panic!("{op_schema} must be published as a oneOf"))
+                .iter()
+                .map(|variant| {
+                    variant["properties"]["op"]["enum"][0]
+                        .as_str()
+                        .unwrap_or_else(|| panic!("every {op_schema} variant must name its op"))
+                })
+                .collect();
+            assert!(
+                !ops.is_empty(),
+                "{op_schema} must publish at least one operation"
+            );
+
+            for op in ops {
+                // topic_id is ignored by the operations that take no arguments
+                // and required by the ones that do, so one body fits all.
+                let body = serde_json::json!({
+                    "op": op,
+                    "topic_id": uuid::Uuid::nil(),
+                    "ids": [],
+                });
+                assert!(accepts(body), "{request} publishes `{op}` but rejects it");
+            }
+        }
+    }
+
     #[test]
     fn error_detail_code_references_the_error_code_schema() {
         let doc = doc();

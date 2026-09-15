@@ -1858,6 +1858,42 @@ export interface components {
          */
         AttachmentTarget: "user" | "resume" | "project" | "blog_post";
         /**
+         * @description One operation applied across many posts.
+         *
+         *     Modelled as a tagged enum rather than an operation string beside an optional
+         *     `topic_id`, so "attach, but no topic given" cannot be expressed — the
+         *     request fails to deserialise instead of failing halfway through a batch.
+         */
+        BlogBulkOp: {
+            /** @enum {string} */
+            op: "archive";
+        } | {
+            /** @enum {string} */
+            op: "restore";
+        } | {
+            /** @enum {string} */
+            op: "hard_delete";
+        } | {
+            /** @enum {string} */
+            op: "unpublish";
+        } | {
+            /** @enum {string} */
+            op: "attach_topic";
+            /**
+             * Format: uuid
+             * @description The topic to link.
+             */
+            topic_id: string;
+        } | {
+            /** @enum {string} */
+            op: "detach_topic";
+            /**
+             * Format: uuid
+             * @description The topic to unlink.
+             */
+            topic_id: string;
+        };
+        /**
          * @description One page of results, plus the totals a client needs to paginate.
          *
          *     `total` counts every row matching the filter, not just this page.
@@ -2101,7 +2137,7 @@ export interface components {
          *     `op` and its arguments are flattened into this object, so an attach reads
          *     `{"op": "attach_topic", "topic_id": "...", "ids": [...]}`.
          */
-        BulkBlogRequest: Record<string, never> & {
+        BulkBlogRequest: components["schemas"]["BlogBulkOp"] & {
             /** @description The posts to apply it to. Duplicates are collapsed. */
             ids: string[];
         };
@@ -2127,7 +2163,7 @@ export interface components {
          *     `op` is flattened into this object, so a request reads
          *     `{"op": "archive", "ids": [...]}`.
          */
-        BulkMediaRequest: Record<string, never> & {
+        BulkMediaRequest: components["schemas"]["MediaBulkOp"] & {
             /** @description The media items to apply it to. Duplicates are collapsed. */
             ids: string[];
         };
@@ -2149,7 +2185,7 @@ export interface components {
          *     `op` and its arguments are flattened into this object, so an attach reads
          *     `{"op": "attach_topic", "topic_id": "...", "ids": [...]}`.
          */
-        BulkProjectRequest: Record<string, never> & {
+        BulkProjectRequest: components["schemas"]["ProjectBulkOp"] & {
             /** @description The projects to apply it to. Duplicates are collapsed. */
             ids: string[];
         };
@@ -2898,6 +2934,21 @@ export interface components {
             relevance_unavailable?: string | null;
         };
         /**
+         * @description One operation applied across many media items.
+         *
+         *     No topic operations: media carries no topics. Lifecycle only.
+         */
+        MediaBulkOp: {
+            /** @enum {string} */
+            op: "archive";
+        } | {
+            /** @enum {string} */
+            op: "restore";
+        } | {
+            /** @enum {string} */
+            op: "hard_delete";
+        };
+        /**
          * @description A single media item with the variant sizes that are ready to read.
          *
          *     Carries the same fields as a listing row, plus `available_sizes`. Bucket
@@ -3280,6 +3331,38 @@ export interface components {
              * @example Distributed Systems
              */
             title?: string | null;
+        };
+        /**
+         * @description One operation applied across many projects.
+         *
+         *     Tagged so that "attach, but no topic given" cannot be expressed — the
+         *     request fails to deserialise rather than failing halfway through a batch.
+         */
+        ProjectBulkOp: {
+            /** @enum {string} */
+            op: "archive";
+        } | {
+            /** @enum {string} */
+            op: "restore";
+        } | {
+            /** @enum {string} */
+            op: "hard_delete";
+        } | {
+            /** @enum {string} */
+            op: "attach_topic";
+            /**
+             * Format: uuid
+             * @description The topic to link.
+             */
+            topic_id: string;
+        } | {
+            /** @enum {string} */
+            op: "detach_topic";
+            /**
+             * Format: uuid
+             * @description The topic to unlink.
+             */
+            topic_id: string;
         };
         /** @description A project as it appears in a listing — the summary fields only. */
         ProjectCardView: {

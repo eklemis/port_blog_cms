@@ -22,10 +22,11 @@ use crate::{
 /// `{"op": "archive", "ids": [...]}`.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct BulkMediaRequest {
-    /// What to do. One of `archive`, `restore`, `hard_delete`. Media carries
-    /// no topics, so there are no topic operations here.
+    /// What to do. The operations are the variants of [`MediaBulkOp`] —
+    /// listed there rather than here, so the schema clients generate from
+    /// cannot disagree with what the server accepts. Media carries no topics,
+    /// so there are no topic operations.
     #[serde(flatten)]
-    #[schema(value_type = Object)]
     pub op: MediaBulkOp,
 
     /// The media items to apply it to. Duplicates are collapsed.
