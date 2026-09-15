@@ -17,13 +17,18 @@ const rows = [
 		id: '1',
 		title: 'Building a CMS in Rust',
 		published_at: '2020-01-01T00:00:00Z',
-		updated_at: '2026-09-06T12:00:00Z'
+		updated_at: '2026-09-06T12:00:00Z',
+		topics: [
+			{ id: 'topic-1', title: 'Rust', description: '' },
+			{ id: 'topic-2', title: 'Distributed Systems', description: '' }
+		]
 	},
 	{
 		id: '2',
 		title: 'Why hexagonal, actually',
 		published_at: null,
-		updated_at: '2026-09-08T07:00:00Z'
+		updated_at: '2026-09-08T07:00:00Z',
+		topics: []
 	}
 ];
 
@@ -53,6 +58,26 @@ test('a row opens its post, because a list of titles you cannot click is a repor
 	await expect
 		.element(screen.getByRole('link', { name: 'Building a CMS in Rust' }))
 		.toHaveAttribute('href', '/studio/posts/1');
+});
+
+test('each row names its topics, straight from the list', async () => {
+	// The card carries them now, loaded once for the page — so this is a
+	// column and not one request per row.
+	const screen = render(PostsPage, base);
+
+	await expect.element(screen.getByRole('columnheader', { name: 'Topics' })).toBeInTheDocument();
+	const first = screen.getByRole('row').nth(1);
+	await expect.element(first.getByText('Distributed Systems', { exact: true })).toBeInTheDocument();
+});
+
+test('a post with no topics has an empty cell, not a dash', async () => {
+	// Empty means the post has none — the backend is explicit that it never
+	// means "not loaded" — so nothing is the true thing to draw. A dash would
+	// read as missing data.
+	const screen = render(PostsPage, base);
+
+	const second = screen.getByRole('row').nth(2);
+	expect(second.getByText('—').elements()).toHaveLength(0);
 });
 
 test('lists the posts with the state each is in', async () => {

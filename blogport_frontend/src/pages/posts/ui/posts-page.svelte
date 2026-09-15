@@ -15,14 +15,21 @@
 	 * tells someone with 24 posts that they have none, and error says what
 	 * failed and that their work is safe.
 	 *
-	 * The TOPICS column the frame draws is not here: `BlogPostCardResponse`
-	 * carries no topics, and filling it would be one request per row. Same for
-	 * the ARCHIVED pill — see the PR. The topic *filter* is a different thing
-	 * and it is here: `topic_id` was implemented all along.
+	 * The TOPICS column reads straight from the card, which carries them now —
+	 * loaded once for the page, not per row. It is the column tablet drops, per
+	 * the Prototype Map's table rules. The ARCHIVED pill is still not here: this
+	 * list never contains an archived post.
 	 *
 	 * Design: Screen / Posts list 11:2 and its four state frames.
 	 */
-	type Row = { id: string; title: string; published_at?: string | null; updated_at: string };
+	type Row = {
+		id: string;
+		title: string;
+		published_at?: string | null;
+		updated_at: string;
+		/** Always present. Empty means the post has none, never "not loaded". */
+		topics: { id: string; title: string }[];
+	};
 	type Topic = { id: string; title: string };
 
 	let {
@@ -210,11 +217,11 @@
 			<table class="w-full min-w-[520px] border-collapse text-left">
 				<thead>
 					<tr class="border-b border-arch-line">
-						{#each ['Title', 'Status', 'Updated'] as heading (heading)}
+						{#each ['Title', 'Topics', 'Status', 'Updated'] as heading (heading)}
 							<th
 								scope="col"
 								class="px-[18px] py-3 font-mono text-[9px] font-normal tracking-[0.9px]
-								       text-arch-muted uppercase"
+								       text-arch-muted uppercase {heading === 'Topics' ? 'hidden lg:table-cell' : ''}"
 							>
 								{heading}
 							</th>
@@ -235,6 +242,20 @@
 								>
 									{post.title}
 								</a>
+							</td>
+							<!-- Dropped below 1024px: the middle column goes first, per the
+							     Prototype Map. Empty when the post has none, never a dash. -->
+							<td class="hidden px-[18px] py-3 lg:table-cell">
+								<ul class="flex flex-wrap gap-1.5">
+									{#each post.topics as topic (topic.id)}
+										<li
+											class="rounded-full border border-arch-line px-2 py-0.5 text-[11px]
+											       text-arch-muted"
+										>
+											{topic.title}
+										</li>
+									{/each}
+								</ul>
 							</td>
 							<td class="px-[18px] py-3">
 								<StatusPill tone={status.tone} label={status.label} />
