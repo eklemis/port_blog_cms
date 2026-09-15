@@ -16,8 +16,9 @@
 	 * failed and that their work is safe.
 	 *
 	 * The TOPICS column reads straight from the card, which carries them now —
-	 * loaded once for the page, not per row. It is the column tablet drops, per
-	 * the Prototype Map's table rules. The ARCHIVED pill is still not here: this
+	 * loaded once for the page, not per row — as one line joined with a middle
+	 * dot, the way Screen / Posts list 11:2 draws it. It is the column tablet
+	 * drops, per the Prototype Map's table rules. The ARCHIVED pill is still not here: this
 	 * list never contains an archived post.
 	 *
 	 * Design: Screen / Posts list 11:2 and its four state frames.
@@ -227,7 +228,7 @@
 			<table class="w-full min-w-[520px] border-collapse text-left">
 				<thead>
 					<tr class="border-b border-arch-line">
-						{#each ['Title', 'Topics', 'Status', 'Updated'] as heading (heading)}
+						{#each ['Title', 'Status', 'Topics', 'Updated'] as heading (heading)}
 							<th
 								scope="col"
 								class="px-[18px] py-3 font-mono text-[9px] font-normal tracking-[0.9px]
@@ -253,22 +254,14 @@
 									{post.title}
 								</a>
 							</td>
-							<!-- Dropped below 1024px: the middle column goes first, per the
-							     Prototype Map. Empty when the post has none, never a dash. -->
-							<td class="hidden px-[18px] py-3 lg:table-cell">
-								<ul class="flex flex-wrap gap-1.5">
-									{#each post.topics as topic (topic.id)}
-										<li
-											class="rounded-full border border-arch-line px-2 py-0.5 text-[11px]
-											       text-arch-muted"
-										>
-											{topic.title}
-										</li>
-									{/each}
-								</ul>
-							</td>
 							<td class="px-[18px] py-3">
 								<StatusPill tone={status.tone} label={status.label} />
+							</td>
+							<!-- Dropped below 1024px — the middle column goes first, per the
+							     Prototype Map. A dash when the post has none, as the frame draws:
+							     empty on the card means none, never "not loaded". -->
+							<td class="hidden px-[18px] py-3 text-[12px] text-arch-muted lg:table-cell">
+								{post.topics.length ? post.topics.map((topic) => topic.title).join(' · ') : '—'}
 							</td>
 							<td class="px-[18px] py-3 text-[12px] text-arch-muted">
 								<time datetime={post.updated_at}>{updatedLabel(post.updated_at)}</time>
