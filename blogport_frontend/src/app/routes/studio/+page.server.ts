@@ -49,14 +49,39 @@ const fromTotal = (data: unknown) => {
 /** An unparameterised list: what came back is all of it. */
 const fromLength = (data: unknown) => (Array.isArray(data) ? data.length : null);
 
+export type PostStates = { live: number; drafts: number; archived: number };
+
+/**
+ * How the posts divide, for the one tile sub-line that has something behind
+ * it: "12 live · 9 drafts · 3 archived", from `GET /api/blog/summary`. Anything
+ * but three numbers is no summary — a sub-line of zeros would say nothing is
+ * live.
+ */
+async function postStates(event: Parameters<PageServerLoad>[0]): Promise<PostStates | null> {
+	try {
+		const response = await authenticatedFetch(event, '/api/blog/summary');
+		if (!response.ok) return null;
+
+		const body = (await response.json()) as { data?: Partial<Record<keyof PostStates, unknown>> };
+		const { live, drafts, archived } = body.data ?? {};
+
+		return typeof live === 'number' && typeof drafts === 'number' && typeof archived === 'number'
+			? { live, drafts, archived }
+			: null;
+	} catch {
+		return null;
+	}
+}
+
 export const load: PageServerLoad = async (event) => {
-	const [posts, projects, resumes, applications, topics] = await Promise.all([
+	const [posts, projects, resumes, applications, topics, states] = await Promise.all([
 		count(event, '/api/blog?per_page=1', fromTotal),
 		count(event, '/api/projects?per_page=1', fromTotal),
 		count(event, '/api/cvs?per_page=1', fromTotal),
 		count(event, '/api/applications?per_page=1', fromTotal),
-		count(event, '/api/topics', fromLength)
+		count(event, '/api/topics', fromLength),
+		postStates(event)
 	]);
 
-	return { counts: { posts, projects, resumes, applications, topics } };
+	return { counts: { posts, projects, resumes, applications, topics, postStates: states } };
 };

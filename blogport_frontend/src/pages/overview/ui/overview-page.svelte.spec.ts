@@ -105,6 +105,50 @@ test('what is already done is ticked rather than asked for again', async () => {
 	await expect.element(screen.getByText('Create a topic')).toHaveAttribute('data-done', 'true');
 });
 
+// ── Screen / Overview 68:2 ─────────────────────────────────────────────────
+
+test('the posts tile says how the posts divide, when the summary came back', async () => {
+	// "12 live · 9 drafts · 3 archived" — the one sub-line now backed, by
+	// /api/blog/summary. The other three tiles stay without one until theirs is.
+	const screen = render(OverviewPage, {
+		fullName: 'Jane Doe',
+		counts: { ...counts, postStates: { live: 12, drafts: 9, archived: 3 } }
+	});
+
+	await expect.element(screen.getByText('12 live · 9 drafts · 3 archived')).toBeInTheDocument();
+});
+
+test('without the summary the posts tile says nothing beneath the number', async () => {
+	// A sub-line of dashes would read as nothing live, nothing drafted.
+	const screen = render(OverviewPage, {
+		fullName: 'Jane Doe',
+		counts: { ...counts, postStates: null }
+	});
+
+	expect(screen.getByText(/ live · /).elements()).toHaveLength(0);
+});
+
+test('the checklist says how long it stays, in its own words', async () => {
+	const screen = render(OverviewPage, { fullName: 'Jane Doe', counts: first });
+
+	await expect
+		.element(
+			screen.getByText('Disappears for good once two are done. It is not a permanent fixture.')
+		)
+		.toBeInTheDocument();
+});
+
+test('a ticked item says it is done to someone who cannot see the tick', async () => {
+	const screen = render(OverviewPage, { fullName: 'Jane Doe', counts: { ...first, topics: 2 } });
+
+	await expect
+		.element(screen.getByRole('link', { name: 'Done: Create a topic' }))
+		.toBeInTheDocument();
+	await expect
+		.element(screen.getByRole('link', { name: 'Write your first post' }))
+		.toBeInTheDocument();
+});
+
 test('has no accessibility violations', async () => {
 	render(OverviewPage, { fullName: 'Jane Doe', counts });
 

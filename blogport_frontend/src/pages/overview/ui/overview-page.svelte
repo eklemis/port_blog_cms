@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Check, Circle, X } from '@lucide/svelte';
+	import { X } from '@lucide/svelte';
 	import { greeting } from '../model/greeting';
 	import { gettingStarted, showGettingStarted, type Counts } from '../model/getting-started';
 
@@ -20,14 +20,27 @@
 	}: {
 		fullName: string;
 		/** `topics` backs the checklist rather than a tile — there are four tiles. */
-		counts: Counts & { projects: number | null; applications: number | null };
+		counts: Counts & {
+			projects: number | null;
+			applications: number | null;
+			/** From /api/blog/summary; `null` when it could not be had. */
+			postStates?: { live: number; drafts: number; archived: number } | null;
+		};
 	} = $props();
 
 	const tiles = $derived([
-		{ label: 'Posts', value: counts.posts },
-		{ label: 'Projects', value: counts.projects },
-		{ label: 'Résumés', value: counts.resumes },
-		{ label: 'Applications', value: counts.applications }
+		{
+			label: 'Posts',
+			value: counts.posts,
+			// The only sub-line with a query behind it. The frame draws one on every
+			// tile; the others wait for theirs rather than showing a guess.
+			detail: counts.postStates
+				? `${counts.postStates.live} live · ${counts.postStates.drafts} drafts · ${counts.postStates.archived} archived`
+				: null
+		},
+		{ label: 'Projects', value: counts.projects, detail: null },
+		{ label: 'Résumés', value: counts.resumes, detail: null },
+		{ label: 'Applications', value: counts.applications, detail: null }
 	]);
 
 	/**
@@ -74,8 +87,8 @@
 		{#each tiles as tile (tile.label)}
 			<div
 				class="flex min-w-[160px] flex-1 flex-col gap-[5px] rounded-[11px] border
-				       border-arch-line bg-arch-surface px-[15px] py-3.5 md:max-w-[215px]
-				       md:gap-[7px] md:rounded-[12px] md:p-5"
+				       border-arch-line bg-arch-surface px-[15px] py-3.5 md:w-[215px] md:max-w-[215px]
+				       md:flex-none md:gap-[7px] md:rounded-[12px] md:p-5"
 			>
 				<p class="font-display text-[24px] font-extrabold text-arch-headline md:text-[30px]">
 					<!-- An em dash, not a nought: a count we could not fetch is not zero. -->
@@ -87,6 +100,10 @@
 				>
 					{tile.label}
 				</p>
+				{#if tile.detail}
+					<!-- Desktop and tablet only: Mobile / Overview draws the tiles bare. -->
+					<p class="text-[11px] text-arch-muted max-md:hidden">{tile.detail}</p>
+				{/if}
 			</div>
 		{/each}
 	</div>
@@ -96,50 +113,60 @@
 			The three destinations come from shared/config/routes and two of them are
 			console screens that do not exist yet — `resolve()` only takes a route id
 			that does. Swap them in as each lands. -->
+		<!-- Screen / Overview 68:62. Not on a phone: Mobile / Overview draws the
+		     tiles and nothing else below them. -->
 		<section
 			aria-labelledby="getting-started"
-			class="flex flex-col gap-3 rounded-[11px] border border-arch-line bg-arch-surface
-			       px-[15px] py-3.5 md:max-w-[440px] md:rounded-[12px] md:p-5"
+			class="flex w-full max-w-[330px] flex-col gap-[11px] rounded-xl border border-arch-line
+			       bg-arch-surface p-5 max-md:hidden"
 		>
-			<div class="flex items-start justify-between gap-4">
-				<div class="flex flex-col gap-1">
-					<h2
-						id="getting-started"
-						class="font-display text-[14px] font-extrabold text-arch-headline"
-					>
-						Getting started
-					</h2>
-					<p class="text-[12px] text-arch-muted">Three things, then this goes away.</p>
-				</div>
+			<div class="flex items-center justify-between gap-4">
+				<h2
+					id="getting-started"
+					class="font-mono text-[9px] font-normal tracking-[0.9px] text-arch-muted uppercase"
+				>
+					Getting started
+				</h2>
+				<!--
+					Not drawn in the frame. §05 calls the checklist dismissible, and
+					behaviour is the document's to decide — so it stays, as quietly as a
+					control can be. Flagged in the PR.
+				-->
 				<button
 					type="button"
 					aria-label="Dismiss"
 					onclick={dismiss}
-					class="-m-1 flex size-9 items-center justify-center rounded-lg text-arch-muted
+					class="-my-2 -mr-2 flex size-8 items-center justify-center rounded-lg text-arch-muted
 					       transition-colors hover:text-arch-headline"
 				>
-					<X size={16} aria-hidden="true" />
+					<X size={14} aria-hidden="true" />
 				</button>
 			</div>
 
-			<ul class="flex flex-col gap-2.5">
+			<ul class="flex flex-col gap-[11px]">
 				{#each tasks as task (task.label)}
 					<li class="flex items-center gap-2.5">
-						{#if task.done}
-							<Check size={15} aria-hidden="true" class="shrink-0 text-st-live" />
-						{:else}
-							<Circle size={15} aria-hidden="true" class="shrink-0 text-arch-muted" />
-						{/if}
+						<span
+							aria-hidden="true"
+							class="size-4 shrink-0 rounded
+							       {task.done ? 'bg-st-live' : 'border border-arch-line-strong'}"
+						></span>
 						<a
 							href={task.href}
 							data-done={String(task.done === true)}
-							class="text-[13px] font-medium text-arch-headline underline-offset-4 hover:underline"
+							aria-label={task.done ? `Done: ${task.label}` : undefined}
+							class="text-[12.5px] underline-offset-4 hover:underline
+							       {task.done ? 'text-arch-muted' : 'text-arch-headline'}"
 						>
 							{task.label}
 						</a>
 					</li>
 				{/each}
 			</ul>
+
+			<p class="text-[10.5px] text-arch-muted">
+				Disappears for good once two are done. It is not a permanent fixture.
+			</p>
 		</section>
 	{/if}
 </div>

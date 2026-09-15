@@ -40,6 +40,7 @@ const paged = (total: number) => ({ body: { data: { total } } });
 const listed = (length: number) => ({ body: { data: Array.from({ length }, () => ({})) } });
 
 const ALL = {
+	'/api/blog/summary': { body: { data: { live: 12, drafts: 9, archived: 3 } } },
 	'/api/blog': paged(24),
 	'/api/projects': paged(8),
 	'/api/cvs': paged(3),
@@ -50,7 +51,9 @@ const ALL = {
 async function loaded() {
 	const data = await load({} as never);
 	return data as unknown as {
-		counts: Record<'posts' | 'projects' | 'resumes' | 'applications' | 'topics', number | null>;
+		counts: Record<'posts' | 'projects' | 'resumes' | 'applications' | 'topics', number | null> & {
+			postStates: { live: number; drafts: number; archived: number } | null;
+		};
 	};
 }
 
@@ -64,7 +67,14 @@ test('counts every resource the map lists for this screen', async () => {
 
 	const { counts } = await loaded();
 
-	expect(counts).toEqual({ posts: 24, projects: 8, resumes: 3, applications: 5, topics: 6 });
+	expect(counts).toEqual({
+		posts: 24,
+		projects: 8,
+		resumes: 3,
+		applications: 5,
+		topics: 6,
+		postStates: { live: 12, drafts: 9, archived: 3 }
+	});
 });
 
 test('asks the paginated resources for one row, not for all of them', async () => {
@@ -102,7 +112,8 @@ test('an unreachable backend leaves every count unknown rather than throwing', a
 		projects: null,
 		resumes: null,
 		applications: null,
-		topics: null
+		topics: null,
+		postStates: null
 	});
 });
 
@@ -125,4 +136,12 @@ test('the applications count comes from the total, not from the rows returned', 
 	const { counts } = await loaded();
 
 	expect(counts.applications).toBe(42);
+});
+
+test('a summary in a shape we did not expect is no summary, not a row of zeros', async () => {
+	backend({ ...ALL, '/api/blog/summary': { body: { data: { live: 'twelve' } } } });
+
+	const { counts } = await loaded();
+
+	expect(counts.postStates).toBeNull();
 });
