@@ -177,8 +177,10 @@
 </script>
 
 <div class="flex flex-col gap-4">
-	<div class="flex items-start justify-between gap-4">
-		<div class="flex items-center gap-2.5">
+	<!-- On a phone the shell's header reads "‹ Archive" and the list starts
+	     straight away, as Mobile / Posts archive 97:2744 draws it. -->
+	<div class="flex items-start justify-between gap-4 max-md:contents">
+		<div class="flex items-center gap-2.5 max-md:sr-only">
 			<h1
 				class="font-display text-[24px] font-extrabold tracking-tight text-arch-headline md:text-[27px]"
 			>
@@ -186,10 +188,13 @@
 			</h1>
 			<StatusPill tone="dormant" label="Archived" />
 		</div>
-		<Button kind="secondary" label="Back to posts" href={CONSOLE_ROUTES.posts} />
+		<!-- A visually hidden link would still take focus, so it is removed, not hidden. -->
+		<span class="max-md:hidden"
+			><Button kind="secondary" label="Back to posts" href={CONSOLE_ROUTES.posts} /></span
+		>
 	</div>
 
-	<p class="text-[12.5px] text-arch-muted">
+	<p class="text-[12.5px] text-arch-muted max-md:hidden">
 		Archived posts are not public and not in your main list. Restore puts one back in whatever state
 		it was in; purge is permanent and asks you to type the title.
 	</p>

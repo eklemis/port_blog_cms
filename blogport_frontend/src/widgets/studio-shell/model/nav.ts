@@ -1,4 +1,13 @@
-import { Briefcase, FileText, Folder, Image, LayoutDashboard, Tag, User } from '@lucide/svelte';
+import {
+	Briefcase,
+	CircleUser,
+	FileText,
+	Folder,
+	Image,
+	LayoutDashboard,
+	Tag,
+	User
+} from '@lucide/svelte';
 import type { Component } from 'svelte';
 import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
 
@@ -39,7 +48,8 @@ export const NAV: NavItem[] = [
 export const ACCOUNT: NavItem = {
 	label: 'Account',
 	href: CONSOLE_ROUTES.account,
-	icon: User
+	// icon/circle-user, per Screen / Overview 68:23. `User` is Résumés' glyph.
+	icon: CircleUser
 };
 
 /**
@@ -99,4 +109,50 @@ export function isCurrent(href: string, path: string): boolean {
 	if (section === CONSOLE_ROUTES.overview) return here === section;
 
 	return here === section || here.startsWith(`${section}/`);
+}
+
+/**
+ * What the mobile header shows on a given screen.
+ *
+ * There is no sidebar below 768px, so the header carries what it would have:
+ * the section's name and its one amber action (Mobile / Posts list 73:2), or,
+ * inside a section, a way back instead (Mobile / New post 97:2871, Mobile / Posts
+ * archive 97:2744). A form that is being written hides the tab bar, as Mobile /
+ * New post draws it — a half-written draft is not something to tab away from.
+ *
+ * Defined here, beside the nav, so a screen cannot declare a header the nav
+ * disagrees with.
+ */
+export type MobileChrome = {
+	title: string;
+	back: string | null;
+	action: { label: string; href: string } | null;
+	tabs: boolean;
+};
+
+const SECTION_ACTIONS: Record<string, { label: string; href: string }> = {
+	[CONSOLE_ROUTES.posts]: { label: 'New', href: `${CONSOLE_ROUTES.posts}/new` },
+	[CONSOLE_ROUTES.applications]: { label: 'Add', href: `${CONSOLE_ROUTES.applications}/new` }
+};
+
+export function mobileChrome(path: string): MobileChrome {
+	const here = path.replace(/\/+$/, '') || '/';
+	const posts = CONSOLE_ROUTES.posts;
+
+	if (here === `${posts}/new`) {
+		return { title: 'New post', back: posts, action: null, tabs: false };
+	}
+	if (here === `${posts}/archive`) {
+		return { title: 'Archive', back: posts, action: null, tabs: true };
+	}
+	if (here.startsWith(`${posts}/`)) {
+		return { title: 'Edit post', back: posts, action: null, tabs: false };
+	}
+
+	return {
+		title: currentLabel(here),
+		back: null,
+		action: SECTION_ACTIONS[here] ?? null,
+		tabs: true
+	};
 }

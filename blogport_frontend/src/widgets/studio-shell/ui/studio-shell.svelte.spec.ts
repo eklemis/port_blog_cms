@@ -15,7 +15,7 @@ const UNSTYLED_GEOMETRY = { rules: { 'target-size': { enabled: false } } };
 
 const body = createRawSnippet(() => ({ render: () => '<p>The screen</p>' }));
 
-const props = (path = '/studio') => ({ path, title: 'Overview', children: body });
+const props = (path = '/studio') => ({ path, children: body });
 
 test('renders what it wraps', async () => {
 	const screen = render(StudioShell, props());
@@ -55,9 +55,37 @@ test('a nested screen still lights its section', async () => {
 
 test('names the screen where the sidebar cannot', async () => {
 	// At 390px there is no sidebar to say which screen this is.
-	const screen = render(StudioShell, { ...props(), title: 'Media library' });
+	const screen = render(StudioShell, props('/studio/topics'));
 
-	await expect.element(screen.getByText('Media library')).toBeInTheDocument();
+	await expect.element(screen.getByRole('banner').getByText('Topics')).toBeInTheDocument();
+});
+
+test('a section’s header carries its one action', async () => {
+	const screen = render(StudioShell, props('/studio/posts'));
+
+	await expect
+		.element(screen.getByRole('banner').getByRole('link', { name: 'New' }))
+		.toHaveAttribute('href', '/studio/posts/new');
+});
+
+test('a screen inside a section has a way back, named for where it goes', async () => {
+	const screen = render(StudioShell, props('/studio/posts/new'));
+
+	await expect
+		.element(screen.getByRole('banner').getByRole('link', { name: 'Back to Posts' }))
+		.toHaveAttribute('href', '/studio/posts');
+	await expect.element(screen.getByRole('banner').getByText('New post')).toBeInTheDocument();
+});
+
+test('a form being written has no tab bar to tab away through', async () => {
+	// Checked against a screen that does have one, or an absent attribute would
+	// pass this for the wrong reason.
+	const section = render(StudioShell, props('/studio/posts'));
+	expect(section.container.querySelector('[data-tab-bar]')).not.toBeNull();
+	section.unmount();
+
+	const form = render(StudioShell, props('/studio/posts/new'));
+	expect(form.container.querySelector('[data-tab-bar]')).toBeNull();
 });
 
 test('a skip link is the first focusable thing', async () => {
@@ -95,7 +123,10 @@ test('More opens a sheet holding the four the bar has no room for', async () => 
 
 	await screen.getByRole('button', { name: 'More' }).click();
 
+	// Mobile / More 197:5098 draws no heading on the sheet — a grip and four
+	// rows — so the name is the dialog's label rather than visible text.
 	const sheet = screen.getByRole('dialog', { name: 'More' });
+	expect(sheet.getByRole('heading').elements()).toHaveLength(0);
 	await expect.element(sheet).toBeInTheDocument();
 
 	for (const label of ['Overview', 'Résumés', 'Topics', 'Account']) {

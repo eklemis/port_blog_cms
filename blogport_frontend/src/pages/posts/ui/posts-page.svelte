@@ -111,12 +111,15 @@
 
 <div class="flex flex-col gap-5">
 	<div class="flex items-center justify-between gap-4">
+		<!-- On a phone the shell's header names the screen and carries New, so the
+		     page's own title is kept for screen readers and nothing else. -->
 		<h1
-			class="font-display text-[24px] font-extrabold tracking-tight text-arch-headline md:text-[27px]"
+			class="font-display text-[24px] font-extrabold tracking-tight text-arch-headline max-md:sr-only
+			       md:text-[27px]"
 		>
 			Posts
 		</h1>
-		<div class="flex items-center gap-2">
+		<div class="flex items-center gap-2 max-md:hidden">
 			<!-- A text action, not a second amber button: one primary per screen. -->
 			<a
 				href={resolve('/studio/posts/archive')}
