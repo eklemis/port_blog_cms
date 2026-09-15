@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Button from '../button/button.svelte';
+	import InlineAlert from '../inline-alert/inline-alert.svelte';
 
 	/**
 	 * The third rung of destruction — Console Blueprint §06: "a dialog naming
@@ -28,6 +29,7 @@
 		match,
 		confirmLabel,
 		working = false,
+		failure,
 		onconfirm,
 		oncancel
 	}: {
@@ -39,6 +41,11 @@
 		match: string;
 		confirmLabel: string;
 		working?: boolean;
+		/**
+		 * Said inside the dialog. The page behind a modal dialog is inert, so a
+		 * message rendered there would be seen and never announced.
+		 */
+		failure?: string;
 		onconfirm: () => void;
 		oncancel: () => void;
 	} = $props();
@@ -102,6 +109,9 @@
 			       font-mono text-[13px] text-arch-headline"
 		/>
 	</div>
+
+	<!-- Always present, so the region exists before it has anything to say. -->
+	<InlineAlert message={failure} class="mt-3" />
 
 	<div class="mt-5 flex justify-end gap-2">
 		<button

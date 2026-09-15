@@ -114,6 +114,16 @@ test('working, nothing can be pressed twice and it says it is working', async ()
 	await expect.element(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
 });
 
+test('a failure is said inside the dialog, where it can be heard', async () => {
+	// The page behind a modal dialog is inert, so a message rendered there is
+	// seen and never announced.
+	const screen = render(ConfirmDialog, props({ failure: 'Something went wrong on our side.' }));
+
+	await expect
+		.element(screen.getByRole('dialog').getByRole('status'))
+		.toHaveTextContent('Something went wrong on our side.');
+});
+
 test('has no accessibility violations', async () => {
 	render(ConfirmDialog, props());
 

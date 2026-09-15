@@ -106,9 +106,19 @@
 		>
 			Posts
 		</h1>
-		<Button label="New post" href={`${CONSOLE_ROUTES.posts}/new`}>
-			{#snippet icon()}<Plus size={15} aria-hidden="true" />{/snippet}
-		</Button>
+		<div class="flex items-center gap-2">
+			<!-- A text action, not a second amber button: one primary per screen. -->
+			<a
+				href={resolve('/studio/posts/archive')}
+				class="inline-flex min-h-11 items-center px-3 text-[13px] font-semibold text-arch-muted
+				       hover:text-arch-headline"
+			>
+				Archived
+			</a>
+			<Button label="New post" href={`${CONSOLE_ROUTES.posts}/new`}>
+				{#snippet icon()}<Plus size={15} aria-hidden="true" />{/snippet}
+			</Button>
+		</div>
 	</div>
 
 	<!-- Search left, filters centre, sort right — the same bar on every list. -->
