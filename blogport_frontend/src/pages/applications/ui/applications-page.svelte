@@ -51,19 +51,16 @@
 <div class="flex flex-col gap-5">
 	<div class="flex items-center justify-between gap-4">
 		<h1
-			class="font-display text-[24px] font-extrabold tracking-tight text-arch-headline md:text-[27px]"
+			class="font-display text-[24px] font-extrabold tracking-tight text-arch-headline max-md:sr-only md:text-[27px]"
 		>
 			Applications
 		</h1>
-		<!-- "Add" on a phone, as the mobile frame shortens it. One is always
-		     display:none, so a screen reader meets exactly one of them. -->
+		<!-- On a phone the shell's header carries "Add", as Mobile / Application
+		     tracker draws it. -->
 		<span class="max-md:hidden">
 			<Button label="Add a job" href={`${CONSOLE_ROUTES.applications}/new`}>
 				{#snippet icon()}<Plus size={15} aria-hidden="true" />{/snippet}
 			</Button>
-		</span>
-		<span class="md:hidden">
-			<Button label="Add" href={`${CONSOLE_ROUTES.applications}/new`} />
 		</span>
 	</div>
 

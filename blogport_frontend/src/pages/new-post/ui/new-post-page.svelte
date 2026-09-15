@@ -24,7 +24,7 @@
 	</nav>
 
 	<h1
-		class="font-display text-[24px] font-extrabold tracking-tight text-arch-headline md:text-[27px]"
+		class="font-display text-[24px] font-extrabold tracking-tight text-arch-headline max-md:sr-only md:text-[27px]"
 	>
 		New post
 	</h1>

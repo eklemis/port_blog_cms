@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
-import { ACCOUNT, MORE, NAV, TAB_BAR, currentLabel, isCurrent } from './nav';
+import { CircleUser } from '@lucide/svelte';
+import { ACCOUNT, MORE, NAV, TAB_BAR, currentLabel, isCurrent, mobileChrome } from './nav';
 
 /**
  * The console's navigation, defined once so the sidebar, the tablet rail and
@@ -111,4 +112,66 @@ test('somewhere unrecognised is still called something', () => {
 test('a trailing slash does not change which item is lit', () => {
 	expect(isCurrent(CONSOLE_ROUTES.posts, '/studio/posts/')).toBe(true);
 	expect(isCurrent(CONSOLE_ROUTES.overview, '/studio/')).toBe(true);
+});
+
+// ── the mobile header ──────────────────────────────────────────────────────
+
+test('Account has its own glyph, not the one Résumés already uses', () => {
+	// Screen / Overview 68:23 draws icon/circle-user; `User` is Résumés'.
+	expect(ACCOUNT.icon).toBe(CircleUser);
+});
+
+test('a section names itself, with its primary action beside it', () => {
+	// Mobile / Posts list 73:2 and Mobile / Application tracker 73:120 put the
+	// screen's one amber button in the header, shortened to fit.
+	expect(mobileChrome('/studio/posts')).toEqual({
+		title: 'Posts',
+		back: null,
+		action: { label: 'New', href: '/studio/posts/new' },
+		tabs: true
+	});
+	expect(mobileChrome('/studio/applications').action).toEqual({
+		label: 'Add',
+		href: '/studio/applications/new'
+	});
+});
+
+test('a screen inside a section gets a way back instead of the section name', () => {
+	// Mobile / New post 97:2871 and Mobile / Posts archive 97:2744: "‹ New post",
+	// "‹ Archive".
+	expect(mobileChrome('/studio/posts/archive')).toEqual({
+		title: 'Archive',
+		back: '/studio/posts',
+		action: null,
+		tabs: true
+	});
+});
+
+test('a form that is being written hides the tab bar', () => {
+	// Mobile / New post draws no tab bar: a half-written draft is not something
+	// to tab away from by accident.
+	expect(mobileChrome('/studio/posts/new')).toMatchObject({
+		title: 'New post',
+		back: '/studio/posts',
+		tabs: false
+	});
+	expect(mobileChrome('/studio/posts/post-1')).toMatchObject({
+		back: '/studio/posts',
+		tabs: false
+	});
+});
+
+test('anywhere else is named from the nav, with nothing added', () => {
+	expect(mobileChrome('/studio')).toEqual({
+		title: 'Overview',
+		back: null,
+		action: null,
+		tabs: true
+	});
+	expect(mobileChrome('/studio/topics')).toEqual({
+		title: 'Topics',
+		back: null,
+		action: null,
+		tabs: true
+	});
 });
