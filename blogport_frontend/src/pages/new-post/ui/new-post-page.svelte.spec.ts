@@ -18,13 +18,17 @@ test('names the screen', async () => {
 	await expect.element(screen.getByRole('heading', { level: 1 })).toHaveTextContent('New post');
 });
 
-test('says what creating does, before anyone presses the button', async () => {
-	// A "New post" screen that says nothing invites the fear that it publishes.
+test('the breadcrumb leads back to the list', async () => {
+	// Screen / New post: "Posts / New", with Posts a link.
 	const screen = render(NewPostPage, { oncreated: () => {} });
 
+	const crumbs = screen.getByRole('navigation', { name: 'Breadcrumb' });
 	await expect
-		.element(screen.getByText('It starts as a draft. Nothing is public until you publish it.'))
-		.toBeInTheDocument();
+		.element(crumbs.getByRole('link', { name: 'Posts' }))
+		.toHaveAttribute('href', '/studio/posts');
+	await expect
+		.element(crumbs.getByText('New', { exact: true }))
+		.toHaveAttribute('aria-current', 'page');
 });
 
 test('carries the form that does the work', async () => {

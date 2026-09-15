@@ -3,7 +3,8 @@
 	import { Button, Field, InlineAlert } from '$lib/shared/ui';
 	import type { HandlingClass } from '$lib/shared/lib/error-class';
 	import { SLUG_MAX, slugError, slugFrom } from '$lib/shared/lib/slug';
-	import { TITLE_COUNTER_FROM, TITLE_MAX, contentError, titleError } from '$lib/entities/post';
+	import { TITLE_COUNTER_FROM, TITLE_MAX, titleError } from '$lib/entities/post';
+	import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
 	import { checkSlug, createPost, type CreateField } from '../api/create-post';
 
 	/**
@@ -11,11 +12,11 @@
 	 *
 	 * The smallest thing that can exist, because the post has to exist before it
 	 * can have a cover image: media attaches to a `target_id`. Everything after
-	 * the first save belongs to the editor.
+	 * the first save belongs to the editor, the body included.
 	 *
-	 * The body is required here, which the journey does not say and the API
-	 * does: `validate_content` refuses an empty body outright, so a genuinely
-	 * blank draft cannot be created. Reported rather than worked around.
+	 * Design: Screen / New post 27:2 · Mobile / New post 97:2871. A card of three
+	 * fields with the note and the buttons beneath a rule; on a phone the card
+	 * falls away and Create draft goes full width, Cancel below it.
 	 */
 	let {
 		oncreated,
@@ -28,14 +29,13 @@
 
 	let title = $state('');
 	let slug = $state('');
-	let content = $state('');
+	let excerpt = $state('');
 
 	/** Until someone writes their own, the address follows the title. */
 	let slugIsTheirs = $state(false);
 
 	let titleProblem = $state<string | undefined>();
 	let slugProblem = $state<string | undefined>();
-	let contentProblem = $state<string | undefined>();
 
 	let failure = $state<string | undefined>();
 	/** Which of §07's six it was, so the colour is the class's and not a guess. */
@@ -110,13 +110,7 @@
 
 	async function focusFirstInvalid() {
 		await tick();
-		const id = titleProblem
-			? 'new-post-title'
-			: slugProblem
-				? 'new-post-slug'
-				: contentProblem
-					? 'new-post-content'
-					: null;
+		const id = titleProblem ? 'new-post-title' : slugProblem ? 'new-post-slug' : null;
 		if (!id) return;
 
 		const field = document.getElementById(id);
@@ -127,7 +121,9 @@
 	const under: Record<CreateField, (message: string) => void> = {
 		title: (message) => (titleProblem = message),
 		slug: (message) => (slugProblem = message),
-		content: (message) => (contentProblem = message)
+		// No body field here any more; if the server ever refuses one it is said
+		// in the alert rather than under a field that does not exist.
+		content: (message) => ((failure = message), (failureKind = 'field'))
 	};
 
 	async function submit(event: SubmitEvent) {
@@ -137,9 +133,8 @@
 		// Submit validates everything, whether or not it was touched.
 		titleProblem = titleError(title);
 		slugProblem = slugError(slug);
-		contentProblem = contentError(content);
 
-		if (titleProblem || slugProblem || contentProblem) {
+		if (titleProblem || slugProblem) {
 			failure = undefined;
 			await focusFirstInvalid();
 			return;
@@ -149,7 +144,7 @@
 		failure = undefined;
 		spinner = setTimeout(() => (slow = true), 400);
 
-		const result = await createPost({ title: title.trim(), slug: slug.trim(), content }, fetchFn);
+		const result = await createPost({ title: title.trim(), slug: slug.trim(), excerpt }, fetchFn);
 
 		submitting = false;
 		clearTimeout(spinner);
@@ -176,12 +171,16 @@
 	const showCounter = $derived(titleCount >= TITLE_COUNTER_FROM);
 </script>
 
-<form novalidate onsubmit={submit} class="flex w-full flex-col gap-[18px] md:gap-5">
+<form
+	novalidate
+	onsubmit={submit}
+	class="flex w-full flex-col gap-[18px] md:max-w-[560px] md:rounded-xl md:border md:border-arch-line
+	       md:bg-arch-surface md:p-[22px]"
+>
 	<Field
 		id="new-post-title"
 		label="Title"
 		name="title"
-		placeholder="Building a CMS in Rust"
 		required
 		bind:value={title}
 		error={titleProblem}
@@ -192,18 +191,17 @@
 	{#if showCounter}
 		<!-- A count, not a refusal: the field still takes what is typed and the
 		     server is what finally decides. -->
-		<p class="-mt-3 text-[11.5px] {titleCount > TITLE_MAX ? 'text-st-danger' : 'text-arch-muted'}">
+		<p class="-mt-3 text-[11px] {titleCount > TITLE_MAX ? 'text-st-danger' : 'text-arch-muted'}">
 			{titleCount} / {TITLE_MAX}
 		</p>
 	{/if}
 
 	<Field
 		id="new-post-slug"
-		label="Web address"
+		label="Address"
 		name="slug"
 		maxlength={SLUG_MAX}
-		placeholder="building-a-cms-in-rust"
-		help="This becomes the post's public address."
+		help="Derived from the title. Editable until the post is published — after that, changing it breaks the live URL."
 		required
 		bind:value={slug}
 		error={slugProblem}
@@ -215,39 +213,39 @@
 		<!-- The backend found this one and says it is free, which a "-2" guessed
 		     here would not be. -->
 		<div class="-mt-3 flex items-center gap-2.5">
-			<p class="text-[11.5px] text-st-inflight">That address is taken.</p>
-			<Button kind="ghost" label="Use {suggestion}" onclick={useSuggestion} />
+			<p class="text-[11px] text-st-inflight">That address is taken.</p>
+			<Button kind="ghost" size="compact" label="Use {suggestion}" onclick={useSuggestion} />
 		</div>
 	{/if}
 
 	<div class="flex flex-col gap-1.5">
-		<label for="new-post-content" class="text-[12.5px] font-medium text-arch-headline">
-			Post
-		</label>
-		<!-- Not a Field: that component is a single-line input by specification,
-		     and the body is the one thing on this screen that is not. -->
+		<label for="new-post-excerpt" class="text-[12px] text-arch-muted">Excerpt (optional)</label>
+		<!-- Not a Field: that component is a single-line input by specification. -->
 		<textarea
-			id="new-post-content"
-			name="content"
-			rows="8"
-			placeholder="Write the first line. You can finish it in the editor."
-			bind:value={content}
-			aria-invalid={contentProblem ? 'true' : undefined}
-			aria-describedby={contentProblem ? 'new-post-content-error' : undefined}
-			class="w-full rounded-lg border bg-arch-surface px-3 py-2.5 text-[13px]
-			       text-arch-headline placeholder:text-arch-muted
-			       {contentProblem ? 'border-st-danger' : 'border-arch-line-control'}"
-			oninput={() => contentProblem && (contentProblem = contentError(content))}
-			onblur={() => (contentProblem = contentError(content))}
+			id="new-post-excerpt"
+			name="excerpt"
+			rows="3"
+			bind:value={excerpt}
+			aria-describedby="new-post-excerpt-help"
+			class="min-h-[74px] w-full rounded-lg border border-arch-line-control bg-arch-surface
+			       px-3.5 py-[11px] text-[13px] leading-5 text-arch-headline"
 		></textarea>
-		{#if contentProblem}
-			<p id="new-post-content-error" class="text-[11.5px] text-st-danger">{contentProblem}</p>
-		{/if}
+		<p id="new-post-excerpt-help" class="text-[11px] text-arch-muted">
+			Plain text. Used as the meta description on the public page.
+		</p>
 	</div>
 
 	<InlineAlert message={failure} kind={failureKind} />
 
-	<div class="flex">
-		<Button type="submit" label="Create draft" loading={slow} disabled={submitting} />
+	<div class="h-px bg-arch-line" role="presentation"></div>
+
+	<div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+		<p class="text-[11.5px] text-arch-muted md:max-w-[300px]">
+			Creates a draft. You write the body next — nothing is public yet.
+		</p>
+		<div class="flex flex-col-reverse items-stretch gap-2 md:flex-row md:items-center">
+			<Button kind="ghost" label="Cancel" href={CONSOLE_ROUTES.posts} />
+			<Button type="submit" label="Create draft" loading={slow} disabled={submitting} />
+		</div>
 	</div>
 </form>
