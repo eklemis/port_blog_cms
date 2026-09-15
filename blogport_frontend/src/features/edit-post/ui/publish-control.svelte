@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { Button, StatusPill } from '$lib/shared/ui';
-	import { postStatus } from '$lib/entities/post';
+	import { Button } from '$lib/shared/ui';
 
 	/**
 	 * Publish, or schedule — J4 step five. One control with two outcomes.
@@ -33,7 +32,6 @@
 	let when = $state('');
 	let problem = $state<string | undefined>();
 
-	const status = $derived(postStatus(publishedAt, now));
 	const live = $derived(Boolean(publishedAt));
 
 	function schedule() {
@@ -51,56 +49,61 @@
 	}
 </script>
 
-<div class="flex flex-col gap-3 rounded-xl border border-arch-line bg-arch-surface p-4">
+<!--
+	The buttons at the right-hand end of the editor's top bar — Screen / Post
+	editor 32:934. Scheduling opens a small panel under them rather than a
+	second screen, because the sentence it has to say is short and the decision
+	belongs next to the button that made it.
+-->
+<div class="relative flex items-center gap-2">
 	{#if live}
-		<div class="flex items-center gap-2.5">
-			<StatusPill tone={status.tone} label={status.label} />
-		</div>
-		<p class="text-[12px] text-arch-muted">
-			Unpublishing puts it back to a draft. Its public address stops working, and any link anyone
-			has stops with it.
-		</p>
-		<div class="flex">
-			<Button kind="secondary" label="Unpublish" disabled={busy} onclick={onunpublish} />
-		</div>
-	{:else if scheduling}
-		<div class="flex flex-col gap-1.5">
-			<label for="publish-at" class="text-[12.5px] font-medium text-arch-headline">
-				Goes live
-			</label>
-			<input
-				id="publish-at"
-				type="datetime-local"
-				bind:value={when}
-				aria-invalid={problem ? 'true' : undefined}
-				aria-describedby={problem ? 'publish-at-error' : 'publish-at-help'}
-				class="rounded-lg border bg-arch-surface px-3 py-2.5 text-[13px] text-arch-headline
-				       {problem ? 'border-st-danger' : 'border-arch-line-control'}"
-			/>
-			{#if problem}
-				<p id="publish-at-error" class="text-[11.5px] text-st-danger">{problem}</p>
-			{:else}
-				<!-- Said before the fact, because nothing will say it afterwards. -->
-				<p id="publish-at-help" class="text-[11.5px] text-arch-muted">
-					It goes live on its own at that time. Nothing else has to happen, and nothing will show
-					here when it does.
-				</p>
-			{/if}
-		</div>
-		<div class="flex gap-2">
-			<Button label="Schedule" disabled={busy} onclick={schedule} />
-			<Button kind="ghost" label="Cancel" disabled={busy} onclick={() => (scheduling = false)} />
-		</div>
+		<Button kind="secondary" label="Unpublish" disabled={busy} onclick={onunpublish} />
 	{:else}
-		<p class="text-[12px] text-arch-muted">This is a draft. Nobody can see it yet.</p>
-		<div class="flex gap-2">
-			<Button label="Publish" disabled={busy} onclick={() => onpublish(null)} />
-			<Button
-				kind="ghost"
-				label="Schedule instead"
-				disabled={busy}
-				onclick={() => (scheduling = true)}
-			/>
-		</div>
+		<Button
+			kind="secondary"
+			label="Schedule"
+			disabled={busy}
+			onclick={() => (scheduling = !scheduling)}
+		/>
+		<Button label="Publish" disabled={busy} onclick={() => onpublish(null)} />
+
+		{#if scheduling}
+			<div
+				class="absolute top-full right-0 z-10 mt-2 flex w-[300px] flex-col gap-3 rounded-xl border
+				       border-arch-line bg-arch-surface p-4 shadow-lg"
+			>
+				<div class="flex flex-col gap-1.5">
+					<label for="publish-at" class="text-[12px] text-arch-muted">Goes live</label>
+					<input
+						id="publish-at"
+						type="datetime-local"
+						bind:value={when}
+						aria-invalid={problem ? 'true' : undefined}
+						aria-describedby={problem ? 'publish-at-error' : 'publish-at-help'}
+						class="rounded-lg border bg-arch-surface px-3 py-2.5 text-[13px] text-arch-headline
+						       {problem ? 'border-st-danger' : 'border-arch-line-control'}"
+					/>
+					{#if problem}
+						<p id="publish-at-error" class="text-[11px] text-st-danger">{problem}</p>
+					{:else}
+						<!-- Said before the fact, because nothing will say it afterwards. -->
+						<p id="publish-at-help" class="text-[11px] text-arch-muted">
+							It goes live on its own at that time. Nothing else has to happen, and nothing will
+							show here when it does.
+						</p>
+					{/if}
+				</div>
+				<div class="flex justify-end gap-2">
+					<Button
+						kind="ghost"
+						size="compact"
+						label="Cancel"
+						disabled={busy}
+						onclick={() => (scheduling = false)}
+					/>
+					<Button size="compact" label="Schedule post" disabled={busy} onclick={schedule} />
+				</div>
+			</div>
+		{/if}
 	{/if}
 </div>

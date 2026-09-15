@@ -155,10 +155,12 @@ test('a form that is being written hides the tab bar', () => {
 		back: '/studio/posts',
 		tabs: false
 	});
-	expect(mobileChrome('/studio/posts/post-1')).toMatchObject({
-		back: '/studio/posts',
-		tabs: false
-	});
+});
+
+test('the editor draws its own header, so the shell draws none', () => {
+	// Mobile / Post editor 73:236: back, status pill and Publish in one bar
+	// that belongs to the editor, and no tab bar.
+	expect(mobileChrome('/studio/posts/post-1')).toMatchObject({ bare: true, tabs: false });
 });
 
 test('anywhere else is named from the nav, with nothing added', () => {
