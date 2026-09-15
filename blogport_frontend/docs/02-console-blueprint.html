@@ -483,10 +483,10 @@ footer .prose { max-width: 62ch; }
         <thead><tr><th>Route</th><th>Screen</th><th>Backed by</th></tr></thead>
         <tbody>
           <tr><td><code>/studio</code></td><td>Overview — four counts, Needs attention, Getting started</td><td class="dim mono">GET /api/blog · /api/projects · /api/cvs · /api/applications · /api/topics<br><span style="color:var(--st-danger)">the stat sub-lines and Needs attention are not backed — see §09</span></td></tr>
-          <tr><td><code>/studio/posts</code></td><td>Posts — search, topic filter, draft/published toggle, sort, paging</td><td class="dim mono">GET /api/blog<br>GET /api/topics — the filter's options</td></tr>
+          <tr><td><code>/studio/posts</code></td><td>Posts — search, topic filter, draft/published toggle, sort, paging</td><td class="dim mono">GET /api/blog<br>GET /api/topics — the filter's options<br>GET /api/blog?deleted=true&amp;per_page=1 — the archive count<br>DELETE /api/blog/{id} — Archive, from the row menu</td></tr>
           <tr><td><code>/studio/posts/new</code></td><td>New post</td><td class="dim mono">POST /api/blog<br>GET /api/blog/slug-available — checked, not guessed</td></tr>
-          <tr><td><code>/studio/posts/[id]</code></td><td>Post editor — content, topics, cover, schedule</td><td class="dim mono">GET·PATCH /api/blog/{id}<br>GET·POST·DELETE /api/blog/{id}/topics<br>DELETE /api/blog/{id}/topics/all</td></tr>
-          <tr><td><code>/studio/posts/archive</code></td><td>Archived posts — restore or purge</td><td class="dim mono">POST /api/blog/{id}/restore<br>DELETE /api/blog/{id}/hard</td></tr>
+          <tr><td><code>/studio/posts/[id]</code></td><td>Post editor — content, topics, cover, schedule</td><td class="dim mono">GET·PATCH /api/blog/{id}<br>GET·POST·DELETE /api/blog/{id}/topics<br>DELETE /api/blog/{id}/topics/all<br>GET·POST·DELETE /api/blog/{id}/preview — Preview<br>DELETE /api/blog/{id} — Archive, from the ⋯ menu</td></tr>
+          <tr><td><code>/studio/posts/archive</code></td><td>Archived posts — restore or purge</td><td class="dim mono">GET /api/blog?deleted=true<br>POST /api/blog/{id}/restore<br>DELETE /api/blog/{id}/hard<br>POST /api/blog/bulk — Restore both · Purge both</td></tr>
           <tr><td><code>/studio/projects</code></td><td>Projects — search, topic filter, sort, paging</td><td class="dim mono">GET /api/projects</td></tr>
           <tr><td><code>/studio/projects/[id]</code></td><td>Project editor — stack, links, screenshots, topics</td><td class="dim mono">GET·PATCH /api/projects/{id}<br>GET·POST·DELETE /api/projects/{id}/topics</td></tr>
           <tr><td><code>/studio/resumes</code></td><td>Résumés — list, search, sort</td><td class="dim mono">GET /api/cvs</td></tr>
@@ -519,6 +519,32 @@ footer .prose { max-width: 62ch; }
     </div>
 
     <div class="callout">
+      <h4>What the tracker's cells link to</h4>
+      <p>
+        <b>The row opens nothing.</b> There is no application detail screen, and the role cell is
+        drawn in headline colour, not accent — it is not a link. The stored job description has no
+        screen to be read on either; that is a gap, filed below, not a link to invent.
+      </p>
+      <p>
+        <b>Next action is two different things in one cell.</b> Where the application owes a step,
+        the cell shows a <em>derived</em> action as a link, and it is chosen by status, never by
+        text: <span class="pill p-neutral">draft</span> with no CV snapshot →
+        <span class="say">Tailor CV</span> (<code>/tailor</code>);
+        <span class="pill p-danger">rejected</span>, <span class="pill p-dormant">withdrawn</span> or
+        <span class="pill p-dormant">no reply</span> with no reflection →
+        <span class="say">Add reflection</span> (<code>/reflection</code>). Otherwise the cell shows
+        the person's own <code>next_action</code> in headline colour, not a link, or an em dash when
+        it is empty. The frames now draw "Prep system design" and "Follow up Fri" that way.
+      </p>
+      <p>
+        Until a derived action's screen exists, render it as plain text — accent ink on text that
+        goes nowhere promises a link. The Career Studio paper says only "the last two" outcomes open
+        reflection, while J15 and its own tracker table say any negative one; this rule follows the
+        latter, which is also what the frame draws.
+      </p>
+    </div>
+
+    <div class="callout">
       <h4>Reflections are the one thing in this product that never leaves it</h4>
       <p>
         <a href="../../backend_actix/docs/adr/0009-reflections-never-feed-generation.md">ADR 0009</a>
@@ -539,6 +565,7 @@ footer .prose { max-width: 62ch; }
           <tr><td><code>/[username]/projects</code></td><td>Author's projects</td><td class="dim mono">GET /api/public/projects/{username}</td></tr>
           <tr><td><code>/[username]/projects/[slug]</code></td><td>A project</td><td class="dim mono">GET /api/public/projects/{username}/{slug}</td></tr>
           <tr><td><code>/[username]/cv/[id]</code></td><td>A shared résumé</td><td class="dim mono">GET /api/public/cvs/{username}/{cv_id}</td></tr>
+          <tr><td><code>/preview/[token]</code></td><td>A draft, read through its preview link — the public post layout with a "Draft preview" strip</td><td class="dim mono">GET /api/public/blog/preview/{token}<br>GET /api/public/blog/preview/{token}/media/{id}/{size}</td></tr>
           <tr><td colspan="3" class="dim">Auth surfaces: <code>/auth/login</code> · <code>/auth/register</code> · <code>/auth/forgot</code> · <code>/auth/reset/[token]</code> · <code>/email/verification/[token]</code> · <code>/verify</code> (hold screen) · <code>/account/closed</code> (where J2 sends <code>USER_DELETED</code>)</td></tr>
         </tbody>
       </table>
@@ -599,7 +626,7 @@ footer .prose { max-width: 62ch; }
             </li>
             <li>
               <div class="step-title">First run: three things, then get out of the way</div>
-              <div class="step-note">A dismissible checklist on <code>/studio</code> — create a topic, write a first post, add a résumé. It disappears for good once any two are done; it is not a permanent fixture.</div>
+              <div class="step-note">A dismissible checklist on <code>/studio</code> — create a topic, write a first post, add a résumé. Two ways out, both permanent: the <b>×</b> in its header, or any two items done. There is no account field for this, so "for good" means this browser — store it locally and say nothing about it. <code>Screen / Overview</code> now draws the ×; the sentence that used to sit inside the card was an annotation parented to the wrong layer and has been removed. The frame's sample — two ticks, still showing, beside 24 posts — is not a reachable state; do not test against it.</div>
             </li>
           </ol>
           <div class="branches">
@@ -726,6 +753,11 @@ footer .prose { max-width: 62ch; }
               <div class="step-title">Publish, or schedule</div>
               <div class="step-note">One control with two outcomes: "Publish now" sets <code>published_at</code> to now; "Schedule" sets a future timestamp. A future date means the post goes live with no further call — the UI must say so plainly, because nothing will happen on screen when it does.</div>
               <div class="step-call">PATCH /api/blog/{id} { published_at }</div>
+            </li>
+            <li>
+              <div class="step-title">Preview goes through the share link, not a private render</div>
+              <div class="step-note"><b>Preview</b> in the top bar calls <code>POST /api/blog/{id}/preview</code> — which creates the link or extends the one that exists — and opens <code>/preview/[token]</code> in a new tab. That is the same page a reviewer sees, so the author checks exactly what they would send. The token is a bearer credential: the page is <code>noindex, nofollow</code>, never puts the token in an outbound link, and an unknown, withdrawn or expired token is one indistinguishable 404. Withdrawing lives in the ⋯ menu beside Archive.</div>
+              <div class="step-call">POST /api/blog/{id}/preview → { token, expires_at }</div>
             </li>
             <li>
               <div class="step-title">Confirm with the real address</div>
@@ -1231,6 +1263,15 @@ footer .prose { max-width: 62ch; }
         <p><b>Archive</b> — one click, undo toast for 8 seconds. <b>Restore</b> — one click, no
         confirm. <b>Purge</b> — a dialog naming the item, requiring the title to be typed, with a
         danger-coloured button. Never skip a rung, and never dress a purge as an archive.</p>
+        <p><b>Where Archive lives.</b> A ⋯ menu at the end of each row on desktop and tablet, and a
+        ⋯ menu at the end of the editor's top bar at every width. Not on phone cards — a swipe is
+        undiscoverable and a 32px menu on a card invites the wrong tap. The toast reads
+        <span class="say">"Archived. Undo · View archive"</span>. The archive itself is reached from
+        <span class="say">View archive (3)</span> beside the count under the list, never beside the
+        primary action — it is a destination, not a thing to do.</p>
+        <p><b>Purging several.</b> A selection has no title, so type the number:
+        <span class="say">"Type 2 to purge 2 posts."</span> It still makes the count a deliberate
+        act, which is all the title was ever doing.</p>
       </div>
       <div class="law">
         <h4>PATCH is tri-state; the UI must be too</h4>
@@ -1261,6 +1302,16 @@ footer .prose { max-width: 62ch; }
         <h4>The save indicator is singular</h4>
         <p>Autosaving screens report state in one fixed place near the title. No toast per keystroke,
         no second indicator in a corner. Toasts are for things a person cannot see happen.</p>
+        <p>On a phone that place is the top bar, beside the status pill — one live region, one
+        element, the same at every width. <code>Mobile / Post editor</code> used to draw it under the
+        body; it now matches.</p>
+      </div>
+      <div class="law">
+        <h4>Dates go through <code>Intl</code>, even when a frame disagrees</h4>
+        <p>Day, then a short month: <code>Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' })</code>.
+        In <code>en-GB</code> that writes <span class="say">14 Sept</span>, and that is correct —
+        the frames' "14 Aug" is sample data, not a spelling rule. A hand-built "14 Sep" is exactly the
+        hard-coded format the Career Studio paper calls a bug the moment Indonesian arrives.</p>
       </div>
       <div class="law">
         <h4>Never render a raw error code</h4>
@@ -1478,7 +1529,7 @@ footer .prose { max-width: 62ch; }
     <div class="sec-head"><span class="sec-num">09</span><h2>Where the API and the journeys don't meet</h2></div>
     <p class="sec-lede">
       This section listed fourteen gaps. <b>Backend round one shipped all fourteen</b>, including the
-      two both sides had written off. Eight narrower gaps remain. Four of them, added after the frontend began building, do block a screen.
+      two both sides had written off. Eight narrower gaps remain. Three of them block a screen. The archive listing closed when <code>GET /api/blog</code> gained <code>deleted</code>.
       What follows is the resolved list first, because several of the rules elsewhere in this
       document only made sense while those gaps existed.
     </p>
@@ -1542,18 +1593,17 @@ footer .prose { max-width: 62ch; }
         built</b>; it is never filled with em dashes, which would read as "no topics" on every row.</p>
       </div>
       <div class="gap">
-        <h4>Archived posts cannot be listed</h4>
-        <span class="sev sev-block">blocks</span>
-        <p><code>/studio/posts/archive</code> is in the map above with restore and hard-delete, but
-        the owner list hard-codes <code>is_deleted = false</code> and no other endpoint returns
-        archived rows. The screen has two actions and nothing to run them on. Found while ruling on
-        the Topics column, not by reaching the route — the sixth instance of this pattern.</p>
+        <h4>An application's job posting has nowhere to be read</h4>
+        <span class="sev sev-seam">seam</span>
+        <p>J11 stores the raw description verbatim because "at interview time it is the only record
+        of what was actually asked for" — and no screen shows it. The tracker row cannot link to a
+        posting view that is not drawn.</p>
       </div>
       <div class="gap">
         <h4>The overview's sub-lines and Needs attention have no query behind them</h4>
         <span class="sev sev-block">blocks</span>
         <p>"12 live · 9 drafts · 3 archived" needs per-status counts, and <code>total</code> does not
-        carry them — <code>archived</code> is unobtainable at all, per the gap above. <b>Needs
+        carry them — <code>archived</code> is now one more <code>deleted=true&amp;per_page=1</code> call. <b>Needs
         attention</b> wants failed uploads (<code>/api/media/statuses</code> polls ids you already
         hold; there is no "show me the failed ones") and applications with no reply
         (<code>GET /api/applications</code> takes no parameters). The existing <i>No summary
