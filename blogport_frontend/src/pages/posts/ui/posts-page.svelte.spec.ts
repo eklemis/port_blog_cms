@@ -69,23 +69,29 @@ test('the archive is one step away, because nothing else leads there', async () 
 });
 
 test('each row names its topics, straight from the list', async () => {
-	// The card carries them now, loaded once for the page — so this is a
-	// column and not one request per row.
+	// Screen / Posts list 11:2: Title · Status · Topics · Updated, the topics
+	// as one line joined with a middle dot. The card carries them now, loaded
+	// once for the page — a column, not one request per row.
 	const screen = render(PostsPage, base);
 
-	await expect.element(screen.getByRole('columnheader', { name: 'Topics' })).toBeInTheDocument();
+	const headers = screen
+		.getByRole('columnheader')
+		.elements()
+		.map((el) => el.textContent?.trim());
+	expect(headers).toEqual(['Title', 'Status', 'Topics', 'Updated']);
+
 	const first = screen.getByRole('row').nth(1);
-	await expect.element(first.getByText('Distributed Systems', { exact: true })).toBeInTheDocument();
+	await expect.element(first.getByText('Rust · Distributed Systems')).toBeInTheDocument();
 });
 
-test('a post with no topics has an empty cell, not a dash', async () => {
-	// Empty means the post has none — the backend is explicit that it never
-	// means "not loaded" — so nothing is the true thing to draw. A dash would
-	// read as missing data.
+test('a post with no topics shows the dash the frame draws', async () => {
+	// The frame's "Consensus reading list" row. Before topics were on the card,
+	// a dash in every row would have been a claim nobody could back; now empty
+	// means the post has none, which is exactly what a dash says.
 	const screen = render(PostsPage, base);
 
 	const second = screen.getByRole('row').nth(2);
-	expect(second.getByText('—').elements()).toHaveLength(0);
+	await expect.element(second.getByText('—', { exact: true })).toBeInTheDocument();
 });
 
 test('lists the posts with the state each is in', async () => {
