@@ -3,6 +3,7 @@ export {
 	contentError,
 	postStatus,
 	publicPostPath,
+	scheduledLabel,
 	titleError,
 	updatedLabel,
 	TITLE_COUNTER_FROM,

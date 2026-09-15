@@ -4,6 +4,7 @@ import {
 	TITLE_MAX,
 	postStatus,
 	publicPostPath,
+	scheduledLabel,
 	titleError,
 	updatedLabel
 } from './post';
@@ -93,4 +94,17 @@ test('the public address is the one the surface map gives', () => {
 
 test('both halves are escaped, because both come from a person', () => {
 	expect(publicPostPath('jane doe', 'a slug')).toBe('/jane%20doe/blog/a%20slug');
+});
+
+// ── when a scheduled post goes live ────────────────────────────────────────
+
+test('a scheduled post says when it goes live, the way the mobile card does', () => {
+	// Mobile / Posts list 73:31: "goes live tomorrow".
+	expect(scheduledLabel('2026-09-09T09:00:00Z', NOW)).toBe('goes live tomorrow');
+	expect(scheduledLabel('2026-09-08T15:00:00Z', NOW)).toBe('goes live in 3 hours');
+	expect(scheduledLabel('2026-09-22T12:00:00Z', NOW)).toBe('goes live in 2 weeks');
+});
+
+test('far enough out, it names the month rather than counting', () => {
+	expect(scheduledLabel('2027-01-10T12:00:00Z', NOW)).toBe('goes live in Jan 2027');
 });

@@ -92,3 +92,38 @@ export function contentError(content: string): string | undefined {
 export function publicPostPath(username: string, slug: string): string {
 	return `/${encodeURIComponent(username)}/blog/${encodeURIComponent(slug)}`;
 }
+
+const HOUR_MS = 3_600_000;
+const DAY_MS = 24 * HOUR_MS;
+const WEEK_MS = 7 * DAY_MS;
+
+/**
+ * When a scheduled post goes live, as Mobile / Posts list 73:31 says it:
+ * "goes live tomorrow", "goes live in 3 hours", and past five weeks the month
+ * — "goes live in Jan 2027" — because a countdown in weeks stops meaning much.
+ *
+ * Only for a date in the future. A post whose date has passed is live, and
+ * says so through `postStatus`.
+ */
+export function scheduledLabel(publishedAt: string, now: Date = new Date()): string {
+	const when = new Date(publishedAt);
+	const ahead = when.getTime() - now.getTime();
+	const relative = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+
+	// Days by the calendar, not by 24-hour blocks: nine tomorrow morning is
+	// "tomorrow" even when it is only fourteen hours away.
+	const midnight = (date: Date) =>
+		new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+	const days = Math.round((midnight(when) - midnight(now)) / DAY_MS);
+
+	if (days === 0)
+		return `goes live ${relative.format(Math.max(1, Math.round(ahead / HOUR_MS)), 'hour')}`;
+	if (days < 7) return `goes live ${relative.format(days, 'day')}`;
+	if (ahead < 5 * WEEK_MS)
+		return `goes live ${relative.format(Math.round(ahead / WEEK_MS), 'week')}`;
+
+	const month = new Intl.DateTimeFormat(undefined, { month: 'short', year: 'numeric' }).format(
+		when
+	);
+	return `goes live in ${month}`;
+}
