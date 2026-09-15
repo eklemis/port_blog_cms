@@ -60,7 +60,13 @@ test('empty says what the screen is for and offers the one action', async () => 
 		perPage: 10
 	});
 
-	await expect.element(screen.getByText('No applications yet.')).toBeInTheDocument();
+	// Screen / Applications — empty 84:701.
+	await expect
+		.element(screen.getByText('No applications yet', { exact: true }))
+		.toBeInTheDocument();
+	await expect
+		.element(screen.getByText('Paste a job posting and the tracker starts from there.'))
+		.toBeInTheDocument();
 	// Not "Add a job" twice: the header already says that, and two links with
 	// the same name on one screen is a list a screen reader cannot tell apart.
 	await expect
@@ -81,8 +87,12 @@ test('an error says what failed and that nothing was lost', async () => {
 		perPage: 10
 	});
 
-	await expect.element(screen.getByText("We couldn't load your applications.")).toBeInTheDocument();
-	await expect.element(screen.getByText(/Nothing has happened to them/)).toBeInTheDocument();
+	await expect
+		.element(screen.getByRole('heading', { name: 'Couldn’t load your applications' }))
+		.toBeInTheDocument();
+	await expect
+		.element(screen.getByText('Something went wrong on our side. Your applications are safe.'))
+		.toBeInTheDocument();
 
 	await expectNoA11yViolations(document.body, UNSTYLED_GEOMETRY);
 });
@@ -135,7 +145,7 @@ test('loading is rows, not a spinner, and it is announced', async () => {
 	});
 
 	await expect.element(screen.getByRole('status')).toHaveTextContent('Loading applications');
-	expect(screen.getByText('No applications yet.').elements()).toHaveLength(0);
+	expect(screen.getByText('No applications yet', { exact: true }).elements()).toHaveLength(0);
 });
 
 test('the table names its columns for a screen reader, not just visually', async () => {

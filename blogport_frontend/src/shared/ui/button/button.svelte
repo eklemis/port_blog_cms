@@ -19,6 +19,7 @@
 		loading = false,
 		disabledReason,
 		icon,
+		size = 'regular',
 		onclick
 	}: {
 		label: string;
@@ -36,8 +37,18 @@
 		/** Why it is disabled. A disabled control with no reason is a dead end. */
 		disabledReason?: string;
 		icon?: Snippet;
+		/**
+		 * `compact` is the action inside a CollectionState (20:23): 12.5px with
+		 * 14/9 padding. Still well clear of 2.5.8's 24px floor.
+		 */
+		size?: 'regular' | 'compact';
 		onclick?: (event: MouseEvent) => void;
 	} = $props();
+
+	const SIZE = {
+		regular: 'min-h-11 px-4 py-2 text-sm',
+		compact: 'px-3.5 py-[9px] text-[12.5px]'
+	};
 
 	const KIND: Record<Kind, string> = {
 		primary: 'bg-arch-accent text-arch-accent-on border-transparent',
@@ -63,9 +74,9 @@
 {#if href}
 	<a
 		{href}
-		class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border
-	       px-4 py-2 text-sm font-semibold transition-colors
-	       disabled:cursor-not-allowed disabled:opacity-55 {KIND[kind]}"
+		class="inline-flex items-center justify-center gap-2 rounded-lg border
+	       font-semibold transition-colors
+	       disabled:cursor-not-allowed disabled:opacity-55 {SIZE[size]} {KIND[kind]}"
 	>
 		{#if icon}
 			{@render icon()}
@@ -75,9 +86,9 @@
 {:else}
 	<button
 		{type}
-		class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border
-	       px-4 py-2 text-sm font-semibold transition-colors
-	       disabled:cursor-not-allowed disabled:opacity-55 {KIND[kind]}"
+		class="inline-flex items-center justify-center gap-2 rounded-lg border
+	       font-semibold transition-colors
+	       disabled:cursor-not-allowed disabled:opacity-55 {SIZE[size]} {KIND[kind]}"
 		disabled={disabled || loading}
 		aria-busy={loading}
 		aria-describedby={reasonId}

@@ -1,38 +1,44 @@
 <script lang="ts">
 	/**
-	 * What a list looks like before it arrives.
+	 * What a list looks like before it arrives — CollectionState's loading
+	 * state (20:2).
 	 *
-	 * Rows shaped like real rows, never a centred spinner: a spinner says
-	 * "wait", a skeleton says "a table is coming and it is about this big".
+	 * Bars in the same card the other three states use, never a centred
+	 * spinner: a spinner says "wait", a skeleton says something is coming and
+	 * roughly how much. The four lengths are the frame's own, so the rows read
+	 * as rows rather than as a progress bar.
 	 *
-	 * The shapes are decoration and are hidden from assistive technology — a
-	 * screen reader walking them would read a dozen empty boxes. The one thing
-	 * it should hear is the label, once.
+	 * The shapes are decoration and hidden from assistive technology — a screen
+	 * reader walking them would read four empty boxes. The one thing it should
+	 * hear is the label, once.
 	 */
 	let {
 		label,
-		/** Six, because that is what a page of rows looks like. */
-		rows = 6
+		/** Four, as the frame draws. */
+		rows = 4
 	}: {
 		label: string;
 		rows?: number;
 	} = $props();
 
-	const shapes = $derived(Array.from({ length: rows }, (_, index) => index));
+	/** 317, 253, 296 and 211px — CollectionState 20:3 to 20:6. */
+	const LENGTHS = [317, 253, 296, 211];
+
+	const shapes = $derived(Array.from({ length: rows }, (_, index) => LENGTHS[index % 4]));
 </script>
 
-<div class="overflow-hidden rounded-xl border border-arch-line bg-arch-surface">
+<div
+	class="flex min-h-[226px] flex-col items-start gap-3 rounded-xl border border-arch-line
+	       bg-arch-surface p-6"
+>
 	<div role="status" class="sr-only">{label}</div>
 
-	{#each shapes as row (row)}
+	{#each shapes as length, index (index)}
 		<div
 			data-skeleton-row
 			aria-hidden="true"
-			class="flex h-[46px] items-center gap-4 border-b border-arch-line px-[18px] last:border-b-0"
-		>
-			<div class="h-3 w-[46%] rounded bg-arch-surface-2"></div>
-			<div class="h-3 w-16 rounded bg-arch-surface-2"></div>
-			<div class="ml-auto h-3 w-20 rounded bg-arch-surface-2"></div>
-		</div>
+			class="h-3.5 max-w-full rounded bg-arch-surface-2"
+			style:width="{length}px"
+		></div>
 	{/each}
 </div>

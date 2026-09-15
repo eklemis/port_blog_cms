@@ -52,23 +52,28 @@
 	</div>
 
 	{#if failed}
-		<!-- Never blames the person; always says their work is safe. -->
+		<!-- CollectionState / error: never blames the person, says the work is safe. -->
 		<EmptyState
-			title="We couldn't load your applications."
-			message="Nothing has happened to them. Try again in a moment."
+			tone="danger"
+			title="Couldn’t load your applications"
+			message="Something went wrong on our side. Your applications are safe."
 		/>
 	{:else if loading}
 		<SkeletonRows label="Loading applications" />
 	{:else if rows.length === 0}
-		<!-- Why it is empty, and the one action that fixes it. -->
+		<!-- Screen / Applications — empty 84:701: the one action that fixes it. -->
 		<EmptyState
-			title="No applications yet."
-			message="Paste a job posting and this is where it will be tracked."
+			title="No applications yet"
+			message="Paste a job posting and the tracker starts from there."
 		>
 			{#snippet action()}
 				<!-- Named differently from the header's button on purpose: two links
 				     with the same accessible name is a list nobody can tell apart. -->
-				<Button label="Add your first job" href={`${CONSOLE_ROUTES.applications}/new`} />
+				<Button
+					size="compact"
+					label="Add your first job"
+					href={`${CONSOLE_ROUTES.applications}/new`}
+				/>
 			{/snippet}
 		</EmptyState>
 	{:else}

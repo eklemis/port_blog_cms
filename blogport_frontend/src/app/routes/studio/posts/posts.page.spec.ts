@@ -30,11 +30,18 @@ const { load } = await import('./+page.server');
  * The blog list's answer. Topics answer separately and always succeed unless a
  * test says otherwise — they are the filter's options, not the list itself.
  */
-function page(body: unknown, ok = true, topics: unknown = { data: [] }) {
+function page(
+	body: unknown,
+	ok = true,
+	topics: unknown = { data: [] },
+	summary: unknown = { data: { live: 12, drafts: 9, archived: 3 } }
+) {
 	fetchImpl.mockImplementation(async (_event: unknown, path: string) =>
 		String(path).startsWith('/api/topics')
 			? { ok: true, json: async () => topics }
-			: { ok, json: async () => body }
+			: String(path).startsWith('/api/blog/summary')
+				? { ok: true, json: async () => summary }
+				: { ok, json: async () => body }
 	);
 }
 
@@ -158,6 +165,41 @@ test('losing the topics loses the control, not the list', async () => {
 	const data = await load(event() as never);
 
 	expect(data).toMatchObject({ topics: [], failed: false });
+});
+
+// ── what there is, beneath a filter ────────────────────────────────────────
+
+test('a filtered list also knows how many posts there are in all', async () => {
+	// The filtered-empty sentence says "You have 24 posts — none of them are…".
+	// The filtered total is the zero that brought someone there, so the count
+	// comes from the summary: live and drafts, since archived posts are not in
+	// this list.
+	page({ data: { items: [], total: 0 } });
+
+	const data = await load(event('?published=false') as never);
+
+	expect(data).toMatchObject({ everything: 21 });
+});
+
+test('an unfiltered list does not ask, because nothing would read the answer', async () => {
+	page(rows);
+
+	await load(event() as never);
+
+	const asked = fetchImpl.mock.calls.map((call) => String(call[1]));
+	expect(asked.some((path) => path.startsWith('/api/blog/summary'))).toBe(false);
+});
+
+test('a count that could not be had is null, not zero', async () => {
+	fetchImpl.mockImplementation(async (_event: unknown, path: string) =>
+		String(path).startsWith('/api/blog/summary')
+			? { ok: false, json: async () => ({}) }
+			: String(path).startsWith('/api/topics')
+				? { ok: true, json: async () => ({ data: [] }) }
+				: { ok: true, json: async () => ({ data: { items: [], total: 0 } }) }
+	);
+
+	expect(await load(event('?search=kafka') as never)).toMatchObject({ everything: null });
 });
 
 test('a failed fetch is a state, not an exception', async () => {

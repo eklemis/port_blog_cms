@@ -40,6 +40,7 @@
 	posts={data.posts}
 	topics={data.topics}
 	total={data.total}
+	everything={data.everything}
 	page={data.page}
 	perPage={data.perPage}
 	filtered={data.filtered}

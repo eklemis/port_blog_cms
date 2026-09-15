@@ -217,7 +217,7 @@ test('purging a selection asks for how many, then sends one call', async () => {
 test('an empty archive says what it is for', async () => {
 	const screen = render(PostsArchivePage, props({ posts: [], total: 0 }));
 
-	await expect.element(screen.getByText('Nothing archived.')).toBeInTheDocument();
+	await expect.element(screen.getByText('Nothing archived', { exact: true })).toBeInTheDocument();
 });
 
 test('has no accessibility violations', async () => {

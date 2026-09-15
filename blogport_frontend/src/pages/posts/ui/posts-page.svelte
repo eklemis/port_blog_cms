@@ -5,6 +5,7 @@
 	import { Button, EmptyState, SkeletonRows, StatusPill } from '$lib/shared/ui';
 	import { postStatus, updatedLabel } from '$lib/entities/post';
 	import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
+	import { filteredSentence } from '../model/filtered-sentence';
 
 	/**
 	 * `/studio/posts`.
@@ -37,6 +38,7 @@
 		posts,
 		topics,
 		total,
+		everything = null,
 		page,
 		perPage,
 		filtered,
@@ -52,6 +54,11 @@
 		/** The filter's options. Empty means the request for them failed. */
 		topics: Topic[];
 		total: number;
+		/**
+		 * Every post in the main list, unfiltered — for the filtered-empty
+		 * sentence, where `total` is the zero that brought someone there.
+		 */
+		everything?: number | null;
 		page: number;
 		perPage: number;
 		filtered: boolean;
@@ -96,6 +103,8 @@
 		}, 300);
 	}
 
+	const topicTitle = $derived(topics.find((option) => option.id === topic)?.title ?? null);
+
 	const lastPage = $derived(Math.max(1, Math.ceil(total / perPage)));
 	const showing = $derived(posts.length);
 </script>
@@ -122,91 +131,100 @@
 		</div>
 	</div>
 
-	<!-- Search left, filters centre, sort right — the same bar on every list. -->
-	<div class="flex flex-wrap items-center gap-2.5">
-		<div
-			class="flex h-[38px] w-full items-center gap-2.5 rounded-lg border border-arch-line
+	<!--
+		Search left, filters centre, sort right — the same bar on every list. Not
+		drawn when there are no posts at all: Screen / Posts — empty hides it,
+		because controls that cannot do anything are noise. It stays for the error
+		and filtered states, where the query is the thing worth keeping.
+	-->
+	{#if !(posts.length === 0 && !filtered && !failed && !loading)}
+		<div class="flex flex-wrap items-center gap-2.5">
+			<div
+				class="flex h-[38px] w-full items-center gap-2.5 rounded-lg border border-arch-line
 			       bg-arch-surface px-3 md:w-[280px]"
-		>
-			<Search size={16} aria-hidden="true" class="shrink-0 text-arch-muted" />
-			<input
-				type="search"
-				aria-label="Search posts"
-				placeholder="Search posts…"
-				value={term}
-				oninput={(event) => typeSearch(event.currentTarget.value)}
-				class="w-full min-w-0 bg-transparent text-[13px] text-arch-headline
-				       placeholder:text-arch-muted focus:outline-none"
-			/>
-		</div>
-
-		<label class="sr-only" for="posts-published">Show</label>
-		<select
-			id="posts-published"
-			value={published ?? ''}
-			onchange={(event) => onquery({ published: event.currentTarget.value || null, page: null })}
-			class="h-[38px] rounded-lg border border-arch-line-control bg-arch-surface px-3
-			       text-[13px] font-semibold text-arch-headline"
-		>
-			<option value="">Drafts &amp; published</option>
-			<option value="true">Published</option>
-			<option value="false">Drafts only</option>
-		</select>
-
-		<!-- No options means the request for them failed. A select with nothing
-		     in it is a worse answer than no control at all. -->
-		{#if topics.length > 0}
-			<label class="sr-only" for="posts-topic">Topic</label>
-			<select
-				id="posts-topic"
-				value={topic ?? ''}
-				onchange={(event) => onquery({ topic_id: event.currentTarget.value || null, page: null })}
-				class="h-[38px] rounded-lg border border-arch-line-control bg-arch-surface px-3
-				       text-[13px] font-semibold text-arch-headline"
 			>
-				<option value="">All topics</option>
-				{#each topics as option (option.id)}
-					<option value={option.id}>{option.title}</option>
-				{/each}
-			</select>
-		{/if}
+				<Search size={16} aria-hidden="true" class="shrink-0 text-arch-muted" />
+				<input
+					type="search"
+					aria-label="Search posts"
+					placeholder="Search posts…"
+					value={term}
+					oninput={(event) => typeSearch(event.currentTarget.value)}
+					class="w-full min-w-0 bg-transparent text-[13px] text-arch-headline
+				       placeholder:text-arch-muted focus:outline-none"
+				/>
+			</div>
 
-		<label class="sr-only" for="posts-sort">Sort by</label>
-		<select
-			id="posts-sort"
-			value={sort ?? 'published_newest'}
-			onchange={(event) => onquery({ sort: event.currentTarget.value, page: null })}
-			class="ml-auto h-[38px] rounded-lg bg-transparent px-3 text-[13px] font-semibold
+			<label class="sr-only" for="posts-published">Show</label>
+			<select
+				id="posts-published"
+				value={published ?? ''}
+				onchange={(event) => onquery({ published: event.currentTarget.value || null, page: null })}
+				class="h-[38px] rounded-lg border border-arch-line-control bg-arch-surface px-3
+			       text-[13px] font-semibold text-arch-headline"
+			>
+				<option value="">Drafts &amp; published</option>
+				<option value="true">Published</option>
+				<option value="false">Drafts only</option>
+			</select>
+
+			<!-- No options means the request for them failed. A select with nothing
+		     in it is a worse answer than no control at all. -->
+			{#if topics.length > 0}
+				<label class="sr-only" for="posts-topic">Topic</label>
+				<select
+					id="posts-topic"
+					value={topic ?? ''}
+					onchange={(event) => onquery({ topic_id: event.currentTarget.value || null, page: null })}
+					class="h-[38px] rounded-lg border border-arch-line-control bg-arch-surface px-3
+				       text-[13px] font-semibold text-arch-headline"
+				>
+					<option value="">All topics</option>
+					{#each topics as option (option.id)}
+						<option value={option.id}>{option.title}</option>
+					{/each}
+				</select>
+			{/if}
+
+			<label class="sr-only" for="posts-sort">Sort by</label>
+			<select
+				id="posts-sort"
+				value={sort ?? 'published_newest'}
+				onchange={(event) => onquery({ sort: event.currentTarget.value, page: null })}
+				class="ml-auto h-[38px] rounded-lg bg-transparent px-3 text-[13px] font-semibold
 			       text-arch-muted"
-		>
-			<option value="published_newest">Recently published</option>
-			<option value="updated_newest">Recently updated</option>
-			<option value="newest">Newest</option>
-			<option value="oldest">Oldest</option>
-		</select>
-	</div>
+			>
+				<option value="published_newest">Recently published</option>
+				<option value="updated_newest">Recently updated</option>
+				<option value="newest">Newest</option>
+				<option value="oldest">Oldest</option>
+			</select>
+		</div>
+	{/if}
 
 	{#if failed}
-		<!-- Never blames the person; always says their work is safe. -->
+		<!-- CollectionState / error: never blames the person, says the work is safe. -->
 		<EmptyState
-			title="We couldn't load your posts."
-			message="Nothing has happened to them. Try again in a moment."
+			tone="danger"
+			title="Couldn’t load your posts"
+			message="Something went wrong on our side. Your posts are safe."
 		>
 			{#snippet action()}
-				<Button kind="secondary" label="Try again" onclick={() => onquery({})} />
+				<Button kind="secondary" size="compact" label="Try again" onclick={() => onquery({})} />
 			{/snippet}
 		</EmptyState>
 	{:else if loading}
 		<SkeletonRows label="Loading posts" />
 	{:else if posts.length === 0 && filtered}
-		<!-- Distinct from empty, and it says what does exist. -->
+		<!-- Distinct from empty: it says what does exist, and which filter is why. -->
 		<EmptyState
-			title="No posts match those filters."
-			message="You have {total === 0 ? 'posts' : `${total} posts`} in total."
+			title="No posts match those filters"
+			message={filteredSentence({ everything, published, topic: topicTitle, search })}
 		>
 			{#snippet action()}
 				<Button
 					kind="secondary"
+					size="compact"
 					label="Clear filters"
 					onclick={() => {
 						term = '';
@@ -218,9 +236,12 @@
 		</EmptyState>
 	{:else if posts.length === 0}
 		<!-- Why it is empty, and the one action that fixes it. -->
-		<EmptyState title="No posts yet." message="This is where everything you write will live.">
+		<EmptyState
+			title="No posts yet"
+			message="Your first post is the one that turns this into a blog."
+		>
 			{#snippet action()}
-				<Button label="Write your first post" href={`${CONSOLE_ROUTES.posts}/new`} />
+				<Button size="compact" label="Write your first post" href={`${CONSOLE_ROUTES.posts}/new`} />
 			{/snippet}
 		</EmptyState>
 	{:else}

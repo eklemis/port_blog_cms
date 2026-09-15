@@ -50,6 +50,25 @@ async function topics(event: Parameters<PageServerLoad>[0]): Promise<Topic[]> {
 	}
 }
 
+/**
+ * Every post in the main list — live and drafts, since archived posts are not
+ * in it — for the filtered-empty sentence. `null` when it could not be had:
+ * that sentence exists to stop someone thinking their posts are gone, and a
+ * guessed zero would say exactly that.
+ */
+async function everything(event: Parameters<PageServerLoad>[0]): Promise<number | null> {
+	try {
+		const response = await authenticatedFetch(event, '/api/blog/summary');
+		if (!response.ok) return null;
+
+		const body = (await response.json()) as { data?: { live?: unknown; drafts?: unknown } };
+		const { live, drafts } = body.data ?? {};
+		return typeof live === 'number' && typeof drafts === 'number' ? live + drafts : null;
+	} catch {
+		return null;
+	}
+}
+
 export const load: PageServerLoad = async (event) => {
 	const params = event.url.searchParams;
 
@@ -83,7 +102,13 @@ export const load: PageServerLoad = async (event) => {
 		}
 	};
 
-	const [body, options] = await Promise.all([rows(), topics(event)]);
+	// Only a filtered list can end up needing the count, so only a filtered list
+	// asks for it.
+	const [body, options, count] = await Promise.all([
+		rows(),
+		topics(event),
+		filtered ? everything(event) : Promise.resolve(null)
+	]);
 
 	const empty = {
 		posts: [] as Card[],
@@ -95,7 +120,8 @@ export const load: PageServerLoad = async (event) => {
 		published,
 		topic,
 		sort,
-		topics: options
+		topics: options,
+		everything: count
 	};
 
 	if (!body) return { ...empty, failed: true };

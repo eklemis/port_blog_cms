@@ -13,11 +13,14 @@ import SkeletonRows from './skeleton-rows.svelte';
 
 const UNSTYLED_GEOMETRY = { rules: { 'target-size': { enabled: false } } };
 
-test('draws a page of rows, not one', async () => {
+test('draws the four bars CollectionState’s loading state draws', async () => {
+	// CollectionState 20:2: four 14px bars of unequal length in the same card
+	// the other three states use, so the page does not jump when data lands.
 	render(SkeletonRows, { label: 'Loading posts' });
 
-	// Six, because that is what a page of rows looks like before it arrives.
-	expect(document.querySelectorAll('[data-skeleton-row]')).toHaveLength(6);
+	const bars = [...document.querySelectorAll<HTMLElement>('[data-skeleton-row]')];
+	expect(bars).toHaveLength(4);
+	expect(new Set(bars.map((bar) => bar.style.width)).size).toBe(4);
 });
 
 test('says what is loading, once, and only to a screen reader', async () => {
