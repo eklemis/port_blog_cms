@@ -15,7 +15,16 @@
 	 * Read-only. Inline status and next action are `PATCH /api/applications/{id}`
 	 * and adding a job is `/studio/applications/new`; both are their own slices.
 	 *
-	 * Design: Screen / Application tracker · Screen / Applications — empty.
+	 * Design: Screen / Application tracker 12:118 · Mobile / Application tracker
+	 * 73:120 · Screen / Applications — empty 84:701. A table from 768px; below it
+	 * "five columns cannot survive 390px", and each row becomes a card.
+	 *
+	 * Two things the frame draws are not here yet, and both are reported rather
+	 * than faked. The CV used column needs each snapshot's name, which the
+	 * listing does not carry. And the row and its next action are links in the
+	 * frame — to the tailoring, cover-letter and reflection screens, none of which
+	 * exists — so they render as text until they have somewhere to go: accent ink
+	 * on text that goes nowhere would promise a link that is not there.
 	 */
 	let {
 		rows,
@@ -46,9 +55,16 @@
 		>
 			Applications
 		</h1>
-		<Button label="Add a job" href={`${CONSOLE_ROUTES.applications}/new`}>
-			{#snippet icon()}<Plus size={15} aria-hidden="true" />{/snippet}
-		</Button>
+		<!-- "Add" on a phone, as the mobile frame shortens it. One is always
+		     display:none, so a screen reader meets exactly one of them. -->
+		<span class="max-md:hidden">
+			<Button label="Add a job" href={`${CONSOLE_ROUTES.applications}/new`}>
+				{#snippet icon()}<Plus size={15} aria-hidden="true" />{/snippet}
+			</Button>
+		</span>
+		<span class="md:hidden">
+			<Button label="Add" href={`${CONSOLE_ROUTES.applications}/new`} />
+		</span>
 	</div>
 
 	{#if failed}
@@ -77,15 +93,17 @@
 			{/snippet}
 		</EmptyState>
 	{:else}
-		<div class="overflow-x-auto rounded-xl border border-arch-line bg-arch-surface">
-			<table class="w-full min-w-[560px] border-collapse text-left">
+		<!-- From 768px: the frame's table. -->
+		<div class="overflow-x-auto rounded-xl border border-arch-line bg-arch-surface max-md:hidden">
+			<table class="w-full border-collapse text-left">
 				<thead>
 					<tr class="border-b border-arch-line">
-						{#each ['Role', 'Status', 'Next action', 'Applied'] as heading (heading)}
+						{#each ['Role & company', 'Status', 'Applied', 'Next action'] as heading (heading)}
 							<th
 								scope="col"
-								class="px-[18px] py-3 font-mono text-[9px] font-normal tracking-[0.9px]
-								       text-arch-muted uppercase"
+								class="px-[18px] py-[11px] font-mono text-[9px] font-normal tracking-[0.9px]
+								       text-arch-muted uppercase
+								       {heading === 'Applied' ? 'max-lg:hidden' : ''}"
 							>
 								{heading}
 							</th>
@@ -95,27 +113,50 @@
 				<tbody>
 					{#each rows as row (row.id)}
 						<tr class="border-b border-arch-line last:border-b-0">
-							<td class="px-[18px] py-3">
-								<p class="text-[13px] font-medium text-arch-headline">{row.role}</p>
-								{#if row.company}
-									<p class="text-[12px] text-arch-muted">{row.company}</p>
-								{/if}
+							<td class="px-[18px] py-[13px] text-[13px] font-medium text-arch-headline">
+								{row.company ? `${row.role} · ${row.company}` : row.role}
 							</td>
-							<td class="px-[18px] py-3">
+							<td class="px-[18px] py-[13px]">
 								<StatusPill tone={row.status.tone} label={row.status.label} />
 							</td>
-							<!-- Dropped at tablet, per the Prototype Map's column table. -->
-							<td class="hidden px-[18px] py-3 text-[12px] text-arch-muted md:table-cell">
-								{row.nextAction}
+							<!-- Dropped at tablet, per the Prototype Map's column rules. -->
+							<td class="px-[18px] py-[13px] text-[12px] text-arch-muted max-lg:hidden">
+								{row.applied ?? '—'}
 							</td>
-							<td class="hidden px-[18px] py-3 text-[12px] text-arch-muted md:table-cell">
-								{row.applied}
+							<td class="px-[18px] py-[13px] text-[12px] text-arch-headline">
+								{row.nextAction || '—'}
 							</td>
 						</tr>
 					{/each}
 				</tbody>
 			</table>
 		</div>
+
+		<!-- Below 768px: a card per row — role and status on one line, company
+		     under it, next action and sent date in the footer. -->
+		<ul class="flex flex-col gap-3 md:hidden">
+			{#each rows as row (row.id)}
+				<li
+					class="flex flex-col gap-[9px] rounded-[11px] border border-arch-line bg-arch-surface
+					       px-[15px] py-3.5"
+				>
+					<div class="flex items-center justify-between gap-3">
+						<p class="text-[14px] font-semibold text-arch-headline">{row.role}</p>
+						<StatusPill tone={row.status.tone} label={row.status.label} />
+					</div>
+					{#if row.company}
+						<p class="text-[12.5px] text-arch-muted">{row.company}</p>
+					{/if}
+					<div class="h-px bg-arch-line" role="presentation"></div>
+					<div class="flex items-center justify-between gap-3">
+						<p class="text-[11.5px] text-arch-headline">{row.nextAction || '—'}</p>
+						<p class="font-mono text-[10.5px] text-arch-muted">
+							{row.applied ? `sent ${row.applied}` : 'not sent'}
+						</p>
+					</div>
+				</li>
+			{/each}
+		</ul>
 
 		<div class="flex items-center justify-between text-[12px] text-arch-muted">
 			<p>{rows.length} of {total} applications</p>

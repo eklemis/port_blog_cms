@@ -1,4 +1,3 @@
-import { relativeDate } from '$lib/shared/lib/relative-time';
 import type { components } from '$lib/shared/api/v1';
 
 /**
@@ -58,9 +57,30 @@ export function applicationStatus(status: Status): ApplicationStatusPill {
 	return STATUSES[status] ?? { tone: 'neutral', label: status };
 }
 
-/** A draft has never been sent, and the column says so rather than going blank. */
-export function appliedLabel(appliedAt: string | null | undefined, now: Date = new Date()): string {
-	return appliedAt ? relativeDate(appliedAt, now) : 'Not sent';
+/**
+ * The day an application went, as the tracker frames write it: "14 Aug", and
+ * "18 Dec 2025" once it is from another year. `null` for a draft, so each
+ * surface says "not sent" its own way — a dash in the table, words on a card.
+ *
+ * Day-first and English, because that is how every frame writes a date and
+ * there is no interface-language setting yet to follow instead. When there is,
+ * this is the one place to change. Dates are read in the viewer's time zone.
+ */
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+export function appliedOn(
+	appliedAt: string | null | undefined,
+	now: Date = new Date()
+): string | null {
+	if (!appliedAt) return null;
+
+	const when = new Date(appliedAt);
+	if (Number.isNaN(when.getTime())) return null;
+
+	// Three letters, always. `Intl` in `en-GB` now writes "Sept", which no frame
+	// does and which would make one month the odd width out in a column.
+	const day = `${when.getDate()} ${MONTHS[when.getMonth()]}`;
+	return when.getFullYear() === now.getFullYear() ? day : `${day} ${when.getFullYear()}`;
 }
 
 export type TrackerRow = {
@@ -69,7 +89,8 @@ export type TrackerRow = {
 	company: string;
 	status: ApplicationStatusPill;
 	nextAction: string;
-	applied: string;
+	/** The day it was sent, or `null` for a draft. */
+	applied: string | null;
 };
 
 /**
@@ -96,7 +117,7 @@ export function trackerRows(
 			company: job?.company ?? '',
 			status: applicationStatus(application.status),
 			nextAction: application.next_action,
-			applied: appliedLabel(application.applied_at, now)
+			applied: appliedOn(application.applied_at, now)
 		};
 	});
 }

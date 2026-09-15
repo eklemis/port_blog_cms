@@ -1,7 +1,7 @@
 // Public API of the application entity.
 export {
 	applicationStatus,
-	appliedLabel,
+	appliedOn,
 	trackerRows,
 	type Application,
 	type ApplicationStatusPill,
