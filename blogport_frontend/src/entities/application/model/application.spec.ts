@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { applicationStatus, appliedLabel, trackerRows } from './application';
+import { applicationStatus, appliedOn, trackerRows } from './application';
 
 /**
  * What one row of the application tracker can say about itself.
@@ -58,12 +58,20 @@ test('a status we have never heard of is shown, not swallowed', () => {
 // ── when it went out ───────────────────────────────────────────────────────
 
 test('a draft has no applied date, and does not pretend to', () => {
-	expect(appliedLabel(null, NOW)).toBe('Not sent');
-	expect(appliedLabel(undefined, NOW)).toBe('Not sent');
+	// Screen / Application tracker draws a dash in the Applied column for the
+	// draft row. `null` here, so each surface can say it its own way.
+	expect(appliedOn(null, NOW)).toBeNull();
+	expect(appliedOn(undefined, NOW)).toBeNull();
 });
 
-test('a sent application says when, in the same words the posts list uses', () => {
-	expect(appliedLabel('2026-09-06T12:00:00Z', NOW)).toBe('2 days ago');
+test('a sent application says the day it went, as the frame writes it', async () => {
+	// "14 Aug", not "2 days ago": a tracker is read for when something was
+	// sent, and a relative date changes under someone every time they look.
+	expect(appliedOn('2026-09-06T12:00:00Z', NOW)).toBe('6 Sep');
+});
+
+test('a date from another year says which year', () => {
+	expect(appliedOn('2025-12-18T12:00:00Z', NOW)).toBe('18 Dec 2025');
 });
 
 // ── the join ───────────────────────────────────────────────────────────────
@@ -89,7 +97,7 @@ test('a row carries the role and the company from its job', () => {
 	expect(row.role).toBe('Senior Backend');
 	expect(row.company).toBe('Gojek');
 	expect(row.status.label).toBe('Interview');
-	expect(row.applied).toBe('2 days ago');
+	expect(row.applied).toBe('6 Sep');
 	expect(row.nextAction).toBe('Send the take-home');
 });
 

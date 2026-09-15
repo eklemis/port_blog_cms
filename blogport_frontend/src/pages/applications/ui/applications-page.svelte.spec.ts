@@ -21,7 +21,7 @@ const rows = [
 		company: 'Gojek',
 		status: { tone: 'inflight' as const, label: 'Interview' },
 		nextAction: 'Send the take-home',
-		applied: '2 days ago'
+		applied: '14 Aug'
 	},
 	{
 		id: 'app-2',
@@ -29,26 +29,50 @@ const rows = [
 		company: 'Xendit',
 		status: { tone: 'neutral' as const, label: 'Draft' },
 		nextAction: '',
-		applied: 'Not sent'
+		applied: null
 	}
 ];
 
 test('lists an application per row, with where each has got to', async () => {
+	// Screen / Application tracker 12:118: role and company on one line, status,
+	// the day it was sent, and what is owed next.
 	const screen = render(ApplicationsPage, { rows, failed: false, total: 2, page: 1, perPage: 10 });
 
-	await expect.element(screen.getByText('Senior Backend')).toBeInTheDocument();
-	await expect.element(screen.getByText('Gojek')).toBeInTheDocument();
-	await expect.element(screen.getByText('Interview')).toBeInTheDocument();
-	await expect.element(screen.getByText('Send the take-home')).toBeInTheDocument();
-	await expect.element(screen.getByText('2 days ago')).toBeInTheDocument();
+	const headers = document.querySelectorAll('thead th');
+	expect([...headers].map((th) => th.textContent?.trim())).toEqual([
+		'Role & company',
+		'Status',
+		'Applied',
+		'Next action'
+	]);
+
+	const first = screen.getByRole('row').nth(1);
+	await expect.element(first.getByText('Senior Backend · Gojek')).toBeInTheDocument();
+	await expect.element(first.getByText('Interview')).toBeInTheDocument();
+	await expect.element(first.getByText('14 Aug')).toBeInTheDocument();
+	await expect.element(first.getByText('Send the take-home')).toBeInTheDocument();
 
 	await expectNoA11yViolations(document.body, UNSTYLED_GEOMETRY);
 });
 
-test('a draft says it has not been sent rather than showing a date', async () => {
+test('a draft and an empty next action are dashes, not blanks', async () => {
 	const screen = render(ApplicationsPage, { rows, failed: false, total: 2, page: 1, perPage: 10 });
 
-	await expect.element(screen.getByText('Not sent')).toBeInTheDocument();
+	const second = screen.getByRole('row').nth(2);
+	expect(second.getByText('—', { exact: true }).elements()).toHaveLength(2);
+});
+
+test('on a phone each row is a card, with the sent date in its footer', async () => {
+	// Mobile / Application tracker 73:120: "Five columns cannot survive 390px."
+	const screen = render(ApplicationsPage, { rows, failed: false, total: 2, page: 1, perPage: 10 });
+
+	const cards = screen.getByRole('listitem');
+	await expect
+		.element(cards.nth(0).getByText('Senior Backend', { exact: true }))
+		.toBeInTheDocument();
+	await expect.element(cards.nth(0).getByText('Gojek', { exact: true })).toBeInTheDocument();
+	await expect.element(cards.nth(0).getByText('sent 14 Aug')).toBeInTheDocument();
+	await expect.element(cards.nth(1).getByText('not sent')).toBeInTheDocument();
 });
 
 test('empty says what the screen is for and offers the one action', async () => {
@@ -146,11 +170,4 @@ test('loading is rows, not a spinner, and it is announced', async () => {
 
 	await expect.element(screen.getByRole('status')).toHaveTextContent('Loading applications');
 	expect(screen.getByText('No applications yet', { exact: true }).elements()).toHaveLength(0);
-});
-
-test('the table names its columns for a screen reader, not just visually', async () => {
-	const screen = render(ApplicationsPage, { rows, failed: false, total: 2, page: 1, perPage: 10 });
-
-	await expect.element(screen.getByRole('columnheader', { name: 'Role' })).toBeInTheDocument();
-	await expect.element(screen.getByRole('columnheader', { name: 'Status' })).toBeInTheDocument();
 });
