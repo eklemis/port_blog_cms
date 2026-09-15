@@ -4,97 +4,215 @@ import { expectNoA11yViolations } from '$lib/shared/test/a11y';
 import PostsArchivePage from './posts-archive-page.svelte';
 
 /**
- * The archive: where the second and third rungs of destruction live.
+ * The archive — Screen / Posts archive 71:126, Mobile / Posts archive 97:2744.
  *
- * Restore is one click and no confirm. Delete forever is a dialog naming the
- * post and asking for its title. Both wait for the server.
+ * §06's second and third rungs: restore is one click and no confirm, purge is
+ * a dialog asking for the title. Rows can be selected and acted on together,
+ * and a batch that partly fails leaves the failed rows selected with their own
+ * reason.
  */
 
 const UNSTYLED_GEOMETRY = { rules: { 'target-size': { enabled: false } } };
 
 const posts = [
-	{ id: 'post-1', title: 'Building a CMS', updated_at: '2026-09-06T12:00:00Z' },
-	{ id: 'post-2', title: 'Why hexagonal', updated_at: '2026-09-01T12:00:00Z' }
+	{ id: 'post-1', title: 'Old benchmarking post', updated_at: '2026-04-10T12:00:00Z' },
+	{ id: 'post-2', title: 'Draft that went nowhere', updated_at: '2026-03-02T12:00:00Z' },
+	{ id: 'post-3', title: 'Notes on the old scheduler', updated_at: '2026-01-20T12:00:00Z' }
 ];
 
-const respond = (status: number) => vi.fn<typeof fetch>(async () => new Response(null, { status }));
+type Answer = { status: number; body?: unknown };
+
+/** Answers by path; a bulk call answers with every id succeeding unless told. */
+function backend(answers: Record<string, Answer> = {}) {
+	return vi.fn<typeof fetch>(async (input, init) => {
+		const url = String(input);
+		const key = Object.keys(answers).find((candidate) => url.startsWith(candidate));
+		if (key) {
+			const { status, body } = answers[key];
+			return body === undefined
+				? new Response(null, { status })
+				: new Response(JSON.stringify(body), {
+						status,
+						headers: { 'content-type': 'application/json' }
+					});
+		}
+		if (url === '/api/blog/bulk') {
+			const { ids } = JSON.parse(init?.body as string);
+			return new Response(JSON.stringify({ succeeded: ids, failed: [] }), {
+				status: 200,
+				headers: { 'content-type': 'application/json' }
+			});
+		}
+		return new Response(null, { status: 204 });
+	});
+}
 
 const props = (over: Record<string, unknown> = {}) => ({
 	posts,
-	total: 2,
+	total: 3,
 	page: 1,
 	perPage: 10,
 	onchanged: () => {},
-	fetchFn: respond(204),
+	fetchFn: backend(),
 	...over
 });
 
-test('lists what is archived, and says it is', async () => {
+const sent = (fetchFn: ReturnType<typeof backend>, n = 0) =>
+	JSON.parse(fetchFn.mock.calls[n][1]?.body as string);
+
+// ── the screen ─────────────────────────────────────────────────────────────
+
+test('names itself as the archive, once, rather than labelling every row', async () => {
 	const screen = render(PostsArchivePage, props());
 
-	await expect.element(screen.getByText('Building a CMS')).toBeInTheDocument();
-	expect(screen.getByText('Archived', { exact: true }).elements()).toHaveLength(2);
+	await expect.element(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Archive');
+	// The pill sits beside the title. A row saying "Archived" on a screen that
+	// only lists archived posts is noise, and the frame does not draw one.
+	const row = screen.getByRole('row').nth(1);
+	expect(row.getByText('Archived', { exact: true }).elements()).toHaveLength(0);
 });
 
-test('restore is one click, no confirm, and the list is told', async () => {
+test('says what the archive is, in the frame’s words', async () => {
+	const screen = render(PostsArchivePage, props());
+
+	await expect
+		.element(
+			screen.getByText(
+				'Archived posts are not public and not in your main list. Restore puts one back in whatever state it was in; purge is permanent and asks you to type the title.'
+			)
+		)
+		.toBeInTheDocument();
+	await expect
+		.element(screen.getByRole('link', { name: 'Back to posts' }))
+		.toHaveAttribute('href', '/studio/posts');
+});
+
+test('each row says when it was archived, as a month', async () => {
+	// Archiving stamps updated_at and an archived post cannot be edited, so for
+	// these rows the last update is the archiving.
+	const screen = render(PostsArchivePage, props());
+
+	await expect.element(screen.getByRole('columnheader', { name: 'Archived' })).toBeInTheDocument();
+	await expect.element(screen.getByText('Apr 2026').first()).toBeInTheDocument();
+});
+
+// ── one at a time ──────────────────────────────────────────────────────────
+
+test('restore is one click, no confirm, and says where the post went', async () => {
 	const changed: boolean[] = [];
-	const fetchFn = respond(204);
+	const fetchFn = backend();
 	const screen = render(PostsArchivePage, props({ fetchFn, onchanged: () => changed.push(true) }));
 
-	await screen.getByRole('button', { name: 'Restore Building a CMS' }).click();
+	await screen.getByRole('button', { name: 'Restore Old benchmarking post' }).first().click();
 
-	expect(screen.getByRole('dialog').elements()).toHaveLength(0);
 	expect(fetchFn.mock.calls[0][0]).toBe('/api/blog/post-1/restore');
-	await vi.waitFor(() => expect(changed).toEqual([true]));
-});
-
-test('restoring says where the post went, because it went somewhere unseen', async () => {
-	const screen = render(PostsArchivePage, props());
-
-	await screen.getByRole('button', { name: 'Restore Building a CMS' }).click();
-
+	expect(screen.getByRole('dialog').elements()).toHaveLength(0);
 	await expect.element(screen.getByText('Restored. It is back in your posts.')).toBeInTheDocument();
+	expect(changed).toEqual([true]);
 });
 
-test('delete forever asks for the title before it does anything', async () => {
-	const fetchFn = respond(204);
+test('purge asks for the title before it does anything', async () => {
+	const fetchFn = backend();
 	const screen = render(PostsArchivePage, props({ fetchFn }));
 
-	await screen.getByRole('button', { name: 'Delete Building a CMS forever' }).click();
+	await screen.getByRole('button', { name: 'Purge Old benchmarking post' }).first().click();
 
 	await expect.element(screen.getByRole('dialog')).toBeInTheDocument();
 	expect(fetchFn).not.toHaveBeenCalled();
-});
 
-test('typing the title and confirming deletes that post and no other', async () => {
-	const changed: boolean[] = [];
-	const fetchFn = respond(204);
-	const screen = render(PostsArchivePage, props({ fetchFn, onchanged: () => changed.push(true) }));
-
-	await screen.getByRole('button', { name: 'Delete Building a CMS forever' }).click();
-	await screen.getByRole('textbox').fill('Building a CMS');
-	await screen.getByRole('button', { name: 'Delete forever' }).click();
+	await screen.getByRole('textbox').fill('Old benchmarking post');
+	await screen.getByRole('button', { name: 'Purge', exact: true }).click();
 
 	expect(fetchFn.mock.calls[0][0]).toBe('/api/blog/post-1/hard');
-	await vi.waitFor(() => expect(changed).toEqual([true]));
-	await vi.waitFor(() => expect(screen.getByRole('dialog').elements()).toHaveLength(0));
 });
 
-test('a purge that fails keeps the dialog open and says so', async () => {
-	// Closing it would imply it worked. The post is still here, and so is the
-	// person's decision.
-	const screen = render(PostsArchivePage, props({ fetchFn: respond(500) }));
+test('a purge that fails says so inside the dialog, which stays open', async () => {
+	const screen = render(
+		PostsArchivePage,
+		props({ fetchFn: backend({ '/api/blog/post-1/hard': { status: 500, body: {} } }) })
+	);
 
-	await screen.getByRole('button', { name: 'Delete Building a CMS forever' }).click();
-	await screen.getByRole('textbox').fill('Building a CMS');
-	await screen.getByRole('button', { name: 'Delete forever' }).click();
+	await screen.getByRole('button', { name: 'Purge Old benchmarking post' }).first().click();
+	await screen.getByRole('textbox').fill('Old benchmarking post');
+	await screen.getByRole('button', { name: 'Purge', exact: true }).click();
 
-	// Inside the dialog. Everything behind a modal dialog is inert, so a message
-	// rendered on the page would be visible and unannounced at once.
 	await expect
 		.element(screen.getByRole('dialog').getByText('Something went wrong on our side.'))
 		.toBeInTheDocument();
 });
+
+// ── together ───────────────────────────────────────────────────────────────
+
+test('selecting rows brings up the bar that acts on them', async () => {
+	const screen = render(PostsArchivePage, props());
+
+	expect(screen.getByText('2 selected').elements()).toHaveLength(0);
+
+	await screen.getByRole('checkbox', { name: 'Select Old benchmarking post' }).first().click();
+	await screen.getByRole('checkbox', { name: 'Select Draft that went nowhere' }).first().click();
+
+	await expect.element(screen.getByText('2 selected').first()).toBeInTheDocument();
+	await expect.element(screen.getByRole('button', { name: 'Restore both' })).toBeInTheDocument();
+	await expect.element(screen.getByRole('button', { name: 'Purge both' })).toBeInTheDocument();
+});
+
+test('restoring a selection is one call, not one per row', async () => {
+	const fetchFn = backend();
+	const screen = render(PostsArchivePage, props({ fetchFn }));
+
+	await screen.getByRole('checkbox', { name: 'Select Old benchmarking post' }).first().click();
+	await screen.getByRole('checkbox', { name: 'Select Draft that went nowhere' }).first().click();
+	await screen.getByRole('button', { name: 'Restore both' }).click();
+
+	expect(fetchFn).toHaveBeenCalledTimes(1);
+	expect(sent(fetchFn)).toEqual({ op: 'restore', ids: ['post-1', 'post-2'] });
+});
+
+test('a batch that partly fails keeps the failed row selected, with its reason', async () => {
+	// The frame's note: "success: true means the batch ran, not that every item
+	// did. Failed rows stay selected with their own reason."
+	const fetchFn = backend({
+		'/api/blog/bulk': {
+			status: 200,
+			body: {
+				succeeded: ['post-1'],
+				failed: [{ id: 'post-2', code: 'POST_NOT_FOUND', message: 'x' }]
+			}
+		}
+	});
+	const screen = render(PostsArchivePage, props({ fetchFn }));
+
+	await screen.getByRole('checkbox', { name: 'Select Old benchmarking post' }).first().click();
+	await screen.getByRole('checkbox', { name: 'Select Draft that went nowhere' }).first().click();
+	await screen.getByRole('button', { name: 'Restore both' }).click();
+
+	await expect.element(screen.getByText('1 selected').first()).toBeInTheDocument();
+	await expect
+		.element(screen.getByRole('checkbox', { name: 'Select Draft that went nowhere' }).first())
+		.toBeChecked();
+	await expect
+		.element(screen.getByText('That post is no longer in the archive.').first())
+		.toBeInTheDocument();
+});
+
+test('purging a selection asks for how many, then sends one call', async () => {
+	// There is no single title to type for several posts. The count is the
+	// thing someone could get wrong by selecting one too many — see the PR.
+	const fetchFn = backend();
+	const screen = render(PostsArchivePage, props({ fetchFn }));
+
+	await screen.getByRole('checkbox', { name: 'Select Old benchmarking post' }).first().click();
+	await screen.getByRole('checkbox', { name: 'Select Draft that went nowhere' }).first().click();
+	await screen.getByRole('button', { name: 'Purge both' }).click();
+
+	expect(fetchFn).not.toHaveBeenCalled();
+	await screen.getByRole('textbox').fill('2 posts');
+	await screen.getByRole('button', { name: 'Purge both', exact: true }).last().click();
+
+	expect(sent(fetchFn)).toEqual({ op: 'hard_delete', ids: ['post-1', 'post-2'] });
+});
+
+// ── states ─────────────────────────────────────────────────────────────────
 
 test('an empty archive says what it is for', async () => {
 	const screen = render(PostsArchivePage, props({ posts: [], total: 0 }));
