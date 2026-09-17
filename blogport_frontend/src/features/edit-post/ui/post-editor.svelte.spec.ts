@@ -337,6 +337,48 @@ test('the top bar hides Archive behind a ⋯ menu, at every width', async () => 
 	await vi.waitFor(() => expect(asked).toEqual([true]));
 });
 
+test('Preview saves first, then hands over the share link to open', async () => {
+	// §04: the preview is the share link, so the author checks the page a
+	// reviewer gets rather than a private render of unsaved words.
+	const fetchFn = backend(
+		() =>
+			new Response(JSON.stringify({ token: 'tok-1' }), {
+				status: 200,
+				headers: { 'content-type': 'application/json' }
+			})
+	);
+	const opened: string[] = [];
+	const screen = render(PostEditor, props({ fetchFn, onpreview: (p: string) => opened.push(p) }));
+
+	await screen.getByRole('textbox', { name: 'Title' }).fill('Saved before the link');
+	await screen.getByRole('button', { name: 'Preview' }).click();
+
+	expect(JSON.parse(fetchFn.mock.calls[0][1]?.body as string)).toMatchObject({
+		title: 'Saved before the link'
+	});
+	expect(fetchFn.mock.calls[1][0]).toBe('/api/blog/post-1/preview');
+	await vi.waitFor(() => expect(opened).toEqual(['/preview/tok-1']));
+});
+
+test('the ⋯ menu carries Preview too, for the width the bar has no room at', async () => {
+	// The bar's own Preview button is hidden below md. Without a second way in,
+	// 390 would be the one width that cannot preview at all.
+	const fetchFn = backend(
+		() =>
+			new Response(JSON.stringify({ token: 'tok-2' }), {
+				status: 200,
+				headers: { 'content-type': 'application/json' }
+			})
+	);
+	const opened: string[] = [];
+	const screen = render(PostEditor, props({ fetchFn, onpreview: (p: string) => opened.push(p) }));
+
+	await screen.getByRole('button', { name: 'More for this post' }).click();
+	await screen.getByRole('menuitem', { name: 'Preview' }).click();
+
+	await vi.waitFor(() => expect(opened).toEqual(['/preview/tok-2']));
+});
+
 test('has no accessibility violations', async () => {
 	render(PostEditor, props());
 

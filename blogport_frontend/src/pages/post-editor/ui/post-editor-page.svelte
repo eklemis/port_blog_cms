@@ -31,6 +31,7 @@
 		post,
 		username,
 		onarchived = () => {},
+		onpreview = () => {},
 		fetchFn = undefined,
 		denied = false
 	}: {
@@ -39,6 +40,8 @@
 		username: string;
 		/** The post is archived — the caller leaves for the list. */
 		onarchived?: () => void;
+		/** A preview link is ready, for the caller to open in a new tab. */
+		onpreview?: (path: string) => void;
 		/** Injected by the spec; the browser's own otherwise. */
 		fetchFn?: typeof globalThis.fetch;
 		denied?: boolean;
@@ -59,6 +62,7 @@
 	<PostEditor
 		{post}
 		{username}
+		{onpreview}
 		onarchive={async () => {
 			const result = await archivePost(post.id, fetchFn);
 
