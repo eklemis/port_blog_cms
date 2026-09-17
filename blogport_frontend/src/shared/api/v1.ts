@@ -1808,6 +1808,14 @@ export interface components {
              */
             created_at: string;
             /**
+             * @description The role of that CV as it stood when it was sent — "Backend", say.
+             *
+             *     From the snapshot, so it does not change if the CV is renamed later.
+             *     Loaded with the page rather than per row. `null` while this is a draft,
+             *     or when the CV had no role.
+             */
+            cv_role?: string | null;
+            /**
              * Format: uuid
              * @description The frozen CV that was sent. `null` only while this is a draft.
              */
@@ -1907,6 +1915,14 @@ export interface components {
                  * @description When it was created.
                  */
                 created_at: string;
+                /**
+                 * Format: date-time
+                 * @description When the post was archived. `null` unless it is archived.
+                 *
+                 *     Recorded when the archiving happens rather than inferred from
+                 *     `updated_at`, so the date the archive list shows stays put.
+                 */
+                deleted_at?: string | null;
                 /** @description Short summary for listings. `None` when none was written. */
                 excerpt?: string | null;
                 /**
@@ -1973,6 +1989,14 @@ export interface components {
              * @description When it was created.
              */
             created_at: string;
+            /**
+             * Format: date-time
+             * @description When the post was archived. `null` unless it is archived.
+             *
+             *     Recorded when the archiving happens rather than inferred from
+             *     `updated_at`, so the date the archive list shows stays put.
+             */
+            deleted_at?: string | null;
             /** @description Short summary for listings. `None` when none was written. */
             excerpt?: string | null;
             /**
@@ -4593,6 +4617,14 @@ export interface operations {
                                  */
                                 created_at: string;
                                 /**
+                                 * @description The role of that CV as it stood when it was sent — "Backend", say.
+                                 *
+                                 *     From the snapshot, so it does not change if the CV is renamed later.
+                                 *     Loaded with the page rather than per row. `null` while this is a draft,
+                                 *     or when the CV had no role.
+                                 */
+                                cv_role?: string | null;
+                                /**
                                  * Format: uuid
                                  * @description The frozen CV that was sent. `null` only while this is a draft.
                                  */
@@ -4702,6 +4734,14 @@ export interface operations {
                              */
                             created_at: string;
                             /**
+                             * @description The role of that CV as it stood when it was sent — "Backend", say.
+                             *
+                             *     From the snapshot, so it does not change if the CV is renamed later.
+                             *     Loaded with the page rather than per row. `null` while this is a draft,
+                             *     or when the CV had no role.
+                             */
+                            cv_role?: string | null;
+                            /**
                              * Format: uuid
                              * @description The frozen CV that was sent. `null` only while this is a draft.
                              */
@@ -4799,6 +4839,14 @@ export interface operations {
                              * @description When the row was created.
                              */
                             created_at: string;
+                            /**
+                             * @description The role of that CV as it stood when it was sent — "Backend", say.
+                             *
+                             *     From the snapshot, so it does not change if the CV is renamed later.
+                             *     Loaded with the page rather than per row. `null` while this is a draft,
+                             *     or when the CV had no role.
+                             */
+                            cv_role?: string | null;
                             /**
                              * Format: uuid
                              * @description The frozen CV that was sent. `null` only while this is a draft.
@@ -4949,6 +4997,14 @@ export interface operations {
                              * @description When the row was created.
                              */
                             created_at: string;
+                            /**
+                             * @description The role of that CV as it stood when it was sent — "Backend", say.
+                             *
+                             *     From the snapshot, so it does not change if the CV is renamed later.
+                             *     Loaded with the page rather than per row. `null` while this is a draft,
+                             *     or when the CV had no role.
+                             */
+                            cv_role?: string | null;
                             /**
                              * Format: uuid
                              * @description The frozen CV that was sent. `null` only while this is a draft.
@@ -6306,6 +6362,14 @@ export interface operations {
                                  * @description When it was created.
                                  */
                                 created_at: string;
+                                /**
+                                 * Format: date-time
+                                 * @description When the post was archived. `null` unless it is archived.
+                                 *
+                                 *     Recorded when the archiving happens rather than inferred from
+                                 *     `updated_at`, so the date the archive list shows stays put.
+                                 */
+                                deleted_at?: string | null;
                                 /** @description Short summary for listings. `None` when none was written. */
                                 excerpt?: string | null;
                                 /**
@@ -11440,6 +11504,14 @@ export interface operations {
                                  * @description When it was created.
                                  */
                                 created_at: string;
+                                /**
+                                 * Format: date-time
+                                 * @description When the post was archived. `null` unless it is archived.
+                                 *
+                                 *     Recorded when the archiving happens rather than inferred from
+                                 *     `updated_at`, so the date the archive list shows stays put.
+                                 */
+                                deleted_at?: string | null;
                                 /** @description Short summary for listings. `None` when none was written. */
                                 excerpt?: string | null;
                                 /**
