@@ -86,14 +86,17 @@ beforeEach(() => {
 	unreachable = null;
 });
 
-test('asks for both lists, and asks for them at the same time', async () => {
+test('asks for the applications first, because they name the jobs', async () => {
+	// These went out together until the jobs call could be asked by id. It cannot
+	// be: the ids come out of the applications, so the order is the price of
+	// asking for the right jobs instead of a hundred and hoping.
 	backend({ '/api/applications': { body: APPLICATIONS }, '/api/jobs': { body: JOBS } });
 
 	await loaded();
 
 	const asked = fetchImpl.mock.calls.map((call) => String(call[1]));
-	expect(asked.some((path) => path.startsWith('/api/applications?'))).toBe(true);
-	expect(asked.some((path) => path.startsWith('/api/jobs?'))).toBe(true);
+	expect(asked[0]).toContain('/api/applications?');
+	expect(asked[1]).toContain('/api/jobs?');
 });
 
 test('asks for a page of applications, with the blueprint’s default size', async () => {
@@ -109,9 +112,10 @@ test('asks for a page of applications, with the blueprint’s default size', asy
 	expect(applications).toContain('per_page=10');
 });
 
-test('asks for jobs in bulk, because they are the join and not the list', async () => {
-	// One row needs one job. There is no way to ask for the ten this page
-	// needs, so it takes the largest page the API allows — see the PR.
+test('asks for exactly the jobs this page names', async () => {
+	// It used to ask for the largest page the API allows and hope the right jobs
+	// were in it — past a hundred jobs, rows quietly lost their role and company.
+	// `ids` is the endpoint's own answer to this, so the join asks for its ten.
 	backend({ '/api/applications': { body: APPLICATIONS }, '/api/jobs': { body: JOBS } });
 
 	await loaded();
@@ -119,7 +123,43 @@ test('asks for jobs in bulk, because they are the join and not the list', async 
 	const jobs = fetchImpl.mock.calls
 		.map((call) => String(call[1]))
 		.find((path) => path.startsWith('/api/jobs'));
-	expect(jobs).toContain('per_page=100');
+	expect(jobs).toContain('ids=job-1');
+	expect(jobs).not.toContain('per_page=100');
+});
+
+test('asks once for a job two applications share', async () => {
+	const two = {
+		data: {
+			...APPLICATIONS.data,
+			total: 2,
+			items: [
+				APPLICATIONS.data.items[0],
+				{ ...APPLICATIONS.data.items[0], id: 'app-2', job_id: 'job-1' }
+			]
+		}
+	};
+	backend({ '/api/applications': { body: two }, '/api/jobs': { body: JOBS } });
+
+	await loaded();
+
+	const jobs = fetchImpl.mock.calls
+		.map((call) => String(call[1]))
+		.find((path) => path.startsWith('/api/jobs'));
+	expect(new URL(`http://x${jobs}`).searchParams.get('ids')).toBe('job-1');
+});
+
+test('asks for no jobs at all when there are no applications to join', async () => {
+	// An empty page names no jobs, and a request for none of them is a request
+	// worth not making.
+	backend({
+		'/api/applications': { body: { data: { total: 0, page: 1, per_page: 10, items: [] } } },
+		'/api/jobs': { body: JOBS }
+	});
+
+	await loaded();
+
+	const asked = fetchImpl.mock.calls.map((call) => String(call[1]));
+	expect(asked.some((path) => path.startsWith('/api/jobs'))).toBe(false);
 });
 
 test('carries the totals the pager needs', async () => {
