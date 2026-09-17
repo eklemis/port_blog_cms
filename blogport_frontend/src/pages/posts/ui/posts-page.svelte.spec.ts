@@ -37,8 +37,12 @@ const TOPICS = [
 	{ id: 'topic-2', title: 'Distributed Systems', description: '' }
 ];
 
+const archived204 = () => vi.fn<typeof fetch>(async () => new Response(null, { status: 204 }));
+
 const base = {
 	posts: rows,
+	archived: 3,
+	onchanged: () => {},
 	topics: [] as typeof TOPICS,
 	total: 24,
 	page: 1,
@@ -62,12 +66,15 @@ test('a row opens its post, because a list of titles you cannot click is a repor
 		.toHaveAttribute('href', '/studio/posts/1');
 });
 
-test('the archive is one step away, because nothing else leads there', async () => {
+test('the archive is reached from beside the count, not beside New post', async () => {
+	// §06: "View archive (3) beside the count under the list, never beside the
+	// primary action — it is a destination, not a thing to do."
 	const screen = render(PostsPage, base);
 
 	await expect
-		.element(screen.getByRole('link', { name: 'Archived' }))
+		.element(screen.getByRole('link', { name: 'View archive (3)' }))
 		.toHaveAttribute('href', '/studio/posts/archive');
+	expect(screen.getByRole('link', { name: 'Archived' }).elements()).toHaveLength(0);
 });
 
 test('each row names its topics, straight from the list', async () => {
@@ -80,7 +87,8 @@ test('each row names its topics, straight from the list', async () => {
 		.getByRole('columnheader')
 		.elements()
 		.map((el) => el.textContent?.trim());
-	expect(headers).toEqual(['Title', 'Status', 'Topics', 'Updated']);
+	// The fifth is the ⋯ column: a header for screen readers, no visible word.
+	expect(headers).toEqual(['Title', 'Status', 'Topics', 'Updated', 'Actions']);
 
 	const first = screen.getByRole('row').nth(1);
 	await expect.element(first.getByText('Rust · Distributed Systems')).toBeInTheDocument();
@@ -231,7 +239,9 @@ test('error never blames the person, and says the work is safe', async () => {
 test('loading is rows, not a spinner, and it is announced', async () => {
 	const screen = render(PostsPage, { ...base, posts: [], loading: true });
 
-	await expect.element(screen.getByRole('status')).toHaveTextContent('Loading posts');
+	await expect
+		.element(screen.getByRole('status').filter({ hasText: 'Loading posts' }))
+		.toBeInTheDocument();
 	expect(screen.getByText('No posts yet', { exact: true }).elements()).toHaveLength(0);
 });
 
@@ -293,6 +303,65 @@ test.each([
 });
 
 // ── Screen / Posts list 11:2 and Mobile / Posts list 73:2 ──────────────────
+
+// ── archiving ──────────────────────────────────────────────────────────────
+
+test('each row hides Archive behind its own ⋯ menu', async () => {
+	// One click archives, so it does not sit on the row where one click lands.
+	const screen = render(PostsPage, base);
+
+	expect(screen.getByRole('menuitem', { name: 'Archive' }).elements()).toHaveLength(0);
+	await screen.getByRole('button', { name: 'More for Building a CMS in Rust' }).click();
+	await expect.element(screen.getByRole('menuitem', { name: 'Archive' })).toBeInTheDocument();
+});
+
+test('archiving says so, and offers the way back and the way there', async () => {
+	const changed: boolean[] = [];
+	const fetchFn = archived204();
+	const screen = render(PostsPage, {
+		...base,
+		fetchFn,
+		onchanged: () => changed.push(true)
+	});
+
+	await screen.getByRole('button', { name: 'More for Building a CMS in Rust' }).click();
+	await screen.getByRole('menuitem', { name: 'Archive' }).click();
+
+	expect(fetchFn.mock.calls[0][0]).toBe('/api/blog/1');
+	expect(fetchFn.mock.calls[0][1]?.method).toBe('DELETE');
+	await expect.element(screen.getByText('Archived.')).toBeInTheDocument();
+	await expect.element(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
+	await expect.element(screen.getByRole('link', { name: 'View archive' })).toBeInTheDocument();
+	await vi.waitFor(() => expect(changed).toEqual([true]));
+});
+
+test('Undo puts the post back where it was', async () => {
+	const fetchFn = archived204();
+	const screen = render(PostsPage, { ...base, fetchFn });
+
+	await screen.getByRole('button', { name: 'More for Building a CMS in Rust' }).click();
+	await screen.getByRole('menuitem', { name: 'Archive' }).click();
+	await screen.getByRole('button', { name: 'Undo' }).click();
+
+	expect(fetchFn.mock.calls[1][0]).toBe('/api/blog/1/restore');
+	expect(fetchFn.mock.calls[1][1]?.method).toBe('POST');
+});
+
+test('an archive that fails says so and leaves the row alone', async () => {
+	const fetchFn = vi.fn<typeof fetch>(
+		async () =>
+			new Response(JSON.stringify({ error: { code: 'INTERNAL_ERROR' } }), {
+				status: 500,
+				headers: { 'content-type': 'application/json' }
+			})
+	);
+	const screen = render(PostsPage, { ...base, fetchFn });
+
+	await screen.getByRole('button', { name: 'More for Building a CMS in Rust' }).click();
+	await screen.getByRole('menuitem', { name: 'Archive' }).click();
+
+	await expect.element(screen.getByText('Something went wrong on our side.')).toBeInTheDocument();
+});
 
 test('an active filter becomes a chip that takes it off', async () => {
 	// Screen / Posts — filtered empty 84:557: "Rust ×", "Drafts ×". The filters

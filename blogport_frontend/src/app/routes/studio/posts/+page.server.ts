@@ -51,21 +51,31 @@ async function topics(event: Parameters<PageServerLoad>[0]): Promise<Topic[]> {
 }
 
 /**
- * Every post in the main list — live and drafts, since archived posts are not
- * in it — for the filtered-empty sentence. `null` when it could not be had:
- * that sentence exists to stop someone thinking their posts are gone, and a
- * guessed zero would say exactly that.
+ * The post counts this screen reads: how many are in the main list — live and
+ * drafts, since archived posts are not in it — for the filtered-empty sentence,
+ * and how many are archived, for "View archive (3)" beside the count.
+ *
+ * `null` when it could not be had. That sentence exists to stop someone
+ * thinking their posts are gone, and a guessed zero would say exactly that.
  */
-async function everything(event: Parameters<PageServerLoad>[0]): Promise<number | null> {
+async function summary(
+	event: Parameters<PageServerLoad>[0]
+): Promise<{ everything: number | null; archived: number }> {
 	try {
 		const response = await authenticatedFetch(event, '/api/blog/summary');
-		if (!response.ok) return null;
+		if (!response.ok) return { everything: null, archived: 0 };
 
-		const body = (await response.json()) as { data?: { live?: unknown; drafts?: unknown } };
-		const { live, drafts } = body.data ?? {};
-		return typeof live === 'number' && typeof drafts === 'number' ? live + drafts : null;
+		const body = (await response.json()) as {
+			data?: { live?: unknown; drafts?: unknown; archived?: unknown };
+		};
+		const { live, drafts, archived } = body.data ?? {};
+
+		return {
+			everything: typeof live === 'number' && typeof drafts === 'number' ? live + drafts : null,
+			archived: typeof archived === 'number' ? archived : 0
+		};
 	} catch {
-		return null;
+		return { everything: null, archived: 0 };
 	}
 }
 
@@ -102,13 +112,7 @@ export const load: PageServerLoad = async (event) => {
 		}
 	};
 
-	// Only a filtered list can end up needing the count, so only a filtered list
-	// asks for it.
-	const [body, options, count] = await Promise.all([
-		rows(),
-		topics(event),
-		filtered ? everything(event) : Promise.resolve(null)
-	]);
+	const [body, options, counts] = await Promise.all([rows(), topics(event), summary(event)]);
 
 	const empty = {
 		posts: [] as Card[],
@@ -121,7 +125,8 @@ export const load: PageServerLoad = async (event) => {
 		topic,
 		sort,
 		topics: options,
-		everything: count
+		everything: counts.everything,
+		archived: counts.archived
 	};
 
 	if (!body) return { ...empty, failed: true };

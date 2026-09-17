@@ -41,6 +41,17 @@ async function call(
 const at = (id: string, action: 'restore' | 'hard') =>
 	`/api/blog/${encodeURIComponent(id)}/${action}`;
 
+/**
+ * §06's first rung. A DELETE on the wire, an archive in the interface: the row
+ * survives and `restorePost` brings it back, which is what the undo toast does.
+ */
+export function archivePost(
+	id: string,
+	fetchFn: typeof globalThis.fetch = (...args) => globalThis.fetch(...args)
+) {
+	return call(`/api/blog/${encodeURIComponent(id)}`, 'DELETE', fetchFn);
+}
+
 export function restorePost(
 	id: string,
 	fetchFn: typeof globalThis.fetch = (...args) => globalThis.fetch(...args)

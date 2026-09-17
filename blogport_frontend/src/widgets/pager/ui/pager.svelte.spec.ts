@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { createRawSnippet } from 'svelte';
 import { render } from 'vitest-browser-svelte';
 import { expectNoA11yViolations } from '$lib/shared/test/a11y';
 import Pager from './pager.svelte';
@@ -82,6 +83,26 @@ test('one page of rows needs no numbers at all', async () => {
 
 	await expect.element(screen.getByText('4 of 4 posts')).toBeInTheDocument();
 	expect(screen.getByRole('button').elements()).toHaveLength(0);
+});
+
+test('the count can carry a destination beside it', async () => {
+	// Screen / Posts list: "6 of 24 posts   View archive (3)" — beside the
+	// count, never beside the primary action: it is a destination, not a thing
+	// to do.
+	const after = createRawSnippet(() => ({
+		render: () => '<a href="/studio/posts/archive">View archive (3)</a>'
+	}));
+	const screen = render(Pager, {
+		shown: 6,
+		total: 24,
+		page: 1,
+		perPage: 10,
+		noun: 'posts',
+		after,
+		onpage: () => {}
+	});
+
+	await expect.element(screen.getByRole('link', { name: 'View archive (3)' })).toBeInTheDocument();
 });
 
 test('has no accessibility violations', async () => {

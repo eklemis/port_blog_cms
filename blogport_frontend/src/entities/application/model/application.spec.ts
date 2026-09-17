@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { applicationStatus, appliedOn, trackerRows } from './application';
+import { applicationStatus, appliedOn, nextAction, trackerRows } from './application';
 
 /**
  * What one row of the application tracker can say about itself.
@@ -64,14 +64,25 @@ test('a draft has no applied date, and does not pretend to', () => {
 	expect(appliedOn(undefined, NOW)).toBeNull();
 });
 
-test('a sent application says the day it went, as the frame writes it', async () => {
-	// "14 Aug", not "2 days ago": a tracker is read for when something was
-	// sent, and a relative date changes under someone every time they look.
-	expect(appliedOn('2026-09-06T12:00:00Z', NOW)).toBe('6 Sep');
+test('a sent application says the day it went, in the reader’s own format', async () => {
+	// Not a hand-rolled "14 Aug": the designer overruled that, and the Career
+	// Studio paper warns about exactly this once Indonesian is added. The month
+	// is whatever the locale writes — "Sept" in en-GB is correct.
+	const day = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' });
+
+	expect(appliedOn('2026-09-06T12:00:00Z', NOW)).toBe(day.format(new Date('2026-09-06T12:00:00Z')));
 });
 
 test('a date from another year says which year', () => {
-	expect(appliedOn('2025-12-18T12:00:00Z', NOW)).toBe('18 Dec 2025');
+	const withYear = new Intl.DateTimeFormat(undefined, {
+		day: 'numeric',
+		month: 'short',
+		year: 'numeric'
+	});
+	const when = new Date('2025-12-18T12:00:00Z');
+
+	expect(appliedOn(when.toISOString(), NOW)).toBe(withYear.format(when));
+	expect(appliedOn(when.toISOString(), NOW)).toContain('2025');
 });
 
 // ── the join ───────────────────────────────────────────────────────────────
@@ -91,14 +102,24 @@ const APPLICATION = {
 	updated_at: '2026-09-06T12:00:00Z'
 };
 
+test('a row carries its next action, and says whether it was derived', () => {
+	const [row] = trackerRows([{ ...APPLICATION, status: 'rejected', next_action: '' }], JOBS, NOW);
+
+	expect(row.nextAction).toEqual({ text: 'Add reflection', derived: true });
+});
+
 test('a row carries the role and the company from its job', () => {
 	const [row] = trackerRows([APPLICATION], JOBS, NOW);
 
 	expect(row.role).toBe('Senior Backend');
 	expect(row.company).toBe('Gojek');
 	expect(row.status.label).toBe('Interview');
-	expect(row.applied).toBe('6 Sep');
-	expect(row.nextAction).toBe('Send the take-home');
+	expect(row.applied).toBe(
+		new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(
+			new Date('2026-09-06T12:00:00Z')
+		)
+	);
+	expect(row.nextAction).toEqual({ text: 'Send the take-home', derived: false });
 });
 
 test('an application whose job did not come back is still a row', () => {
@@ -111,8 +132,11 @@ test('an application whose job did not come back is still a row', () => {
 	expect(row.company).toBe('');
 });
 
-test('nothing due is empty, not a dash someone has to read', () => {
-	expect(trackerRows([{ ...APPLICATION, next_action: '' }], JOBS, NOW)[0].nextAction).toBe('');
+test('nothing due is null, and each surface draws its own dash', () => {
+	expect(trackerRows([{ ...APPLICATION, next_action: '' }], JOBS, NOW)[0].nextAction).toEqual({
+		text: null,
+		derived: false
+	});
 });
 
 test('rows keep the order the API sent them in — newest first', () => {
@@ -121,4 +145,53 @@ test('rows keep the order the API sent them in — newest first', () => {
 		'app-1',
 		'app-2'
 	]);
+});
+
+// ── what the next-action cell holds ────────────────────────────────────────
+
+test('a draft with no CV snapshot owes the tailoring step', () => {
+	// §07 of the tracker rules: the derived action is chosen by status, never
+	// by what the person typed.
+	expect(
+		nextAction({ ...APPLICATION, status: 'draft', cv_snapshot_id: null, next_action: '' })
+	).toEqual({
+		text: 'Tailor CV',
+		derived: true
+	});
+});
+
+test('a negative outcome with nothing written owes a reflection', () => {
+	for (const status of ['rejected', 'withdrawn', 'no_reply'] as const) {
+		expect(nextAction({ ...APPLICATION, status, next_action: '' }), status).toEqual({
+			text: 'Add reflection',
+			derived: true
+		});
+	}
+});
+
+test('the person’s own words win over a derived one', () => {
+	// The derived action is what to do when the cell would otherwise be empty;
+	// it never overwrites something someone wrote.
+	expect(
+		nextAction({ ...APPLICATION, status: 'rejected', next_action: 'Ask for feedback' })
+	).toEqual({
+		text: 'Ask for feedback',
+		derived: false
+	});
+});
+
+test('nothing owed and nothing written is a dash for the surface to draw', () => {
+	expect(nextAction({ ...APPLICATION, status: 'interview', next_action: '' })).toEqual({
+		text: null,
+		derived: false
+	});
+});
+
+test('a draft that has a snapshot is past the tailoring step', () => {
+	expect(
+		nextAction({ ...APPLICATION, status: 'draft', cv_snapshot_id: 'cv-1', next_action: '' })
+	).toEqual({
+		text: null,
+		derived: false
+	});
 });

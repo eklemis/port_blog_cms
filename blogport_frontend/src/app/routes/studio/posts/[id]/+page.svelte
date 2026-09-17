@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { PostEditorPage } from '$lib/pages/post-editor';
 	import type { PageProps } from './$types';
 
@@ -10,4 +12,9 @@
 	<title>{data.post ? data.post.title : 'Post'}</title>
 </svelte:head>
 
-<PostEditorPage post={data.post} username={data.user.username} denied={data.denied} />
+<PostEditorPage
+	post={data.post}
+	username={data.user.username}
+	denied={data.denied}
+	onarchived={() => goto(resolve('/studio/posts'))}
+/>

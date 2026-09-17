@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { navigating, page } from '$app/state';
 	import { PostsPage } from '$lib/pages/posts';
 	import type { PageProps } from './$types';
@@ -41,6 +41,8 @@
 	topics={data.topics}
 	total={data.total}
 	everything={data.everything}
+	archived={data.archived}
+	onchanged={() => invalidateAll()}
 	page={data.page}
 	perPage={data.perPage}
 	filtered={data.filtered}

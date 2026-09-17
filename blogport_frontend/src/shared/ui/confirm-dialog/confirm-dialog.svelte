@@ -27,6 +27,7 @@
 		title,
 		consequence,
 		match,
+		prompt,
 		confirmLabel,
 		working = false,
 		failure,
@@ -37,8 +38,14 @@
 		title: string;
 		/** The sentence that says what is lost. Read out as the description. */
 		consequence: string;
-		/** What has to be typed. The item's own name. */
+		/** What has to be typed. The item's own name, or a count. */
 		match: string;
+		/**
+		 * How to ask for it. Defaults to naming the match; a purge of several
+		 * posts words it "Type 2 to purge 2 posts.", since a selection has no
+		 * title and the number is what someone gets wrong.
+		 */
+		prompt?: string;
 		confirmLabel: string;
 		working?: boolean;
 		/**
@@ -93,7 +100,11 @@
 
 	<div class="mt-4 flex flex-col gap-1.5">
 		<label for="{id}-match" class="text-[12.5px] text-arch-headline">
-			Type <strong class="font-semibold">{match}</strong> to confirm
+			{#if prompt}
+				{prompt}
+			{:else}
+				Type <strong class="font-semibold">{match}</strong> to confirm
+			{/if}
 		</label>
 		<input
 			id="{id}-match"

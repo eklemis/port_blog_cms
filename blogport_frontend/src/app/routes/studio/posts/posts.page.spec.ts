@@ -181,13 +181,16 @@ test('a filtered list also knows how many posts there are in all', async () => {
 	expect(data).toMatchObject({ everything: 21 });
 });
 
-test('an unfiltered list does not ask, because nothing would read the answer', async () => {
+test('every list asks for the summary, because the archive count is in it', async () => {
+	// "View archive (3)" sits beside the count on every posts list, filtered or
+	// not, so the summary is no longer only the filtered-empty sentence's.
 	page(rows);
 
-	await load(event() as never);
+	const data = await load(event() as never);
 
 	const asked = fetchImpl.mock.calls.map((call) => String(call[1]));
-	expect(asked.some((path) => path.startsWith('/api/blog/summary'))).toBe(false);
+	expect(asked.some((path) => path.startsWith('/api/blog/summary'))).toBe(true);
+	expect(data).toMatchObject({ archived: 3 });
 });
 
 test('a count that could not be had is null, not zero', async () => {
@@ -199,7 +202,10 @@ test('a count that could not be had is null, not zero', async () => {
 				: { ok: true, json: async () => ({ data: { items: [], total: 0 } }) }
 	);
 
-	expect(await load(event('?search=kafka') as never)).toMatchObject({ everything: null });
+	expect(await load(event('?search=kafka') as never)).toMatchObject({
+		everything: null,
+		archived: 0
+	});
 });
 
 test('a failed fetch is a state, not an exception', async () => {

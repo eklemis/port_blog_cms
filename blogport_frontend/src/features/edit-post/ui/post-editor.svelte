@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { ChevronLeft } from '@lucide/svelte';
-	import { InlineAlert, SaveIndicator, StatusPill, Toast } from '$lib/shared/ui';
+	import { InlineAlert, Menu, SaveIndicator, StatusPill, Toast } from '$lib/shared/ui';
 	import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
 	import type { HandlingClass } from '$lib/shared/lib/error-class';
 	import { SLUG_MAX, slugError, slugFrom } from '$lib/shared/lib/slug';
@@ -46,11 +46,14 @@
 		post,
 		/** Whose post it is. The public address is built from it. */
 		username,
+		onarchive = () => {},
 		/** Injected by the spec; the browser's own otherwise. */
 		fetchFn = undefined
 	}: {
 		post: Post;
 		username: string;
+		/** Archive was chosen, and the post is saved. The caller does the rest. */
+		onarchive?: () => void;
 		fetchFn?: typeof globalThis.fetch;
 	} = $props();
 
@@ -188,6 +191,19 @@
 		toast = at ? 'Published.' : 'Back to a draft.';
 	}
 
+	/**
+	 * Archiving belongs to the page: one feature slice may not reach into
+	 * another, and `manage-archive` owns the call. What is done here is what
+	 * only the editor can do — save first, so whatever is on screen is what
+	 * comes back out of the archive.
+	 */
+	async function archive() {
+		publishing = true;
+		await autosave.flush();
+		publishing = false;
+		onarchive();
+	}
+
 	const status = $derived(postStatus(publishedAt));
 	/** The fixed part of the public address, muted in the frame. */
 	const addressPrefix = $derived(`/${username}/blog/`);
@@ -237,6 +253,25 @@
 				onpublish={(at) => setPublished(at ?? new Date().toISOString())}
 				onunpublish={() => setPublished(null)}
 			/>
+
+			<!-- §06: at the end of the top bar, at every width. -->
+			<Menu label="More for this post">
+				{#snippet items(close)}
+					<button
+						type="button"
+						role="menuitem"
+						disabled={publishing}
+						onclick={() => {
+							close();
+							archive();
+						}}
+						class="px-4 py-2 text-left text-[13px] text-arch-headline hover:bg-arch-surface-2
+						       disabled:opacity-55"
+					>
+						Archive
+					</button>
+				{/snippet}
+			</Menu>
 		</div>
 	</section>
 

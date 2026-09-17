@@ -20,7 +20,7 @@ const rows = [
 		role: 'Senior Backend',
 		company: 'Gojek',
 		status: { tone: 'inflight' as const, label: 'Interview' },
-		nextAction: 'Send the take-home',
+		nextAction: { text: 'Send the take-home', derived: false },
 		applied: '14 Aug'
 	},
 	{
@@ -28,7 +28,7 @@ const rows = [
 		role: 'Platform Engineer',
 		company: 'Xendit',
 		status: { tone: 'neutral' as const, label: 'Draft' },
-		nextAction: '',
+		nextAction: { text: null, derived: false },
 		applied: null
 	}
 ];
@@ -53,6 +53,21 @@ test('lists an application per row, with where each has got to', async () => {
 	await expect.element(first.getByText('Send the take-home')).toBeInTheDocument();
 
 	await expectNoA11yViolations(document.body, UNSTYLED_GEOMETRY);
+});
+
+test('a derived action is plain text until its screen exists', async () => {
+	// "Tailor CV" and "Add reflection" lead to screens that are not built, and
+	// accent ink on text that goes nowhere promises a link that is not there.
+	const screen = render(ApplicationsPage, {
+		rows: [{ ...rows[0], nextAction: { text: 'Add reflection', derived: true } }],
+		failed: false,
+		total: 1,
+		page: 1,
+		perPage: 10
+	});
+
+	await expect.element(screen.getByText('Add reflection').first()).toBeInTheDocument();
+	expect(screen.getByRole('link', { name: 'Add reflection' }).elements()).toHaveLength(0);
 });
 
 test('a draft and an empty next action are dashes, not blanks', async () => {

@@ -163,10 +163,6 @@
 					</li>
 				{/each}
 			</ul>
-
-			<p class="text-[10.5px] text-arch-muted">
-				Disappears for good once two are done. It is not a permanent fixture.
-			</p>
 		</section>
 	{/if}
 </div>

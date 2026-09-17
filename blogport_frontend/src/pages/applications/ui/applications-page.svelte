@@ -20,12 +20,13 @@
 	 * 73:120 · Screen / Applications — empty 84:701. A table from 768px; below it
 	 * "five columns cannot survive 390px", and each row becomes a card.
 	 *
-	 * Two things the frame draws are not here yet, and both are reported rather
-	 * than faked. The CV used column needs each snapshot's name, which the
-	 * listing does not carry. And the row and its next action are links in the
-	 * frame — to the tailoring, cover-letter and reflection screens, none of which
-	 * exists — so they render as text until they have somewhere to go: accent ink
-	 * on text that goes nowhere would promise a link that is not there.
+	 * The CV used column the frame draws is not here: the listing carries a
+	 * snapshot id and no name, so filling it would be one request per row.
+	 *
+	 * The next-action cell is two things — a step derived from the status, or
+	 * what the person wrote — and neither is a link. A row is not a link either;
+	 * the designer has ruled that clicking one goes nowhere until the detail
+	 * screen exists, and the derived actions stay plain text until theirs do.
 	 */
 	let {
 		rows,
@@ -119,8 +120,11 @@
 							<td class="px-[18px] py-[13px] text-[12px] text-arch-muted max-lg:hidden">
 								{row.applied ?? '—'}
 							</td>
+							<!-- Headline colour, never accent ink: the derived actions lead to
+							     screens that do not exist yet, and a person's own note was never
+							     a link at all. -->
 							<td class="px-[18px] py-[13px] text-[12px] text-arch-headline">
-								{row.nextAction || '—'}
+								{row.nextAction.text ?? '—'}
 							</td>
 						</tr>
 					{/each}
@@ -145,7 +149,7 @@
 					{/if}
 					<div class="h-px bg-arch-line" role="presentation"></div>
 					<div class="flex items-center justify-between gap-3">
-						<p class="text-[11.5px] text-arch-headline">{row.nextAction || '—'}</p>
+						<p class="text-[11.5px] text-arch-headline">{row.nextAction.text ?? '—'}</p>
 						<p class="font-mono text-[10.5px] text-arch-muted">
 							{row.applied ? `sent ${row.applied}` : 'not sent'}
 						</p>
