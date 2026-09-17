@@ -10,3 +10,4 @@ export {
 	TITLE_MAX,
 	type PostStatus
 } from './model/post';
+export { publishedLabel, readingTime } from './model/published';
