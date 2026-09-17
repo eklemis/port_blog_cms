@@ -162,6 +162,12 @@ pub struct BlogPostCardResponse {
     /// When it was last edited.
     pub updated_at: DateTime<Utc>,
 
+    /// When the post was archived. `null` unless it is archived.
+    ///
+    /// Recorded when the archiving happens rather than inferred from
+    /// `updated_at`, so the date the archive list shows stays put.
+    pub deleted_at: Option<DateTime<Utc>>,
+
     /// The post's cover, on public listings only.
     ///
     /// Omitted entirely when there is none, so a client can treat its presence
@@ -189,6 +195,7 @@ impl From<BlogPostCard> for BlogPostCardResponse {
             published_at: c.published_at,
             created_at: c.created_at,
             updated_at: c.updated_at,
+            deleted_at: c.deleted_at,
         }
     }
 }

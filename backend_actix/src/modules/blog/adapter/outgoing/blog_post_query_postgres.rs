@@ -45,6 +45,7 @@ struct CardRow {
     published_at: Option<sea_orm::prelude::DateTimeWithTimeZone>,
     created_at: sea_orm::prelude::DateTimeWithTimeZone,
     updated_at: sea_orm::prelude::DateTimeWithTimeZone,
+    deleted_at: Option<sea_orm::prelude::DateTimeWithTimeZone>,
 }
 
 #[derive(Debug, FromQueryResult)]
@@ -162,6 +163,7 @@ impl BlogPostQueryPostgres {
             .column(PostColumn::PublishedAt)
             .column(PostColumn::CreatedAt)
             .column(PostColumn::UpdatedAt)
+            .column(PostColumn::DeletedAt)
             .into_model::<CardRow>()
             .paginate(&*self.db, per_page);
 
@@ -198,6 +200,7 @@ impl BlogPostQueryPostgres {
                 published_at: m.published_at.map(|t| t.with_timezone(&Utc)),
                 created_at: m.created_at.with_timezone(&Utc),
                 updated_at: m.updated_at.with_timezone(&Utc),
+                deleted_at: m.deleted_at.map(|t| t.with_timezone(&Utc)),
             })
             .collect();
 
@@ -478,6 +481,7 @@ mod tests {
             content: "body".into(),
             published_at: published_at.map(|t| t.fixed_offset()),
             is_deleted: false,
+            deleted_at: None,
             created_at: now,
             updated_at: now,
         }

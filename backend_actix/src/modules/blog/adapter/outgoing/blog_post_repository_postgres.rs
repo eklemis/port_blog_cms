@@ -153,6 +153,7 @@ mod tests {
             content: "body".into(),
             published_at: published_at.map(|t| t.fixed_offset()),
             is_deleted: false,
+            deleted_at: None,
             created_at: now,
             updated_at: now,
         }
