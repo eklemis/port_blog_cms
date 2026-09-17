@@ -1,5 +1,6 @@
 import { UNEXPECTED } from '$lib/shared/lib/api-failure';
 import { handlingClass, type HandlingClass } from '$lib/shared/lib/error-class';
+import type { components } from '$lib/shared/api/v1';
 
 /**
  * The two ways out of the archive — §06's second and third rungs.
@@ -67,11 +68,17 @@ export function purgePost(
 }
 
 /**
- * The three operations the archive screen runs over a selection. The backend
- * also takes `archive` and the topic operations; this screen has no use for
- * them, so they are not spelled here.
+ * The operations this call can send, taken from the spec rather than typed out.
+ *
+ * It was written by hand from the prose, which listed five ops where the enum
+ * had six — so `unpublish` was missing from the type rather than merely unused,
+ * and nothing could have caught that. Derived, it cannot fall behind again.
+ *
+ * The topic operations are excluded because they carry a `topic_id` this
+ * signature has nowhere to put; a caller that needs them needs a different
+ * call, not a wider string.
  */
-export type BulkOp = 'restore' | 'hard_delete';
+export type BulkOp = Exclude<components['schemas']['BlogBulkOp'], { topic_id: string }>['op'];
 
 export type BulkResult =
 	| {

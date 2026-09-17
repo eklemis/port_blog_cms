@@ -129,3 +129,24 @@ test('a batch that could not run at all is one failure for all of it', async () 
 		kind: 'notOurs'
 	});
 });
+
+test('names every operation the server publishes, not the ones one screen uses', async () => {
+	// The backend's enum carried six ops; the prose this union was typed from
+	// listed five, so `unpublish` was missing from the type rather than merely
+	// unused. The union comes from the generated schema now, and this is the op
+	// that proves it — it would not have compiled before.
+	const fetchFn = vi.fn<typeof fetch>(
+		async () =>
+			new Response(JSON.stringify({ succeeded: ['a'], failed: [] }), {
+				status: 200,
+				headers: { 'content-type': 'application/json' }
+			})
+	);
+
+	await bulkPosts('unpublish', ['a'], fetchFn);
+
+	expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({
+		op: 'unpublish',
+		ids: ['a']
+	});
+});

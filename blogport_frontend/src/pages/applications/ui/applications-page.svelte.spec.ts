@@ -21,7 +21,8 @@ const rows = [
 		company: 'Gojek',
 		status: { tone: 'inflight' as const, label: 'Interview' },
 		nextAction: { text: 'Send the take-home', derived: false },
-		applied: '14 Aug'
+		applied: '14 Aug',
+		cvUsed: 'Backend, sent 14 Aug'
 	},
 	{
 		id: 'app-2',
@@ -29,7 +30,8 @@ const rows = [
 		company: 'Xendit',
 		status: { tone: 'neutral' as const, label: 'Draft' },
 		nextAction: { text: null, derived: false },
-		applied: null
+		applied: null,
+		cvUsed: 'not chosen yet'
 	}
 ];
 
@@ -42,6 +44,7 @@ test('lists an application per row, with where each has got to', async () => {
 	expect([...headers].map((th) => th.textContent?.trim())).toEqual([
 		'Role & company',
 		'Status',
+		'CV used',
 		'Applied',
 		'Next action'
 	]);
@@ -49,7 +52,11 @@ test('lists an application per row, with where each has got to', async () => {
 	const first = screen.getByRole('row').nth(1);
 	await expect.element(first.getByText('Senior Backend · Gojek')).toBeInTheDocument();
 	await expect.element(first.getByText('Interview')).toBeInTheDocument();
-	await expect.element(first.getByText('14 Aug')).toBeInTheDocument();
+	// The CV cell names the same day ("Backend, sent 14 Aug"), so this asks for
+	// the Applied cell rather than for that text wherever it appears.
+	await expect
+		.element(first.getByRole('cell', { name: '14 Aug', exact: true }))
+		.toBeInTheDocument();
 	await expect.element(first.getByText('Send the take-home')).toBeInTheDocument();
 
 	await expectNoA11yViolations(document.body, UNSTYLED_GEOMETRY);
@@ -185,4 +192,14 @@ test('loading is rows, not a spinner, and it is announced', async () => {
 
 	await expect.element(screen.getByRole('status')).toHaveTextContent('Loading applications');
 	expect(screen.getByText('No applications yet', { exact: true }).elements()).toHaveLength(0);
+});
+
+test('each row names the CV that was sent, and when', async () => {
+	// Screen / Application tracker 12:118 — "Backend, sent 14 Aug". It comes from
+	// the frozen snapshot, so renaming the CV later cannot rewrite this cell.
+	const screen = render(ApplicationsPage, { rows, failed: false, total: 2, page: 1, perPage: 10 });
+
+	const table = screen.getByRole('table');
+	await expect.element(table.getByText('Backend, sent 14 Aug')).toBeInTheDocument();
+	await expect.element(table.getByText('not chosen yet')).toBeInTheDocument();
 });
