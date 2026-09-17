@@ -147,6 +147,15 @@ pub struct Application {
     /// `None` only while the application is a draft — leaving draft requires
     /// one, because a row without a snapshot is a row that lies later.
     pub cv_snapshot_id: Option<Uuid>,
+    /// The role of that CV as it stood when frozen — "Backend", say.
+    ///
+    /// Read from the snapshot, not from the live CV, so renaming the CV later
+    /// does not rewrite what this application says was sent. `None` when there
+    /// is no snapshot yet, or the CV had no role.
+    ///
+    /// A label for display, loaded with the row. Nothing decides anything on
+    /// it; the snapshot id remains the reference.
+    pub cv_role: Option<String>,
     /// Where it has got to.
     pub status: ApplicationStatus,
     /// When it was sent. `None` while still a draft.

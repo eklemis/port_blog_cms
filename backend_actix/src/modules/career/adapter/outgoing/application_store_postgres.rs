@@ -6,9 +6,11 @@
 use async_trait::async_trait;
 use chrono::Utc;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait,
-    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, TransactionTrait,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, DatabaseBackend,
+    DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
+    Statement, TransactionTrait, Value,
 };
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -56,6 +58,8 @@ fn to_domain(m: AppModel) -> Application {
         user_id: m.user_id,
         job_id: m.job_id,
         cv_snapshot_id: m.cv_snapshot_id,
+        // Filled in by the caller from the snapshot. The row alone cannot say.
+        cv_role: None,
         // The CHECK constraint keeps this in the known set, so an unparseable
         // value would mean the schema and the enum have diverged. Falling back
         // to Draft is the safest reading: it understates progress rather than
@@ -66,6 +70,96 @@ fn to_domain(m: AppModel) -> Application {
         next_action_at: m.next_action_at.map(|t| t.with_timezone(&Utc)),
         created_at: m.created_at.with_timezone(&Utc),
         updated_at: m.updated_at.with_timezone(&Utc),
+    }
+}
+
+/// `$1, $2, …` for `count` values, starting at `$first`.
+fn placeholders(first: usize, count: usize) -> String {
+    (first..first + count)
+        .map(|n| format!("${n}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+impl ApplicationStorePostgres {
+    /// The CV role of each snapshot, in one query.
+    ///
+    /// The tracker shows which CV each application sent. Without this it would
+    /// have to fetch every snapshot on the page one by one — the same N+1 that
+    /// `topics_for_many` removed from the post list.
+    ///
+    /// Owner-scoped like everything else here. Snapshots with no role are left
+    /// out rather than returned as an empty label.
+    async fn cv_roles_for(
+        &self,
+        owner: Uuid,
+        snapshot_ids: &[Uuid],
+    ) -> Result<HashMap<Uuid, String>, ApplicationStoreError> {
+        if snapshot_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let sql = format!(
+            r#"SELECT id, document->>'role' AS role
+                 FROM cv_snapshots
+                WHERE user_id = $1
+                  AND id IN ({})
+                  AND NULLIF(document->>'role', '') IS NOT NULL"#,
+            placeholders(2, snapshot_ids.len())
+        );
+
+        let mut values: Vec<Value> = Vec::with_capacity(snapshot_ids.len() + 1);
+        values.push(owner.into());
+        values.extend(snapshot_ids.iter().map(|id| Value::from(*id)));
+
+        let rows = self
+            .db
+            .query_all(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                sql,
+                values,
+            ))
+            .await
+            .map_err(db_err)?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok((
+                    row.try_get::<Uuid>("", "id").map_err(db_err)?,
+                    row.try_get::<String>("", "role").map_err(db_err)?,
+                ))
+            })
+            .collect()
+    }
+
+    /// Attaches each application's CV role, in one query for all of them.
+    async fn with_cv_roles(
+        &self,
+        owner: Uuid,
+        mut apps: Vec<Application>,
+    ) -> Result<Vec<Application>, ApplicationStoreError> {
+        let mut ids: Vec<Uuid> = apps.iter().filter_map(|a| a.cv_snapshot_id).collect();
+        ids.sort_unstable();
+        ids.dedup();
+
+        let roles = self.cv_roles_for(owner, &ids).await?;
+        for app in &mut apps {
+            app.cv_role = app.cv_snapshot_id.and_then(|id| roles.get(&id).cloned());
+        }
+        Ok(apps)
+    }
+
+    /// The single-row form of [`Self::with_cv_roles`].
+    async fn with_cv_role(
+        &self,
+        owner: Uuid,
+        app: Application,
+    ) -> Result<Application, ApplicationStoreError> {
+        Ok(self
+            .with_cv_roles(owner, vec![app])
+            .await?
+            .pop()
+            .expect("one application in, one out"))
     }
 }
 
@@ -128,8 +222,13 @@ impl ApplicationStore for ApplicationStorePostgres {
             .await
             .map_err(db_err)?;
 
+        // One extra query for the page, not one per row.
+        let items = self
+            .with_cv_roles(owner, rows.into_iter().map(to_domain).collect())
+            .await?;
+
         Ok(CareerPageResult {
-            items: rows.into_iter().map(to_domain).collect(),
+            items,
             page: page.page,
             per_page: page.per_page,
             total,
@@ -148,7 +247,10 @@ impl ApplicationStore for ApplicationStorePostgres {
             .await
             .map_err(db_err)?;
 
-        Ok(row.map(to_domain))
+        match row {
+            Some(m) => Ok(Some(self.with_cv_role(owner, to_domain(m)).await?)),
+            None => Ok(None),
+        }
     }
 
     async fn patch(
@@ -205,7 +307,9 @@ impl ApplicationStore for ApplicationStorePostgres {
 
         let stored = active.update(&txn).await.map_err(db_err)?;
         txn.commit().await.map_err(db_err)?;
-        Ok(to_domain(stored))
+        // After the commit, so the label is read outside the lock. Sending
+        // is what sets the snapshot, so a patch is exactly when it can change.
+        self.with_cv_role(owner, to_domain(stored)).await
     }
 
     async fn archive(
@@ -248,6 +352,12 @@ mod tests {
     /// The constraint is the backstop for a race the service cannot see. When
     /// it fires, the caller must be told which rule it broke — a 500 here would
     /// read as a server fault for something the user could act on.
+    #[test]
+    fn placeholders_are_numbered_from_the_first_free_parameter() {
+        assert_eq!(placeholders(2, 3), "$2, $3, $4");
+        assert_eq!(placeholders(1, 1), "$1");
+    }
+
     #[test]
     fn a_violation_of_the_snapshot_constraint_is_reported_as_the_rule() {
         let err = db_err(sea_orm::DbErr::Custom(

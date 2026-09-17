@@ -541,6 +541,13 @@
                                 "format": "date-time",
                                 "description": "When the row was created."
                               },
+                              "cv_role": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The role of that CV as it stood when it was sent — \"Backend\", say.\n\nFrom the snapshot, so it does not change if the CV is renamed later.\nLoaded with the page rather than per row. `null` while this is a draft,\nor when the CV had no role."
+                              },
                               "cv_snapshot_id": {
                                 "type": [
                                   "string",
@@ -699,6 +706,13 @@
                           "format": "date-time",
                           "description": "When the row was created."
                         },
+                        "cv_role": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The role of that CV as it stood when it was sent — \"Backend\", say.\n\nFrom the snapshot, so it does not change if the CV is renamed later.\nLoaded with the page rather than per row. `null` while this is a draft,\nor when the CV had no role."
+                        },
                         "cv_snapshot_id": {
                           "type": [
                             "string",
@@ -844,6 +858,13 @@
                           "type": "string",
                           "format": "date-time",
                           "description": "When the row was created."
+                        },
+                        "cv_role": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The role of that CV as it stood when it was sent — \"Backend\", say.\n\nFrom the snapshot, so it does not change if the CV is renamed later.\nLoaded with the page rather than per row. `null` while this is a draft,\nor when the CV had no role."
                         },
                         "cv_snapshot_id": {
                           "type": [
@@ -1058,6 +1079,13 @@
                           "type": "string",
                           "format": "date-time",
                           "description": "When the row was created."
+                        },
+                        "cv_role": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The role of that CV as it stood when it was sent — \"Backend\", say.\n\nFrom the snapshot, so it does not change if the CV is renamed later.\nLoaded with the page rather than per row. `null` while this is a draft,\nor when the CV had no role."
                         },
                         "cv_snapshot_id": {
                           "type": [
@@ -3001,6 +3029,14 @@
                                 "type": "string",
                                 "format": "date-time",
                                 "description": "When it was created."
+                              },
+                              "deleted_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "date-time",
+                                "description": "When the post was archived. `null` unless it is archived.\n\nRecorded when the archiving happens rather than inferred from\n`updated_at`, so the date the archive list shows stays put."
                               },
                               "excerpt": {
                                 "type": [
@@ -10280,6 +10316,14 @@
                                 "format": "date-time",
                                 "description": "When it was created."
                               },
+                              "deleted_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "date-time",
+                                "description": "When the post was archived. `null` unless it is archived.\n\nRecorded when the archiving happens rather than inferred from\n`updated_at`, so the date the archive list shows stays put."
+                              },
                               "excerpt": {
                                 "type": [
                                   "string",
@@ -12298,6 +12342,13 @@
             "format": "date-time",
             "description": "When the row was created."
           },
+          "cv_role": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The role of that CV as it stood when it was sent — \"Backend\", say.\n\nFrom the snapshot, so it does not change if the CV is renamed later.\nLoaded with the page rather than per row. `null` while this is a draft,\nor when the CV had no role."
+          },
           "cv_snapshot_id": {
             "type": [
               "string",
@@ -12512,6 +12563,14 @@
                   "format": "date-time",
                   "description": "When it was created."
                 },
+                "deleted_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time",
+                  "description": "When the post was archived. `null` unless it is archived.\n\nRecorded when the archiving happens rather than inferred from\n`updated_at`, so the date the archive list shows stays put."
+                },
                 "excerpt": {
                   "type": [
                     "string",
@@ -12608,6 +12667,14 @@
             "type": "string",
             "format": "date-time",
             "description": "When it was created."
+          },
+          "deleted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the post was archived. `null` unless it is archived.\n\nRecorded when the archiving happens rather than inferred from\n`updated_at`, so the date the archive list shows stays put."
           },
           "excerpt": {
             "type": [
