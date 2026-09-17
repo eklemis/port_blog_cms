@@ -11,7 +11,7 @@ vi.mock('$lib/shared/api/backend.server', () => ({
 	}
 }));
 
-const { PATCH } = await import('./+server');
+const { PATCH, DELETE } = await import('./+server');
 
 /**
  * `PATCH /api/blog/{id}` — the console's update proxy.
@@ -80,4 +80,28 @@ test('an unreachable backend is a bad gateway, not an exception', async () => {
 
 	expect(response.status).toBe(502);
 	expect(await response.json()).toMatchObject({ error: { code: 'INTERNAL_ERROR' } });
+});
+
+// ── archiving ──────────────────────────────────────────────────────────────
+
+test('archiving soft-deletes the post it names', async () => {
+	// §06's first rung. The row survives and comes back through /restore, which
+	// is why this is a DELETE the interface calls "Archive".
+	backend(204, null);
+
+	const response = await DELETE({ params: { id: 'post-1' } } as never);
+
+	expect(response.status).toBe(204);
+	const [, path, init] = fetchImpl.mock.calls[0];
+	expect(path).toBe('/api/blog/post-1');
+	expect((init as RequestInit).method).toBe('DELETE');
+});
+
+test('a post that is already gone arrives as a code', async () => {
+	backend(404, { error: { code: 'POST_NOT_FOUND' } });
+
+	const response = await DELETE({ params: { id: 'post-1' } } as never);
+
+	expect(response.status).toBe(404);
+	expect(await response.json()).toMatchObject({ error: { code: 'POST_NOT_FOUND' } });
 });

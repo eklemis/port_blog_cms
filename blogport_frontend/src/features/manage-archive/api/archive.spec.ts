@@ -1,7 +1,7 @@
 import { expect, test, vi } from 'vitest';
 import { UNEXPECTED } from '$lib/shared/lib/api-failure';
 import { GONE } from './archive';
-import { bulkPosts, purgePost, restorePost } from './archive';
+import { archivePost, bulkPosts, purgePost, restorePost } from './archive';
 
 /**
  * The two ways out of the archive — §06's second and third rungs.
@@ -34,6 +34,14 @@ test('purging deletes at the hard route, escaped', async () => {
 
 	expect(await purgePost('a/b', fetchFn)).toEqual({ ok: true });
 	expect(fetchFn.mock.calls[0][0]).toBe('/api/blog/a%2Fb/hard');
+	expect(fetchFn.mock.calls[0][1]?.method).toBe('DELETE');
+});
+
+test('archiving deletes the post, which is what archiving is on the wire', async () => {
+	const fetchFn = respond(204);
+
+	expect(await archivePost('post-1', fetchFn)).toEqual({ ok: true });
+	expect(fetchFn.mock.calls[0][0]).toBe('/api/blog/post-1');
 	expect(fetchFn.mock.calls[0][1]?.method).toBe('DELETE');
 });
 

@@ -124,6 +124,12 @@ test('a failure is said inside the dialog, where it can be heard', async () => {
 		.toHaveTextContent('Something went wrong on our side.');
 });
 
+test('the caller can word the prompt, for a purge with no title to type', async () => {
+	const screen = render(ConfirmDialog, props({ match: '2', prompt: 'Type 2 to purge 2 posts.' }));
+
+	await expect.element(screen.getByText('Type 2 to purge 2 posts.')).toBeInTheDocument();
+});
+
 test('has no accessibility violations', async () => {
 	render(ConfirmDialog, props());
 

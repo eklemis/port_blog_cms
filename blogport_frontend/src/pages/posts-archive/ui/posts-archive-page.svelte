@@ -64,7 +64,12 @@
 	let toast = $state<string | undefined>();
 
 	/** What the open dialog would purge: one post by title, or the selection. */
-	let purging = $state<{ ids: string[]; match: string; label: string } | null>(null);
+	let purging = $state<{
+		ids: string[];
+		match: string;
+		label: string;
+		prompt?: string;
+	} | null>(null);
 
 	const count = $derived(selected.size);
 
@@ -170,9 +175,14 @@
 
 	function askToPurgeSelected() {
 		failure = undefined;
-		// No single title can stand for several posts, so the count is typed —
-		// the thing someone could get wrong by selecting one row too many.
-		purging = { ids: [...selected], match: `${count} posts`, label: many('Purge', count) };
+		// §06: a selection has no title, so the number is typed instead. It still
+		// makes the count a deliberate act, which is all the title ever did.
+		purging = {
+			ids: [...selected],
+			match: String(count),
+			prompt: `Type ${count} to purge ${count} posts.`,
+			label: many('Purge', count)
+		};
 	}
 </script>
 
@@ -350,6 +360,7 @@
 		: 'Purge this post forever?'}
 	consequence="It cannot be restored. Anyone with a link to it will find nothing there."
 	match={purging?.match ?? ''}
+	prompt={purging?.prompt}
 	confirmLabel={purging?.label ?? 'Purge'}
 	working={busy}
 	failure={purging ? failure : undefined}

@@ -19,6 +19,8 @@ export type Application = {
 	status: Status;
 	next_action: string;
 	applied_at?: string | null;
+	/** `null` while the application is a draft — the tailoring has not run. */
+	cv_snapshot_id?: string | null;
 };
 
 export type Job = { id: string; title: string; company: string };
@@ -58,16 +60,14 @@ export function applicationStatus(status: Status): ApplicationStatusPill {
 }
 
 /**
- * The day an application went, as the tracker frames write it: "14 Aug", and
- * "18 Dec 2025" once it is from another year. `null` for a draft, so each
- * surface says "not sent" its own way — a dash in the table, words on a card.
+ * The day an application went, in the reader's own format: `Intl` with day and
+ * short month, and the year as well once it is from another year. `null` for a
+ * draft, so each surface says "not sent" its own way.
  *
- * Day-first and English, because that is how every frame writes a date and
- * there is no interface-language setting yet to follow instead. When there is,
- * this is the one place to change. Dates are read in the viewer's time zone.
+ * The locale's month, not a hand-written one. "Sept" is what `en-GB` writes and
+ * it is correct; a hard-coded table of English months is the bug the Career
+ * Studio paper warns about for the day Indonesian is added.
  */
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
 export function appliedOn(
 	appliedAt: string | null | undefined,
 	now: Date = new Date()
@@ -77,10 +77,51 @@ export function appliedOn(
 	const when = new Date(appliedAt);
 	if (Number.isNaN(when.getTime())) return null;
 
-	// Three letters, always. `Intl` in `en-GB` now writes "Sept", which no frame
-	// does and which would make one month the odd width out in a column.
-	const day = `${when.getDate()} ${MONTHS[when.getMonth()]}`;
-	return when.getFullYear() === now.getFullYear() ? day : `${day} ${when.getFullYear()}`;
+	const sameYear = when.getFullYear() === now.getFullYear();
+
+	return new Intl.DateTimeFormat(undefined, {
+		day: 'numeric',
+		month: 'short',
+		...(sameYear ? {} : { year: 'numeric' })
+	}).format(when);
+}
+
+export type NextAction = {
+	/** What the cell says. `null` when nothing is owed and nothing was written. */
+	text: string | null;
+	/** Derived from status rather than written by the person. */
+	derived: boolean;
+};
+
+/**
+ * What the next-action cell holds — §07 of the tracker rules.
+ *
+ * Two different things in one cell. Where the application owes a step, the cell
+ * shows an action derived from the status and never from the text: a draft with
+ * no CV snapshot owes the tailoring, and a rejected, withdrawn or unanswered
+ * application owes a reflection. Otherwise it shows what the person wrote.
+ *
+ * Their words win. The derived action fills a cell that would be empty; it
+ * never speaks over something someone typed.
+ *
+ * The rule the list cannot check: "with no reflection". The listing carries no
+ * reflection, so an application that already has one still reads "Add
+ * reflection" until its author writes something else. Reported.
+ */
+const OWES_REFLECTION = new Set<Status>(['rejected', 'withdrawn', 'no_reply']);
+
+export function nextAction(application: Application): NextAction {
+	const written = application.next_action?.trim();
+	if (written) return { text: written, derived: false };
+
+	if (application.status === 'draft' && !application.cv_snapshot_id) {
+		return { text: 'Tailor CV', derived: true };
+	}
+	if (OWES_REFLECTION.has(application.status)) {
+		return { text: 'Add reflection', derived: true };
+	}
+
+	return { text: null, derived: false };
 }
 
 export type TrackerRow = {
@@ -88,7 +129,7 @@ export type TrackerRow = {
 	role: string;
 	company: string;
 	status: ApplicationStatusPill;
-	nextAction: string;
+	nextAction: NextAction;
 	/** The day it was sent, or `null` for a draft. */
 	applied: string | null;
 };
@@ -116,7 +157,7 @@ export function trackerRows(
 			role: job?.title || 'Untitled role',
 			company: job?.company ?? '',
 			status: applicationStatus(application.status),
-			nextAction: application.next_action,
+			nextAction: nextAction(application),
 			applied: appliedOn(application.applied_at, now)
 		};
 	});

@@ -196,8 +196,7 @@ test('a batch that partly fails keeps the failed row selected, with its reason',
 });
 
 test('purging a selection asks for how many, then sends one call', async () => {
-	// There is no single title to type for several posts. The count is the
-	// thing someone could get wrong by selecting one too many — see the PR.
+	// A selection has no title, so the number is typed instead — §06.
 	const fetchFn = backend();
 	const screen = render(PostsArchivePage, props({ fetchFn }));
 
@@ -206,7 +205,10 @@ test('purging a selection asks for how many, then sends one call', async () => {
 	await screen.getByRole('button', { name: 'Purge both' }).click();
 
 	expect(fetchFn).not.toHaveBeenCalled();
-	await screen.getByRole('textbox').fill('2 posts');
+	// "Type 2 to purge 2 posts." — the number, which is the thing someone gets
+	// wrong by ticking one row too many.
+	await expect.element(screen.getByText('Type 2 to purge 2 posts.')).toBeInTheDocument();
+	await screen.getByRole('textbox').fill('2');
 	await screen.getByRole('button', { name: 'Purge both', exact: true }).last().click();
 
 	expect(sent(fetchFn)).toEqual({ op: 'hard_delete', ids: ['post-1', 'post-2'] });

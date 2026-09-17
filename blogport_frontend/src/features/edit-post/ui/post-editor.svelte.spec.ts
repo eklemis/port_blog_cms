@@ -318,6 +318,25 @@ test('the rail lists the post’s topics', async () => {
 	await expect.element(topics.getByText('Systems', { exact: true })).toBeInTheDocument();
 });
 
+test('the top bar hides Archive behind a ⋯ menu, at every width', async () => {
+	// §06: "a ⋯ menu at the end of the editor's top bar at every width". The
+	// call itself is the page's — one feature may not reach into another — so
+	// what the editor owes is a saved post and the word that it was asked for.
+	const fetchFn = backend(ok);
+	const asked: boolean[] = [];
+	const screen = render(PostEditor, props({ fetchFn, onarchive: () => asked.push(true) }));
+
+	await screen.getByRole('textbox', { name: 'Title' }).fill('Saved before it goes');
+	await screen.getByRole('button', { name: 'More for this post' }).click();
+	await screen.getByRole('menuitem', { name: 'Archive' }).click();
+
+	// Flushed first: whatever is on screen is what comes back out of the archive.
+	expect(JSON.parse(fetchFn.mock.calls[0][1]?.body as string)).toMatchObject({
+		title: 'Saved before it goes'
+	});
+	await vi.waitFor(() => expect(asked).toEqual([true]));
+});
+
 test('has no accessibility violations', async () => {
 	render(PostEditor, props());
 

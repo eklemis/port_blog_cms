@@ -2,7 +2,17 @@
 	import { untrack } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { Plus, Search } from '@lucide/svelte';
-	import { Button, EmptyState, SkeletonRows, StatusPill } from '$lib/shared/ui';
+	import {
+		Button,
+		EmptyState,
+		InlineAlert,
+		Menu,
+		SkeletonRows,
+		StatusPill,
+		Toast
+	} from '$lib/shared/ui';
+	import { archivePost, restorePost } from '$lib/features/manage-archive';
+	import type { HandlingClass } from '$lib/shared/lib/error-class';
 	import { postStatus, scheduledLabel, updatedLabel } from '$lib/entities/post';
 	import { Pager } from '$lib/widgets/pager';
 	import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
@@ -40,6 +50,9 @@
 		topics,
 		total,
 		everything = null,
+		archived = 0,
+		onchanged = () => {},
+		fetchFn = undefined,
 		page,
 		perPage,
 		filtered,
@@ -60,6 +73,12 @@
 		 * sentence, where `total` is the zero that brought someone there.
 		 */
 		everything?: number | null;
+		/** How many posts are in the archive, for the link beside the count. */
+		archived?: number;
+		/** A post left the list — the caller reloads it. */
+		onchanged?: () => void;
+		/** Injected by the spec; the browser's own otherwise. */
+		fetchFn?: typeof globalThis.fetch;
 		page: number;
 		perPage: number;
 		filtered: boolean;
@@ -106,6 +125,45 @@
 
 	const topicTitle = $derived(topics.find((option) => option.id === topic)?.title ?? null);
 
+	let archiving = $state(false);
+	let failure = $state<string | undefined>();
+	let failureKind = $state<HandlingClass>('notOurs');
+	/** The post the toast can put back, while it is still on screen. */
+	let undoable = $state<{ id: string } | null>(null);
+
+	async function archive(post: Row) {
+		archiving = true;
+		failure = undefined;
+
+		const result = await archivePost(post.id, fetchFn);
+		archiving = false;
+
+		if (!result.ok) {
+			failure = result.message;
+			failureKind = result.kind;
+			return;
+		}
+
+		// §06's first rung: one click, and eight seconds to take it back.
+		undoable = { id: post.id };
+		onchanged();
+	}
+
+	async function undo() {
+		if (!undoable) return;
+
+		const result = await restorePost(undoable.id, fetchFn);
+		undoable = null;
+
+		if (!result.ok) {
+			failure = result.message;
+			failureKind = result.kind;
+			return;
+		}
+
+		onchanged();
+	}
+
 	/** A filter at rest: the secondary button's box, 13px semibold (Button 75:83). */
 	const PILL =
 		'appearance-none rounded-lg border border-arch-line-control bg-arch-surface px-4 py-2.5 text-[13px] font-semibold text-arch-headline';
@@ -149,14 +207,6 @@
 			Posts
 		</h1>
 		<div class="flex items-center gap-2 max-md:hidden">
-			<!-- A text action, not a second amber button: one primary per screen. -->
-			<a
-				href={resolve('/studio/posts/archive')}
-				class="inline-flex min-h-11 items-center px-3 text-[13px] font-semibold text-arch-muted
-				       hover:text-arch-headline"
-			>
-				Archived
-			</a>
 			<Button label="New post" href={`${CONSOLE_ROUTES.posts}/new`}>
 				{#snippet icon()}<Plus size={15} aria-hidden="true" />{/snippet}
 			</Button>
@@ -282,6 +332,8 @@
 		</div>
 	{/if}
 
+	<InlineAlert message={failure} kind={failureKind} />
+
 	{#if failed}
 		<!-- CollectionState / error: never blames the person, says the work is safe. -->
 		<EmptyState
@@ -329,11 +381,12 @@
 			<table class="w-full border-collapse text-left">
 				<thead>
 					<tr class="border-b border-arch-line">
-						{#each ['Title', 'Status', 'Topics', 'Updated'] as heading (heading)}
+						{#each ['Title', 'Status', 'Topics', 'Updated', 'Actions'] as heading (heading)}
 							<th
 								scope="col"
 								class="px-[18px] py-3 font-mono text-[9px] font-normal tracking-[0.9px]
-								       text-arch-muted uppercase {heading === 'Topics' ? 'hidden lg:table-cell' : ''}"
+								       text-arch-muted uppercase {heading === 'Topics' ? 'hidden lg:table-cell' : ''}
+								       {heading === 'Actions' ? 'sr-only' : ''}"
 							>
 								{heading}
 							</th>
@@ -366,6 +419,27 @@
 							</td>
 							<td class="px-[18px] py-3 text-[12px] text-arch-muted">
 								<time datetime={post.updated_at}>{updatedLabel(post.updated_at)}</time>
+							</td>
+							<!-- §06: Archive is one click, so it lives behind the ⋯ and not on
+							     the row. Not on the phone cards, by the same rule. -->
+							<td class="w-12 px-[18px] py-3">
+								<Menu label="More for {post.title}">
+									{#snippet items(close)}
+										<button
+											type="button"
+											role="menuitem"
+											disabled={archiving}
+											onclick={() => {
+												close();
+												archive(post);
+											}}
+											class="px-4 py-2 text-left text-[13px] text-arch-headline
+											       hover:bg-arch-surface-2 disabled:opacity-55"
+										>
+											Archive
+										</button>
+									{/snippet}
+								</Menu>
 							</td>
 						</tr>
 					{/each}
@@ -402,6 +476,41 @@
 			{perPage}
 			noun="posts"
 			onpage={(next) => onquery({ page: String(next) })}
-		/>
+		>
+			{#snippet after()}
+				{#if archived > 0}
+					<!-- A destination, not a thing to do — so it sits by the count. -->
+					<a
+						href={resolve('/studio/posts/archive')}
+						class="font-semibold text-arch-accent-ink hover:underline"
+					>
+						View archive ({archived})
+					</a>
+				{/if}
+			{/snippet}
+		</Pager>
+
+		{#if undoable}
+			<div class="fixed inset-x-4 bottom-4 z-10 md:right-6 md:left-auto md:w-[380px]">
+				<Toast message="Archived." onclose={() => (undoable = null)}>
+					{#snippet action()}
+						<button
+							type="button"
+							onclick={undo}
+							class="text-[12.5px] font-semibold text-arch-accent-ink hover:underline"
+						>
+							Undo
+						</button>
+						<span aria-hidden="true" class="text-arch-muted">·</span>
+						<a
+							href={resolve('/studio/posts/archive')}
+							class="text-[12.5px] font-semibold text-arch-accent-ink hover:underline"
+						>
+							View archive
+						</a>
+					{/snippet}
+				</Toast>
+			</div>
+		{/if}
 	{/if}
 </div>

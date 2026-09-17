@@ -4,7 +4,10 @@ import { authenticatedFetch } from '$lib/shared/api/backend.server';
 import type { components } from '$lib/shared/api/v1';
 
 /**
- * `PATCH /api/blog/{id}` — the console's update proxy.
+ * `PATCH /api/blog/{id}` — the console's update proxy — and `DELETE`, which is
+ * archiving: the row survives, drops out of every listing, and comes back
+ * through `/restore`. §06's first rung, and the reason the interface never
+ * calls it Delete.
  *
  * Only the keys present in the body change, so the editor sends what moved and
  * never an object it did not load first. The error CODE is forwarded for the
@@ -52,4 +55,21 @@ export const PATCH: RequestHandler = async (event) => {
 	}
 
 	return json((payload as { data?: unknown })?.data ?? null);
+};
+
+export const DELETE: RequestHandler = async (event) => {
+	const id = encodeURIComponent(event.params.id ?? '');
+
+	let response: Response;
+
+	try {
+		response = await authenticatedFetch(event, `/api/blog/${id}`, { method: 'DELETE' });
+	} catch {
+		return json({ error: UNSHAPED }, { status: 502 });
+	}
+
+	if (response.ok) return new Response(null, { status: 204 });
+
+	const payload = await response.json().catch(() => null);
+	return json({ error: detailOf(payload) }, { status: response.status });
 };

@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { PostEditor } from '$lib/features/edit-post';
 	import { NO_ACCESS } from '$lib/features/edit-post';
+	import { archivePost } from '$lib/features/manage-archive';
+	import { InlineAlert } from '$lib/shared/ui';
+	import type { HandlingClass } from '$lib/shared/lib/error-class';
 	import { Button, EmptyState } from '$lib/shared/ui';
 	import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
 
@@ -21,14 +24,23 @@
 		published_at?: string | null;
 	};
 
+	let failure = $state<string | undefined>();
+	let failureKind = $state<HandlingClass>('notOurs');
+
 	let {
 		post,
 		username,
+		onarchived = () => {},
+		fetchFn = undefined,
 		denied = false
 	}: {
 		post: Post | null;
 		/** Whose post it is. The public address is built from it. */
 		username: string;
+		/** The post is archived — the caller leaves for the list. */
+		onarchived?: () => void;
+		/** Injected by the spec; the browser's own otherwise. */
+		fetchFn?: typeof globalThis.fetch;
 		denied?: boolean;
 	} = $props();
 </script>
@@ -43,5 +55,22 @@
 		{/snippet}
 	</EmptyState>
 {:else}
-	<PostEditor {post} {username} />
+	<InlineAlert message={failure} kind={failureKind} />
+	<PostEditor
+		{post}
+		{username}
+		onarchive={async () => {
+			const result = await archivePost(post.id, fetchFn);
+
+			if (!result.ok) {
+				failure = result.message;
+				failureKind = result.kind;
+				return;
+			}
+
+			// The undo toast belongs to the list this leaves for: an editor for a
+			// post that is no longer there has nothing left to show.
+			onarchived();
+		}}
+	/>
 {/if}

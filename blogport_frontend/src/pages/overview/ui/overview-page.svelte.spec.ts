@@ -128,14 +128,12 @@ test('without the summary the posts tile says nothing beneath the number', async
 	expect(screen.getByText(/ live · /).elements()).toHaveLength(0);
 });
 
-test('the checklist says how long it stays, in its own words', async () => {
+test('the checklist carries no footnote about itself', async () => {
+	// The sentence inside the card was a note on the wrong layer, and the
+	// designer has deleted it.
 	const screen = render(OverviewPage, { fullName: 'Jane Doe', counts: first });
 
-	await expect
-		.element(
-			screen.getByText('Disappears for good once two are done. It is not a permanent fixture.')
-		)
-		.toBeInTheDocument();
+	expect(screen.getByText(/not a permanent fixture/).elements()).toHaveLength(0);
 });
 
 test('a ticked item says it is done to someone who cannot see the tick', async () => {

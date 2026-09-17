@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import { pageWindow } from '../model/pages';
 
 	/**
@@ -15,6 +16,7 @@
 		page,
 		perPage,
 		noun,
+		after,
 		onpage
 	}: {
 		/** Rows on this page. */
@@ -24,6 +26,8 @@
 		perPage: number;
 		/** Plural, as the count reads: "posts", "applications". */
 		noun: string;
+		/** A destination beside the count — "View archive (3)" on the posts list. */
+		after?: Snippet;
 		onpage: (page: number) => void;
 	} = $props();
 
@@ -32,7 +36,10 @@
 </script>
 
 <div class="flex items-center justify-between text-[12px] text-arch-muted">
-	<p>{shown} of {total} {noun}</p>
+	<div class="flex items-center gap-3">
+		<p>{shown} of {total} {noun}</p>
+		{#if after}{@render after()}{/if}
+	</div>
 
 	{#if last > 1}
 		<nav aria-label="Pages" class="flex items-center gap-0.5 font-mono">
