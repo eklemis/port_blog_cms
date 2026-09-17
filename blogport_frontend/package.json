@@ -50,6 +50,7 @@
 	},
 	"dependencies": {
 		"@lucide/svelte": "^1.42.0",
+		"marked": "^18.0.13",
 		"openapi-fetch": "^0.17.0"
 	},
 	"packageManager": "bun@1.1.8"

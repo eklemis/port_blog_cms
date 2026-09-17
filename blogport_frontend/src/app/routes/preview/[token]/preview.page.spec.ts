@@ -9,7 +9,9 @@ const fetchImpl = vi.fn();
  */
 let unreachable: Error | null = null;
 
-vi.mock('$lib/shared/api/backend.server', () => ({
+// The module the loader actually imports. Mocking `api/backend.server` here
+// named a module this route never loads, so it replaced nothing.
+vi.mock('$lib/shared/config/backend', () => ({
 	backendBaseUrl: 'http://backend'
 }));
 
