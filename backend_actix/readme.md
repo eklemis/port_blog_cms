@@ -160,6 +160,32 @@ Four documents plus the spec, enough to build against without reading Rust:
 The spec is also served live at `/swagger-ui/` and `/api-docs/openapi.json` when
 the server is running.
 
+### Demo data
+
+An empty database makes every console screen look broken in the same way, so
+there is a seed script for the test database:
+
+```bash
+psql "$DATABASE_URL" -f scripts/seed_test_db.sql
+```
+
+It writes 14 posts across all four states, 4 topics attached so the Topics
+column has posts with two, one and none, 6 jobs, 2 CVs with snapshots frozen
+from them, and 7 applications spread over the pipeline — including one draft
+with no snapshot, the only state the `applications_sent_requires_snapshot`
+constraint allows that in.
+
+It is repeatable: every row it writes carries a fixed id prefix and it deletes
+those before inserting, so running it twice leaves one copy. Rows you created
+yourself are not touched.
+
+**It refuses to run unless the database is named `cms`.** The owner it seeds
+under exists in production too and the script deletes before it inserts, so a
+stale `DATABASE_URL` would otherwise be enough to delete production rows. Pass
+`-v seed_db=<name>` when your own test database is named something else.
+
+No media is seeded — covers and uploads need object storage.
+
 ---
 
 ## Rate limiting
