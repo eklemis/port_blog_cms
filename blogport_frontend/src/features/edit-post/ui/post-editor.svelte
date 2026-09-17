@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { ChevronLeft } from '@lucide/svelte';
-	import { InlineAlert, Menu, SaveIndicator, StatusPill, Toast } from '$lib/shared/ui';
+	import { Button, InlineAlert, Menu, SaveIndicator, StatusPill, Toast } from '$lib/shared/ui';
 	import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
 	import type { HandlingClass } from '$lib/shared/lib/error-class';
 	import { SLUG_MAX, slugError, slugFrom } from '$lib/shared/lib/slug';
@@ -14,7 +14,7 @@
 	} from '$lib/entities/post';
 	import { createAutosave } from '../model/autosave.svelte';
 	import PublishControl from './publish-control.svelte';
-	import { patchPost, type EditField, type PostChanges } from '../api/update-post';
+	import { createPreview, patchPost, type EditField, type PostChanges } from '../api/update-post';
 
 	/**
 	 * The editor — J4 steps two and three.
@@ -47,6 +47,7 @@
 		/** Whose post it is. The public address is built from it. */
 		username,
 		onarchive = () => {},
+		onpreview = () => {},
 		/** Injected by the spec; the browser's own otherwise. */
 		fetchFn = undefined
 	}: {
@@ -54,6 +55,8 @@
 		username: string;
 		/** Archive was chosen, and the post is saved. The caller does the rest. */
 		onarchive?: () => void;
+		/** A preview link is ready. The caller opens it — in a new tab. */
+		onpreview?: (path: string) => void;
 		fetchFn?: typeof globalThis.fetch;
 	} = $props();
 
@@ -204,6 +207,30 @@
 		onarchive();
 	}
 
+	/**
+	 * Preview opens the share link, not a private render — so what the author
+	 * checks is the page a reviewer gets. Saved first, for the same reason
+	 * publishing is: a preview of words the server has not taken is a preview of
+	 * nothing anyone else can see.
+	 */
+	async function preview() {
+		publishing = true;
+		failure = undefined;
+
+		await autosave.flush();
+		const result = await createPreview(post.id, fetchFn);
+
+		publishing = false;
+
+		if (!result.ok) {
+			failure = result.message;
+			failureKind = result.kind;
+			return;
+		}
+
+		onpreview(`/preview/${result.token}`);
+	}
+
 	const status = $derived(postStatus(publishedAt));
 	/** The fixed part of the public address, muted in the frame. */
 	const addressPrefix = $derived(`/${username}/blog/`);
@@ -239,6 +266,10 @@
 		</div>
 
 		<div class="flex items-center gap-2">
+			<!-- Screen / Post editor 32:934: Preview, then Schedule, then Publish. -->
+			<span class="max-md:hidden">
+				<Button kind="ghost" label="Preview" disabled={publishing} onclick={preview} />
+			</span>
 			{#if published}
 				<a
 					href={publicPath}
@@ -257,6 +288,21 @@
 			<!-- §06: at the end of the top bar, at every width. -->
 			<Menu label="More for this post">
 				{#snippet items(close)}
+					<!-- Preview has its own button from md up; this is the way in at the
+					     width where the bar has no room for it. -->
+					<button
+						type="button"
+						role="menuitem"
+						disabled={publishing}
+						onclick={() => {
+							close();
+							preview();
+						}}
+						class="px-4 py-2 text-left text-[13px] text-arch-headline hover:bg-arch-surface-2
+						       disabled:opacity-55 md:hidden"
+					>
+						Preview
+					</button>
 					<button
 						type="button"
 						role="menuitem"

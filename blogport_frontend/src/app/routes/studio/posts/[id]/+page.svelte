@@ -17,4 +17,5 @@
 	username={data.user.username}
 	denied={data.denied}
 	onarchived={() => goto(resolve('/studio/posts'))}
+	onpreview={(path) => window.open(path, '_blank', 'noopener')}
 />

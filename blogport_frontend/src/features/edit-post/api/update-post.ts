@@ -1,5 +1,5 @@
 import { UNEXPECTED } from '$lib/shared/lib/api-failure';
-import type { HandlingClass } from '$lib/shared/lib/error-class';
+import { handlingClass, type HandlingClass } from '$lib/shared/lib/error-class';
 import type { components } from '$lib/shared/api/v1';
 
 /**
@@ -75,4 +75,38 @@ export async function patchPost(
 	if (field) return failed(body?.error?.message ?? UNEXPECTED, field, 'field');
 
 	return failed(UNEXPECTED, null, 'notOurs');
+}
+
+export type PreviewResult =
+	| { ok: true; token: string }
+	| { ok: false; message: string; kind: HandlingClass };
+
+/**
+ * The share link behind the editor's Preview — `POST /api/blog/{id}/preview`,
+ * which creates it or extends the one that exists. §04: preview goes through
+ * the share link rather than a private render, so the author checks exactly
+ * what a reviewer will see.
+ */
+export async function createPreview(
+	id: string,
+	fetchFn: typeof globalThis.fetch = (...args) => globalThis.fetch(...args)
+): Promise<PreviewResult> {
+	let response: Response;
+
+	try {
+		response = await fetchFn(`/api/blog/${encodeURIComponent(id)}/preview`, { method: 'POST' });
+	} catch {
+		return { ok: false, message: UNEXPECTED, kind: 'notOurs' };
+	}
+
+	const body = (await response.json().catch(() => null)) as {
+		token?: string;
+		error?: { code?: string };
+	} | null;
+
+	if (!response.ok || !body?.token) {
+		return { ok: false, message: UNEXPECTED, kind: handlingClass(body?.error?.code) };
+	}
+
+	return { ok: true, token: body.token };
 }
