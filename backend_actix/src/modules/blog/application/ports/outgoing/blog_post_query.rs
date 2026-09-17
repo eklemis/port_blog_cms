@@ -122,6 +122,8 @@ pub struct BlogPostCard {
     pub created_at: chrono::DateTime<chrono::Utc>,
     /// When it was last edited.
     pub updated_at: chrono::DateTime<chrono::Utc>,
+    /// When it was archived. `None` unless the post is archived.
+    pub deleted_at: Option<chrono::DateTime<chrono::Utc>>,
 
     /// The post's cover, on the **public** listing only.
     ///

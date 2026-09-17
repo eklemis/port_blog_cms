@@ -18,6 +18,7 @@ mod m20260903_000001_create_career_tables;
 mod m20260903_000002_add_language_settings;
 mod m20260903_000003_create_letters_and_reflections;
 mod m20260906_000001_sent_applications_require_a_snapshot;
+mod m20260917_000001_blog_posts_record_when_archived;
 
 pub struct Migrator;
 
@@ -43,6 +44,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260903_000002_add_language_settings::Migration),
             Box::new(m20260903_000003_create_letters_and_reflections::Migration),
             Box::new(m20260906_000001_sent_applications_require_a_snapshot::Migration),
+            Box::new(m20260917_000001_blog_posts_record_when_archived::Migration),
         ]
     }
 }

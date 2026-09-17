@@ -1808,6 +1808,14 @@ export interface components {
              */
             created_at: string;
             /**
+             * @description The role of that CV as it stood when it was sent — "Backend", say.
+             *
+             *     From the snapshot, so it does not change if the CV is renamed later.
+             *     Loaded with the page rather than per row. `null` while this is a draft,
+             *     or when the CV had no role.
+             */
+            cv_role?: string | null;
+            /**
              * Format: uuid
              * @description The frozen CV that was sent. `null` only while this is a draft.
              */
@@ -1858,6 +1866,42 @@ export interface components {
          */
         AttachmentTarget: "user" | "resume" | "project" | "blog_post";
         /**
+         * @description One operation applied across many posts.
+         *
+         *     Modelled as a tagged enum rather than an operation string beside an optional
+         *     `topic_id`, so "attach, but no topic given" cannot be expressed — the
+         *     request fails to deserialise instead of failing halfway through a batch.
+         */
+        BlogBulkOp: {
+            /** @enum {string} */
+            op: "archive";
+        } | {
+            /** @enum {string} */
+            op: "restore";
+        } | {
+            /** @enum {string} */
+            op: "hard_delete";
+        } | {
+            /** @enum {string} */
+            op: "unpublish";
+        } | {
+            /** @enum {string} */
+            op: "attach_topic";
+            /**
+             * Format: uuid
+             * @description The topic to link.
+             */
+            topic_id: string;
+        } | {
+            /** @enum {string} */
+            op: "detach_topic";
+            /**
+             * Format: uuid
+             * @description The topic to unlink.
+             */
+            topic_id: string;
+        };
+        /**
          * @description One page of results, plus the totals a client needs to paginate.
          *
          *     `total` counts every row matching the filter, not just this page.
@@ -1871,6 +1915,14 @@ export interface components {
                  * @description When it was created.
                  */
                 created_at: string;
+                /**
+                 * Format: date-time
+                 * @description When the post was archived. `null` unless it is archived.
+                 *
+                 *     Recorded when the archiving happens rather than inferred from
+                 *     `updated_at`, so the date the archive list shows stays put.
+                 */
+                deleted_at?: string | null;
                 /** @description Short summary for listings. `None` when none was written. */
                 excerpt?: string | null;
                 /**
@@ -1937,6 +1989,14 @@ export interface components {
              * @description When it was created.
              */
             created_at: string;
+            /**
+             * Format: date-time
+             * @description When the post was archived. `null` unless it is archived.
+             *
+             *     Recorded when the archiving happens rather than inferred from
+             *     `updated_at`, so the date the archive list shows stays put.
+             */
+            deleted_at?: string | null;
             /** @description Short summary for listings. `None` when none was written. */
             excerpt?: string | null;
             /**
@@ -2101,7 +2161,7 @@ export interface components {
          *     `op` and its arguments are flattened into this object, so an attach reads
          *     `{"op": "attach_topic", "topic_id": "...", "ids": [...]}`.
          */
-        BulkBlogRequest: Record<string, never> & {
+        BulkBlogRequest: components["schemas"]["BlogBulkOp"] & {
             /** @description The posts to apply it to. Duplicates are collapsed. */
             ids: string[];
         };
@@ -2127,7 +2187,7 @@ export interface components {
          *     `op` is flattened into this object, so a request reads
          *     `{"op": "archive", "ids": [...]}`.
          */
-        BulkMediaRequest: Record<string, never> & {
+        BulkMediaRequest: components["schemas"]["MediaBulkOp"] & {
             /** @description The media items to apply it to. Duplicates are collapsed. */
             ids: string[];
         };
@@ -2149,7 +2209,7 @@ export interface components {
          *     `op` and its arguments are flattened into this object, so an attach reads
          *     `{"op": "attach_topic", "topic_id": "...", "ids": [...]}`.
          */
-        BulkProjectRequest: Record<string, never> & {
+        BulkProjectRequest: components["schemas"]["ProjectBulkOp"] & {
             /** @description The projects to apply it to. Duplicates are collapsed. */
             ids: string[];
         };
@@ -2898,6 +2958,21 @@ export interface components {
             relevance_unavailable?: string | null;
         };
         /**
+         * @description One operation applied across many media items.
+         *
+         *     No topic operations: media carries no topics. Lifecycle only.
+         */
+        MediaBulkOp: {
+            /** @enum {string} */
+            op: "archive";
+        } | {
+            /** @enum {string} */
+            op: "restore";
+        } | {
+            /** @enum {string} */
+            op: "hard_delete";
+        };
+        /**
          * @description A single media item with the variant sizes that are ready to read.
          *
          *     Carries the same fields as a listing row, plus `available_sizes`. Bucket
@@ -3280,6 +3355,38 @@ export interface components {
              * @example Distributed Systems
              */
             title?: string | null;
+        };
+        /**
+         * @description One operation applied across many projects.
+         *
+         *     Tagged so that "attach, but no topic given" cannot be expressed — the
+         *     request fails to deserialise rather than failing halfway through a batch.
+         */
+        ProjectBulkOp: {
+            /** @enum {string} */
+            op: "archive";
+        } | {
+            /** @enum {string} */
+            op: "restore";
+        } | {
+            /** @enum {string} */
+            op: "hard_delete";
+        } | {
+            /** @enum {string} */
+            op: "attach_topic";
+            /**
+             * Format: uuid
+             * @description The topic to link.
+             */
+            topic_id: string;
+        } | {
+            /** @enum {string} */
+            op: "detach_topic";
+            /**
+             * Format: uuid
+             * @description The topic to unlink.
+             */
+            topic_id: string;
         };
         /** @description A project as it appears in a listing — the summary fields only. */
         ProjectCardView: {
@@ -4510,6 +4617,14 @@ export interface operations {
                                  */
                                 created_at: string;
                                 /**
+                                 * @description The role of that CV as it stood when it was sent — "Backend", say.
+                                 *
+                                 *     From the snapshot, so it does not change if the CV is renamed later.
+                                 *     Loaded with the page rather than per row. `null` while this is a draft,
+                                 *     or when the CV had no role.
+                                 */
+                                cv_role?: string | null;
+                                /**
                                  * Format: uuid
                                  * @description The frozen CV that was sent. `null` only while this is a draft.
                                  */
@@ -4619,6 +4734,14 @@ export interface operations {
                              */
                             created_at: string;
                             /**
+                             * @description The role of that CV as it stood when it was sent — "Backend", say.
+                             *
+                             *     From the snapshot, so it does not change if the CV is renamed later.
+                             *     Loaded with the page rather than per row. `null` while this is a draft,
+                             *     or when the CV had no role.
+                             */
+                            cv_role?: string | null;
+                            /**
                              * Format: uuid
                              * @description The frozen CV that was sent. `null` only while this is a draft.
                              */
@@ -4716,6 +4839,14 @@ export interface operations {
                              * @description When the row was created.
                              */
                             created_at: string;
+                            /**
+                             * @description The role of that CV as it stood when it was sent — "Backend", say.
+                             *
+                             *     From the snapshot, so it does not change if the CV is renamed later.
+                             *     Loaded with the page rather than per row. `null` while this is a draft,
+                             *     or when the CV had no role.
+                             */
+                            cv_role?: string | null;
                             /**
                              * Format: uuid
                              * @description The frozen CV that was sent. `null` only while this is a draft.
@@ -4866,6 +4997,14 @@ export interface operations {
                              * @description When the row was created.
                              */
                             created_at: string;
+                            /**
+                             * @description The role of that CV as it stood when it was sent — "Backend", say.
+                             *
+                             *     From the snapshot, so it does not change if the CV is renamed later.
+                             *     Loaded with the page rather than per row. `null` while this is a draft,
+                             *     or when the CV had no role.
+                             */
+                            cv_role?: string | null;
                             /**
                              * Format: uuid
                              * @description The frozen CV that was sent. `null` only while this is a draft.
@@ -6223,6 +6362,14 @@ export interface operations {
                                  * @description When it was created.
                                  */
                                 created_at: string;
+                                /**
+                                 * Format: date-time
+                                 * @description When the post was archived. `null` unless it is archived.
+                                 *
+                                 *     Recorded when the archiving happens rather than inferred from
+                                 *     `updated_at`, so the date the archive list shows stays put.
+                                 */
+                                deleted_at?: string | null;
                                 /** @description Short summary for listings. `None` when none was written. */
                                 excerpt?: string | null;
                                 /**
@@ -11357,6 +11504,14 @@ export interface operations {
                                  * @description When it was created.
                                  */
                                 created_at: string;
+                                /**
+                                 * Format: date-time
+                                 * @description When the post was archived. `null` unless it is archived.
+                                 *
+                                 *     Recorded when the archiving happens rather than inferred from
+                                 *     `updated_at`, so the date the archive list shows stays put.
+                                 */
+                                deleted_at?: string | null;
                                 /** @description Short summary for listings. `None` when none was written. */
                                 excerpt?: string | null;
                                 /**

@@ -147,6 +147,7 @@ mod tests {
                     published_at: Some(now),
                     created_at: now,
                     updated_at: now,
+                    deleted_at: None,
                 }],
                 page: page.page,
                 per_page: page.per_page,

@@ -251,6 +251,7 @@ mod tests {
             user_id: Uuid::new_v4(),
             job_id: Uuid::new_v4(),
             cv_snapshot_id: snapshot,
+            cv_role: None,
             status: ApplicationStatus::Draft,
             applied_at: None,
             next_action: String::new(),

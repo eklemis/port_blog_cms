@@ -31,6 +31,12 @@ pub struct ApplicationResponse {
     pub job_id: Uuid,
     /// The frozen CV that was sent. `null` only while this is a draft.
     pub cv_snapshot_id: Option<Uuid>,
+    /// The role of that CV as it stood when it was sent — "Backend", say.
+    ///
+    /// From the snapshot, so it does not change if the CV is renamed later.
+    /// Loaded with the page rather than per row. `null` while this is a draft,
+    /// or when the CV had no role.
+    pub cv_role: Option<String>,
     /// Where it has got to.
     pub status: ApplicationStatus,
     /// When it was sent. `null` while still a draft.
@@ -51,6 +57,7 @@ impl From<Application> for ApplicationResponse {
             id: a.id,
             job_id: a.job_id,
             cv_snapshot_id: a.cv_snapshot_id,
+            cv_role: a.cv_role,
             status: a.status,
             applied_at: a.applied_at,
             next_action: a.next_action,

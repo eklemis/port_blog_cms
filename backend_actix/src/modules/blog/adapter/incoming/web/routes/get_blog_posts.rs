@@ -168,6 +168,7 @@ mod tests {
                     published_at: None,
                     created_at: now,
                     updated_at: now,
+                    deleted_at: None,
                 }],
                 page: page.page,
                 per_page: page.per_page,

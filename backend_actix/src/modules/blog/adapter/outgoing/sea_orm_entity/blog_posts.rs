@@ -40,6 +40,13 @@ pub struct Model {
 
     pub is_deleted: bool,
 
+    /// When the post was archived. NULL unless `is_deleted` is true.
+    ///
+    /// Maintained by a database trigger on the `is_deleted` transition, not by
+    /// this code — see the migration that adds it.
+    #[sea_orm(column_type = "TimestampWithTimeZone", nullable)]
+    pub deleted_at: Option<DateTimeWithTimeZone>,
+
     #[sea_orm(column_type = "TimestampWithTimeZone")]
     pub created_at: DateTimeWithTimeZone,
 
