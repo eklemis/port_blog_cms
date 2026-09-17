@@ -28,7 +28,7 @@
 	 *
 	 * Titles are not links: reading an archived post answers 404 by design.
 	 */
-	type Row = { id: string; title: string; updated_at: string };
+	type Row = { id: string; title: string; deleted_at?: string | null };
 
 	let {
 		posts,
@@ -81,11 +81,16 @@
 	}
 
 	/**
-	 * When it was archived. Archiving stamps `updated_at`, and an archived post
-	 * cannot be edited, so for these rows the last update is the archiving.
+	 * When it was archived — `deleted_at`, recorded at the moment of archiving.
+	 *
+	 * This read `updated_at` until the backend had somewhere better to put it.
+	 * That was only ever true by accident: every write path happened to keep
+	 * `is_deleted` set and a trigger stamped the row, so one future statement
+	 * that forgot would have moved these dates silently.
 	 */
 	const month = new Intl.DateTimeFormat(undefined, { month: 'short', year: 'numeric' });
-	function archivedOn(iso: string) {
+	function archivedOn(iso: string | null | undefined) {
+		if (!iso) return '—';
 		const when = new Date(iso);
 		return Number.isNaN(when.getTime()) ? '—' : month.format(when);
 	}
@@ -314,7 +319,7 @@
 								{/if}
 							</td>
 							<td class="px-[18px] py-3 text-[12px] text-arch-muted">
-								<time datetime={post.updated_at}>{archivedOn(post.updated_at)}</time>
+								<time datetime={post.deleted_at ?? undefined}>{archivedOn(post.deleted_at)}</time>
 							</td>
 							<td class="px-[18px] py-3">
 								<div class="flex gap-2">{@render actions(post)}</div>
@@ -341,7 +346,9 @@
 					{/if}
 					<div class="flex items-center justify-between">
 						<p class="font-mono text-[11.5px] text-arch-muted">
-							archived <time datetime={post.updated_at}>{archivedOn(post.updated_at)}</time>
+							archived <time datetime={post.deleted_at ?? undefined}
+								>{archivedOn(post.deleted_at)}</time
+							>
 						</p>
 						<div class="flex gap-1">{@render actions(post)}</div>
 					</div>

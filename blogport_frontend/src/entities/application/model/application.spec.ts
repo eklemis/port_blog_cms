@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { applicationStatus, appliedOn, nextAction, trackerRows } from './application';
+import { applicationStatus, appliedOn, cvUsed, nextAction, trackerRows } from './application';
 
 /**
  * What one row of the application tracker can say about itself.
@@ -194,4 +194,39 @@ test('a draft that has a snapshot is past the tailoring step', () => {
 		text: null,
 		derived: false
 	});
+});
+
+// ── CV used ────────────────────────────────────────────────────────────────
+
+test('the CV column names the CV as it stood when it was sent', () => {
+	// Screen / Application tracker 12:118: "Backend, sent 14 Aug". The role comes
+	// from the frozen snapshot, so renaming the CV afterwards cannot rewrite what
+	// this row says was sent.
+	expect(cvUsed({ ...APPLICATION, cv_snapshot_id: 'snap-1', cv_role: 'Backend' }, '14 Aug')).toBe(
+		'Backend, sent 14 Aug'
+	);
+});
+
+test('a draft has not chosen one yet, and says exactly that', () => {
+	expect(cvUsed({ ...APPLICATION, cv_snapshot_id: null, cv_role: null }, null)).toBe(
+		'not chosen yet'
+	);
+});
+
+test('a CV that had no role is still a CV that was sent', () => {
+	// `null` rather than "" when the CV had no role — the one absent case the
+	// backend called out. Naming no role beats inventing one.
+	expect(cvUsed({ ...APPLICATION, cv_snapshot_id: 'snap-1', cv_role: null }, '14 Aug')).toBe(
+		'sent 14 Aug'
+	);
+});
+
+test('a tracker row carries the CV cell already written', () => {
+	const rows = trackerRows(
+		[{ ...APPLICATION, id: 'a1', job_id: 'j1', cv_snapshot_id: 'snap-1', cv_role: 'Backend' }],
+		[{ id: 'j1', title: 'Senior Backend', company: 'Gojek' }],
+		NOW
+	);
+
+	expect(rows[0].cvUsed).toContain('Backend, sent ');
 });

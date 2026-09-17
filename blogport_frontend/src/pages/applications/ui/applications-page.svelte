@@ -6,6 +6,13 @@
 	import { Pager } from '$lib/widgets/pager';
 
 	/**
+	 * The Prototype Map's column rules for 834: "Applications loses CV used and
+	 * Applied". Identity, status and the action stay — three load-bearing
+	 * columns, and the middle goes.
+	 */
+	const DROPPED_AT_TABLET = ['CV used', 'Applied'];
+
+	/**
 	 * `/studio/applications` — the tracker.
 	 *
 	 * One row per application, status inline, in the order the API sent them.
@@ -95,12 +102,12 @@
 			<table class="w-full border-collapse text-left">
 				<thead>
 					<tr class="border-b border-arch-line">
-						{#each ['Role & company', 'Status', 'Applied', 'Next action'] as heading (heading)}
+						{#each ['Role & company', 'Status', 'CV used', 'Applied', 'Next action'] as heading (heading)}
 							<th
 								scope="col"
 								class="px-[18px] py-[11px] font-mono text-[9px] font-normal tracking-[0.9px]
 								       text-arch-muted uppercase
-								       {heading === 'Applied' ? 'max-lg:hidden' : ''}"
+								       {DROPPED_AT_TABLET.includes(heading) ? 'max-lg:hidden' : ''}"
 							>
 								{heading}
 							</th>
@@ -116,8 +123,11 @@
 							<td class="px-[18px] py-[13px]">
 								<StatusPill tone={row.status.tone} label={row.status.label} />
 							</td>
-							<!-- Dropped at tablet, per the Prototype Map's column rules. -->
-							<td class="px-[18px] py-[13px] text-[12px] text-arch-muted max-lg:hidden">
+							<!-- Which CV went, and when. Dropped at tablet with Applied. -->
+							<td class="px-[18px] py-[13px] font-mono text-[11px] text-arch-muted max-lg:hidden">
+								{row.cvUsed}
+							</td>
+							<td class="px-[18px] py-[13px] font-mono text-[11px] text-arch-muted max-lg:hidden">
 								{row.applied ?? '—'}
 							</td>
 							<!-- Headline colour, never accent ink: the derived actions lead to

@@ -21,6 +21,14 @@ export type Application = {
 	applied_at?: string | null;
 	/** `null` while the application is a draft — the tailoring has not run. */
 	cv_snapshot_id?: string | null;
+	/**
+	 * The role of the CV as it stood when this was sent — "Backend", say.
+	 *
+	 * From the frozen snapshot rather than the live CV, so renaming a CV cannot
+	 * rewrite what an application says was sent. `null` for a draft, and `null`
+	 * rather than `""` when the CV had no role of its own.
+	 */
+	cv_role?: string | null;
 };
 
 export type Job = { id: string; title: string; company: string };
@@ -124,6 +132,25 @@ export function nextAction(application: Application): NextAction {
 	return { text: null, derived: false };
 }
 
+/**
+ * The CV column — Screen / Application tracker 12:118, "Backend, sent 14 Aug".
+ *
+ * Three cases, and the frame draws two of them. A row with no snapshot has not
+ * chosen a CV yet and says so; a row that has one names it and when it went. The
+ * third is the backend's own note: a CV can have had no role, and `cv_role` is
+ * `null` rather than `""` when it did. Then the sending is still worth saying,
+ * and a name is not there to be invented.
+ */
+export function cvUsed(application: Application, applied: string | null): string {
+	if (!application.cv_snapshot_id) return 'not chosen yet';
+
+	const role = application.cv_role?.trim();
+	const sent = applied ? `sent ${applied}` : '';
+
+	if (role && sent) return `${role}, ${sent}`;
+	return role || sent || 'not chosen yet';
+}
+
 export type TrackerRow = {
 	id: string;
 	role: string;
@@ -132,6 +159,8 @@ export type TrackerRow = {
 	nextAction: NextAction;
 	/** The day it was sent, or `null` for a draft. */
 	applied: string | null;
+	/** Which CV went, and when — already written out. */
+	cvUsed: string;
 };
 
 /**
@@ -151,6 +180,7 @@ export function trackerRows(
 
 	return applications.map((application) => {
 		const job = byId.get(application.job_id);
+		const applied = appliedOn(application.applied_at, now);
 
 		return {
 			id: application.id,
@@ -158,7 +188,8 @@ export function trackerRows(
 			company: job?.company ?? '',
 			status: applicationStatus(application.status),
 			nextAction: nextAction(application),
-			applied: appliedOn(application.applied_at, now)
+			applied,
+			cvUsed: cvUsed(application, applied)
 		};
 	});
 }

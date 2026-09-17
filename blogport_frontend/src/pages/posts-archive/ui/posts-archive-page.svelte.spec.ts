@@ -15,9 +15,24 @@ import PostsArchivePage from './posts-archive-page.svelte';
 const UNSTYLED_GEOMETRY = { rules: { 'target-size': { enabled: false } } };
 
 const posts = [
-	{ id: 'post-1', title: 'Old benchmarking post', updated_at: '2026-04-10T12:00:00Z' },
-	{ id: 'post-2', title: 'Draft that went nowhere', updated_at: '2026-03-02T12:00:00Z' },
-	{ id: 'post-3', title: 'Notes on the old scheduler', updated_at: '2026-01-20T12:00:00Z' }
+	{
+		id: 'post-1',
+		title: 'Old benchmarking post',
+		deleted_at: '2026-04-10T12:00:00Z',
+		updated_at: '2026-04-10T12:00:00Z'
+	},
+	{
+		id: 'post-2',
+		title: 'Draft that went nowhere',
+		deleted_at: '2026-03-02T12:00:00Z',
+		updated_at: '2026-03-02T12:00:00Z'
+	},
+	{
+		id: 'post-3',
+		title: 'Notes on the old scheduler',
+		deleted_at: '2026-01-20T12:00:00Z',
+		updated_at: '2026-01-20T12:00:00Z'
+	}
 ];
 
 type Answer = { status: number; body?: unknown };
@@ -88,12 +103,37 @@ test('says what the archive is, in the frame’s words', async () => {
 });
 
 test('each row says when it was archived, as a month', async () => {
-	// Archiving stamps updated_at and an archived post cannot be edited, so for
-	// these rows the last update is the archiving.
 	const screen = render(PostsArchivePage, props());
 
 	await expect.element(screen.getByRole('columnheader', { name: 'Archived' })).toBeInTheDocument();
 	await expect.element(screen.getByText('Apr 2026').first()).toBeInTheDocument();
+});
+
+test('the date is when it was archived, not when it was last touched', async () => {
+	// It used to read `updated_at`, which was only ever true by accident — every
+	// write path happened to keep `is_deleted` set, and a trigger stamped the
+	// row. The backend now records the archiving itself, on the `is_deleted`
+	// transition, so an edit after archiving no longer moves the date.
+	const archived = [
+		{
+			...posts[0],
+			deleted_at: '2026-04-10T12:00:00Z',
+			updated_at: '2026-09-01T12:00:00Z'
+		}
+	];
+	const screen = render(PostsArchivePage, props({ posts: archived, total: 1 }));
+
+	await expect.element(screen.getByText('Apr 2026').first()).toBeInTheDocument();
+	expect(screen.container.textContent).not.toContain('Sep 2026');
+});
+
+test('a row the server sent no archive date for says so rather than guessing', async () => {
+	const screen = render(
+		PostsArchivePage,
+		props({ posts: [{ ...posts[0], deleted_at: null }], total: 1 })
+	);
+
+	await expect.element(screen.getByText('—').first()).toBeInTheDocument();
 });
 
 // ── one at a time ──────────────────────────────────────────────────────────
