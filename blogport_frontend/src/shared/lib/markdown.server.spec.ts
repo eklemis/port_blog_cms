@@ -9,6 +9,23 @@ import { renderMarkdown } from './markdown.server';
 
 const media = (id: string) => `https://api.example.test/api/public/media/${id}/large`;
 
+/**
+ * What a reader sees, with the highlighter's own markup taken back off.
+ *
+ * Highlighting splits code across spans, so asserting on a contiguous string
+ * would be asserting on `highlight.js`'s internals. This asks the question that
+ * matters instead: does the code read as written?
+ */
+function visible(html: string): string {
+	return html
+		.replace(/<[^>]+>/g, '')
+		.replaceAll('&lt;', '<')
+		.replaceAll('&gt;', '>')
+		.replaceAll('&quot;', '"')
+		.replaceAll('&#39;', "'")
+		.replaceAll('&amp;', '&');
+}
+
 describe('the body a reader gets', () => {
 	test('turns the ordinary marks into ordinary elements', () => {
 		const html = renderMarkdown('## Layout\n\nOne **service**, split into *slices*.', media);
@@ -22,7 +39,7 @@ describe('the body a reader gets', () => {
 		const html = renderMarkdown('Use `cargo check`.\n\n```rust\nlet x = 1;\n```', media);
 
 		expect(html).toContain('<code>cargo check</code>');
-		expect(html).toContain('let x = 1;');
+		expect(visible(html)).toContain('let x = 1;');
 	});
 
 	test('resolves a media reference to the public path', () => {
@@ -72,5 +89,50 @@ describe('the body a reader gets', () => {
 
 	test('answers empty for an empty body rather than throwing', () => {
 		expect(renderMarkdown('', media)).toBe('');
+	});
+});
+
+describe('code blocks', () => {
+	test('highlights a fenced block in a language it knows', () => {
+		// §03: "Code blocks need highlighting, and this audience will notice.
+		// Highlight at render time on the server rather than shipping a
+		// client-side highlighter."
+		const html = renderMarkdown('```rust\nlet x = 1;\n```', media);
+
+		expect(html).toContain('class="hljs language-rust"');
+		expect(html).toContain('hljs-keyword');
+		expect(html).toContain('let');
+	});
+
+	test('a fence with no language is still code, just not coloured', () => {
+		const html = renderMarkdown('```\nplain text\n```', media);
+
+		expect(html).toContain('<pre><code');
+		expect(html).toContain('plain text');
+		expect(html).not.toContain('hljs-');
+	});
+
+	test('a language nobody has heard of does not throw', () => {
+		const html = renderMarkdown('```wingdings\nlet x = 1;\n```', media);
+
+		expect(html).toContain('let x = 1;');
+		expect(html).not.toContain('hljs-');
+	});
+
+	test('markup inside a code block stays text', () => {
+		// The highlighter escapes what it emits, and a fence is the one place an
+		// author legitimately writes a tag they do not want rendered.
+		const html = renderMarkdown('```html\n<script>alert(1)</script>\n```', media);
+
+		// Escaped, and therefore inert — but still exactly what was typed.
+		expect(html).not.toContain('<script>alert(1)</script>');
+		expect(visible(html)).toContain('<script>alert(1)</script>');
+	});
+
+	test('an unlabelled fence escapes its markup too', () => {
+		const html = renderMarkdown('```\n<img src=x onerror=1>\n```', media);
+
+		expect(html).not.toContain('<img src=x');
+		expect(visible(html)).toContain('<img src=x onerror=1>');
 	});
 });
