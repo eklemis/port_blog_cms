@@ -24,8 +24,12 @@
 		total: number;
 		page: number;
 		perPage: number;
-		/** Plural, as the count reads: "posts", "applications". */
-		noun: string;
+		/**
+		 * Plural, as the count reads: "posts", "applications". Omitted on the
+		 * public lists, which read "3 of 12" (72:116) — a reader on an author's
+		 * own page already knows what is being counted.
+		 */
+		noun?: string;
 		/** A destination beside the count — "View archive (3)" on the posts list. */
 		after?: Snippet;
 		onpage: (page: number) => void;
@@ -37,7 +41,7 @@
 
 <div class="flex items-center justify-between text-[12px] text-arch-muted">
 	<div class="flex items-center gap-3">
-		<p>{shown} of {total} {noun}</p>
+		<p>{shown} of {total}{noun ? ` ${noun}` : ''}</p>
 		{#if after}{@render after()}{/if}
 	</div>
 

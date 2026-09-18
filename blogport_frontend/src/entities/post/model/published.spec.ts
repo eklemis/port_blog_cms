@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { publishedLabel, readingTime } from './published';
+import { listedLabel, publishedLabel, readingTime } from './published';
 
 /** Screen / Public post 72:17: "14 August 2026 · 7 min read". */
 
@@ -31,4 +31,20 @@ test('reading time counts the prose, not the punctuation around it', () => {
 	// one word, and a fenced block's backticks are none.
 	expect(readingTime('## Layout\n\n`cargo check`')).toBe(1);
 	expect(readingTime(`![alt](media:8f1b2c3d)\n\n${Array(400).fill('word').join(' ')}`)).toBe(2);
+});
+
+test('a listed post dates in short form, which is not the post page’s form', () => {
+	// Screen / Public author index 72:101 reads "14 Aug 2026"; the post page at
+	// 72:18 reads "14 August 2026". Two formats on purpose, so two functions —
+	// and both ask Intl for the parts rather than spelling a month.
+	const on = '2026-08-14T09:30:00Z';
+
+	expect(listedLabel(on, 'en-GB')).toBe('14 Aug 2026');
+	expect(listedLabel(on, 'en-US')).toBe('Aug 14, 2026');
+	expect(publishedLabel(on, 'en-GB')).toBe('14 August 2026');
+});
+
+test('a listed post with no date prints nothing rather than a broken one', () => {
+	expect(listedLabel(null)).toBe(null);
+	expect(listedLabel('not a date')).toBe(null);
 });

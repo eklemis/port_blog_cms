@@ -23,7 +23,7 @@ they are snapshots, and the date at the foot of each says when.
 | What's in this form? What does this component do when touched?             | [`docs/03-forms-and-interaction-spec.html`](docs/03-forms-and-interaction-spec.html) |
 | What colour/contrast/focus/aria does this need?                            | [`docs/04-accessibility-spec.html`](docs/04-accessibility-spec.html)                 |
 | Where does this screen link to? What do I export from Figma?               | [`docs/05-prototype-map-and-assets.html`](docs/05-prototype-map-and-assets.html)     |
-| Why does the Career Studio work this way? What is the `EN ▾` pill?        | [`docs/06-career-studio.html`](docs/06-career-studio.html) — read §00 first        |
+| Why does the Career Studio work this way? What is the `EN ▾` pill?         | [`docs/06-career-studio.html`](docs/06-career-studio.html) — read §00 first          |
 
 Figma: `figma.com/design/zz666KBh6l5LPxphfjFP6r` — 210 screens, three widths,
 light and dark, 376 prototype links across six flows.
