@@ -395,6 +395,22 @@ footer { padding: 46px 0 70px; color: var(--muted); font-size: 0.84375rem; }
       </p>
     </div>
 
+    <div class="callout">
+      <h4>Where the switcher is actually drawn — counted, September 18</h4>
+      <p>
+        "Settings, plus a compact switcher on login and public pages" is the rule above. The frames
+        carry it in <b>34 places</b>: every auth screen at all three widths (sign in, create account,
+        forgot, reset, verification gate), and every public screen at desktop and tablet. The one
+        exception is <b>mobile public</b>, where the nav folds behind ☰ and the pill goes with it.
+      </p>
+      <p>
+        So the switcher belongs to <b>two layouts, not one</b> — the auth shell as well as the public
+        shell. Build neither until <code>user.locale</code> exists on the API; a language control that
+        cannot persist a language is worse than none. Until then the interface is English, and
+        <code>Intl</code> does the dates.
+      </p>
+    </div>
+
     <h3 class="block">What this costs elsewhere</h3>
     <div class="compact">
       <div class="crow">
