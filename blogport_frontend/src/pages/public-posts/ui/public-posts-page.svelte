@@ -62,7 +62,7 @@
 		avatarSrc={author.avatarSrc ?? null}
 	/>
 
-	<div class="flex justify-center px-5 pt-[18px] pb-16 md:px-6 md:pt-[34px]">
+	<div class="flex justify-center px-5 pt-[18px] pb-16 md:px-8 md:pt-[34px]">
 		<div class="flex w-full max-w-[760px] flex-col gap-[14px] md:gap-5">
 			<!-- 72:81 — avatar, name and bio. Mobile drops all three: the header bar
 			     above already says whose page this is, so the frame puts the section

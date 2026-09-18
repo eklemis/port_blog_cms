@@ -67,3 +67,30 @@ test('has no accessibility violations', async () => {
 
 	await expectNoA11yViolations(document.body, UNSTYLED_GEOMETRY);
 });
+
+test('marks the section being read, and stops linking it to itself', async () => {
+	// Screen / Public projects 82:587 draws the current section semibold in
+	// accent ink. The Career Studio paper §01 lists active nav among the
+	// accent-ink uses, which settles it: the author index frame draws its
+	// current item plain, and the two frames disagree.
+	const screen = render(PublicHeader, props({ current: 'projects' }));
+	const nav = screen.getByRole('navigation');
+
+	expect(nav.getByRole('link', { name: 'Projects' }).elements()).toHaveLength(0);
+	await expect.element(nav.getByText('Projects')).toHaveAttribute('aria-current', 'page');
+	await expect.element(nav.getByRole('link', { name: 'Writing' })).toBeInTheDocument();
+});
+
+test('takes the measure of the page it sits on', async () => {
+	// Two families, and the header belongs to whichever it is over: the Read
+	// screens are 760 (Screen / Public post 72:4), the Scan screens 860
+	// (Screen / Public projects 82:581). A header at the wrong measure is
+	// visibly out of line with the content under it.
+	const read = render(PublicHeader, props());
+	expect(read.container.querySelector('header > div')?.className).toContain('max-w-[760px]');
+
+	read.unmount();
+
+	const scan = render(PublicHeader, props({ measure: 'scan' }));
+	expect(scan.container.querySelector('header > div')?.className).toContain('max-w-[860px]');
+});
