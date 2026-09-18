@@ -29,6 +29,32 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 Those four, plus `cargo doc` under `RUSTDOCFLAGS="-D warnings"`, are what CI
 blocks on.
 
+## Working copies — who edits where
+
+Several checkouts of this repository share one `.git`. Two sessions working in
+the same one has already cost real work twice: uncommitted changes swept into
+somebody else's commit, and a branch switching under an editor mid-task.
+
+| Directory | Whose | Notes |
+| --- | --- | --- |
+| `port_blog_cms` | the human | The original checkout. Agents: read it, do not switch its branch or stage in it. |
+| `port_blog_cms-frontend-wt` | the frontend session | Holds `main`. |
+| `port_blog_cms-backend-wt` | the backend session | Kept on a **detached** checkout, so it never contends for a branch name. |
+| `blogport-server-run` | nobody | Not a checkout. The binary serving `:8080` lives here so no branch operation can change what is running. |
+
+Rules that follow from it:
+
+- **Only one worktree can hold a given branch.** `git checkout main` fails if
+  another worktree has it. Work on your own branch, or detached.
+- **Never `git add -A` / `git commit -a` in a shared worktree.** Stage the paths
+  you touched by name: `git commit -- path/one path/two`. An index you did not
+  fill is somebody else's work in progress.
+- **Uncommitted changes you did not write are not yours to discard.** Preserve
+  them first — `git stash create` gives a commit you can point a branch at —
+  then say where you put it.
+- **Do not serve from a worktree.** Copy the binary to `blogport-server-run`;
+  see its README.
+
 ## Things that will bite
 
 - **The lockfile must stay buildable on `rust:1.88`**, which both Dockerfiles
