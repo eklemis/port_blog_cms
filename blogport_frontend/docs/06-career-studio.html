@@ -1,0 +1,993 @@
+<title>Career Studio Design Paper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sen:wght@400;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+/* ============================================================
+   This paper is the one that introduces light mode, so it is
+   theme-aware itself rather than dark-only like the first three.
+   Light is the base; dark redefines tokens only.
+   ============================================================ */
+:root {
+  --bg: #eeeff0;
+  --surface: #ffffff;
+  --surface-2: #f6f7f8;
+  --headline: #1e2224;
+  --muted: #5e6469;
+  --accent: #f4a43d;
+  --accent-on: #1e2224;
+  --accent-ink: #8f5000;
+  --accent-2: #8a6d1f;
+  --line: rgb(30 34 36 / 0.12);
+  --line-strong: rgb(30 34 36 / 0.26);
+  --st-neutral: #5e6469;
+  --st-inflight: #8a5a0b;
+  --st-live: #2e6b45;
+  --st-danger: #b3453a;
+  --st-dormant: #8a9095;
+  --shadow: 0 1px 2px rgb(30 34 36 / 0.05), 0 1px 3px rgb(30 34 36 / 0.04);
+
+  --font-display: Sen, Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --shell: 1100px;
+  --prose: 68ch;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #2f3133;
+    --surface: #3a3c3e;
+    --surface-2: #434547;
+    --headline: #f4e4c9;
+    --muted: #9fa3a6;
+    --accent: #f4a43d;
+    --accent-on: #1e2224;
+    --accent-ink: #f4a43d;
+    --accent-2: #e8c76b;
+    --line: rgb(244 228 201 / 0.10);
+    --line-strong: rgb(244 228 201 / 0.22);
+    --st-neutral: #9fa3a6;
+    --st-inflight: #e8c76b;
+    --st-live: #8fbf9a;
+    --st-danger: #e08a7d;
+    --st-dormant: #6f7276;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #2f3133;
+  --surface: #3a3c3e;
+  --surface-2: #434547;
+  --headline: #f4e4c9;
+  --muted: #9fa3a6;
+  --accent: #f4a43d;
+  --accent-on: #1e2224;
+  --accent-ink: #f4a43d;
+  --accent-2: #e8c76b;
+  --line: rgb(244 228 201 / 0.10);
+  --line-strong: rgb(244 228 201 / 0.22);
+  --st-neutral: #9fa3a6;
+  --st-inflight: #e8c76b;
+  --st-live: #8fbf9a;
+  --st-danger: #e08a7d;
+  --st-dormant: #6f7276;
+  --shadow: none;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--headline);
+  font-family: var(--font-sans); font-size: 16px; line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+p { margin: 0; }
+a { color: var(--accent-ink); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 3px; border-radius: 4px; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+.shell { max-width: var(--shell); margin: 0 auto; padding: 0 24px; }
+.prose { max-width: var(--prose); }
+
+.masthead { padding: 70px 0 44px; border-bottom: 1px solid var(--line); }
+.eyebrow { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-ink); margin-bottom: 18px; }
+.masthead h1 { font-size: clamp(2.2rem, 5vw, 3.2rem); font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; }
+.masthead .standfirst { margin-top: 18px; font-size: 1.06rem; color: var(--muted); max-width: 64ch; }
+
+.tocbar { position: sticky; top: 0; z-index: 40; background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.tocbar .inner { display: flex; gap: 4px; overflow-x: auto; padding: 10px 24px; max-width: var(--shell); margin: 0 auto; }
+.tocbar a { flex: 0 0 auto; font-size: 0.78125rem; color: var(--muted); text-decoration: none; padding: 6px 12px; border-radius: 999px; white-space: nowrap; }
+.tocbar a:hover { color: var(--headline); background: color-mix(in srgb, var(--headline) 7%, transparent); }
+
+section { padding: 62px 0; border-bottom: 1px solid var(--line); scroll-margin-top: 62px; }
+section:last-of-type { border-bottom: none; }
+.sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 10px; flex-wrap: wrap; }
+.sec-num { font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent-ink); letter-spacing: 0.08em; }
+section h2 { font-size: clamp(1.55rem, 3vw, 2.05rem); font-weight: 800; letter-spacing: -0.015em; }
+.sec-lede { color: var(--muted); margin-bottom: 34px; max-width: var(--prose); }
+h3.block { font-size: 1.0625rem; font-weight: 700; margin: 38px 0 14px; }
+h3.block:first-of-type { margin-top: 0; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+
+/* palette pair */
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+.pane { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); }
+.pane-h { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.12em; text-transform: uppercase; padding: 11px 16px; border-bottom: 1px solid var(--line); }
+.pane-b { padding: 16px; display: grid; gap: 9px; }
+.row { display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center; font-size: 0.8125rem; }
+.chip { width: 30px; height: 30px; border-radius: 7px; border: 1px solid rgb(128 128 128 / 0.3); }
+.hex { font-family: var(--font-mono); font-size: 0.6875rem; opacity: 0.72; }
+.lightpane { background: #ffffff; color: #1e2224; }
+.lightpane .pane-h { background: #eeeff0; color: #5e6469; border-color: rgb(30 34 36 / 0.12); }
+.darkpane { background: #3a3c3e; color: #f4e4c9; }
+.darkpane .pane-h { background: #2f3133; color: #9fa3a6; border-color: rgb(244 228 201 / 0.12); }
+
+.scroller { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow); }
+table { width: 100%; border-collapse: collapse; font-size: 0.84375rem; min-width: 640px; font-variant-numeric: tabular-nums; }
+thead th { text-align: left; font-family: var(--font-mono); font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding: 12px 16px; border-bottom: 1px solid var(--line-strong); white-space: nowrap; }
+tbody td { padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tbody tr:last-child td { border-bottom: none; }
+td.dim { color: var(--muted); }
+td .mono { color: var(--accent-2); }
+
+.pill { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.p-neutral { color: var(--st-neutral); } .p-inflight { color: var(--st-inflight); }
+.p-live { color: var(--st-live); } .p-danger { color: var(--st-danger); } .p-dormant { color: var(--st-dormant); }
+
+.callout { border: 1px solid var(--line-strong); border-radius: 12px; padding: 20px 22px; background: color-mix(in srgb, var(--accent) 8%, var(--surface)); margin: 26px 0; }
+.callout h4 { font-size: 0.9375rem; margin-bottom: 8px; color: var(--accent-ink); }
+.callout p { font-size: 0.875rem; }
+.callout p + p { margin-top: 10px; }
+.alert { border: 1px solid color-mix(in srgb, var(--st-danger) 45%, transparent); border-radius: 12px; padding: 20px 22px; background: color-mix(in srgb, var(--st-danger) 8%, var(--surface)); margin: 26px 0; }
+.alert h4 { font-size: 0.9375rem; margin-bottom: 8px; color: var(--st-danger); }
+.alert p { font-size: 0.875rem; } .alert p + p { margin-top: 10px; }
+
+pre { margin: 0; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; overflow-x: auto; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.7; color: var(--headline); }
+pre .c { color: var(--muted); } pre .k { color: var(--accent-2); } pre .m { color: var(--st-live); font-weight: 500; }
+
+.journey { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow: hidden; margin-bottom: 20px; box-shadow: var(--shadow); }
+.j-head { display: flex; align-items: center; gap: 13px; padding: 17px 23px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.j-id { font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent-on); background: var(--accent); padding: 3px 9px; border-radius: 5px; }
+.j-head h3 { font-size: 1.0625rem; font-weight: 700; flex: 1; min-width: 210px; }
+.j-goal { font-size: 0.8125rem; color: var(--muted); width: 100%; }
+.j-body { padding: 21px 23px 23px; }
+ol.steps { list-style: none; counter-reset: s; margin: 0; padding: 0; }
+ol.steps li { counter-increment: s; position: relative; padding: 0 0 20px 42px; }
+ol.steps li::before { content: counter(s); position: absolute; left: 0; top: 1px; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line-strong); font-family: var(--font-mono); font-size: 0.6875rem; color: var(--accent-ink); display: grid; place-items: center; }
+ol.steps li::after { content: ''; position: absolute; left: 12px; top: 27px; bottom: 4px; width: 1px; background: var(--line); }
+ol.steps li:last-child { padding-bottom: 0; } ol.steps li:last-child::after { display: none; }
+.step-title { font-weight: 600; font-size: 0.9375rem; }
+.step-note { font-size: 0.84375rem; color: var(--muted); margin-top: 3px; }
+
+.laws { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.law { border: 1px solid var(--line); border-left: 2px solid var(--accent); border-radius: 0 12px 12px 0; background: var(--surface); padding: 19px 21px; box-shadow: var(--shadow); }
+.law h4 { font-size: 0.9375rem; margin-bottom: 8px; }
+.law p { font-size: 0.84375rem; color: var(--muted); }
+
+figure { margin: 0 0 8px; }
+.figwrap { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 24px; overflow-x: auto; box-shadow: var(--shadow); }
+.figwrap svg { display: block; width: 100%; min-width: 620px; height: auto; color: var(--headline); }
+figcaption { margin-top: 14px; font-size: 0.84375rem; color: var(--muted); max-width: var(--prose); }
+
+.compact { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+.crow { background: var(--surface); padding: 17px 22px; }
+.crow h4 { font-size: 0.9375rem; margin-bottom: 5px; }
+.crow p { font-size: 0.84375rem; color: var(--muted); }
+.crow .sig { font-family: var(--font-mono); font-size: 0.71875rem; color: var(--accent-2); margin-top: 7px; }
+
+footer { padding: 46px 0 70px; color: var(--muted); font-size: 0.84375rem; }
+@media (max-width: 720px) { .masthead { padding: 46px 0 32px; } section { padding: 46px 0; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="tocbar">
+  <nav class="inner" aria-label="Sections">
+    <a href="#reading">How to read this</a>
+    <a href="#themes">Light &amp; dark</a>
+    <a href="#language">Language</a>
+    <a href="#companion">The companion</a>
+    <a href="#tracker">The tracker</a>
+    <a href="#journeys">Journeys</a>
+    <a href="#score">The score</a>
+    <a href="#ai">AI surface</a>
+    <a href="#asks">Backend needed</a>
+  </nav>
+</div>
+
+<header class="masthead">
+  <div class="shell">
+    <div class="eyebrow">Fourth paper · new product surface</div>
+    <h1>Career Studio Design Paper</h1>
+    <p class="standfirst">
+      A writing companion for CVs and a tracker for the applications they go into — plus the two
+      cross-cutting changes they force: a light theme the product has never had, and a language
+      setting that turns out to be two settings, not one. The backend surface it needs is filed as
+      R15&ndash;R21 in <b>Blogport API Round Two</b>.
+    </p>
+    <p class="standfirst" style="margin-top:14px">
+      This page renders in your system theme. Both palettes are specified in
+      <code>theme.css</code> and demonstrated below.
+    </p>
+  </div>
+</header>
+
+<section id="reading" style="padding-top:44px">
+  <div class="shell">
+    <div class="sec-head"><span class="sec-num">00</span><h2>How to read this one</h2></div>
+    <p class="sec-lede">
+      This paper was written on <b>3 September</b>, before any of the frontend existed, and it is the
+      last of the six to be copied into <code>docs/</code> — which is why three of its decisions
+      reached the build late, or not at all. It is here now because it is the <em>only</em> record of
+      several rules, and nothing else states them.
+    </p>
+
+    <div class="callout">
+      <h4>What it is still the sole authority on</h4>
+      <p>
+        <b>§02, language.</b> Two settings, not one — <code>user.locale</code> for the interface,
+        <code>cv.language</code> and <code>cover_letter.language</code> per document. English and
+        Indonesian at launch. This is what the <code>EN ▾</code> pill in the public header is, and
+        no other document mentions it.
+      </p>
+      <p>
+        <b>§03, the companion's one rule</b> — it may rephrase, never introduce a fact.
+        <b>§04</b>, the CV snapshot and why "no reply" is its own outcome.
+        <b>§06</b>, the two-part score and the three things it must never do.
+        <b>§07</b>, the key never reaching the browser.
+      </p>
+    </div>
+
+    <div class="alert">
+      <h4>What it has been overtaken on — read the other document instead</h4>
+      <p>
+        <b>Colour values, §01.</b> The palette here is the September 3rd set. Six values changed in
+        the contrast audit and one token was added; the current set is
+        <a href="https://claude.ai/code/artifact/9ebeea31-7816-4ebf-9e73-dc0b7a31aa60">the Accessibility Spec, §03</a> (<code>docs/04-accessibility-spec.html</code>), and the live one is
+        <code>src/app/app.css</code>. The <em>reasoning</em> in §01 — why the accent splits into a
+        fill and an ink, why surfaces lift on light and recede on dark — is unchanged and still the
+        only place it is written down.
+      </p>
+      <p>
+        <b>Routes.</b> This paper names no routes. They are in
+        <a href="https://claude.ai/code/artifact/31b7f5de-77dd-47af-9a3a-57a8aa9ebe61">the Console Blueprint, §03</a> (<code>docs/02-console-blueprint.html</code>), along with what the
+        tracker's cells link to and the rule for the no-reply banner.
+      </p>
+      <p>
+        <b>"Blogport API Round Two", R15–R21.</b> Those asks shipped. The API is
+        <code>src/shared/api/v1.ts</code>, generated; do not read this paper for endpoint shapes.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 1 -->
+<section id="themes">
+  <div class="shell">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Light and dark</h2></div>
+    <p class="sec-lede">
+      The product has been dark-only since it started. Adding light is not "invert the greys" — the
+      accent breaks, the inputs disappear, and the status scale stops being legible. Here is the
+      pair that works.
+    </p>
+
+    <div class="pair">
+      <div class="pane lightpane">
+        <div class="pane-h">Light — the new default</div>
+        <div class="pane-b">
+          <div class="row"><span class="chip" style="background:#eeeff0"></span><span>Ground</span><span class="hex">#eeeff0</span></div>
+          <div class="row"><span class="chip" style="background:#ffffff"></span><span>Surface</span><span class="hex">#ffffff</span></div>
+          <div class="row"><span class="chip" style="background:#1e2224"></span><span>Headline</span><span class="hex">#1e2224</span></div>
+          <div class="row"><span class="chip" style="background:#5e6469"></span><span>Muted</span><span class="hex">#5e6469</span></div>
+          <div class="row"><span class="chip" style="background:#f4a43d"></span><span>Accent — fills</span><span class="hex">#f4a43d</span></div>
+          <div class="row"><span class="chip" style="background:#8f5000"></span><span>Accent — text</span><span class="hex">#8f5000</span></div>
+        </div>
+      </div>
+      <div class="pane darkpane">
+        <div class="pane-h">Dark — unchanged</div>
+        <div class="pane-b">
+          <div class="row"><span class="chip" style="background:#2f3133"></span><span>Ground</span><span class="hex">#2f3133</span></div>
+          <div class="row"><span class="chip" style="background:#3a3c3e"></span><span>Surface</span><span class="hex">#3a3c3e</span></div>
+          <div class="row"><span class="chip" style="background:#f4e4c9"></span><span>Headline</span><span class="hex">#f4e4c9</span></div>
+          <div class="row"><span class="chip" style="background:#9fa3a6"></span><span>Muted</span><span class="hex">#9fa3a6</span></div>
+          <div class="row"><span class="chip" style="background:#f4a43d"></span><span>Accent — fills</span><span class="hex">#f4a43d</span></div>
+          <div class="row"><span class="chip" style="background:#f4a43d"></span><span>Accent — text</span><span class="hex">#f4a43d</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="alert">
+      <h4>The accent has two roles, and light mode is where that stops being optional</h4>
+      <p>
+        <code>#f4a43d</code> on white is roughly <b>2.1:1</b> — it fails WCAG AA for text by a wide
+        margin. On charcoal the same amber is comfortable, which is why the problem has never
+        surfaced. So the token splits in two: <code>--arch-accent</code> stays the <b>fill</b> for
+        buttons and active bars (with <code>--arch-accent-on</code> as the dark text that sits on
+        it), and <code>--arch-accent-ink</code> is accent-coloured <b>text</b> — links, active nav,
+        focus rings — which resolves to a deep ochre on light and stays bright amber on dark.
+      </p>
+      <p>
+        Practical rule for the developer: <b>a link is never <code>text-arch-accent</code>.</b> It is
+        always <code>text-arch-accent-ink</code>. The fill token on text is the single most likely
+        way this theme gets shipped broken.
+      </p>
+    </div>
+
+    <h3 class="block">Ground rules</h3>
+    <div class="laws">
+      <div class="law">
+        <h4>The light ground is cool, not cream</h4>
+        <p>The charcoal <code>#2f3133</code> leans very slightly blue, so its counterpart does too.
+        A warm cream ground under a warm amber accent leaves nothing to contrast against, and lands
+        squarely on the most generic light palette going.</p>
+      </div>
+      <div class="law">
+        <h4>Three states, not two</h4>
+        <p>Light, Dark, and <b>System</b> — defaulting to System. A two-state toggle silently
+        overrides the OS preference the first time it is touched, with no way back. Persist the
+        choice per browser; sync to the account only once the backend has a field for it.</p>
+      </div>
+      <div class="law">
+        <h4>Stamp before paint</h4>
+        <p>A synchronous script in <code>app.html</code> reads the stored choice and
+        <code>prefers-color-scheme</code>, then sets the class on <code>&lt;html&gt;</code> before
+        the first stylesheet. Skip it and every cold load flashes white at dark-mode users. It is
+        eight lines and it is in <code>theme.css</code>.</p>
+      </div>
+      <div class="law">
+        <h4>Surfaces lift on light, recede on dark</h4>
+        <p>On light, a card is white on grey with a hairline shadow. On dark, it is lighter grey on
+        charcoal with <b>no shadow at all</b> — shadows on dark grounds read as smudges. Same
+        component, different elevation language; <code>--shadow</code> resolves to
+        <code>none</code> in dark.</p>
+      </div>
+      <div class="law">
+        <h4>Inputs get a surface</h4>
+        <p>The old login form used <code>bg-transparent</code> inputs. On a light card that is an
+        invisible field with a hairline. Inputs are <code>bg-arch-surface</code> in both themes.</p>
+      </div>
+      <div class="law">
+        <h4>Status darkens, it doesn't invert</h4>
+        <p>Each of the five status values gets a light-mode variant chosen for legibility on a pale
+        ground — <code>#8fbf9a</code> becomes <code>#2e6b45</code>, not a lighter green. Meaning is
+        preserved; luminance flips.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 2 -->
+<section id="language">
+  <div class="shell">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Language is two settings</h2></div>
+    <p class="sec-lede">
+      "Language selection" reads like one dropdown. For this product it is two, they are
+      independent, and conflating them is the single most likely design error in this paper.
+    </p>
+
+    <div class="scroller">
+      <table>
+        <thead><tr><th></th><th>UI language</th><th>Content language</th></tr></thead>
+        <tbody>
+          <tr><td><b>Controls</b></td><td>Navigation, labels, buttons, errors, dates, number formats</td><td class="dim">What the AI writes, and what a CV or cover letter is written in</td></tr>
+          <tr><td><b>Scope</b></td><td>One per person</td><td class="dim">One per document — per CV, per cover letter</td></tr>
+          <tr><td><b>Lives on</b></td><td><code>user.locale</code></td><td class="dim"><code>cv.language</code>, <code>cover_letter.language</code></td></tr>
+          <tr><td><b>Chosen in</b></td><td>Settings, plus a compact switcher on login and public pages</td><td class="dim">The document header, beside the title — visible while writing</td></tr>
+          <tr><td><b>Changing it</b></td><td>Instant, no data effect</td><td class="dim">Does <b>not</b> retranslate. It tells the AI which language to work in from here.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <h4>Why they have to be separate</h4>
+      <p>
+        The obvious real case: someone who reads the interface most comfortably in Indonesian,
+        applying to an international company, writing an English CV. A single setting forces them to
+        operate the whole app in a second language to get an English document — or worse, silently
+        generates a CV in the wrong language for the employer. Launch with English and Indonesian,
+        and build the switcher so a third locale is a file rather than a refactor.
+      </p>
+      <p>
+        The AI needs the content language <b>explicitly</b>. Inferring it from the CV's existing text
+        breaks on a half-written document and on CVs that legitimately mix languages — a technical
+        skills section in English inside an Indonesian CV is normal, not a mistake to correct.
+      </p>
+    </div>
+
+    <h3 class="block">What this costs elsewhere</h3>
+    <div class="compact">
+      <div class="crow">
+        <h4>Dates and numbers are not strings</h4>
+        <p>Every date in the tracker and every count in the console goes through
+        <code>Intl.DateTimeFormat</code> / <code>Intl.NumberFormat</code> with the active locale.
+        Hand-formatted <code>DD/MM/YYYY</code> is a bug the moment a second locale exists.</p>
+      </div>
+      <div class="crow">
+        <h4>Error copy is content, not code</h4>
+        <p>The error-code table in the Console Blueprint maps codes to English sentences. That
+        mapping becomes a message catalogue keyed by code — which is exactly why the blueprint
+        insisted the raw code never reaches the screen. That rule now pays for itself.</p>
+      </div>
+      <div class="crow">
+        <h4>Decide about RTL now, not later</h4>
+        <p>Neither launch locale needs it. But writing <code>margin-inline-start</code> instead of
+        <code>margin-left</code> from the start costs nothing today and saves a full layout audit if
+        Arabic ever appears. Use logical properties; don't build an RTL mode yet.</p>
+      </div>
+      <div class="crow">
+        <h4>Public pages need a locale in the URL</h4>
+        <p>A shared link has no session to read a preference from. If public pages are ever
+        localised, the locale belongs in the path — and that is a routing decision worth making
+        before the routes exist, not after they are indexed.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 3 -->
+<section id="companion">
+  <div class="shell">
+    <div class="sec-head"><span class="sec-num">03</span><h2>The companion</h2></div>
+    <p class="sec-lede">
+      Not a chatbot in a corner. The companion appears where the writing happens, acts on a
+      selection, and always proposes rather than replaces.
+    </p>
+
+    <div class="alert">
+      <h4>The rule everything else follows: it never invents a fact</h4>
+      <p>
+        A CV is a claim a person makes to an employer, and a cover letter is signed by them. If the
+        model writes "reduced latency by 40%" because that is the shape of a strong bullet, the
+        product has authored a lie the user will be asked about in an interview.
+      </p>
+      <p>
+        <b>The companion may rephrase what the user wrote. It may never introduce a metric,
+        employer, date, title, or credential the user did not supply.</b> Where a bullet would be
+        stronger with a number, it <em>asks</em> — "Do you know roughly how much this reduced
+        latency?" — and leaves a blank the user fills. That single constraint is what separates this
+        from a plausible-résumé generator, and it is a UI shape, not a prompt instruction: the ask
+        renders as an input, not as prose.
+      </p>
+    </div>
+
+    <h3 class="block">Where it appears</h3>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Surface</th><th>Acts on</th><th>What it offers</th></tr></thead>
+        <tbody>
+          <tr><td><b>Inline, on selection</b></td><td class="dim">A highlighted bullet or sentence</td><td class="dim">Tighten · Strengthen the verb · Add a metric (asks) · Match to this job</td></tr>
+          <tr><td><b>Section review</b></td><td class="dim">One CV section — experience, skills</td><td class="dim">A short list of specific observations, each with an Apply button</td></tr>
+          <tr><td><b>Tailor to job</b></td><td class="dim">A whole CV against one job description</td><td class="dim">A diff: what it would change and why, accepted per-change</td></tr>
+          <tr><td><b>Cover letter draft</b></td><td class="dim">CV + job description + the user's notes</td><td class="dim">A full draft, streamed, in an editor the user owns from the first token</td></tr>
+          <tr><td><b>Reflection prompt</b></td><td class="dim">A closed, unsuccessful application</td><td class="dim">Two or three questions — never an assessment of why they failed</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="block">Interaction laws</h3>
+    <div class="laws">
+      <div class="law">
+        <h4>Propose, never overwrite</h4>
+        <p>Every suggestion lands as a reviewable change — side-by-side for a bullet, a diff for a
+        tailoring pass. Accept per change. There is no "rewrite my CV" button that silently replaces
+        a person's own words, because a wholesale rewrite is unreviewable in practice.</p>
+      </div>
+      <div class="law">
+        <h4>Stream, and stay interruptible</h4>
+        <p>A cover letter is a long generation. Stream it, keep a visible Stop, and let the user
+        start editing the part that has landed while the rest arrives. A modal spinner over a
+        20-second generation is the difference between a tool and a wait.</p>
+      </div>
+      <div class="law">
+        <h4>Undo is not optional</h4>
+        <p>Every applied suggestion is one <kbd>⌘Z</kbd> away, and the editor keeps a pre-tailoring
+        snapshot for the whole session. People accept a change, read it again, and change their
+        mind — that is the normal path, not an error case.</p>
+      </div>
+      <div class="law">
+        <h4>Say what it read</h4>
+        <p>When a suggestion draws on the job description, the UI says which requirement it came
+        from. "Matches: <i>3+ years distributed systems</i>" turns an opaque instruction into a
+        judgement the user can disagree with.</p>
+      </div>
+      <div class="law">
+        <h4>Failure is a state, not a modal</h4>
+        <p>Rate limits, refusals and timeouts land in the panel where the suggestion would have
+        been, with a Retry. The user's document is never blocked on the model being available.</p>
+      </div>
+      <div class="law">
+        <h4>Off is a real setting</h4>
+        <p>Someone who wants a plain CV editor gets one. The companion collapses to a single icon
+        and stops making calls. This also matters for cost: not every keystroke needs a model.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 4 -->
+<section id="tracker">
+  <div class="shell">
+    <div class="sec-head"><span class="sec-num">04</span><h2>The tracker</h2></div>
+    <p class="sec-lede">
+      One row per application. The table is the primary view because this is a list people scan for
+      "what needs chasing" — a kanban board looks better in a screenshot and reads worse at forty
+      applications.
+    </p>
+
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Column</th><th>Holds</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><b>Role &amp; company</b></td><td class="dim">Title, employer, location, remote flag</td><td class="dim">Extracted from the description on capture, always editable</td></tr>
+          <tr><td><b>Status</b></td><td class="dim">The pipeline state, below</td><td class="dim">The only column that drives colour</td></tr>
+          <tr><td><b>CV used</b></td><td class="dim">A link to the exact CV version sent</td><td class="dim">Must be a <b>snapshot</b>, not a live reference — see below</td></tr>
+          <tr><td><b>Cover letter</b></td><td class="dim">Draft / sent, with a link</td><td class="dim">Optional; many applications never have one</td></tr>
+          <tr><td><b>Match</b></td><td class="dim">The two-part score from §06</td><td class="dim">Shown as two small bars, not one number</td></tr>
+          <tr><td><b>Applied</b></td><td class="dim">Date, locale-formatted</td><td class="dim">Drives the "no reply in 21 days" nudge</td></tr>
+          <tr><td><b>Next action</b></td><td class="dim">Free text plus an optional date</td><td class="dim">What makes this a tracker rather than an archive</td></tr>
+          <tr><td><b>Reflection</b></td><td class="dim">Private notes on a closed application</td><td class="dim">Only appears once the outcome is negative</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="block">Status pipeline</h3>
+    <p class="prose" style="color:var(--muted);font-size:0.875rem;margin-bottom:16px">
+      Six live states and three terminal ones. Statuses reuse the product's existing five status
+      colours — no new colour vocabulary for this feature.
+    </p>
+    <div style="display:flex;flex-wrap:wrap;gap:9px;margin-bottom:18px">
+      <span class="pill p-neutral">draft</span>
+      <span class="pill p-inflight">applied</span>
+      <span class="pill p-inflight">screening</span>
+      <span class="pill p-inflight">interview</span>
+      <span class="pill p-inflight">final</span>
+      <span class="pill p-live">offer</span>
+      <span class="pill p-live">accepted</span>
+      <span class="pill p-danger">rejected</span>
+      <span class="pill p-dormant">withdrawn</span>
+      <span class="pill p-dormant">no reply</span>
+    </div>
+
+    <div class="callout">
+      <h4>"No reply" is its own outcome, and it is the most common one</h4>
+      <p>
+        Folding silence into <span class="pill p-danger">rejected</span> destroys the most useful
+        signal in the whole dataset. A rejection after three interviews and a job that never
+        replied are different events with different lessons, and lumping them together makes any
+        later pattern-finding worthless. Auto-suggest the transition after 21 days — never apply it
+        silently, because sometimes people do reply on day 30.
+      </p>
+    </div>
+
+    <div class="alert">
+      <h4>The CV column stores a snapshot, not a pointer</h4>
+      <p>
+        If the tracker links to CV <code>#3</code> and the user keeps editing CV <code>#3</code>,
+        then in two months every past application claims to have used a document that did not exist
+        when they applied. At interview time, the one question this product must answer —
+        <i>what exactly did they read?</i> — becomes unanswerable.
+      </p>
+      <p>
+        Freeze a copy at the moment the status leaves <span class="pill p-neutral">draft</span>. The
+        row shows "CV — Senior Backend, as sent 14 Aug" and opens read-only, with an explicit
+        "Start a new version from this" action.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 5 -->
+<section id="journeys">
+  <div class="shell">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Five journeys</h2></div>
+    <p class="sec-lede">
+      Continuing the Console Blueprint's numbering. Same conventions: ordered steps, and failure
+      branches that name a recovery.
+    </p>
+
+    <article class="journey">
+      <div class="j-head"><span class="j-id">J11</span><h3>Capture a job</h3>
+        <p class="j-goal">An advert somewhere else becomes a row here, in under a minute.</p></div>
+      <div class="j-body">
+        <ol class="steps">
+          <li><div class="step-title">Paste, or drop a link</div>
+            <div class="step-note">One field that accepts both and detects which it got. Paste is the reliable path; a link is a convenience that sometimes works.</div></li>
+          <li><div class="step-title">If it is a link, fetch it — best effort</div>
+            <div class="step-note">Many job boards block automated fetches or sit behind a login. Design for failure as the ordinary case: on any failure, fall straight through to the paste box with the link kept and a plain "Couldn't read that page — paste the description instead." Never a retry loop, never an error page.</div></li>
+          <li><div class="step-title">Extract the structured fields</div>
+            <div class="step-note">Title, company, location, seniority, required skills, nice-to-haves, salary if stated. Returned as a typed object, not prose, so the form fills rather than the user re-reading.</div></li>
+          <li><div class="step-title">Confirm before saving</div>
+            <div class="step-note">Extracted fields render as an editable form with the source text beside them. Extraction is a first draft — presenting it as fact is how a wrong company name reaches an application.</div></li>
+          <li><div class="step-title">Keep the original</div>
+            <div class="step-note">Store the raw description verbatim. Adverts get taken down, and at interview time it is the only record of what was actually asked for.</div></li>
+        </ol>
+      </div>
+    </article>
+
+    <article class="journey">
+      <div class="j-head"><span class="j-id">J12</span><h3>Tailor a CV to the job</h3>
+        <p class="j-goal">The core loop. A general CV becomes a specific one, without becoming a false one.</p></div>
+      <div class="j-body">
+        <ol class="steps">
+          <li><div class="step-title">Pick a starting point</div>
+            <div class="step-note">Reuse an existing CV, duplicate one, or start empty. Default to duplicating the closest match by role — reusing in place is offered but warned about, since it edits a document other applications may point at.</div></li>
+          <li><div class="step-title">Read the gap before changing anything</div>
+            <div class="step-note">The panel opens on the two-part match from §06: what the description asks for, and which of it the CV currently evidences. Requirements with no support are the whole point of the screen.</div></li>
+          <li><div class="step-title">Work the recommendations</div>
+            <div class="step-note">An ordered list, each one an actual edit — "Your Tokopedia role mentions queues but not Kafka, which this role names twice." Apply, Skip, or Ask me later. Every applied change is a reviewable diff.</div></li>
+          <li><div class="step-title">Answer the questions it can't answer</div>
+            <div class="step-note">Gaps needing facts render as inputs, not suggestions. "This role asks for team size — how many engineers did you lead?" An unanswered question stays open; it is never filled with a plausible number.</div></li>
+          <li><div class="step-title">Watch the score move, then stop</div>
+            <div class="step-note">The bars update as changes land. The UI should make it easy to stop at "good" — a CV optimised to 100 against one description reads like keyword stuffing to the human who eventually opens it.</div></li>
+        </ol>
+      </div>
+    </article>
+
+    <article class="journey">
+      <div class="j-head"><span class="j-id">J13</span><h3>Draft a cover letter</h3>
+        <p class="j-goal">From blank page to something the user is willing to sign.</p></div>
+      <div class="j-body">
+        <ol class="steps">
+          <li><div class="step-title">Collect the one thing only the user knows</div>
+            <div class="step-note">Before generating: "Why this company?" — two sentences, optional but prompted. It is the only part of a cover letter a model genuinely cannot supply, and its absence is exactly what makes generated letters interchangeable.</div></li>
+          <li><div class="step-title">Draft from CV + description + that note</div>
+            <div class="step-note">Streamed into a normal editor. Not a preview, not a modal — the document, editable from the first token.</div></li>
+          <li><div class="step-title">Flag anything unsupported</div>
+            <div class="step-note">If the letter asserts something the CV doesn't evidence, mark it inline for confirmation rather than shipping it. The letter and the CV must agree; a contradiction between them is worse than a weaker letter.</div></li>
+          <li><div class="step-title">Revise by instruction</div>
+            <div class="step-note">"Shorter." "Less formal." "Lead with the migration project." Applied to the current text, with undo — not regenerated from scratch, which throws away the user's own edits.</div></li>
+          <li><div class="step-title">Export in the format asked for</div>
+            <div class="step-note">PDF, plain text for a form field, or copy-to-clipboard. Plain text matters more than it sounds: a great many applications are a textarea.</div></li>
+        </ol>
+      </div>
+    </article>
+
+    <article class="journey">
+      <div class="j-head"><span class="j-id">J14</span><h3>Track the outcome</h3>
+        <p class="j-goal">Low-friction upkeep, because a tracker nobody updates is worse than no tracker.</p></div>
+      <div class="j-body">
+        <ol class="steps">
+          <li><div class="step-title">Mark it sent</div>
+            <div class="step-note">One control moves <span class="pill p-neutral">draft</span> to <span class="pill p-inflight">applied</span>, stamps the date, and freezes the CV snapshot. This is the moment the record becomes historical.</div></li>
+          <li><div class="step-title">Advance in one click from the row</div>
+            <div class="step-note">Status is an inline control in the table, not a detail-page field. Updating six applications after a busy week must not mean six page loads.</div></li>
+          <li><div class="step-title">Get nudged, gently</div>
+            <div class="step-note">After 21 days with no movement: a quiet row marker and one grouped prompt — "4 applications have had no reply in three weeks." Never a badge, never email by default.</div></li>
+          <li><div class="step-title">Close it</div>
+            <div class="step-note">Offer, rejected, withdrawn or no reply. <b>Every negative outcome opens the reflection surface</b> — rejected, withdrawn and no reply — and only after a beat, because nobody wants a form the second a rejection lands. This sentence used to say "only the last two", which contradicted J15, this paper's own tracker table ("only appears once the outcome is negative") and the frame, all three of which include a rejection. Corrected 18 September.</div></li>
+        </ol>
+      </div>
+    </article>
+
+    <article class="journey">
+      <div class="j-head"><span class="j-id">J15</span><h3>Reflect on a rejection</h3>
+        <p class="j-goal">Turn a bad day into something usable later, without making it feel like homework.</p></div>
+      <div class="j-body">
+        <ol class="steps">
+          <li><div class="step-title">Ask later, not now</div>
+            <div class="step-note">The prompt appears on the next visit, not in the moment of marking a rejection. It is dismissible and it does not come back twice.</div></li>
+          <li><div class="step-title">Three questions, all optional</div>
+            <div class="step-note">How far did it go? What do you think happened? What would you do differently? Structured enough to compare later, short enough to actually fill in.</div></li>
+          <li><div class="step-title">Keep it private and say so</div>
+            <div class="step-note">Reflections are the most personal data in the product. State plainly that they are private, never included in a CV or letter, and never sent anywhere the user didn't ask.</div></li>
+          <li><div class="step-title">Let patterns surface, don't diagnose</div>
+            <div class="step-note">Once several reflections exist, the companion may observe — "Four of your last six stalled after a take-home." Describe what is in the data. Never explain to someone why they are not getting hired.</div></li>
+        </ol>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- ============================================================ 6 -->
+<section id="score">
+  <div class="shell">
+    <div class="sec-head"><span class="sec-num">06</span><h2>The score, honestly</h2></div>
+    <p class="sec-lede">
+      An "ATS score" is the feature most likely to be quietly dishonest. No model can know what a
+      given employer's applicant tracking system does — vendors differ, configurations differ, and
+      most of it is not public. A single confident number would be a fabrication with a progress bar
+      around it.
+    </p>
+
+    <figure>
+      <div class="figwrap">
+        <svg viewBox="0 0 900 330" role="img" aria-label="The match score splits into two independently computed parts: a machine-readability check computed deterministically in code from the document structure, and a relevance match estimated by the model from the CV and job description. Only the two parts are shown to the user, never a single combined number.">
+          <defs>
+            <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <rect x="30" y="26" width="200" height="52" rx="9" fill="none" stroke="currentColor" stroke-opacity="0.35"/>
+          <text x="130" y="48" text-anchor="middle" font-size="12.5" font-weight="600" fill="currentColor">The CV document</text>
+          <text x="130" y="66" text-anchor="middle" font-size="10.5" fill="currentColor" fill-opacity="0.6">structure + text</text>
+
+          <rect x="30" y="252" width="200" height="52" rx="9" fill="none" stroke="currentColor" stroke-opacity="0.35"/>
+          <text x="130" y="274" text-anchor="middle" font-size="12.5" font-weight="600" fill="currentColor">The job description</text>
+          <text x="130" y="292" text-anchor="middle" font-size="10.5" fill="currentColor" fill-opacity="0.6">extracted requirements</text>
+
+          <!-- deterministic -->
+          <rect x="350" y="20" width="250" height="94" rx="10" fill="none" stroke="#2e6b45" stroke-width="1.6"/>
+          <text x="475" y="45" text-anchor="middle" font-size="12.5" font-weight="600" fill="#2e6b45">Machine-readability</text>
+          <text x="475" y="64" text-anchor="middle" font-size="10.5" font-family="monospace" fill="#2e6b45">computed in code</text>
+          <text x="475" y="82" text-anchor="middle" font-size="10" fill="currentColor" fill-opacity="0.72">headings parse · dates parse · contact block</text>
+          <text x="475" y="97" text-anchor="middle" font-size="10" fill="currentColor" fill-opacity="0.72">no tables, columns or text-in-images</text>
+
+          <!-- estimated -->
+          <rect x="350" y="210" width="250" height="94" rx="10" fill="none" stroke="#8a5a0b" stroke-width="1.6" stroke-dasharray="6 4"/>
+          <text x="475" y="235" text-anchor="middle" font-size="12.5" font-weight="600" fill="#8a5a0b">Relevance match</text>
+          <text x="475" y="254" text-anchor="middle" font-size="10.5" font-family="monospace" fill="#8a5a0b">estimated by the model</text>
+          <text x="475" y="272" text-anchor="middle" font-size="10" fill="currentColor" fill-opacity="0.72">requirement-by-requirement evidence</text>
+          <text x="475" y="287" text-anchor="middle" font-size="10" fill="currentColor" fill-opacity="0.72">each one cited back to a CV line</text>
+
+          <line x1="230" y1="52" x2="342" y2="60" stroke="currentColor" stroke-opacity="0.45" marker-end="url(#a1)"/>
+          <line x1="230" y1="272" x2="342" y2="262" stroke="currentColor" stroke-opacity="0.45" marker-end="url(#a1)"/>
+          <line x1="230" y1="66" x2="342" y2="244" stroke="currentColor" stroke-opacity="0.28" marker-end="url(#a1)"/>
+
+          <!-- output -->
+          <rect x="680" y="112" width="196" height="100" rx="10" fill="none" stroke="currentColor" stroke-opacity="0.35"/>
+          <text x="778" y="140" text-anchor="middle" font-size="12.5" font-weight="600" fill="currentColor">Two bars</text>
+          <text x="778" y="160" text-anchor="middle" font-size="10.5" fill="currentColor" fill-opacity="0.7">+ a ranked list of</text>
+          <text x="778" y="175" text-anchor="middle" font-size="10.5" fill="currentColor" fill-opacity="0.7">specific, actionable fixes</text>
+          <text x="778" y="196" text-anchor="middle" font-size="10" font-family="monospace" fill="#b3453a">never one blended number</text>
+
+          <line x1="600" y1="67" x2="672" y2="130" stroke="currentColor" stroke-opacity="0.45" marker-end="url(#a1)"/>
+          <line x1="600" y1="257" x2="672" y2="194" stroke="currentColor" stroke-opacity="0.45" marker-end="url(#a1)"/>
+
+          <text x="130" y="160" font-size="10.5" fill="currentColor" fill-opacity="0.55">the CV feeds</text>
+          <text x="130" y="175" font-size="10.5" fill="currentColor" fill-opacity="0.55">both halves</text>
+        </svg>
+      </div>
+      <figcaption>
+        Half of the score is genuinely measurable and half is an estimate. Averaging them into one
+        number hides which half a user should trust.
+      </figcaption>
+    </figure>
+
+    <h3 class="block">What each half is</h3>
+    <div class="compact">
+      <div class="crow">
+        <h4><span style="color:var(--st-live)">Machine-readability</span> — deterministic, computed in code, no model involved</h4>
+        <p>Does every section heading parse? Do employment dates parse to real ranges? Is there a
+        contact block a parser can find? Are there multi-column layouts, tables, or text baked into
+        images — the things that genuinely do break real parsers? This half is <b>checkable</b>, so
+        it is stated as fact, and each failure names the exact element at fault.</p>
+        <div class="sig">Rules the team can write down, test, and defend. No API call.</div>
+      </div>
+      <div class="crow">
+        <h4><span style="color:var(--st-inflight)">Relevance match</span> — estimated by the model, and labelled as an estimate</h4>
+        <p>For each requirement the description states, does the CV evidence it, partly evidence it,
+        or not mention it? Returned as a structured list — requirement, verdict, and the CV line it
+        was matched against — so the user can disagree with any single row. The percentage is just
+        the count of covered requirements; it is arithmetic over the list, not a vibe.</p>
+        <div class="sig">Every row cites its evidence, so the estimate is auditable rather than oracular.</div>
+      </div>
+    </div>
+
+    <div class="alert">
+      <h4>Three things this feature must never do</h4>
+      <p>
+        <b>Never claim to be a specific ATS.</b> No "Workday score", no logos, no "your CV scored 72
+        in Taleo". The product does not have access to those systems and saying otherwise is a
+        straightforward false claim.
+      </p>
+      <p>
+        <b>Never show a number without what moves it.</b> A score with no ranked, specific
+        recommendation list is anxiety with a percentage attached. If the recommendations are empty,
+        say "nothing worth changing" rather than displaying a bare 84.
+      </p>
+      <p>
+        <b>Never reward keyword stuffing.</b> If coverage rises while the same term is repeated,
+        say so. Optimising a CV into something a human finds unreadable is a failure the score
+        would otherwise call success.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 7 -->
+<section id="ai">
+  <div class="shell">
+    <div class="sec-head"><span class="sec-num">07</span><h2>The AI surface</h2></div>
+    <p class="sec-lede">
+      Architecture notes that change the UX rather than just the code. The backend is Rust, which has
+      no official Anthropic SDK, so these are raw HTTP calls to
+      <code>https://api.anthropic.com/v1/messages</code> from <code>backend_actix</code>.
+    </p>
+
+    <div class="alert">
+      <h4>The key never reaches the browser</h4>
+      <p>
+        Every model call goes through <code>backend_actix</code>. A key in the SvelteKit client — or
+        in a public env var — is a key anyone can extract and bill to your account. This also puts
+        rate limiting, per-user quotas and audit logging in one place, all of which this feature
+        needs and none of which the browser can enforce.
+      </p>
+    </div>
+
+    <h3 class="block">Four decisions that show up in the interface</h3>
+    <div class="compact">
+      <div class="crow">
+        <h4>Model — <code>claude-opus-5</code>, adaptive thinking, effort tuned per task</h4>
+        <p>Drafting and tailoring want quality, so they run at high effort. Extraction from a job
+        description is mechanical and runs lower. Effort is the lever that keeps this affordable
+        without switching models and losing cache reuse.</p>
+        <div class="sig">"thinking": {"type": "adaptive"} · "output_config": {"effort": "high" | "low"}</div>
+      </div>
+      <div class="crow">
+        <h4>Streaming for anything the user watches</h4>
+        <p>Cover letters and tailoring passes stream over SSE, which is what makes the "editable from
+        the first token" behaviour in J13 possible — and what keeps long generations from hitting
+        request timeouts. Use a large <code>max_tokens</code> and stream it.</p>
+        <div class="sig">"stream": true · max_tokens ~64000 streamed · ~16000 non-streamed</div>
+      </div>
+      <div class="crow">
+        <h4>Structured outputs wherever the result populates UI</h4>
+        <p>Job extraction and the relevance match must come back as typed objects, not prose the
+        frontend regexes. Constrain the response to a schema and the form fills reliably.</p>
+        <div class="sig">"output_config": {"format": {"type": "json_schema", "schema": {…}}}</div>
+      </div>
+      <div class="crow">
+        <h4>Prompt caching — the CV and the description are the stable prefix</h4>
+        <p>A tailoring session sends the same CV and the same job description on every turn while
+        only the instruction changes. Put both in the cached prefix and the volatile instruction
+        after it. This is the difference between an iterative loop being affordable and being
+        rationed — and it is why "work the recommendations one at a time" is a viable design.</p>
+        <div class="sig">"cache_control": {"type": "ephemeral"} on the last stable block · verify usage.cache_read_input_tokens</div>
+      </div>
+    </div>
+
+    <h3 class="block">Job description by URL</h3>
+    <p class="prose" style="color:var(--muted);font-size:0.875rem;margin-bottom:14px">
+      Claude's server-side web fetch tool handles the link case — it fetches URLs already present in
+      the conversation, so the pasted link is the input. Constrain it with an allow-list and treat
+      every failure as the ordinary path back to paste.
+    </p>
+<pre><span class="c">// backend_actix → api.anthropic.com/v1/messages</span>
+{
+  <span class="k">"model"</span>: "claude-opus-5",
+  <span class="k">"max_tokens"</span>: 16000,
+  <span class="k">"tools"</span>: [{ <span class="k">"type"</span>: "web_fetch_20260209", <span class="k">"name"</span>: "web_fetch",
+              <span class="k">"max_uses"</span>: 1 }],
+  <span class="k">"output_config"</span>: {
+    <span class="k">"format"</span>: { <span class="k">"type"</span>: "json_schema", <span class="k">"schema"</span>: {
+      <span class="k">"type"</span>: "object",
+      <span class="k">"properties"</span>: {
+        <span class="k">"title"</span>: {"type": "string"}, <span class="k">"company"</span>: {"type": "string"},
+        <span class="k">"location"</span>: {"type": "string"}, <span class="k">"seniority"</span>: {"type": "string"},
+        <span class="k">"required_skills"</span>: {"type": "array", "items": {"type": "string"}},
+        <span class="k">"nice_to_have"</span>:   {"type": "array", "items": {"type": "string"}}
+      },
+      <span class="k">"required"</span>: ["title","company","required_skills","nice_to_have"],
+      <span class="k">"additionalProperties"</span>: false
+    }}
+  },
+  <span class="k">"messages"</span>: [{"role":"user","content":"Extract this posting: https://…"}]
+}</pre>
+    <p class="prose" style="color:var(--muted);font-size:0.84375rem;margin-top:14px">
+      Two things to know: a server-tool failure arrives as <b>HTTP 200</b> with an error object
+      inside the result block rather than a raised error, so the handler must branch on the block's
+      content — and many job boards will simply refuse. Both are why J11 treats paste as the primary
+      path and the link as a shortcut that sometimes pays off.
+    </p>
+  </div>
+</section>
+
+<!-- ============================================================ 8 -->
+<section id="asks">
+  <div class="shell">
+    <div class="sec-head"><span class="sec-num">08</span><h2>What the backend needs</h2></div>
+    <p class="sec-lede">
+      None of this exists yet. R15 onward, continuing the API Requests numbering — and now formally
+      filed in <b>Blogport API Round Two</b>, which is the live version of this list. Round one's
+      fourteen requests all shipped in the meantime.
+    </p>
+
+    <div class="callout">
+      <h4>Two things round one changed for this paper</h4>
+      <p>
+        <b>The media work landed.</b> <code>PATCH /api/media/{id}</code>, restore and hard delete all
+        exist, so anywhere this paper treats media as write-once it is now out of date — alt text is
+        correctable, and media follows the same archive ladder as everything else.
+      </p>
+      <p>
+        <b>Public media shipped as a redirecting path</b>, which means an uploaded CV photo or a
+        job-related image renders on a public page without a signed URL in the markup. That was the
+        one thing standing between this design and being demonstrable.
+      </p>
+    </div>
+
+    <div class="compact">
+      <div class="crow">
+        <h4>R15 · Jobs and applications</h4>
+        <p>The core tables. A job holds the raw description plus extracted fields; an application
+        joins a job to a CV snapshot with status, dates and next action. Standard CRUD following the
+        existing module conventions.</p>
+        <div class="sig">/api/jobs · /api/applications  — list, get, create, patch, archive, restore</div>
+      </div>
+      <div class="crow">
+        <h4>R16 · CV snapshots</h4>
+        <p>The freeze in J14. An immutable copy of a CV at the moment of applying, addressable
+        forever and never edited. Not a new CV row — a versioned artifact the application points at.</p>
+        <div class="sig">POST /api/cvs/{id}/snapshot → { snapshot_id }  ·  GET /api/cv-snapshots/{id}</div>
+      </div>
+      <div class="crow">
+        <h4>R17 · Cover letters</h4>
+        <p>Scoped to an application, with a content language. Same tri-state PATCH semantics as blog
+        posts so partial saves behave predictably.</p>
+        <div class="sig">/api/applications/{id}/cover-letter</div>
+      </div>
+      <div class="crow">
+        <h4>R18 · The AI proxy</h4>
+        <p>The one that gates everything else. Server-side calls with the key held in
+        <code>backend_actix</code>, SSE passthrough for streaming, per-user quotas, and a stored
+        record of each generation for cost attribution. Needs its own error codes for refusal,
+        upstream rate limits and timeouts — the blueprint's rule that no raw code reaches the screen
+        applies here too.</p>
+        <div class="sig">POST /api/ai/extract-job · /ai/suggest · /ai/tailor · /ai/cover-letter (SSE) · /ai/reflect</div>
+      </div>
+      <div class="crow">
+        <h4>R19 · Match analysis</h4>
+        <p>Both halves of §06 behind one call: the deterministic readability rules run in Rust, the
+        relevance match goes out to the model, and the response keeps them separate all the way to
+        the UI. Cache the result against the CV and job version so re-opening a row is free.</p>
+        <div class="sig">POST /api/applications/{id}/analysis → { readability: {...}, relevance: {...}, recommendations: [...] }</div>
+      </div>
+      <div class="crow">
+        <h4>R20 · Locale and content language</h4>
+        <p><code>user.locale</code> for the interface — which finally gives <code>PUT
+        /api/users/me</code> a second editable field — plus a <code>language</code> column on CVs and
+        cover letters for content. Two nullable columns and a field on an existing endpoint.</p>
+        <div class="sig">user.locale · cv.language · cover_letter.language</div>
+      </div>
+      <div class="crow">
+        <h4>R21 · Reflections</h4>
+        <p>Attached to an application, private by construction, and never included in any prompt that
+        produces user-facing content unless the user explicitly asks for the pattern summary in J15.
+        Worth an ADR — it is the most sensitive data the product will hold.</p>
+        <div class="sig">/api/applications/{id}/reflection</div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <h4>Sequencing</h4>
+      <p>
+        <b>R18 first</b> — nothing else in this paper can be demonstrated without the proxy, and its
+        quota and error handling shape every AI surface. Then <b>R15 + R16</b> together, since a
+        tracker row is meaningless without the snapshot. Then <b>R19</b>, which is where the design
+        risk in §06 actually gets tested. <b>R17</b> and <b>R21</b> follow easily once the shapes
+        exist. <b>R20</b> is independent and can land any time — and the frontend can build both
+        language surfaces against a local preference before it does.
+      </p>
+    </div>
+
+    <div class="alert">
+      <h4>Two questions to settle before R18 is written</h4>
+      <p>
+        <b>Who pays, and what happens at the limit?</b> Generation has a real per-call cost. Whether
+        this is a fixed monthly allowance, a credit balance, or unmetered changes the interface
+        substantially — a quota needs a visible remaining count and a graceful refusal state, and
+        neither can be retrofitted onto screens that assume calls are free.
+      </p>
+      <p>
+        <b>Is the user's CV retained by anything outside your database?</b> The answer is no by
+        default, and the product should say so plainly on the AI surfaces. People paste their entire
+        employment history into this; being explicit about where it goes is not legal boilerplate,
+        it is the reason they will use it.
+      </p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="shell prose">
+    <p>
+      Fourth of four, following the Console Blueprint, the Frontend Handoff and the API Requests.
+      Palette and type extend the existing arch tokens; the light half and the two-role accent are
+      new here and shipped in <code>theme.css</code>. API shapes follow the current Anthropic
+      Messages API — <code>claude-opus-5</code>, adaptive thinking, <code>output_config.format</code>
+      for structured outputs, and <code>web_fetch_20260209</code> for the link case.
+    </p>
+  </div>
+</footer>
