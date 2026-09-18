@@ -560,10 +560,11 @@ footer .prose { max-width: 62ch; }
       <table>
         <thead><tr><th>Route</th><th>Screen</th><th>Backed by</th></tr></thead>
         <tbody>
+          <tr><td><code>/[username]</code></td><td>Public profile — the front door the header links back to</td><td class="dim mono">GET /api/public/users/{username}<br>GET /api/public/blog/{username} · /api/public/projects/{username} — the two "All →" strips</td></tr>
           <tr><td><code>/[username]/blog</code></td><td>Author's published posts</td><td class="dim mono">GET /api/public/blog/{username}</td></tr>
           <tr><td><code>/[username]/blog/[slug]</code></td><td>A post</td><td class="dim mono">GET /api/public/blog/{username}/{slug}</td></tr>
           <tr><td><code>/[username]/projects</code></td><td>Author's projects</td><td class="dim mono">GET /api/public/projects/{username}</td></tr>
-          <tr><td><code>/[username]/projects/[slug]</code></td><td>A project</td><td class="dim mono">GET /api/public/projects/{username}/{slug}</td></tr>
+          <tr><td><code>/[username]/projects/[slug]</code></td><td>A project — hero image plus a gallery strip</td><td class="dim mono">GET /api/public/projects/{username}/{slug}<br>the strip holds <b>every</b> image, the shown one marked</td></tr>
           <tr><td><code>/[username]/cv/[id]</code></td><td>A shared résumé</td><td class="dim mono">GET /api/public/cvs/{username}/{cv_id}</td></tr>
           <tr><td><code>/preview/[token]</code></td><td>A draft, read through its preview link — the public post layout with a "Draft preview" strip</td><td class="dim mono">GET /api/public/blog/preview/{token}<br>GET /api/public/blog/preview/{token}/media/{id}/{size}</td></tr>
           <tr><td colspan="3" class="dim">Auth surfaces: <code>/auth/login</code> · <code>/auth/register</code> · <code>/auth/forgot</code> · <code>/auth/reset/[token]</code> · <code>/email/verification/[token]</code> · <code>/verify</code> (hold screen) · <code>/account/closed</code> (where J2 sends <code>USER_DELETED</code>)</td></tr>
@@ -1324,6 +1325,23 @@ footer .prose { max-width: 62ch; }
         <p>403 and 404 on a detail route mean the URL was wrong or the item is someone else's.
         That is a destination, not an interruption: render a page with an explanation and a route
         back to the list.</p>
+      </div>
+      <div class="law">
+        <h4>The current nav item is marked, and stops being a link</h4>
+        <p>Semibold, <code>accent-ink</code>, <code>aria-current="page"</code>, not a link — on the
+        console sidebar and the public header alike. §01 of the Career Studio paper already named
+        active nav as an accent-ink role; this says what weight goes with it. <code>Screen / Public
+        author index</code> drew it muted and regular, which was older than the rule, and has been
+        redrawn to match <code>Screen / Public projects</code>.</p>
+      </div>
+      <div class="law">
+        <h4>A gallery strip holds every image, including the one on show</h4>
+        <p>The strip is the whole set, and the current one carries a 2px <code>accent-ink</code>
+        border that <em>moves</em> — a mark that cannot move is decoration pretending to be state.
+        Each thumbnail is a button a keyboard can reach. A strip of "the others" strands the first
+        image with no way back to it. The frames drew three thumbs labelled 2&ndash;4 for a
+        four-image project; they now draw four, labelled 1&ndash;4, the first marked. Order is the
+        project's own — cover first, then <code>position</code>.</p>
       </div>
       <div class="law">
         <h4>Keyboard and focus are not a phase two</h4>

@@ -283,6 +283,50 @@ footer{padding:46px 0 70px;color:var(--muted);font-size:.84375rem}
       <b>7.81:1</b> in both modes, because neither value changes between themes.
     </p>
 
+    <h3 class="block">The syntax palette — three new tokens, six roles</h3>
+    <p class="sec-lede" style="margin-bottom:18px">
+      Server-side highlighting shipped against the only code token that existed,
+      <code>arch/accent-2</code>, which made a string and a number the same colour. Six roles need
+      six distinguishable values, and every one has to clear <b>4.5:1 on both code grounds</b> —
+      <code>#f6f7f8</code> light and <code>#434547</code> dark. Three of the six already exist;
+      these are the three that did not.
+    </p>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Role</th><th>Token</th><th>Light · dark</th><th>On the code ground</th></tr></thead>
+        <tbody>
+          <tr><td>keyword, type, built-in, tag</td><td class="tokname">arch/accent-ink</td><td class="hexes">8f5000 · f4a43d</td><td><b>5.91</b> · 4.69</td></tr>
+          <tr><td>string, char, attribute value</td><td class="tokname">code/string <em style="color:var(--st-inflight);font-style:normal">new</em></td><td class="hexes">2e6b45 · 9ed3a8</td><td><b>5.92</b> · 5.66</td></tr>
+          <tr><td>number, boolean, constant</td><td class="tokname">code/number <em style="color:var(--st-inflight);font-style:normal">new</em></td><td class="hexes">8a3a6b · e6aed0</td><td><b>6.76</b> · 5.20</td></tr>
+          <tr><td>function, method, class name</td><td class="tokname">code/function <em style="color:var(--st-inflight);font-style:normal">new</em></td><td class="hexes">1f5f8b · 8ec6e6</td><td><b>6.38</b> · 5.21</td></tr>
+          <tr><td>comment</td><td class="tokname">arch/muted</td><td class="hexes">5e6469 · b1b4b7</td><td><b>5.59</b> · 4.62</td></tr>
+          <tr><td>punctuation, operators, plain</td><td class="tokname">arch/headline</td><td class="hexes">1e2224 · f4e4c9</td><td><b>14.95</b> · 7.70</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption">
+      Computed, not estimated — relative luminance against each ground, the same method as the
+      ledger above. The three new values are in the Figma <code>Theme</code> collection with both
+      modes bound. <code>arch/accent-2</code> keeps its job as metadata and inline
+      <code>&lt;code&gt;</code>; it is no longer asked to be a syntax colour as well.
+    </p>
+
+    <div class="callout">
+      <h4>Why these hues, in a product with one accent</h4>
+      <p>
+        Keyword stays the product's ochre, so a code block still reads as belonging here. The three
+        additions are a green, a plum and a blue — far enough apart in hue to separate at a glance
+        and none of them borrowed from the status scale, because a string is not a success and a
+        number is not a warning. Reusing <code>status/live</code> for strings would have been one
+        token cheaper and would have taught the reader something false.
+      </p>
+      <p>
+        Dark values sit between 4.6 and 5.7 rather than as high as light's, which is deliberate:
+        pushing them further apart on charcoal makes code glare. They clear AA with headroom and
+        stop there.
+      </p>
+    </div>
+
     <div class="callout">
       <h4>What is exempt, and why <code>arch/line</code> still measures 1.17:1</h4>
       <p>

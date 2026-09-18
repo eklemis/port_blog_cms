@@ -404,10 +404,15 @@ footer { padding: 46px 0 70px; color: var(--muted); font-size: 0.84375rem; }
         exception is <b>mobile public</b>, where the nav folds behind ☰ and the pill goes with it.
       </p>
       <p>
-        So the switcher belongs to <b>two layouts, not one</b> — the auth shell as well as the public
-        shell. Build neither until <code>user.locale</code> exists on the API; a language control that
-        cannot persist a language is worse than none. Until then the interface is English, and
-        <code>Intl</code> does the dates.
+        So the switcher belongs to <b>two layouts, not one</b> — the auth shell as well as the
+        public shell.
+      </p>
+      <p>
+        <b>It is now buildable.</b> R20 shipped while this callout still said to wait:
+        <code>locale</code> is on <code>UserProfileResponse</code> and writable through
+        <code>PUT /api/users/me</code>. The auth shell has no session to write to, so there the
+        switcher sets the local preference only and the account picks it up at sign-in — the same
+        three-state rule as the theme in §01, and the same reason it is stored per browser first.
       </p>
     </div>
 
