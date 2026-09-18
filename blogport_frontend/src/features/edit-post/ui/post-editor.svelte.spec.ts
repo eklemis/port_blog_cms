@@ -470,3 +470,13 @@ test('a topic that does not exist yet is created, then attached', async () => {
 	);
 	expect(calls).toEqual(['/api/topics', '/api/blog/post-1/topics']);
 });
+
+test('the rail leads with Assist, as the frame stacks it', async () => {
+	// 32:1229: Assist above Topics. It says assistance is off, because it is.
+	const screen = render(PostEditor, props());
+
+	await expect.element(screen.getByRole('region', { name: 'Assist' })).toBeInTheDocument();
+	await expect
+		.element(screen.getByText('Writing assistance is not enabled on this deployment.'))
+		.toBeInTheDocument();
+});
