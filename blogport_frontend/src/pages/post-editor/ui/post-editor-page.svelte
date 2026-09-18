@@ -32,6 +32,8 @@
 		username,
 		onarchived = () => {},
 		onpreview = () => {},
+		/** The author's own topics, for the editor's rail picker. */
+		availableTopics = [],
 		fetchFn = undefined,
 		denied = false
 	}: {
@@ -42,6 +44,7 @@
 		onarchived?: () => void;
 		/** A preview link is ready, for the caller to open in a new tab. */
 		onpreview?: (path: string) => void;
+		availableTopics?: { id: string; title: string }[];
 		/** Injected by the spec; the browser's own otherwise. */
 		fetchFn?: typeof globalThis.fetch;
 		denied?: boolean;
@@ -63,6 +66,7 @@
 		{post}
 		{username}
 		{onpreview}
+		{availableTopics}
 		onarchive={async () => {
 			const result = await archivePost(post.id, fetchFn);
 

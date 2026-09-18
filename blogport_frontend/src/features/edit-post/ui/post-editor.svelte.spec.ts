@@ -384,3 +384,89 @@ test('has no accessibility violations', async () => {
 
 	await expectNoA11yViolations(document.body, UNSTYLED_GEOMETRY);
 });
+
+// ── topics ─────────────────────────────────────────────────────────────────
+
+test('adding a topic sends one request and puts the chip on the post', async () => {
+	// §03: each chip is its own request. This one is the whole of it.
+	const fetchFn = backend(() => new Response(null, { status: 204 }));
+	const screen = render(
+		PostEditor,
+		props({
+			fetchFn,
+			availableTopics: [
+				{ id: 'topic-1', title: 'Rust' },
+				{ id: 'topic-3', title: 'Architecture' }
+			]
+		})
+	);
+
+	await screen.getByRole('button', { name: 'Add a topic' }).click();
+	await screen.getByRole('button', { name: 'Architecture' }).click();
+
+	await vi.waitFor(() =>
+		expect(screen.getByRole('button', { name: 'Remove Architecture' }).elements()).toHaveLength(1)
+	);
+	expect(fetchFn.mock.calls[0][0]).toBe('/api/blog/post-1/topics');
+	expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({ topic_id: 'topic-3' });
+});
+
+test('removing a topic takes the chip off, and says so to the server', async () => {
+	const fetchFn = backend(() => new Response(null, { status: 204 }));
+	const screen = render(PostEditor, props({ fetchFn }));
+
+	await screen.getByRole('button', { name: 'Remove Systems' }).click();
+
+	await vi.waitFor(() =>
+		expect(screen.getByRole('button', { name: 'Remove Systems' }).elements()).toHaveLength(0)
+	);
+	expect(fetchFn.mock.calls[0][1]?.method).toBe('DELETE');
+});
+
+test('a refused chip leaves the post as it was, and says what happened', async () => {
+	// One failure does not roll back the others, and it does not pretend either:
+	// the chip that did not attach is not drawn as though it had.
+	const fetchFn = backend(
+		() =>
+			new Response(JSON.stringify({ error: { code: 'INTERNAL_ERROR' } }), {
+				status: 500,
+				headers: { 'content-type': 'application/json' }
+			})
+	);
+	const screen = render(PostEditor, props({ fetchFn }));
+
+	await screen.getByRole('button', { name: 'Remove Systems' }).click();
+
+	// `role="status"`, never `role="alert"`: assertive is reserved, and a chip
+	// that did not attach is not an emergency.
+	await expect
+		.element(screen.getByRole('status').filter({ hasText: 'Something went wrong' }))
+		.toBeInTheDocument();
+	await expect.element(screen.getByRole('button', { name: 'Remove Systems' })).toBeInTheDocument();
+});
+
+test('a topic that does not exist yet is created, then attached', async () => {
+	// §03: "Create & attach". Two requests, in that order, because the second
+	// needs the id the first hands back.
+	const calls: string[] = [];
+	const fetchFn = vi.fn<typeof fetch>(async (url) => {
+		calls.push(String(url));
+		if (String(url) === '/api/topics') {
+			return new Response(JSON.stringify({ data: { id: 'topic-9', title: 'Postgres' } }), {
+				status: 201,
+				headers: { 'content-type': 'application/json' }
+			});
+		}
+		return new Response(null, { status: 204 });
+	});
+	const screen = render(PostEditor, props({ fetchFn, availableTopics: [] }));
+
+	await screen.getByRole('button', { name: 'Add a topic' }).click();
+	await screen.getByRole('textbox', { name: 'Search topics' }).fill('Postgres');
+	await screen.getByRole('button', { name: 'Create “Postgres”' }).click();
+
+	await vi.waitFor(() =>
+		expect(screen.getByRole('button', { name: 'Remove Postgres' }).elements()).toHaveLength(1)
+	);
+	expect(calls).toEqual(['/api/topics', '/api/blog/post-1/topics']);
+});

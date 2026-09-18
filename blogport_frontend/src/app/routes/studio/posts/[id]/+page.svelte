@@ -16,6 +16,7 @@
 	post={data.post}
 	username={data.user.username}
 	denied={data.denied}
+	availableTopics={data.availableTopics}
 	onarchived={() => goto(resolve('/studio/posts'))}
 	onpreview={(path) => window.open(path, '_blank', 'noopener')}
 />

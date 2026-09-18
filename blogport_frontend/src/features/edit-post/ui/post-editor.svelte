@@ -15,6 +15,8 @@
 	import { createAutosave } from '../model/autosave.svelte';
 	import PublishControl from './publish-control.svelte';
 	import { createPreview, patchPost, type EditField, type PostChanges } from '../api/update-post';
+	import { attachTopic, createTopic, detachTopic, type Topic } from '../api/topics';
+	import TopicPicker from './topic-picker.svelte';
 
 	/**
 	 * The editor — J4 steps two and three.
@@ -48,6 +50,8 @@
 		username,
 		onarchive = () => {},
 		onpreview = () => {},
+		/** Every topic this author owns, for the rail's picker to offer. */
+		availableTopics = [],
 		/** Injected by the spec; the browser's own otherwise. */
 		fetchFn = undefined
 	}: {
@@ -57,6 +61,7 @@
 		onarchive?: () => void;
 		/** A preview link is ready. The caller opens it — in a new tab. */
 		onpreview?: (path: string) => void;
+		availableTopics?: Topic[];
 		fetchFn?: typeof globalThis.fetch;
 	} = $props();
 
@@ -229,6 +234,55 @@
 		}
 
 		onpreview(`/preview/${result.token}`);
+	}
+
+	/**
+	 * The chips, owned here rather than read off `post`.
+	 *
+	 * §03: each chip is its own request and one failure does not roll back the
+	 * others — so the list moves one chip at a time, and only once the server has
+	 * agreed. A chip drawn before the request lands is a chip that can be wrong.
+	 */
+	let topics = $state<Topic[]>(untrack(() => post.topics ?? []));
+
+	/** Author-owned topics minus nothing: the picker decides what to offer. */
+	const offerable = $derived(availableTopics);
+
+	async function attach(topic: Topic) {
+		const result = await attachTopic(post.id, topic.id, fetchFn);
+
+		if (!result.ok) {
+			failure = result.message;
+			failureKind = result.kind;
+			return;
+		}
+
+		topics = [...topics, topic];
+	}
+
+	async function detach(topic: Topic) {
+		const result = await detachTopic(post.id, topic.id, fetchFn);
+
+		if (!result.ok) {
+			failure = result.message;
+			failureKind = result.kind;
+			return;
+		}
+
+		topics = topics.filter((each) => each.id !== topic.id);
+	}
+
+	/** Create, then attach. Two requests, because the second needs the first's id. */
+	async function create(title: string) {
+		const made = await createTopic(title, fetchFn);
+
+		if (!made.ok) {
+			failure = made.message;
+			failureKind = made.kind;
+			return;
+		}
+
+		await attach(made.topic);
 	}
 
 	const status = $derived(postStatus(publishedAt));
@@ -428,27 +482,13 @@
 		     Narrower at tablet than at desktop: 326 against 346, so the canvas
 		     keeps a usable measure in the 770 the icon rail leaves behind. -->
 		<div class="flex w-full shrink-0 flex-col gap-3.5 md:w-[326px] lg:w-[346px]">
-			<section
-				aria-label="Topics"
-				class="flex flex-col gap-2.5 rounded-xl border border-arch-line bg-arch-surface px-4 py-[15px]"
-			>
-				<h2 class="font-mono text-[9px] font-normal tracking-[0.9px] text-arch-muted uppercase">
-					Topics
-				</h2>
-				{#if post.topics?.length}
-					<ul class="flex flex-wrap gap-[7px]">
-						{#each post.topics as topic (topic.id)}
-							<li
-								class="rounded-full bg-arch-surface-2 px-2.5 py-[5px] text-[11px] text-arch-headline"
-							>
-								{topic.title}
-							</li>
-						{/each}
-					</ul>
-				{:else}
-					<p class="text-[11.5px] text-arch-muted">No topics yet.</p>
-				{/if}
-			</section>
+			<TopicPicker
+				attached={topics}
+				available={offerable}
+				onattach={attach}
+				ondetach={detach}
+				oncreate={create}
+			/>
 		</div>
 	</div>
 
