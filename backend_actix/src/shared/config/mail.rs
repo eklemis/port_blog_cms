@@ -19,6 +19,25 @@
 
 use std::time::Duration;
 
+/// Where the reset link points when `PASSWORD_RESET_HANDLER_URL` is unset in
+/// development.
+///
+/// **This is a frontend route, and it has to match one the frontend serves.**
+/// The value that shipped was `0.0.0.0:5173/password-reset`, which was wrong
+/// three ways: no scheme, a bind address, and a path the app does not have. The
+/// first two produced a link no browser could follow; the third produced a link
+/// that reached the app and got a 404, which is harder to diagnose because
+/// everything up to the last hop looks right.
+///
+/// The frontend serves `auth/reset/[token]`. Checked against
+/// `blogport_frontend/src/app/routes`, which is the only authority on it — the
+/// backend cannot verify this at runtime, so it is pinned by a test instead.
+pub const DEV_PASSWORD_RESET_URL: &str = "http://localhost:5173/auth/reset";
+
+/// Where the verification link points when `VERIFICATION_HANDLER_URL` is unset
+/// in development. The frontend serves `email/verification/[token]`.
+pub const DEV_VERIFICATION_URL: &str = "http://localhost:5173/email/verification";
+
 /// Where a link in an email should point.
 ///
 /// Held as a string because it is concatenated with a token and handed to a
@@ -66,12 +85,12 @@ impl std::fmt::Display for HandlerUrlError {
                 "{var} is not set. It is the address the emailed link points at, \
                  so there is no sensible default outside development — set it to \
                  the frontend origin plus its route, \
-                 e.g. https://example.com/password-reset"
+                 e.g. https://example.com/auth/reset"
             ),
             Self::Unusable { var, value, why } => write!(
                 f,
                 "{var} is set to {value:?}, which a browser cannot follow: {why}. \
-                 Include the scheme, e.g. http://localhost:5173/password-reset"
+                 Include the scheme, e.g. http://localhost:5173/auth/reset"
             ),
         }
     }
@@ -207,7 +226,7 @@ pub async fn smtp_reachable(host: &str, port: u16, timeout: Duration) -> Result<
 mod tests {
     use super::*;
 
-    const DEV_DEFAULT: &str = "http://localhost:5173/password-reset";
+    const DEV_DEFAULT: &str = DEV_PASSWORD_RESET_URL;
 
     #[test]
     fn a_configured_url_is_taken_as_given() {
@@ -343,6 +362,36 @@ mod tests {
 
         assert_eq!(host, "localhost");
         assert_eq!(warning, None, "there is no mismatch to report");
+    }
+
+    /// The development defaults are frontend routes, and a default that 404s
+    /// is worse than one that fails to parse: the mail sends, the link opens,
+    /// and the app says the page does not exist. That is what happened —
+    /// `/password-reset` was emailed for weeks while the app served
+    /// `/auth/reset`.
+    ///
+    /// Nothing here can reach the frontend to check. This test only makes the
+    /// pairing explicit, so changing one of these paths is a decision someone
+    /// took rather than a line someone edited: if a route moves in
+    /// `blogport_frontend/src/app/routes`, this fails and names its partner.
+    #[test]
+    fn the_development_defaults_name_routes_the_frontend_serves() {
+        assert_eq!(
+            DEV_PASSWORD_RESET_URL, "http://localhost:5173/auth/reset",
+            "the frontend serves auth/reset/[token] — if that moved, move this"
+        );
+        assert_eq!(
+            DEV_VERIFICATION_URL, "http://localhost:5173/email/verification",
+            "the frontend serves email/verification/[token] — if that moved, move this"
+        );
+
+        for url in [DEV_PASSWORD_RESET_URL, DEV_VERIFICATION_URL] {
+            assert_eq!(
+                unusable_reason(url),
+                None,
+                "a default the server would refuse to start on is not a default"
+            );
+        }
     }
 
     #[tokio::test]
