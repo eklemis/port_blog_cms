@@ -471,14 +471,16 @@ pub async fn start() -> std::io::Result<()> {
         }
     };
 
+    // The development defaults live beside the rules that validate them, where a
+    // test pins them to the routes the frontend actually serves.
     let verification_handler_url = read_handler_url(
         "VERIFICATION_HANDLER_URL",
-        "http://localhost:5173/email/verification",
+        mail_config::DEV_VERIFICATION_URL,
     )
     .to_string();
     let password_reset_handler_url = read_handler_url(
         "PASSWORD_RESET_HANDLER_URL",
-        "http://localhost:5173/password-reset",
+        mail_config::DEV_PASSWORD_RESET_URL,
     )
     .to_string();
 
