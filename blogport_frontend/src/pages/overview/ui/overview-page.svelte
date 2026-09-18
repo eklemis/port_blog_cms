@@ -85,10 +85,14 @@
 
 	<div class="flex flex-wrap gap-[11px] md:gap-[14px]">
 		{#each tiles as tile (tile.label)}
+			<!-- The four share the row and cap at 215, rather than being fixed at 215
+			     and wrapping. Fixed, they fit the 908 a desktop sidebar leaves and not
+			     the 710 a tablet's icon rail does, so 834 broke them three-and-one
+			     where Tablet / Overview 166:6368 draws four. -->
 			<div
 				class="flex min-w-[160px] flex-1 flex-col gap-[5px] rounded-[11px] border
-				       border-arch-line bg-arch-surface px-[15px] py-3.5 md:w-[215px] md:max-w-[215px]
-				       md:flex-none md:gap-[7px] md:rounded-[12px] md:p-5"
+				       border-arch-line bg-arch-surface px-[15px] py-3.5 md:max-w-[215px]
+				       md:basis-0 md:gap-[7px] md:rounded-[12px] md:p-5"
 			>
 				<p class="font-display text-[24px] font-extrabold text-arch-headline md:text-[30px]">
 					<!-- An em dash, not a nought: a count we could not fetch is not zero. -->
