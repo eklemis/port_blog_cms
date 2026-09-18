@@ -27,6 +27,30 @@ export function publishedLabel(
 	}).format(on);
 }
 
+/**
+ * The same date, shorter, for a row in a list.
+ *
+ * Screen / Public author index 72:101 reads "14 Aug 2026" where the post page
+ * reads "14 August 2026". Two formats deliberately: a list wants a date that
+ * stays out of the way, and an article wants one that reads as prose. Both ask
+ * `Intl` for the parts, so neither spells a month.
+ */
+export function listedLabel(
+	publishedAt: string | null | undefined,
+	locale?: string
+): string | null {
+	if (!publishedAt) return null;
+
+	const on = new Date(publishedAt);
+	if (Number.isNaN(on.getTime())) return null;
+
+	return new Intl.DateTimeFormat(locale, {
+		day: 'numeric',
+		month: 'short',
+		year: 'numeric'
+	}).format(on);
+}
+
 /** Words a minute. The usual figure for prose read on a screen. */
 const PER_MINUTE = 200;
 

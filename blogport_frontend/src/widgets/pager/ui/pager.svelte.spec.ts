@@ -110,3 +110,12 @@ test('has no accessibility violations', async () => {
 
 	await expectNoA11yViolations(document.body, UNSTYLED_GEOMETRY);
 });
+
+test('a public list counts without naming the thing it counts', async () => {
+	// Screen / Public author index 72:116 reads "3 of 12" — the console's lists
+	// say "of 24 posts", but a reader on an author's page knows what they are
+	// looking at, and the frame leaves the noun off.
+	const screen = render(Pager, { shown: 3, total: 12, page: 1, perPage: 3, onpage: () => {} });
+
+	await expect.element(screen.getByText('3 of 12', { exact: true })).toBeInTheDocument();
+});
