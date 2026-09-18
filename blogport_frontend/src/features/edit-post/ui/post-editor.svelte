@@ -17,6 +17,7 @@
 	import { createPreview, patchPost, type EditField, type PostChanges } from '../api/update-post';
 	import { attachTopic, createTopic, detachTopic, type Topic } from '../api/topics';
 	import TopicPicker from './topic-picker.svelte';
+	import AssistCard from './assist-card.svelte';
 
 	/**
 	 * The editor — J4 steps two and three.
@@ -482,6 +483,10 @@
 		     Narrower at tablet than at desktop: 326 against 346, so the canvas
 		     keeps a usable measure in the 770 the icon rail leaves behind. -->
 		<div class="flex w-full shrink-0 flex-col gap-3.5 md:w-[326px] lg:w-[346px]">
+			<!-- Screen / AI assist — post editor 32:1229 puts Assist at the top of
+			     the rail, above Topics. -->
+			<AssistCard />
+
 			<TopicPicker
 				attached={topics}
 				available={offerable}
