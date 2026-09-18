@@ -92,6 +92,7 @@ use crate::modules::cv::application::use_cases::soft_delete_cv::SoftDeleteCvUseC
 use crate::modules::email::application::ports::outgoing::password_reset_notifier::PasswordResetNotifier;
 use crate::modules::email::application::ports::outgoing::user_email_notifier::UserEmailNotifier;
 use crate::modules::multimedia::adapter::outgoing::db::AvatarLoaderPostgres;
+use crate::shared::config::mail as mail_config;
 
 use crate::modules::ai::adapter::outgoing::{
     self as ai_provider, DraftingContextCareer, HttpPostingFetcher, RedisUsageCounter,
@@ -359,13 +360,39 @@ pub async fn start() -> std::io::Result<()> {
 
     // SMTP SETUPS
     let from_email = std::env::var("EMAIL_FROM").expect("EMAIL_FROM not set");
-    let smtp_sender = if std::env::var("RUST_ENV").as_deref() == Ok("test") {
+    let is_development = std::env::var("RUST_ENV").as_deref() == Ok("test");
+    let smtp_sender = if is_development {
         // Local Mailpit
-        let host = std::env::var("SMTP_HOST").unwrap_or_else(|_| "localhost".to_string());
+        let (host, mismatch) = mail_config::development_smtp_host(
+            std::env::var("SMTP_HOST").ok(),
+            std::env::var("SMTP_SERVER").ok(),
+        );
+        if let Some(mismatch) = mismatch {
+            tracing::warn!("{mismatch}");
+        }
+
         let port: u16 = std::env::var("SMTP_PORT")
             .unwrap_or_else(|_| "1025".to_string())
             .parse()
             .expect("Invalid SMTP_PORT");
+
+        // Checked once, here, rather than discovered one failed reset at a
+        // time. The password-reset endpoint answers "if that email is
+        // registered, a link has been sent" whether or not the address exists —
+        // that is what stops it being used to enumerate accounts, and it also
+        // means a mail server that is not running looks identical to success
+        // from outside. So it is reported at startup instead.
+        if let Err(why) =
+            mail_config::smtp_reachable(&host, port, std::time::Duration::from_secs(3)).await
+        {
+            tracing::error!(
+                "no mail server at {host}:{port} — {why}. Emails will be accepted by the \
+                 API and never delivered. Start a local catcher (docker start mailpit, or \
+                 `brew install mailpit && mailpit`) or point SMTP_HOST/SMTP_PORT at one."
+            );
+        } else {
+            tracing::info!("mail: sending to {host}:{port}");
+        }
 
         SmtpEmailSender::new_local(&host, port, &from_email)
     } else {
@@ -422,10 +449,38 @@ pub async fn start() -> std::io::Result<()> {
     // Auth related services and adapters
     let jwt_service = JwtTokenService::new(JwtConfig::from_env());
 
-    let verification_handler_url = env::var("VERIFICATION_HANDLER_URL")
-        .unwrap_or_else(|_| "0.0.0.0:5173/email/verification".to_string());
-    let password_reset_handler_url = env::var("PASSWORD_RESET_HANDLER_URL")
-        .unwrap_or_else(|_| "0.0.0.0:5173/password-reset".to_string());
+    // The addresses the emailed links point at.
+    //
+    // These were hardcoded fallbacks of `0.0.0.0:5173/...`, which produced an
+    // email that arrived and a link that did nothing: no scheme, so a browser
+    // reads it as a relative path, and 0.0.0.0 is a bind address rather than one
+    // a client can open. A wrong link is worse than a missing email, because the
+    // user concludes the reset is broken and nothing on our side disagrees.
+    let read_handler_url = |var: &str, development_default: &str| {
+        match mail_config::handler_url(var, env::var(var).ok(), development_default, is_development)
+        {
+            Ok((url, warning)) => {
+                if let Some(warning) = warning {
+                    tracing::warn!("{warning}");
+                }
+                url
+            }
+            // Refusing to start is the point. Serving with a broken link means
+            // every reset and every sign-up verification silently fails.
+            Err(e) => panic!("{e}"),
+        }
+    };
+
+    let verification_handler_url = read_handler_url(
+        "VERIFICATION_HANDLER_URL",
+        "http://localhost:5173/email/verification",
+    )
+    .to_string();
+    let password_reset_handler_url = read_handler_url(
+        "PASSWORD_RESET_HANDLER_URL",
+        "http://localhost:5173/password-reset",
+    )
+    .to_string();
 
     let user_email_service = UserEmailService::new(
         smtp_sender,
