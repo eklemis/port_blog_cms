@@ -81,17 +81,56 @@ test('a post that is not yours is refused, not crashed on', async () => {
 
 	const data = await loaded();
 
-	expect(data).toEqual({ post: null, denied: true });
+	expect(data).toEqual({ post: null, denied: true, availableTopics: [] });
 });
 
 test('a forbidden post is the same screen', async () => {
 	backend(403, { error: { code: 'POST_UNAUTHORIZED' } });
 
-	expect(await loaded()).toEqual({ post: null, denied: true });
+	expect(await loaded()).toEqual({ post: null, denied: true, availableTopics: [] });
 });
 
 test('an unreachable backend does not throw out of the loader', async () => {
 	unreachable = new TypeError('fetch failed');
 
-	expect(await loaded()).toEqual({ post: null, denied: true });
+	expect(await loaded()).toEqual({ post: null, denied: true, availableTopics: [] });
+});
+
+test('brings the author’s own topics, for the rail to offer', async () => {
+	// §03: "own topics only". The picker offers what this person has, so the
+	// list comes with the page rather than on first click — one fewer thing to
+	// wait for, and the editor is useless without the post anyway.
+	fetchImpl.mockImplementation(async (_event: unknown, path: string) => ({
+		ok: true,
+		status: 200,
+		headers: new Headers(),
+		json: async () =>
+			String(path).startsWith('/api/topics')
+				? { data: { items: [{ id: 't-1', title: 'Rust' }] } }
+				: { data: POST }
+	}));
+
+	const data = (await load({ params: { id: 'post-1' } } as never)) as {
+		availableTopics: { id: string; title: string }[];
+	};
+
+	expect(data.availableTopics).toEqual([{ id: 't-1', title: 'Rust' }]);
+});
+
+test('a topics list that could not be had is no topics, not a broken editor', async () => {
+	// The post is the page. Losing the pick-list costs the picker its options
+	// and nothing else, so it must not take the screen down with it.
+	fetchImpl.mockImplementation(async (_event: unknown, path: string) =>
+		String(path).startsWith('/api/topics')
+			? { ok: false, status: 500, headers: new Headers(), json: async () => ({}) }
+			: { ok: true, status: 200, headers: new Headers(), json: async () => ({ data: POST }) }
+	);
+
+	const data = (await load({ params: { id: 'post-1' } } as never)) as {
+		post: unknown;
+		availableTopics: unknown[];
+	};
+
+	expect(data.post).toBeTruthy();
+	expect(data.availableTopics).toEqual([]);
 });
