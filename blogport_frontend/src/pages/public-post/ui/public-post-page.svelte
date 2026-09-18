@@ -45,7 +45,7 @@
 
 	<!-- The gutter stays at every width: `md:px-0` would leave four pixels
 	     either side of a 760px column at 768. -->
-	<div class="flex justify-center px-5 pt-[18px] pb-16 md:px-6 md:pt-[34px]">
+	<div class="flex justify-center px-5 pt-[18px] pb-16 md:px-8 md:pt-[34px]">
 		<article class="flex w-full max-w-[700px] flex-col gap-[14px] md:gap-[18px]">
 			<!-- 72:17 — the date in mono, the read time beside it. -->
 			<p class="flex items-center gap-[10px] text-[10.5px] text-arch-muted md:text-[11.5px]">

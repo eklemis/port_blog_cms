@@ -18,13 +18,29 @@
 	let {
 		username,
 		fullName,
-		avatarSrc = null
+		avatarSrc = null,
+		current = null,
+		measure = 'read'
 	}: {
 		username: string;
 		fullName: string;
 		/** A public media path. `null` while it is still being processed, or unset. */
 		avatarSrc?: string | null;
+		/**
+		 * The section being read. It is drawn semibold in accent ink and is not a
+		 * link, because a link to the page you are on is a link that does nothing.
+		 */
+		current?: 'writing' | 'projects' | null;
+		/**
+		 * Which family of page this sits over. The designer's table: Read — post,
+		 * author index, résumé — is 760; Scan — profile, projects, project — is
+		 * 860, narrowing to 770 at tablet. The header takes the same measure as
+		 * the content beneath it, or it is visibly out of line with it.
+		 */
+		measure?: 'read' | 'scan';
 	} = $props();
+
+	const column = $derived(measure === 'scan' ? 'max-w-[860px]' : 'max-w-[760px]');
 
 	const navId = $props.id();
 	const handle = $derived(encodeURIComponent(username));
@@ -33,10 +49,10 @@
 </script>
 
 <header
-	class="flex items-center justify-center px-[18px] py-[14px] md:h-16 md:px-6 md:py-5"
+	class="flex items-center justify-center px-[18px] py-[14px] md:h-16 md:px-8 md:py-5"
 	data-testid="public-header"
 >
-	<div class="flex w-full max-w-[760px] flex-wrap items-center justify-between gap-y-3">
+	<div class="flex w-full {column} flex-wrap items-center justify-between gap-y-3">
 		<div class="flex items-center gap-2 md:gap-[9px]">
 			{#if avatarSrc}
 				<img
@@ -73,8 +89,13 @@
 			       max-md:order-last max-md:w-full max-md:flex-col max-md:items-start max-md:gap-3"
 			class:max-md:hidden={!open}
 		>
-			<a href="/{handle}/blog" class="hover:text-arch-headline">Writing</a>
-			<a href="/{handle}/projects" class="hover:text-arch-headline">Projects</a>
+			{#each [{ key: 'writing', label: 'Writing', href: `/${handle}/blog` }, { key: 'projects', label: 'Projects', href: `/${handle}/projects` }] as item (item.key)}
+				{#if current === item.key}
+					<span aria-current="page" class="font-semibold text-arch-accent-ink">{item.label}</span>
+				{:else}
+					<a href={item.href} class="hover:text-arch-headline">{item.label}</a>
+				{/if}
+			{/each}
 		</nav>
 	</div>
 </header>
