@@ -329,7 +329,11 @@
 
 	<InlineAlert message={failure} kind={failureKind} />
 
-	<div class="flex flex-col gap-4 lg:flex-row lg:items-start">
+	<!-- Two columns from md up. The Prototype Map is explicit that 834 keeps the
+	     rail — "Still a rail. It does not become a sheet — that transformation
+	     belongs to mobile" — and Tablet / Post editor 166:5282 draws it beside
+	     the canvas. Splitting at lg stacked it for every tablet. -->
+	<div class="flex flex-col gap-4 md:flex-row md:items-start">
 		<!-- The post itself: title, address, rule, body — one card. -->
 		<div
 			class="flex min-w-0 flex-1 flex-col gap-3 md:rounded-xl md:border md:border-arch-line
@@ -420,8 +424,10 @@
 			></textarea>
 		</div>
 
-		<!-- The rail. Topics as the post has them; picking them is TopicPicker's. -->
-		<div class="flex w-full flex-col gap-3.5 lg:w-[346px]">
+		<!-- The rail. Topics as the post has them; picking them is TopicPicker's.
+		     Narrower at tablet than at desktop: 326 against 346, so the canvas
+		     keeps a usable measure in the 770 the icon rail leaves behind. -->
+		<div class="flex w-full shrink-0 flex-col gap-3.5 md:w-[326px] lg:w-[346px]">
 			<section
 				aria-label="Topics"
 				class="flex flex-col gap-2.5 rounded-xl border border-arch-line bg-arch-surface px-4 py-[15px]"
