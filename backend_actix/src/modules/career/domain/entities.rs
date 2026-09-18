@@ -156,6 +156,14 @@ pub struct Application {
     /// A label for display, loaded with the row. Nothing decides anything on
     /// it; the snapshot id remains the reference.
     pub cv_role: Option<String>,
+    /// Whether a reflection has been written for this application.
+    ///
+    /// The reflection itself is a separate resource — it is long-form prose and
+    /// a listing has no use for it. This says only whether one exists, which is
+    /// what a rule like "no reply, and nothing written about it" needs.
+    ///
+    /// Loaded with the page, so a listing does not ask once per row.
+    pub has_reflection: bool,
     /// Where it has got to.
     pub status: ApplicationStatus,
     /// When it was sent. `None` while still a draft.

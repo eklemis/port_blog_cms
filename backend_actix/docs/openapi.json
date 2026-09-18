@@ -522,6 +522,7 @@
                             "required": [
                               "id",
                               "job_id",
+                              "has_reflection",
                               "status",
                               "next_action",
                               "created_at",
@@ -555,6 +556,10 @@
                                 ],
                                 "format": "uuid",
                                 "description": "The frozen CV that was sent. `null` only while this is a draft."
+                              },
+                              "has_reflection": {
+                                "type": "boolean",
+                                "description": "Whether a reflection has been written for this application.\n\nThe reflection itself is at `/api/applications/{id}/reflection` — this\nsays only whether there is one, loaded with the page so a listing need\nnot ask per row."
                               },
                               "id": {
                                 "type": "string",
@@ -687,6 +692,7 @@
                       "required": [
                         "id",
                         "job_id",
+                        "has_reflection",
                         "status",
                         "next_action",
                         "created_at",
@@ -720,6 +726,10 @@
                           ],
                           "format": "uuid",
                           "description": "The frozen CV that was sent. `null` only while this is a draft."
+                        },
+                        "has_reflection": {
+                          "type": "boolean",
+                          "description": "Whether a reflection has been written for this application.\n\nThe reflection itself is at `/api/applications/{id}/reflection` — this\nsays only whether there is one, loaded with the page so a listing need\nnot ask per row."
                         },
                         "id": {
                           "type": "string",
@@ -840,6 +850,7 @@
                       "required": [
                         "id",
                         "job_id",
+                        "has_reflection",
                         "status",
                         "next_action",
                         "created_at",
@@ -873,6 +884,10 @@
                           ],
                           "format": "uuid",
                           "description": "The frozen CV that was sent. `null` only while this is a draft."
+                        },
+                        "has_reflection": {
+                          "type": "boolean",
+                          "description": "Whether a reflection has been written for this application.\n\nThe reflection itself is at `/api/applications/{id}/reflection` — this\nsays only whether there is one, loaded with the page so a listing need\nnot ask per row."
                         },
                         "id": {
                           "type": "string",
@@ -1061,6 +1076,7 @@
                       "required": [
                         "id",
                         "job_id",
+                        "has_reflection",
                         "status",
                         "next_action",
                         "created_at",
@@ -1094,6 +1110,10 @@
                           ],
                           "format": "uuid",
                           "description": "The frozen CV that was sent. `null` only while this is a draft."
+                        },
+                        "has_reflection": {
+                          "type": "boolean",
+                          "description": "Whether a reflection has been written for this application.\n\nThe reflection itself is at `/api/applications/{id}/reflection` — this\nsays only whether there is one, loaded with the page so a listing need\nnot ask per row."
                         },
                         "id": {
                           "type": "string",
@@ -8496,7 +8516,9 @@
                               "slug",
                               "tech_stack",
                               "created_at",
-                              "updated_at"
+                              "updated_at",
+                              "description",
+                              "topics"
                             ],
                             "properties": {
                               "cover": {
@@ -8514,6 +8536,10 @@
                                 "type": "string",
                                 "format": "date-time",
                                 "description": "When the project was created."
+                              },
+                              "description": {
+                                "type": "string",
+                                "description": "The one-line description, as the owner wrote it.\n\nThe whole thing, not a truncation: a card that cuts the sentence server\nside cannot be laid out differently by a client that has more room."
                               },
                               "id": {
                                 "type": "string",
@@ -8548,6 +8574,13 @@
                               "title": {
                                 "type": "string",
                                 "description": "Display title, as the owner wrote it."
+                              },
+                              "topics": {
+                                "type": "array",
+                                "items": {
+                                  "$ref": "#/components/schemas/ProjectTopicItem"
+                                },
+                                "description": "Topics linked to this project, loaded with the page rather than per row.\n\nAlways present, like the blog card's. Empty means the project has no\ntopics — never \"not loaded\" — so a filter row can be drawn from the\nlist, and a topic someone is already filtered by can be named."
                               },
                               "updated_at": {
                                 "type": "string",
@@ -10877,7 +10910,9 @@
                               "slug",
                               "tech_stack",
                               "created_at",
-                              "updated_at"
+                              "updated_at",
+                              "description",
+                              "topics"
                             ],
                             "properties": {
                               "cover": {
@@ -10895,6 +10930,10 @@
                                 "type": "string",
                                 "format": "date-time",
                                 "description": "When the project was created."
+                              },
+                              "description": {
+                                "type": "string",
+                                "description": "The one-line description, as the owner wrote it.\n\nThe whole thing, not a truncation: a card that cuts the sentence server\nside cannot be laid out differently by a client that has more room."
                               },
                               "id": {
                                 "type": "string",
@@ -10929,6 +10968,13 @@
                               "title": {
                                 "type": "string",
                                 "description": "Display title, as the owner wrote it."
+                              },
+                              "topics": {
+                                "type": "array",
+                                "items": {
+                                  "$ref": "#/components/schemas/ProjectTopicItem"
+                                },
+                                "description": "Topics linked to this project, loaded with the page rather than per row.\n\nAlways present, like the blog card's. Empty means the project has no\ntopics — never \"not loaded\" — so a filter row can be drawn from the\nlist, and a topic someone is already filtered by can be named."
                               },
                               "updated_at": {
                                 "type": "string",
@@ -12323,6 +12369,7 @@
         "required": [
           "id",
           "job_id",
+          "has_reflection",
           "status",
           "next_action",
           "created_at",
@@ -12356,6 +12403,10 @@
             ],
             "format": "uuid",
             "description": "The frozen CV that was sent. `null` only while this is a draft."
+          },
+          "has_reflection": {
+            "type": "boolean",
+            "description": "Whether a reflection has been written for this application.\n\nThe reflection itself is at `/api/applications/{id}/reflection` — this\nsays only whether there is one, loaded with the page so a listing need\nnot ask per row."
           },
           "id": {
             "type": "string",
@@ -14685,7 +14736,9 @@
                 "slug",
                 "tech_stack",
                 "created_at",
-                "updated_at"
+                "updated_at",
+                "description",
+                "topics"
               ],
               "properties": {
                 "cover": {
@@ -14703,6 +14756,10 @@
                   "type": "string",
                   "format": "date-time",
                   "description": "When the project was created."
+                },
+                "description": {
+                  "type": "string",
+                  "description": "The one-line description, as the owner wrote it.\n\nThe whole thing, not a truncation: a card that cuts the sentence server\nside cannot be laid out differently by a client that has more room."
                 },
                 "id": {
                   "type": "string",
@@ -14737,6 +14794,13 @@
                 "title": {
                   "type": "string",
                   "description": "Display title, as the owner wrote it."
+                },
+                "topics": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectTopicItem"
+                  },
+                  "description": "Topics linked to this project, loaded with the page rather than per row.\n\nAlways present, like the blog card's. Empty means the project has no\ntopics — never \"not loaded\" — so a filter row can be drawn from the\nlist, and a topic someone is already filtered by can be named."
                 },
                 "updated_at": {
                   "type": "string",
@@ -15272,7 +15336,9 @@
           "slug",
           "tech_stack",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "description",
+          "topics"
         ],
         "properties": {
           "cover": {
@@ -15290,6 +15356,10 @@
             "type": "string",
             "format": "date-time",
             "description": "When the project was created."
+          },
+          "description": {
+            "type": "string",
+            "description": "The one-line description, as the owner wrote it.\n\nThe whole thing, not a truncation: a card that cuts the sentence server\nside cannot be laid out differently by a client that has more room."
           },
           "id": {
             "type": "string",
@@ -15324,6 +15394,13 @@
           "title": {
             "type": "string",
             "description": "Display title, as the owner wrote it."
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectTopicItem"
+            },
+            "description": "Topics linked to this project, loaded with the page rather than per row.\n\nAlways present, like the blog card's. Empty means the project has no\ntopics — never \"not loaded\" — so a filter row can be drawn from the\nlist, and a topic someone is already filtered by can be named."
           },
           "updated_at": {
             "type": "string",

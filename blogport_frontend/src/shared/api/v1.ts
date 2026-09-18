@@ -1821,6 +1821,14 @@ export interface components {
              */
             cv_snapshot_id?: string | null;
             /**
+             * @description Whether a reflection has been written for this application.
+             *
+             *     The reflection itself is at `/api/applications/{id}/reflection` — this
+             *     says only whether there is one, loaded with the page so a listing need
+             *     not ask per row.
+             */
+            has_reflection: boolean;
+            /**
              * Format: uuid
              * @description Identifier.
              */
@@ -3135,6 +3143,13 @@ export interface components {
                  */
                 created_at: string;
                 /**
+                 * @description The one-line description, as the owner wrote it.
+                 *
+                 *     The whole thing, not a truncation: a card that cuts the sentence server
+                 *     side cannot be laid out differently by a client that has more room.
+                 */
+                description: string;
+                /**
                  * Format: uuid
                  * @description Primary key.
                  */
@@ -3149,6 +3164,14 @@ export interface components {
                 tech_stack: string[];
                 /** @description Display title, as the owner wrote it. */
                 title: string;
+                /**
+                 * @description Topics linked to this project, loaded with the page rather than per row.
+                 *
+                 *     Always present, like the blog card's. Empty means the project has no
+                 *     topics — never "not loaded" — so a filter row can be drawn from the
+                 *     list, and a topic someone is already filtered by can be named.
+                 */
+                topics: components["schemas"]["ProjectTopicItem"][];
                 /**
                  * Format: date-time
                  * @description When it was last edited.
@@ -3397,6 +3420,13 @@ export interface components {
              */
             created_at: string;
             /**
+             * @description The one-line description, as the owner wrote it.
+             *
+             *     The whole thing, not a truncation: a card that cuts the sentence server
+             *     side cannot be laid out differently by a client that has more room.
+             */
+            description: string;
+            /**
              * Format: uuid
              * @description Primary key.
              */
@@ -3411,6 +3441,14 @@ export interface components {
             tech_stack: string[];
             /** @description Display title, as the owner wrote it. */
             title: string;
+            /**
+             * @description Topics linked to this project, loaded with the page rather than per row.
+             *
+             *     Always present, like the blog card's. Empty means the project has no
+             *     topics — never "not loaded" — so a filter row can be drawn from the
+             *     list, and a topic someone is already filtered by can be named.
+             */
+            topics: components["schemas"]["ProjectTopicItem"][];
             /**
              * Format: date-time
              * @description When it was last edited.
@@ -4630,6 +4668,14 @@ export interface operations {
                                  */
                                 cv_snapshot_id?: string | null;
                                 /**
+                                 * @description Whether a reflection has been written for this application.
+                                 *
+                                 *     The reflection itself is at `/api/applications/{id}/reflection` — this
+                                 *     says only whether there is one, loaded with the page so a listing need
+                                 *     not ask per row.
+                                 */
+                                has_reflection: boolean;
+                                /**
                                  * Format: uuid
                                  * @description Identifier.
                                  */
@@ -4747,6 +4793,14 @@ export interface operations {
                              */
                             cv_snapshot_id?: string | null;
                             /**
+                             * @description Whether a reflection has been written for this application.
+                             *
+                             *     The reflection itself is at `/api/applications/{id}/reflection` — this
+                             *     says only whether there is one, loaded with the page so a listing need
+                             *     not ask per row.
+                             */
+                            has_reflection: boolean;
+                            /**
                              * Format: uuid
                              * @description Identifier.
                              */
@@ -4852,6 +4906,14 @@ export interface operations {
                              * @description The frozen CV that was sent. `null` only while this is a draft.
                              */
                             cv_snapshot_id?: string | null;
+                            /**
+                             * @description Whether a reflection has been written for this application.
+                             *
+                             *     The reflection itself is at `/api/applications/{id}/reflection` — this
+                             *     says only whether there is one, loaded with the page so a listing need
+                             *     not ask per row.
+                             */
+                            has_reflection: boolean;
                             /**
                              * Format: uuid
                              * @description Identifier.
@@ -5010,6 +5072,14 @@ export interface operations {
                              * @description The frozen CV that was sent. `null` only while this is a draft.
                              */
                             cv_snapshot_id?: string | null;
+                            /**
+                             * @description Whether a reflection has been written for this application.
+                             *
+                             *     The reflection itself is at `/api/applications/{id}/reflection` — this
+                             *     says only whether there is one, loaded with the page so a listing need
+                             *     not ask per row.
+                             */
+                            has_reflection: boolean;
                             /**
                              * Format: uuid
                              * @description Identifier.
@@ -10242,6 +10312,13 @@ export interface operations {
                                  */
                                 created_at: string;
                                 /**
+                                 * @description The one-line description, as the owner wrote it.
+                                 *
+                                 *     The whole thing, not a truncation: a card that cuts the sentence server
+                                 *     side cannot be laid out differently by a client that has more room.
+                                 */
+                                description: string;
+                                /**
                                  * Format: uuid
                                  * @description Primary key.
                                  */
@@ -10256,6 +10333,14 @@ export interface operations {
                                 tech_stack: string[];
                                 /** @description Display title, as the owner wrote it. */
                                 title: string;
+                                /**
+                                 * @description Topics linked to this project, loaded with the page rather than per row.
+                                 *
+                                 *     Always present, like the blog card's. Empty means the project has no
+                                 *     topics — never "not loaded" — so a filter row can be drawn from the
+                                 *     list, and a topic someone is already filtered by can be named.
+                                 */
+                                topics: components["schemas"]["ProjectTopicItem"][];
                                 /**
                                  * Format: date-time
                                  * @description When it was last edited.
@@ -11860,6 +11945,13 @@ export interface operations {
                                  */
                                 created_at: string;
                                 /**
+                                 * @description The one-line description, as the owner wrote it.
+                                 *
+                                 *     The whole thing, not a truncation: a card that cuts the sentence server
+                                 *     side cannot be laid out differently by a client that has more room.
+                                 */
+                                description: string;
+                                /**
                                  * Format: uuid
                                  * @description Primary key.
                                  */
@@ -11874,6 +11966,14 @@ export interface operations {
                                 tech_stack: string[];
                                 /** @description Display title, as the owner wrote it. */
                                 title: string;
+                                /**
+                                 * @description Topics linked to this project, loaded with the page rather than per row.
+                                 *
+                                 *     Always present, like the blog card's. Empty means the project has no
+                                 *     topics — never "not loaded" — so a filter row can be drawn from the
+                                 *     list, and a topic someone is already filtered by can be named.
+                                 */
+                                topics: components["schemas"]["ProjectTopicItem"][];
                                 /**
                                  * Format: date-time
                                  * @description When it was last edited.

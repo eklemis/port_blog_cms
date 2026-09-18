@@ -37,6 +37,69 @@ impl ProjectQueryPostgres {
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self { db }
     }
+
+    /// Topics for a page of projects, in one query.
+    ///
+    /// The single-project version below stays for the detail view. This exists
+    /// because a listing drawing topics would otherwise call it once per row.
+    ///
+    /// Driven from the join table, so a project with no topics is simply absent
+    /// from the result rather than a row of nulls to filter out.
+    async fn topics_for_many(
+        &self,
+        project_ids: &[Uuid],
+    ) -> Result<std::collections::HashMap<Uuid, Vec<ProjectTopicItem>>, ProjectQueryError> {
+        use sea_orm::{ConnectionTrait, DatabaseBackend, Statement, Value};
+        use std::collections::HashMap;
+
+        if project_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let placeholders = (1..=project_ids.len())
+            .map(|n| format!("${n}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let sql = format!(
+            r#"
+            SELECT pt.project_id, t.id, t.title, t.description
+              FROM project_topics pt
+              JOIN topics t ON t.id = pt.topic_id
+             WHERE pt.project_id IN ({placeholders})
+               AND t.is_deleted = false
+             ORDER BY t.title ASC
+            "#
+        );
+
+        let values: Vec<Value> = project_ids.iter().map(|id| Value::from(*id)).collect();
+
+        let rows = self
+            .db
+            .query_all(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                sql,
+                values,
+            ))
+            .await
+            .map_err(map_db_err)?;
+
+        let mut grouped: HashMap<Uuid, Vec<ProjectTopicItem>> = HashMap::new();
+        for row in rows {
+            let serialization = |e: DbErr| ProjectQueryError::SerializationError(e.to_string());
+            let project_id: Uuid = row.try_get("", "project_id").map_err(serialization)?;
+            grouped
+                .entry(project_id)
+                .or_default()
+                .push(ProjectTopicItem {
+                    id: row.try_get("", "id").map_err(serialization)?,
+                    title: row.try_get("", "title").map_err(serialization)?,
+                    description: row.try_get("", "description").map_err(serialization)?,
+                });
+        }
+
+        Ok(grouped)
+    }
 }
 
 #[async_trait]
@@ -179,11 +242,17 @@ impl ProjectQuery for ProjectQueryPostgres {
                 })
                 .collect();
 
+        // Topics for the page in one query, not one per row — the same
+        // treatment the covers above get, and for the same reason: the filter
+        // row on the public listings needs every card's topics.
+        let mut topics = self.topics_for_many(&ids).await?;
+
         let items: Result<Vec<ProjectCardView>, ProjectQueryError> = projects
             .into_iter()
             .map(|p| {
                 let cover = covers.remove(&p.id);
-                model_to_card_view(p, cover)
+                let project_topics = topics.remove(&p.id).unwrap_or_default();
+                model_to_card_view(p, cover, project_topics)
             })
             .collect();
 
@@ -297,9 +366,12 @@ fn model_to_view(
 fn model_to_card_view(
     model: projects::Model,
     cover: Option<PublicMedia>,
+    topics: Vec<ProjectTopicItem>,
 ) -> Result<ProjectCardView, ProjectQueryError> {
     Ok(ProjectCardView {
         cover,
+        description: model.description,
+        topics,
         id: model.id,
         title: model.title,
         slug: model.slug,
@@ -709,7 +781,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let model = create_mock_project_model(project_id, user_id, "Test", "test-slug");
 
-        let result = model_to_card_view(model, None);
+        let result = model_to_card_view(model, None, vec![]);
 
         assert!(result.is_ok());
         let card = result.unwrap();

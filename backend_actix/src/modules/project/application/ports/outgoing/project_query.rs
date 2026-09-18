@@ -92,6 +92,19 @@ pub struct ProjectCardView {
     /// When it was last edited.
     pub updated_at: DateTime<Utc>,
 
+    /// The one-line description, as the owner wrote it.
+    ///
+    /// The whole thing, not a truncation: a card that cuts the sentence server
+    /// side cannot be laid out differently by a client that has more room.
+    pub description: String,
+
+    /// Topics linked to this project, loaded with the page rather than per row.
+    ///
+    /// Always present, like the blog card's. Empty means the project has no
+    /// topics — never "not loaded" — so a filter row can be drawn from the
+    /// list, and a topic someone is already filtered by can be named.
+    pub topics: Vec<ProjectTopicItem>,
+
     /// The project's cover, on public listings only.
     pub cover: Option<PublicMedia>,
 }

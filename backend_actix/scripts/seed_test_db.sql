@@ -16,6 +16,7 @@
 --
 --   11111111- posts      22222222- topics    33333333- jobs
 --   44444444- CVs        55555555- snapshots 66666666- applications
+--   77777777- projects
 --
 -- Owner is whichever account is named below; nothing here creates accounts or
 -- touches credentials.
@@ -49,7 +50,12 @@ END $$;
 
 -- The owner. Chosen by username so the script does not carry an id that only
 -- matches one database.
-CREATE TEMP TABLE seed_owner AS
+-- Dropped first, and dropped again at COMMIT. DATABASE_URL points at a Neon
+-- *pooler* host, which hands the same backend connection to a later psql
+-- session — so a temp table can outlive the run that made it and the next run
+-- fails with "relation seed_owner already exists". Found by running this twice.
+DROP TABLE IF EXISTS seed_owner;
+CREATE TEMP TABLE seed_owner ON COMMIT DROP AS
 SELECT id FROM users WHERE username = 'eksanto';
 
 DO $$
@@ -61,6 +67,8 @@ END $$;
 
 -- ── Clear previous runs ─────────────────────────────────────────────────
 DELETE FROM applications    WHERE id::text LIKE '66666666-%';
+DELETE FROM project_topics  WHERE project_id::text LIKE '77777777-%';
+DELETE FROM projects        WHERE id::text LIKE '77777777-%';
 DELETE FROM cv_snapshots    WHERE id::text LIKE '55555555-%';
 DELETE FROM resumes         WHERE id::text LIKE '44444444-%';
 DELETE FROM jobs            WHERE id::text LIKE '33333333-%';
@@ -148,6 +156,54 @@ SELECT ('11111111-0000-4000-8000-0000000000' || p)::uuid,
                ('11','1'), ('13','1')
        ) AS v(p, t);
 
+-- ── Projects ────────────────────────────────────────────────────────────
+-- Eight, as the public projects frame's own intro line claims. Every card
+-- carries a description, because that is the line that says what a project is;
+-- two carry neither repo nor demo, so a card with no links is represented.
+INSERT INTO projects (id, user_id, title, slug, description, tech_stack, screenshots,
+                      repo_url, live_demo_url, is_deleted, created_at, updated_at)
+SELECT ('77777777-0000-4000-8000-00000000000' || n)::uuid, o.id, title, slug, description,
+       stack::jsonb, '[]'::jsonb, repo, demo, false,
+       now() - make_interval(days => created_days),
+       now() - make_interval(days => created_days)
+  FROM seed_owner o,
+       (VALUES
+         ('1', 'Portfolio CMS', 'portfolio-cms',
+          'The API and console behind this site. Actix Web and SeaORM, laid out as ports and adapters.',
+          '["Rust","Actix Web","Postgres"]', 'https://example.com/repo/1', 'https://example.com/demo/1', 120),
+         ('2', 'Blogport frontend', 'blogport-frontend',
+          'The SvelteKit console: posts, projects, CVs and the application tracker.',
+          '["TypeScript","SvelteKit","Tailwind"]', 'https://example.com/repo/2', 'https://example.com/demo/2', 110),
+         ('3', 'Migration guard', 'migration-guard',
+          'A CI check that refuses a migration the previously deployed build could not survive.',
+          '["Rust","Postgres"]', 'https://example.com/repo/3', NULL, 90),
+         ('4', 'Snapshot differ', 'snapshot-differ',
+          'Shows what changed between two frozen CVs, field by field.',
+          '["Rust","JSONB"]', 'https://example.com/repo/4', NULL, 70),
+         ('5', 'Query plan reader', 'query-plan-reader',
+          'Pastes an EXPLAIN and reads it back as a sentence.',
+          '["TypeScript","Postgres"]', NULL, 'https://example.com/demo/5', 55),
+         ('6', 'Pouch labels', 'pouch-labels',
+          'Generates the PDF labels a mail batch needs, at the size the printer expects.',
+          '["TypeScript","pdf-lib"]', 'https://example.com/repo/6', NULL, 40),
+         ('7', 'Tracker digest', 'tracker-digest',
+          'A weekly note of which applications have gone quiet and what is owed next.',
+          '["Rust","Cron"]', NULL, NULL, 25),
+         ('8', 'Uptime ribbon', 'uptime-ribbon',
+          'A one-line status strip for the services behind all of the above.',
+          '["Rust","Prometheus"]', NULL, NULL, 10)
+       ) AS v(n, title, slug, description, stack, repo, demo, created_days);
+
+-- Topic links: some projects carry two, some one, two none — so a filter row
+-- built from these has every case in it.
+INSERT INTO project_topics (project_id, topic_id, created_at)
+SELECT ('77777777-0000-4000-8000-00000000000' || p)::uuid,
+       ('22222222-0000-4000-8000-00000000000' || t)::uuid,
+       now() - make_interval(days => 30)
+  FROM (VALUES ('1','1'), ('1','3'), ('2','2'), ('3','3'), ('3','1'),
+               ('4','1'), ('5','3'), ('6','2'), ('7','4')
+       ) AS v(p, t);
+
 -- ── CVs, and snapshots frozen from them ─────────────────────────────────
 INSERT INTO resumes (id, user_id, display_name, role, bio, photo_url,
                      core_skills, educations, experiences, highlighted_projects, contact_info,
@@ -211,12 +267,44 @@ SELECT ('66666666-0000-4000-8000-00000000000' || n)::uuid, o.id,
   FROM seed_owner o,
        (VALUES
          ('1', '1', '1',  'interview', 30, 'Prepare the system design round',  3,    32),
-         ('2', '2', '1',  'screening', 20, 'Chase the recruiter',              1,    22),
-         ('3', '3', '2',  'applied',   14, '',                                 NULL, 16),
+         ('2', '2', '1',  'screening', 22, 'Chase the recruiter',              1,    24),
+         ('3', '3', '2',  'applied',   20, '',                                 NULL, 22),
          ('4', '4', '1',  'rejected',  35, '',                                 NULL, 38),
          ('5', '5', '2',  'offer',     10, 'Reply to the offer',               2,    12),
          ('6', '6', NULL, 'draft',     NULL, 'Finish tailoring the CV',        5,    3),
-         ('7', '1', '2',  'no_reply',  60, '',                                 NULL, 62)
+         ('7', '1', '2',  'no_reply',  60, '',                                 NULL, 62),
+         ('8', '3', '1',  'applied',   30, '',                                 NULL, 32),
+         ('9', '5', '2',  'applied',   45, '',                                 NULL, 47)
        ) AS v(n, job, snap, status, applied_days, next_action, due_days, created_days);
+
+-- The rows above are placed around the no-reply rule the designer gave us:
+-- applied_at older than 21 days, status applied or screening, no reflection.
+--
+--   #2 screening, 22 days  → matches, one day the wrong side of the boundary
+--   #3 applied,   20 days  → does not, one day the right side of it
+--   #8 applied,   30 days  → has a reflection below, so the third clause excludes it
+--   #9 applied,   45 days  → matches
+--
+-- So the rule finds two, the boundary is exercised in both directions, and the
+-- "no reflection" clause is the only thing keeping #8 out. A seed where every
+-- row falls the same side of a rule cannot tell a working filter from a broken
+-- one.
+
+-- ── A reflection ────────────────────────────────────────────────────────
+-- Two: one on a rejected application, one on an `applied` row old enough to
+-- match the no-reply rule on its first two clauses. That second one is the
+-- point — it is excluded only by the rule's "no reflection" clause, so a
+-- filter that ignores the clause counts three instead of two and says so.
+DELETE FROM reflections WHERE application_id::text LIKE '66666666-%';
+INSERT INTO reflections (application_id, user_id, stage_reached, what_happened, what_id_change, created_at, updated_at)
+SELECT ('66666666-0000-4000-8000-00000000000' || n)::uuid, o.id, stage, happened, change,
+       now() - make_interval(days => days), now() - make_interval(days => days)
+  FROM seed_owner o,
+       (VALUES
+         ('4', 'rejected', 'Take-home was fine; the system design round went badly on caching.',
+          'Rehearse the read-through-cache explanation out loud before the next one.', 30),
+         ('8', 'applied', 'Sent and heard nothing. The posting is still up.',
+          'Chase once at two weeks, then let it go.', 20)
+       ) AS v(n, stage, happened, change, days);
 
 COMMIT;

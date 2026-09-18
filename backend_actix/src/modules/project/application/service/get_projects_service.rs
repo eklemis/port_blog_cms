@@ -134,6 +134,8 @@ mod tests {
                 cover: None,
                 id: Uuid::new_v4(),
                 title: "Test Project".to_string(),
+                description: "A thing I built".to_string(),
+                topics: vec![],
                 slug: "test-project".to_string(),
                 tech_stack: vec!["Rust".to_string()],
                 repo_url: None,
