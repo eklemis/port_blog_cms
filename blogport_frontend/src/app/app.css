@@ -145,3 +145,71 @@
 		scroll-behavior: auto !important;
 	}
 }
+
+/* ---------------------------------------------------------------------------
+   Code highlighting.
+
+   §03 of the Forms and Interaction Spec asks for it, and asks for it on the
+   server: "Highlight at render time on the server rather than shipping a
+   client-side highlighter." `shared/lib/markdown.server.ts` does that and emits
+   highlight.js class names; these are what colour them.
+
+   It lives here because this is the only file a colour may be written in — and
+   the colours are the ones the palette already has. **There is no syntax
+   palette in the design.** theme.css carries a single `--arch-accent-2`,
+   described as "code, metadata", and nothing else for this, so rather than
+   invent six colours and six contrast ratios, four roles are drawn from tokens
+   whose contrast is already proven:
+
+     keyword, type, built-in   accent-ink   5.50:1 min
+     string, number, literal   accent-2     4.65:1 min
+     comment                   muted
+     everything else           headline
+
+   That is a restrained scheme, not a rich one. A fuller palette is the
+   designer's to specify; when it exists, it replaces the four rules below and
+   nothing else changes.
+   --------------------------------------------------------------------------- */
+
+.hljs-comment,
+.hljs-quote {
+	color: var(--arch-muted);
+	font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-built_in,
+.hljs-type,
+.hljs-name,
+.hljs-tag,
+.hljs-literal,
+.hljs-title,
+.hljs-title.function_,
+.hljs-title.class_,
+.hljs-section,
+.hljs-doctag {
+	color: var(--arch-accent-ink);
+}
+
+.hljs-string,
+.hljs-number,
+.hljs-regexp,
+.hljs-symbol,
+.hljs-attr,
+.hljs-attribute,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-meta,
+.hljs-bullet,
+.hljs-link {
+	color: var(--arch-accent-2);
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: 600;
+}

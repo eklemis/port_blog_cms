@@ -1,4 +1,5 @@
 import { Marked, type Tokens } from 'marked';
+import hljs from 'highlight.js/lib/common';
 
 /**
  * Markdown → HTML, on the server and only on the server.
@@ -59,6 +60,26 @@ export function renderMarkdown(source: string, resolveMedia: ResolveMedia): stri
 		renderer: {
 			// Both halves of the raw-HTML door, block and inline.
 			html: () => '',
+			/**
+			 * §03: "Code blocks need highlighting, and this audience will notice.
+			 * Highlight at render time on the server rather than shipping a
+			 * client-side highlighter."
+			 *
+			 * So the reader gets coloured markup and no highlighter — the same
+			 * bargain the rest of this module makes. `highlight.js` escapes what it
+			 * emits, and an unlabelled or unknown language is escaped here instead:
+			 * a fence is the one place an author writes a tag they do not want
+			 * rendered, so neither path may return it as markup.
+			 */
+			code(token: Tokens.Code) {
+				const lang = token.lang?.trim().split(/\s+/)[0] ?? '';
+				const known = lang && hljs.getLanguage(lang) ? lang : null;
+
+				if (!known) return `<pre><code>${escape(token.text)}</code></pre>`;
+
+				const { value } = hljs.highlight(token.text, { language: known, ignoreIllegals: true });
+				return `<pre><code class="hljs language-${escape(known)}">${value}</code></pre>`;
+			},
 			image(token: Tokens.Image) {
 				const reference = /^media:(.+)$/.exec(token.href);
 				const src = reference ? resolveMedia(reference[1]) : token.href;
