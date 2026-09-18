@@ -37,6 +37,12 @@ pub struct ApplicationResponse {
     /// Loaded with the page rather than per row. `null` while this is a draft,
     /// or when the CV had no role.
     pub cv_role: Option<String>,
+    /// Whether a reflection has been written for this application.
+    ///
+    /// The reflection itself is at `/api/applications/{id}/reflection` — this
+    /// says only whether there is one, loaded with the page so a listing need
+    /// not ask per row.
+    pub has_reflection: bool,
     /// Where it has got to.
     pub status: ApplicationStatus,
     /// When it was sent. `null` while still a draft.
@@ -58,6 +64,7 @@ impl From<Application> for ApplicationResponse {
             job_id: a.job_id,
             cv_snapshot_id: a.cv_snapshot_id,
             cv_role: a.cv_role,
+            has_reflection: a.has_reflection,
             status: a.status,
             applied_at: a.applied_at,
             next_action: a.next_action,

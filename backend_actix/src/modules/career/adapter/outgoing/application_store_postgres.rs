@@ -58,8 +58,9 @@ fn to_domain(m: AppModel) -> Application {
         user_id: m.user_id,
         job_id: m.job_id,
         cv_snapshot_id: m.cv_snapshot_id,
-        // Filled in by the caller from the snapshot. The row alone cannot say.
+        // Both filled in by the caller: neither lives on this row.
         cv_role: None,
+        has_reflection: false,
         // The CHECK constraint keeps this in the known set, so an unparseable
         // value would mean the schema and the enum have diverged. Falling back
         // to Draft is the safest reading: it understates progress rather than
@@ -132,7 +133,50 @@ impl ApplicationStorePostgres {
             .collect()
     }
 
-    /// Attaches each application's CV role, in one query for all of them.
+    /// Which of these applications have a reflection, in one query.
+    ///
+    /// A listing needs the flag, never the prose, so this asks only for the
+    /// ids that exist. Owner-scoped like everything else here.
+    async fn reflections_for(
+        &self,
+        owner: Uuid,
+        application_ids: &[Uuid],
+    ) -> Result<std::collections::HashSet<Uuid>, ApplicationStoreError> {
+        use std::collections::HashSet;
+
+        if application_ids.is_empty() {
+            return Ok(HashSet::new());
+        }
+
+        let sql = format!(
+            r#"SELECT application_id
+                 FROM reflections
+                WHERE user_id = $1
+                  AND application_id IN ({})"#,
+            placeholders(2, application_ids.len())
+        );
+
+        let mut values: Vec<Value> = Vec::with_capacity(application_ids.len() + 1);
+        values.push(owner.into());
+        values.extend(application_ids.iter().map(|id| Value::from(*id)));
+
+        let rows = self
+            .db
+            .query_all(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                sql,
+                values,
+            ))
+            .await
+            .map_err(db_err)?;
+
+        rows.into_iter()
+            .map(|row| row.try_get::<Uuid>("", "application_id").map_err(db_err))
+            .collect()
+    }
+
+    /// Attaches each application's CV role and reflection flag, in one query
+    /// for each regardless of how many rows there are.
     async fn with_cv_roles(
         &self,
         owner: Uuid,
@@ -143,8 +187,13 @@ impl ApplicationStorePostgres {
         ids.dedup();
 
         let roles = self.cv_roles_for(owner, &ids).await?;
+
+        let app_ids: Vec<Uuid> = apps.iter().map(|a| a.id).collect();
+        let reflected = self.reflections_for(owner, &app_ids).await?;
+
         for app in &mut apps {
             app.cv_role = app.cv_snapshot_id.and_then(|id| roles.get(&id).cloned());
+            app.has_reflection = reflected.contains(&app.id);
         }
         Ok(apps)
     }
