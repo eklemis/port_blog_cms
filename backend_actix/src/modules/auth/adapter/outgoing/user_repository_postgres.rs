@@ -78,7 +78,18 @@ impl UserRepository for UserRepositoryPostgres {
         user_id: Uuid,
         new_password_hash: String,
     ) -> Result<(), UserRepositoryError> {
-        let result = UserModel::find_by_statement(Statement::from_sql_and_values(
+        // The statement returns one column, so it is read into a type with one
+        // column. Reading it into the full `UserModel` asked for every column
+        // the entity has and failed at runtime with "no column found for name:
+        // username" — a password reset that could never succeed, on a code path
+        // whose unit test passed because the mock handed back a whole user.
+        #[derive(FromQueryResult)]
+        struct UpdatedUser {
+            #[allow(dead_code)] // presence of the row is the signal, not its value
+            id: Uuid,
+        }
+
+        let result = UpdatedUser::find_by_statement(Statement::from_sql_and_values(
                 DatabaseBackend::Postgres,
                 r#"UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2 AND is_deleted = false RETURNING id"#,
                 [new_password_hash.into(), user_id.into()],
@@ -345,14 +356,26 @@ mod tests {
 
     // ==================== update_password tests ====================
 
+    /// One row of one column, because that is what `RETURNING id` returns.
+    ///
+    /// The previous version of this test handed the mock a complete user, which
+    /// is why it passed while every real reset failed: the query asks for `id`
+    /// and the code asked the row for `username`. A mock that returns more than
+    /// the statement does cannot catch that, so this one returns exactly the
+    /// statement's columns.
+    fn returning_id_row(user_id: Uuid) -> std::collections::BTreeMap<String, sea_orm::Value> {
+        let mut row = std::collections::BTreeMap::new();
+        row.insert("id".to_string(), sea_orm::Value::from(user_id));
+        row
+    }
+
     #[tokio::test]
     async fn test_update_password_success() {
         let user_id = Uuid::new_v4();
         let new_password_hash = "new_hashed_password".to_string();
 
-        // Single query returns the updated model
         let db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results(vec![vec![create_user_model(user_id)]])
+            .append_query_results(vec![vec![returning_id_row(user_id)]])
             .into_connection();
 
         let repository = UserRepositoryPostgres::new(Arc::new(db));
@@ -369,7 +392,9 @@ mod tests {
 
         // Empty result means user not found
         let db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results(vec![Vec::<UserModel>::new()])
+            .append_query_results(vec![Vec::<
+                std::collections::BTreeMap<String, sea_orm::Value>,
+            >::new()])
             .into_connection();
 
         let repository = UserRepositoryPostgres::new(Arc::new(db));
