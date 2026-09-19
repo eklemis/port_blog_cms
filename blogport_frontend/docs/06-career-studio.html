@@ -437,10 +437,37 @@ footer { padding: 46px 0 70px; color: var(--muted); font-size: 0.84375rem; }
         Arabic ever appears. Use logical properties; don't build an RTL mode yet.</p>
       </div>
       <div class="crow">
-        <h4>Public pages need a locale in the URL</h4>
-        <p>A shared link has no session to read a preference from. If public pages are ever
-        localised, the locale belongs in the path — and that is a routing decision worth making
-        before the routes exist, not after they are indexed.</p>
+        <h4>Public pages are not localised — decided 19 September</h4>
+        <p>The original note said a locale belongs in the path <em>if public pages are ever
+        localised</em>, and asked for the decision before the routes existed. The routes exist now,
+        and the answer is <b>they are not</b>. The public shell stays English; the five public URLs
+        keep the shape already promised on the register and account screens —
+        <code>/janedoe/blog/my-post</code>, no prefix, no negotiation, no
+        <code>hreflang</code>.</p>
+        <p><b>Why, given this paper argued the other way.</b> Localising a public page translates the
+        chrome around an article the product cannot translate and does not claim to — §02's own rule
+        is that content language is per document and never retranslates. A <code>/id/</code> prefix
+        would assert a language for a body that is whatever the author wrote, and the system does not
+        even know which that is. Paying in canonical tags, redirects and a broken promise about
+        <code>/username</code> to translate a nav bar is the wrong trade for a portfolio.</p>
+        <p><b>Negotiating without a segment was never on the table.</b> One address serving two pages
+        makes a shared link a coin flip and every cache in front of it wrong. That is what this note
+        was written to prevent, and doing nothing would have shipped it.</p>
+        <div class="sig">The switcher keeps its 30 drawn positions on the auth screens and in Settings. It is gone from the 24 public ones.</div>
+      </div>
+      <div class="crow">
+        <h4>What a page says its language is</h4>
+        <p><code>&lt;html lang="en"&gt;</code> on every public page, because the chrome is English and
+        that is now a fact rather than a default. The <em>article</em> is a separate claim: when a
+        post or project declares a language, its container takes <code>lang</code> and the shell's
+        stays English — which is exactly the rule the Accessibility Spec §12 already states for a
+        CV written in one language inside an interface in another.</p>
+        <p><b>Nothing declares it yet, and that is a live defect.</b> <code>language</code> is on
+        cover letters only — not on posts, not on projects, and <b>not on CVs</b>, though §02 above
+        specifies <code>cv.language</code>. So a reader whose interface resolves to Indonesian gets
+        an English article stamped <code>lang="id"</code>, and a screen reader pronounces it as
+        Indonesian. Backend ask filed: <code>language</code> on posts, projects and CVs, nullable,
+        author-set. Until it lands, public pages stamp <code>en</code> and nothing overrides it.</p>
       </div>
     </div>
   </div>
