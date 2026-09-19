@@ -6,6 +6,7 @@
 	import type { HandlingClass } from '$lib/shared/lib/error-class';
 	import { Button, EmptyState } from '$lib/shared/ui';
 	import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
+	import type { MediaState } from '$lib/entities/media';
 
 	/**
 	 * `/studio/posts/[id]`.
@@ -34,6 +35,11 @@
 		onpreview = () => {},
 		/** The author's own topics, for the editor's rail picker. */
 		availableTopics = [],
+		/** This post's cover, and a signed URL for it when one is ready. */
+		cover = null,
+		coverSrc = null,
+		/** The cover changed; the caller reloads rather than this guessing. */
+		oncoverchange = () => {},
 		fetchFn = undefined,
 		denied = false
 	}: {
@@ -45,6 +51,9 @@
 		/** A preview link is ready, for the caller to open in a new tab. */
 		onpreview?: (path: string) => void;
 		availableTopics?: { id: string; title: string }[];
+		cover?: { media_id: string; status: MediaState; alt_text: string } | null;
+		coverSrc?: string | null;
+		oncoverchange?: () => void;
 		/** Injected by the spec; the browser's own otherwise. */
 		fetchFn?: typeof globalThis.fetch;
 		denied?: boolean;
@@ -67,6 +76,9 @@
 		{username}
 		{onpreview}
 		{availableTopics}
+		{cover}
+		{coverSrc}
+		{oncoverchange}
 		onarchive={async () => {
 			const result = await archivePost(post.id, fetchFn);
 
