@@ -19,6 +19,12 @@ declare global {
 				locale: string;
 				is_verified: boolean;
 			} | null;
+			/**
+			 * The UI language for this request — Career Studio §02. Resolved in
+			 * hooks so server-rendered HTML arrives in the right language rather
+			 * than switching after paint.
+			 */
+			locale: import('$lib/shared/i18n').Locale;
 		}
 		// interface PageData {}
 		// interface PageState {}
