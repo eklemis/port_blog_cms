@@ -512,7 +512,10 @@ pub async fn start() -> std::io::Result<()> {
         Arc::new(argon2_password_hasher.clone()),
         Arc::new(jwt_service.clone()),
     );
-    let refresh_token_use_case = RefreshTokenUseCase::new(Arc::new(jwt_service.clone()));
+    let refresh_token_use_case = RefreshTokenUseCase::new(
+        Arc::new(jwt_service.clone()),
+        Arc::new(redis_token_repo.clone()),
+    );
     let request_password_reset_use_case = RequestPasswordResetUseCase::new(
         user_query.clone(),
         Arc::new(jwt_service.clone()),

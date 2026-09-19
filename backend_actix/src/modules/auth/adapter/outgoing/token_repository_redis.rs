@@ -44,6 +44,13 @@ pub struct RedisTokenRepository {
 }
 
 impl RedisTokenRepository {
+    /// How long a revocation cutoff is kept.
+    ///
+    /// Longer than any token it must refuse: the refresh token's lifetime
+    /// (7 days) plus a day of margin. After that every token issued before the
+    /// cutoff has expired on its own merits and the entry refuses nothing.
+    const REVOCATION_TTL_SECONDS: i64 = 8 * 24 * 60 * 60;
+
     /// Create a new Redis-backed token repository.
     ///
     /// The connection manager must already be initialized and ready to use.
@@ -63,6 +70,11 @@ impl RedisTokenRepository {
     /// This key stores a SET of token hashes belonging to the user.
     fn user_key(user_id: Uuid) -> String {
         format!("auth:blacklist:user:{user_id}")
+    }
+
+    /// Key holding the moment before which a user's tokens are refused.
+    fn revoked_before_key(user_id: Uuid) -> String {
+        format!("auth:revoked_before:user:{user_id}")
     }
     /// Helper to get a connection from the pool
     async fn get_conn(&self) -> Result<deadpool_redis::Connection, TokenRepositoryError> {
@@ -224,25 +236,54 @@ impl TokenRepository for RedisTokenRepository {
     /// ## Behavior
     /// - If the user has no tokens, this is a no-op
     /// - Safe to call multiple times
-    async fn revoke_all_user_tokens(&self, user_id: Uuid) -> Result<(), TokenRepositoryError> {
-        let user_key = Self::user_key(user_id);
+    async fn revoked_before(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Option<DateTime<Utc>>, TokenRepositoryError> {
         let mut conn = self.get_conn().await?;
 
-        let tokens: Vec<String> = conn
-            .smembers(&user_key)
+        let stored: Option<i64> = conn
+            .get(Self::revoked_before_key(user_id))
             .await
             .map_err(|e| TokenRepositoryError::DatabaseError(e.to_string()))?;
 
-        let mut pipe = deadpool_redis::redis::pipe();
-        pipe.atomic();
+        Ok(stored.and_then(|seconds| DateTime::from_timestamp(seconds, 0)))
+    }
 
-        for token in tokens {
-            pipe.del(Self::token_key(&token)).ignore();
-        }
+    /// Writes the cutoff, rather than deleting anything.
+    ///
+    /// ## What this used to do, and why it was the opposite
+    ///
+    /// It read the user's set of blacklisted hashes and deleted those entries.
+    /// The set is an index *of revocations*, so deleting it un-revoked every
+    /// token the user had logged out, and left live sessions untouched —
+    /// precisely backwards for a method the password reset calls to end
+    /// sessions after a compromise.
+    ///
+    /// Revoking a stateless token cannot be done by deleting a record, because
+    /// there is no record: the token is self-contained and the holder keeps it.
+    /// What can be recorded is a moment, against which every token is checked:
+    /// issued before it, refused. One key per user, `O(1)` to write and read,
+    /// and it covers tokens this service has never seen.
+    ///
+    /// The entry outlives the longest-lived token it must refuse. A refresh
+    /// token is the longest, so the TTL is its lifetime plus a day of margin;
+    /// past that every token issued before the cutoff has expired on its own
+    /// and the entry has nothing left to refuse.
+    async fn revoke_all_user_tokens(&self, user_id: Uuid) -> Result<(), TokenRepositoryError> {
+        let mut conn = self.get_conn().await?;
 
-        pipe.del(&user_key).ignore();
-
-        pipe.query_async::<()>(&mut *conn)
+        deadpool_redis::redis::pipe()
+            .atomic()
+            .cmd("SET")
+            .arg(Self::revoked_before_key(user_id))
+            .arg(Utc::now().timestamp())
+            .ignore()
+            .cmd("EXPIRE")
+            .arg(Self::revoked_before_key(user_id))
+            .arg(Self::REVOCATION_TTL_SECONDS)
+            .ignore()
+            .query_async::<()>(&mut *conn)
             .await
             .map_err(|e| TokenRepositoryError::DatabaseError(e.to_string()))?;
 
