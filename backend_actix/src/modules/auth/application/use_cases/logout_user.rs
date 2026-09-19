@@ -244,6 +244,12 @@ mod tests {
             Ok(())
         }
 
+        async fn revoked_before(
+            &self,
+            _user_id: Uuid,
+        ) -> Result<Option<DateTime<Utc>>, TokenRepositoryError> {
+            Ok(None)
+        }
         async fn revoke_all_user_tokens(&self, _user_id: Uuid) -> Result<(), TokenRepositoryError> {
             Ok(())
         }

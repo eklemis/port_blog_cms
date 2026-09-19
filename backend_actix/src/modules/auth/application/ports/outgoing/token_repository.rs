@@ -70,6 +70,18 @@ pub trait TokenRepository: Send + Sync {
     /// it has not expired. Maintenance only — no request path calls this.
     async fn remove_blacklisted_token(&self, token_hash: &str) -> Result<(), TokenRepositoryError>;
 
+    /// Reports the moment before which this user's tokens are no longer
+    /// accepted, or `None` when nothing has been revoked.
+    ///
+    /// Callers compare it with a token's `iat`: issued before the cutoff means
+    /// revoked. Seconds are the resolution, so a token minted in the same
+    /// second as a revocation survives it — acceptable, because the alternative
+    /// is discarding tokens issued moments after a deliberate logout.
+    async fn revoked_before(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Option<DateTime<Utc>>, TokenRepositoryError>;
+
     /// Revokes every outstanding token for one user.
     ///
     /// The lever for "sign out everywhere" and for locking out an account

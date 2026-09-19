@@ -331,6 +331,12 @@ mod tests {
         async fn remove_blacklisted_token(&self, _t: &str) -> Result<(), TokenRepositoryError> {
             unimplemented!()
         }
+        async fn revoked_before(
+            &self,
+            _user_id: Uuid,
+        ) -> Result<Option<DateTime<Utc>>, TokenRepositoryError> {
+            Ok(None)
+        }
         async fn revoke_all_user_tokens(&self, user_id: Uuid) -> Result<(), TokenRepositoryError> {
             self.revoked.lock().unwrap().push(user_id);
             // Mirrors the real Redis implementation, which deletes this user's
@@ -403,6 +409,12 @@ mod tests {
         }
         async fn remove_blacklisted_token(&self, t: &str) -> Result<(), TokenRepositoryError> {
             (**self).remove_blacklisted_token(t).await
+        }
+        async fn revoked_before(
+            &self,
+            u: Uuid,
+        ) -> Result<Option<DateTime<Utc>>, TokenRepositoryError> {
+            (**self).revoked_before(u).await
         }
         async fn revoke_all_user_tokens(&self, u: Uuid) -> Result<(), TokenRepositoryError> {
             (**self).revoke_all_user_tokens(u).await

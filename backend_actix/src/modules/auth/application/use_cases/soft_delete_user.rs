@@ -145,6 +145,15 @@ mod tests {
 
     #[async_trait]
     impl TokenRepository for MockTokenRepository {
+        async fn revoked_before(
+            &self,
+            _user_id: Uuid,
+        ) -> Result<
+            Option<DateTime<Utc>>,
+            crate::auth::application::ports::outgoing::token_repository::TokenRepositoryError,
+        > {
+            Ok(None)
+        }
         async fn revoke_all_user_tokens(
             &self,
             user_id: Uuid,

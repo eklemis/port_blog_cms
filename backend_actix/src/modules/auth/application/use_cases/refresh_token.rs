@@ -3,7 +3,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde::{Deserialize, Deserializer, Serialize};
 
+use crate::auth::application::ports::outgoing::token_hasher::hash_token;
 use crate::auth::application::ports::outgoing::token_provider::{TokenError, TokenProvider};
+use crate::auth::application::ports::outgoing::token_repository::TokenRepository;
 
 // ========================= Refresh Token Request =========================
 /// Validated refresh token request
@@ -71,7 +73,10 @@ impl<'de> Deserialize<'de> for RefreshTokenRequest {
 pub enum RefreshTokenError {
     /// The refresh token's lifetime has passed. The user must log in again.
     TokenExpired,
-    /// The token is not usable — malformed, or blacklisted by a logout.
+    /// The token is not usable — malformed, revoked by a logout, or issued
+    /// before the user revoked everything with a password reset or a
+    /// "sign out everywhere". Also returned when the revocation store cannot
+    /// be read: on this path, unknown is treated as revoked.
     TokenInvalid,
     /// The token's not-before claim is in the future. Clock skew, in practice.
     TokenNotYetValid,
@@ -140,14 +145,19 @@ pub trait IRefreshTokenUseCase: Send + Sync {
 #[derive(Clone)]
 pub struct RefreshTokenUseCase {
     token_provider: Arc<dyn TokenProvider>,
+    token_repository: Arc<dyn TokenRepository>,
     enable_token_rotation: bool, // Feature flag for token rotation
 }
 
 impl RefreshTokenUseCase {
     /// Builds the use case with rotation disabled.
-    pub fn new(token_provider: Arc<dyn TokenProvider>) -> Self {
+    pub fn new(
+        token_provider: Arc<dyn TokenProvider>,
+        token_repository: Arc<dyn TokenRepository>,
+    ) -> Self {
         Self {
             token_provider,
+            token_repository,
             enable_token_rotation: true, // Enable token rotation by default
         }
     }
@@ -180,13 +190,55 @@ impl IRefreshTokenUseCase for RefreshTokenUseCase {
             return Err(RefreshTokenError::InvalidTokenType);
         }
 
-        // 3️⃣ Generate new access token
+        // 3️⃣ Refuse a token that has been revoked.
+        //
+        // This is where logging out and resetting a password become real. A
+        // refresh token is self-contained: the holder keeps it, this service
+        // stores nothing, and verifying the signature only proves it was issued
+        // — never that it should still be honoured. Until this check, a logout
+        // wrote a blacklist entry nothing read, and a password reset revoked
+        // sessions that carried on working.
+        //
+        // Two questions, both cheap, and both failing closed: a store that
+        // cannot answer must not be read as "not revoked" on the path whose
+        // whole job is to keep a stolen token working for a fortnight.
+        let token_hash = hash_token(request.refresh_token());
+
+        match self
+            .token_repository
+            .is_token_blacklisted(&token_hash)
+            .await
+        {
+            Ok(true) => return Err(RefreshTokenError::TokenInvalid),
+            Ok(false) => {}
+            Err(e) => {
+                tracing::error!("Could not check whether a refresh token was revoked: {e}");
+                return Err(RefreshTokenError::TokenInvalid);
+            }
+        }
+
+        match self.token_repository.revoked_before(claims.sub).await {
+            // Issued before the user revoked everything: a sign-out from
+            // another device, or a password reset. Seconds are the resolution,
+            // so a token minted in the same second as the revocation survives
+            // it — which is why the check is strictly "issued before".
+            Ok(Some(cutoff)) if claims.iat < cutoff.timestamp() => {
+                return Err(RefreshTokenError::TokenInvalid)
+            }
+            Ok(_) => {}
+            Err(e) => {
+                tracing::error!("Could not read the revocation cutoff: {e}");
+                return Err(RefreshTokenError::TokenInvalid);
+            }
+        }
+
+        // 4️⃣ Generate new access token
         let access_token = self
             .token_provider
             .generate_access_token(claims.sub, claims.is_verified)
             .map_err(|e| RefreshTokenError::TokenGenerationFailed(e.to_string()))?;
 
-        // 4️⃣ Optionally generate new refresh token (token rotation)
+        // 5️⃣ Optionally generate new refresh token (token rotation)
         let refresh_token = if self.enable_token_rotation {
             self.token_provider
                 .generate_refresh_token(claims.sub, claims.is_verified)
@@ -196,7 +248,7 @@ impl IRefreshTokenUseCase for RefreshTokenUseCase {
             request.refresh_token().to_string()
         };
 
-        // 5️⃣ Return response
+        // 6️⃣ Return response
         Ok(RefreshTokenResponse {
             access_token,
             refresh_token,
@@ -207,9 +259,196 @@ impl IRefreshTokenUseCase for RefreshTokenUseCase {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::auth::application::ports::outgoing::token_hasher::hash_token;
+    use crate::auth::application::ports::outgoing::token_repository::TokenRepositoryError;
     use crate::modules::auth::adapter::outgoing::jwt::{JwtConfig, JwtTokenService};
     use serde_json::json;
+    use std::sync::Arc;
     use uuid::Uuid;
+
+    /// A store that revokes nothing, for the tests about token mechanics.
+    ///
+    /// Revocation has its own tests below; these exercise verification, typing
+    /// and rotation, and would otherwise all need a Redis.
+    #[derive(Default)]
+    struct NothingRevoked;
+
+    #[async_trait]
+    impl TokenRepository for NothingRevoked {
+        async fn blacklist_token(
+            &self,
+            _t: String,
+            _u: Uuid,
+            _e: chrono::DateTime<chrono::Utc>,
+        ) -> Result<(), TokenRepositoryError> {
+            Ok(())
+        }
+        async fn is_token_blacklisted(&self, _t: &str) -> Result<bool, TokenRepositoryError> {
+            Ok(false)
+        }
+        async fn remove_blacklisted_token(&self, _t: &str) -> Result<(), TokenRepositoryError> {
+            Ok(())
+        }
+        async fn revoked_before(
+            &self,
+            _u: Uuid,
+        ) -> Result<Option<chrono::DateTime<chrono::Utc>>, TokenRepositoryError> {
+            Ok(None)
+        }
+        async fn revoke_all_user_tokens(&self, _u: Uuid) -> Result<(), TokenRepositoryError> {
+            Ok(())
+        }
+        async fn cleanup_expired_tokens(&self) -> Result<u64, TokenRepositoryError> {
+            Ok(0)
+        }
+    }
+
+    fn nothing_revoked() -> Arc<dyn TokenRepository> {
+        Arc::new(NothingRevoked)
+    }
+
+    /// A store with the two answers that matter, and a switch for failure.
+    #[derive(Default)]
+    struct StubRevocations {
+        blacklisted: Option<String>,
+        cutoff: Option<chrono::DateTime<chrono::Utc>>,
+        unreadable: bool,
+    }
+
+    #[async_trait]
+    impl TokenRepository for StubRevocations {
+        async fn blacklist_token(
+            &self,
+            _t: String,
+            _u: Uuid,
+            _e: chrono::DateTime<chrono::Utc>,
+        ) -> Result<(), TokenRepositoryError> {
+            Ok(())
+        }
+        async fn is_token_blacklisted(&self, t: &str) -> Result<bool, TokenRepositoryError> {
+            if self.unreadable {
+                return Err(TokenRepositoryError::DatabaseError("redis down".into()));
+            }
+            Ok(self.blacklisted.as_deref() == Some(t))
+        }
+        async fn remove_blacklisted_token(&self, _t: &str) -> Result<(), TokenRepositoryError> {
+            Ok(())
+        }
+        async fn revoked_before(
+            &self,
+            _u: Uuid,
+        ) -> Result<Option<chrono::DateTime<chrono::Utc>>, TokenRepositoryError> {
+            if self.unreadable {
+                return Err(TokenRepositoryError::DatabaseError("redis down".into()));
+            }
+            Ok(self.cutoff)
+        }
+        async fn revoke_all_user_tokens(&self, _u: Uuid) -> Result<(), TokenRepositoryError> {
+            Ok(())
+        }
+        async fn cleanup_expired_tokens(&self) -> Result<u64, TokenRepositoryError> {
+            Ok(0)
+        }
+    }
+
+    /// Logging out ends the session it was given.
+    ///
+    /// Logout has always written this entry. Until the check above, nothing
+    /// read it, so a refresh token kept working after its owner logged out.
+    #[tokio::test]
+    async fn a_logged_out_token_is_refused() {
+        let jwt = create_jwt_service();
+        let refresh = jwt
+            .generate_refresh_token(Uuid::new_v4(), true)
+            .expect("minted");
+
+        let store = StubRevocations {
+            blacklisted: Some(hash_token(&refresh)),
+            ..Default::default()
+        };
+
+        let result = RefreshTokenUseCase::new(Arc::new(jwt), Arc::new(store))
+            .execute(RefreshTokenRequest::new(refresh).unwrap())
+            .await;
+
+        assert!(
+            matches!(result, Err(RefreshTokenError::TokenInvalid)),
+            "a logged-out token must not mint a new one: {result:?}"
+        );
+    }
+
+    /// A password reset ends every session, including ones on other devices.
+    #[tokio::test]
+    async fn a_token_issued_before_a_reset_is_refused() {
+        let jwt = create_jwt_service();
+        let refresh = jwt
+            .generate_refresh_token(Uuid::new_v4(), true)
+            .expect("minted");
+
+        // The reset happens a minute after this token was issued.
+        let store = StubRevocations {
+            cutoff: Some(chrono::Utc::now() + chrono::Duration::seconds(60)),
+            ..Default::default()
+        };
+
+        let result = RefreshTokenUseCase::new(Arc::new(jwt), Arc::new(store))
+            .execute(RefreshTokenRequest::new(refresh).unwrap())
+            .await;
+
+        assert!(
+            matches!(result, Err(RefreshTokenError::TokenInvalid)),
+            "a session older than the reset must not survive it: {result:?}"
+        );
+    }
+
+    /// A token minted after the revocation is the new session, and lives.
+    #[tokio::test]
+    async fn a_token_issued_after_a_revocation_still_works() {
+        let jwt = create_jwt_service();
+        let refresh = jwt
+            .generate_refresh_token(Uuid::new_v4(), true)
+            .expect("minted");
+
+        let store = StubRevocations {
+            cutoff: Some(chrono::Utc::now() - chrono::Duration::hours(1)),
+            ..Default::default()
+        };
+
+        let result = RefreshTokenUseCase::new(Arc::new(jwt), Arc::new(store))
+            .execute(RefreshTokenRequest::new(refresh).unwrap())
+            .await;
+
+        assert!(
+            result.is_ok(),
+            "signing in again after a reset must work: {result:?}"
+        );
+    }
+
+    /// Unknown is treated as revoked.
+    ///
+    /// The alternative is that a store outage silently restores every token
+    /// anyone has ever logged out or reset away, for as long as it lasts.
+    #[tokio::test]
+    async fn an_unreadable_store_refuses_the_refresh() {
+        let jwt = create_jwt_service();
+        let refresh = jwt
+            .generate_refresh_token(Uuid::new_v4(), true)
+            .expect("minted");
+
+        let store = StubRevocations {
+            unreadable: true,
+            ..Default::default()
+        };
+
+        let result = RefreshTokenUseCase::new(Arc::new(jwt), Arc::new(store))
+            .execute(RefreshTokenRequest::new(refresh).unwrap())
+            .await;
+
+        assert!(
+            matches!(result, Err(RefreshTokenError::TokenInvalid)),
+            "fail closed: {result:?}"
+        );
+    }
 
     // Helper to create JWT service
     fn create_jwt_service() -> JwtTokenService {
@@ -310,7 +549,7 @@ mod tests {
         // Generate a valid refresh token
         let refresh_token = jwt_service.generate_refresh_token(user_id, true).unwrap();
 
-        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service));
+        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service), nothing_revoked());
         let request = RefreshTokenRequest::new(refresh_token).unwrap();
 
         let result = use_case.execute(request).await;
@@ -331,7 +570,8 @@ mod tests {
         // Add a 32 second delay to ensure different timestamps follow the `validation.leeway = 30;` in JWT Service
         tokio::time::sleep(tokio::time::Duration::from_millis(1920)).await;
 
-        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service)).with_token_rotation(true);
+        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service), nothing_revoked())
+            .with_token_rotation(true);
 
         let request = RefreshTokenRequest::new(original_refresh_token.clone()).unwrap();
         let result = use_case.execute(request).await;
@@ -350,7 +590,8 @@ mod tests {
 
         let original_refresh_token = jwt_service.generate_refresh_token(user_id, true).unwrap();
 
-        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service)).with_token_rotation(false);
+        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service), nothing_revoked())
+            .with_token_rotation(false);
 
         let request = RefreshTokenRequest::new(original_refresh_token.clone()).unwrap();
         let result = use_case.execute(request).await;
@@ -376,7 +617,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let expired_token = jwt_service.generate_refresh_token(user_id, true).unwrap();
 
-        let use_case = RefreshTokenUseCase::new(Arc::new(create_jwt_service()));
+        let use_case = RefreshTokenUseCase::new(Arc::new(create_jwt_service()), nothing_revoked());
         let request = RefreshTokenRequest::new(expired_token).unwrap();
         let result = use_case.execute(request).await;
 
@@ -389,7 +630,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_refresh_token_invalid_token() {
-        let use_case = RefreshTokenUseCase::new(Arc::new(create_jwt_service()));
+        let use_case = RefreshTokenUseCase::new(Arc::new(create_jwt_service()), nothing_revoked());
         let request = RefreshTokenRequest::new("invalid.token.here".to_string()).unwrap();
 
         let result = use_case.execute(request).await;
@@ -409,7 +650,7 @@ mod tests {
         // Generate an access token instead of refresh token
         let access_token = jwt_service.generate_access_token(user_id, true).unwrap();
 
-        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service));
+        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service), nothing_revoked());
         let request = RefreshTokenRequest::new(access_token).unwrap();
         let result = use_case.execute(request).await;
 
@@ -428,7 +669,7 @@ mod tests {
         // Generate a verification token
         let verification_token = jwt_service.generate_verification_token(user_id).unwrap();
 
-        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service));
+        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service), nothing_revoked());
         let request = RefreshTokenRequest::new(verification_token).unwrap();
         let result = use_case.execute(request).await;
 
@@ -455,7 +696,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let token = jwt_service1.generate_refresh_token(user_id, true).unwrap();
 
-        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service2));
+        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service2), nothing_revoked());
         let request = RefreshTokenRequest::new(token).unwrap();
         let result = use_case.execute(request).await;
 
@@ -474,7 +715,7 @@ mod tests {
         // Test with verified user
         let refresh_token_verified = jwt_service.generate_refresh_token(user_id, true).unwrap();
 
-        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service.clone()));
+        let use_case = RefreshTokenUseCase::new(Arc::new(jwt_service.clone()), nothing_revoked());
         let request = RefreshTokenRequest::new(refresh_token_verified).unwrap();
         let result = use_case.execute(request).await;
 
