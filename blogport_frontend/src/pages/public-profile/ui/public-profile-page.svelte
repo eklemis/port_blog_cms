@@ -11,13 +11,21 @@
 	 * in it is not drawn at all — a door to an empty room is worse than one door
 	 * fewer.
 	 *
-	 * **The identity actions are not here**, and they are one gap rather than
-	 * four. The frame draws "Senior Backend Engineer · Jakarta", View résumé,
-	 * GitHub and an email address. `PublicProfile` carries `full_name`, `bio`,
-	 * `avatar` and `username` and says so deliberately — "No email and no account
-	 * state: this is the one endpoint that serves a user's details to somebody
-	 * else." A CV carries `role` and `contact_info`, so all four arrive together
-	 * the day an author can nominate a public CV, which is already filed.
+	 * **The identity actions are not here**, and that is now two answers rather
+	 * than one gap. The frame draws "Senior Backend Engineer · Jakarta", View
+	 * résumé, GitHub and an email address.
+	 *
+	 * The first three wait on the nominated public CV, which is filed: a CV
+	 * carries `role` and `contact_info`, so they arrive together the day an
+	 * author can choose one.
+	 *
+	 * **The email address is not waiting — it was ruled out on 20 September.**
+	 * `PublicProfile` withholds it deliberately ("No email and no account state:
+	 * this is the one endpoint that serves a user's details to somebody else"),
+	 * and a scrapeable address on the page every visitor reaches would undo that
+	 * on the author's behalf. Contact belongs on a résumé an author *chose* to
+	 * publish, where `contact_info` is part of a document they nominated. One
+	 * deliberate act, one audience.
 	 */
 	let {
 		author,

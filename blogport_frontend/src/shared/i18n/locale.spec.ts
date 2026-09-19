@@ -1,5 +1,12 @@
 import { expect, test } from 'vitest';
-import { BASE_LOCALE, LOCALE_COOKIE, availableLocales, isLocale, resolveLocale } from './locale';
+import {
+	BASE_LOCALE,
+	LOCALE_COOKIE,
+	availableLocales,
+	isLocale,
+	localeForRoute,
+	resolveLocale
+} from './locale';
 
 /**
  * Both languages, so the matching rules can be proven before Indonesian copy
@@ -63,4 +70,53 @@ test('only locales with a catalogue behind them are on offer', () => {
 
 test('the cookie is named once, so the server and the browser agree', () => {
 	expect(LOCALE_COOKIE).toBe('arch_locale');
+});
+
+/**
+ * Ruling A, 20 September: public pages are not localised. No segment, no
+ * negotiation, URLs unchanged.
+ *
+ * The reasoning is not that localising them is hard. It is that localising a
+ * public page translates the chrome around an article the product cannot
+ * translate and does not claim to — content language is per document and never
+ * retranslates, so a localised shell over an untranslated body is a promise the
+ * page cannot keep.
+ *
+ * These assert with both locales offered on purpose: with only English built,
+ * this rule and its opposite produce identical output, and a test that cannot
+ * fail is not a test.
+ */
+
+test('a public page is never localised, whatever the reader prefers', () => {
+	expect(localeForRoute({ routeId: '/[username]', stored: 'id', header: 'id-ID', ...both })).toBe(
+		'en'
+	);
+	expect(
+		localeForRoute({ routeId: '/[username]/blog/[slug]', stored: 'id', header: 'id-ID', ...both })
+	).toBe('en');
+});
+
+test('the console and the auth shell still negotiate — the pill keeps its 30 places', () => {
+	expect(localeForRoute({ routeId: '/studio/posts', stored: 'id', header: null, ...both })).toBe(
+		'id'
+	);
+	expect(localeForRoute({ routeId: '/auth/login', stored: null, header: 'id-ID', ...both })).toBe(
+		'id'
+	);
+});
+
+test('the public shell is matched by segment, not by prefix', () => {
+	// `/[username]-archive` is not a public page, and a startsWith that missed
+	// this would quietly refuse to localise any route beginning with the same
+	// characters.
+	expect(
+		localeForRoute({ routeId: '/[username]-archive', stored: 'id', header: null, ...both })
+	).toBe('id');
+});
+
+test('an unmatched route is treated as console, not as public', () => {
+	// `null` is a 404. Guessing "public" would make every unknown path refuse to
+	// localise, which is the wrong way round: the ruling names five routes, it
+	// does not name everything else.
+	expect(localeForRoute({ routeId: null, stored: 'id', header: null, ...both })).toBe('id');
 });

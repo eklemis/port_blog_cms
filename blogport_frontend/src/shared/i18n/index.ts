@@ -5,6 +5,7 @@ export {
 	LOCALE_COOKIE,
 	availableLocales,
 	isLocale,
+	localeForRoute,
 	resolveLocale,
 	type Locale
 } from './locale';

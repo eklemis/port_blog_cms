@@ -11,9 +11,9 @@ const { POST } = await import('./+server');
 /**
  * `POST /api/locale` — where the switcher writes.
  *
- * §02: the cookie first, because the auth and public shells have no session.
- * When there *is* one, the account is told too, so the choice survives the
- * browser it was made in.
+ * §02: the cookie first, because the auth shell has no session. When there *is*
+ * one, the account is told too, so the choice survives the browser it was made
+ * in. The public shell is not a caller — it is not localised at all.
  */
 
 const event = (locale: unknown, user: unknown = null) => ({

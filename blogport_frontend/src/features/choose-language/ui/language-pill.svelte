@@ -3,9 +3,14 @@
 	import { en, type Locale } from '$lib/shared/i18n';
 
 	/**
-	 * The "EN ▾" pill — Career Studio §02, drawn in 34 places: every auth screen
-	 * at all three widths, and every public screen at desktop and tablet. Mobile
-	 * public is the exception, where the nav folds behind ☰ and this goes with it.
+	 * The "EN ▾" pill — Career Studio §02, and now 30 places rather than 34.
+	 *
+	 * The frames drew it on every auth screen at all three widths *and* on every
+	 * public screen. Ruling A of 20 September took back the 24 public ones:
+	 * public pages are not localised, so a switcher there would offer to
+	 * translate a shell wrapped around an article the product cannot translate.
+	 * What is left is the auth shell and Settings — the places with a person
+	 * behind them, reading an interface rather than a document.
 	 *
 	 * **It does not render while the product speaks one language.** A switcher
 	 * over a single catalogue changes a label and nothing else, which is the

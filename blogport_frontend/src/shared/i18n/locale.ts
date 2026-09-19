@@ -13,9 +13,9 @@ import { catalogues } from './messages';
  * and not a default wearing its clothes: someone who has never touched the
  * switcher should get Indonesian in Jakarta without asking for it.
  *
- * Stored per browser first. The auth and public shells have no session to write
- * to, so the cookie is the source of truth everywhere and the account catches
- * up at sign-in.
+ * Stored per browser first. The auth shell has no session to write to, so the
+ * cookie is the source of truth there and the account catches up at sign-in.
+ * The public shell does not take part at all — see `localeForRoute`.
  */
 
 /** English at launch, Indonesian beside it. §02: a third is a file, not a refactor. */
@@ -92,4 +92,42 @@ export function resolveLocale({
 	}
 
 	return BASE_LOCALE;
+}
+
+/**
+ * The public shell: the five reader-facing routes under `/[username]`.
+ *
+ * Matched on the whole first segment rather than on a bare prefix, so a future
+ * `/[username]-something` is not swept in by accident.
+ */
+function isPublicShell(routeId: string | null): boolean {
+	return routeId === '/[username]' || (routeId?.startsWith('/[username]/') ?? false);
+}
+
+/**
+ * Which language a route renders in — ruling A, 20 September.
+ *
+ * > Public pages are not localised. No segment, no negotiation, URLs unchanged.
+ *
+ * §02 argued the other way, and was written before there was a product to look
+ * at. The reasoning inverts once there is one: content language is per document
+ * and never retranslates, so localising a public page translates the chrome
+ * around an article the product cannot translate and does not claim to. A `/id/`
+ * prefix would assert a language for a body that is whatever the author wrote.
+ *
+ * **The residue is stated rather than solved.** Nothing a public page serves
+ * declares a language — not a post, not a project, not `PublicProfile` — so the
+ * shell stamps `en` and an article takes its own `lang` when it has one to take.
+ * That field is filed with the backend. Until it lands, `en` over an Indonesian
+ * post is wrong in the way it was already wrong; what changes is that it stops
+ * being wrong *differently for each reader*, which was the part that made one
+ * address serve two pages.
+ */
+export function localeForRoute({
+	routeId,
+	...negotiation
+}: Parameters<typeof resolveLocale>[0] & { routeId: string | null }): Locale {
+	if (isPublicShell(routeId)) return BASE_LOCALE;
+
+	return resolveLocale(negotiation);
 }
