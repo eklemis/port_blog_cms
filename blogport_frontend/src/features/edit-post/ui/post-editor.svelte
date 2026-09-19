@@ -18,6 +18,8 @@
 	import { attachTopic, createTopic, detachTopic, type Topic } from '../api/topics';
 	import TopicPicker from './topic-picker.svelte';
 	import AssistCard from './assist-card.svelte';
+	import CoverCard from './cover-card.svelte';
+	import type { MediaState } from '$lib/entities/media';
 
 	/**
 	 * The editor — J4 steps two and three.
@@ -32,9 +34,9 @@
 	 * one card, its title and address inline; a rail beside it. On a phone the
 	 * editor draws its own bar — back, pill, Publish — and the shell draws none.
 	 *
-	 * The rail's Assist and Cover image cards and the topic picker's "+ Add" are
-	 * drawn and not built: the companion rail, the upload flow and TopicPicker
-	 * are their own slices. The rail lists the post's topics as they are.
+	 * The rail is Assist, Topics, then Cover image — the order 32:934 draws them
+	 * in. Assist has only its off state, because no endpoint takes a passage of
+	 * prose; that is filed rather than stubbed.
 	 */
 	type Post = {
 		id: string;
@@ -53,6 +55,11 @@
 		onpreview = () => {},
 		/** Every topic this author owns, for the rail's picker to offer. */
 		availableTopics = [],
+		/** This post's cover, and a signed URL for it when one is ready. */
+		cover = null,
+		coverSrc = null,
+		/** The cover changed: the page reloads rather than this guessing. */
+		oncoverchange = () => {},
 		/** Injected by the spec; the browser's own otherwise. */
 		fetchFn = undefined
 	}: {
@@ -63,6 +70,9 @@
 		/** A preview link is ready. The caller opens it — in a new tab. */
 		onpreview?: (path: string) => void;
 		availableTopics?: Topic[];
+		cover?: { media_id: string; status: MediaState; alt_text: string } | null;
+		coverSrc?: string | null;
+		oncoverchange?: () => void;
 		fetchFn?: typeof globalThis.fetch;
 	} = $props();
 
@@ -494,6 +504,9 @@
 				ondetach={detach}
 				oncreate={create}
 			/>
+
+			<!-- Cover last, as 32:934 draws it: Assist, Topics, then Cover. -->
+			<CoverCard postId={post.id} {cover} {coverSrc} onchanged={oncoverchange} {fetchFn} />
 		</div>
 	</div>
 
