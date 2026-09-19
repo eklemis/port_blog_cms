@@ -15,10 +15,17 @@
 	 */
 	let {
 		label,
-		items
+		items,
+		trigger: triggerContent
 	}: {
 		/** Names the row it belongs to: "More for Building a CMS". */
 		label: string;
+		/**
+		 * What the button shows. Omitted, it is the ⋯ this menu was built for;
+		 * given, the caller draws its own — the language pill is a bordered
+		 * "EN ▾" rather than an icon, and the behaviour underneath is the same.
+		 */
+		trigger?: Snippet;
 		/**
 		 * `role="menuitem"` buttons. They are handed `close` and call it when
 		 * chosen — a click handler on the menu box itself would be a click
@@ -50,10 +57,15 @@
 		aria-haspopup="menu"
 		aria-expanded={open}
 		onclick={() => (open = !open)}
-		class="flex size-8 items-center justify-center rounded-lg text-arch-muted
-		       transition-colors hover:bg-arch-surface-2 hover:text-arch-headline"
+		class={triggerContent
+			? 'flex items-center rounded-full border border-arch-line px-[9px] py-[4px] transition-colors hover:border-arch-line-strong'
+			: 'flex size-8 items-center justify-center rounded-lg text-arch-muted transition-colors hover:bg-arch-surface-2 hover:text-arch-headline'}
 	>
-		<Ellipsis size={17} aria-hidden="true" />
+		{#if triggerContent}
+			{@render triggerContent()}
+		{:else}
+			<Ellipsis size={17} aria-hidden="true" />
+		{/if}
 	</button>
 
 	{#if open}
