@@ -573,6 +573,24 @@ footer .prose { max-width: 62ch; }
     </div>
 
     <div class="callout">
+      <h4>No locale segment, ever — and the profile withholds an email on purpose</h4>
+      <p>
+        Public URLs carry no language prefix and negotiate nothing. §02 of the Career Studio paper
+        carries the reasoning and the date; the short version is that the product cannot translate
+        an article, so a language in the path would be a claim it cannot keep. These five addresses
+        are final in shape.
+      </p>
+      <p>
+        <b>The profile shows a role, a résumé link and a code host. It does not show an email.</b>
+        <code>PublicProfile</code> withholds it deliberately — it is the one endpoint that serves a
+        person's details to a stranger — and putting a scrapeable address on a page every visitor
+        reaches undoes that on the author's behalf. Contact belongs on a <em>résumé the author chose
+        to share</em>, at <code>/[username]/cv/[id]</code>, where <code>contact_info</code> is
+        already part of a document they nominated. One deliberate act, one audience.
+      </p>
+    </div>
+
+    <div class="callout">
       <h4>Public routes are keyed on username, and username is immutable</h4>
       <p>
         <code>PUT /api/users/me</code> accepts <code>full_name</code> and nothing else. Every public
