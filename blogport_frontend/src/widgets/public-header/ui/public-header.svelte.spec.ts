@@ -94,3 +94,16 @@ test('takes the measure of the page it sits on', async () => {
 	const scan = render(PublicHeader, props({ measure: 'scan' }));
 	expect(scan.container.querySelector('header > div')?.className).toContain('max-w-[860px]');
 });
+
+test('carries no language switcher — public pages are not localised', async () => {
+	// Ruling A, 20 September. The pill keeps its 30 places on the auth screens
+	// and in Settings, and loses its 24 here. The frames drew it on every public
+	// screen, so this is the assertion that keeps a future edit from putting it
+	// back by reading the old frame.
+	const screen = render(PublicHeader, props());
+
+	const buttons = screen.getByRole('button').elements();
+
+	expect(buttons).toHaveLength(1);
+	expect(buttons[0].getAttribute('aria-label')).toBe('Author navigation');
+});

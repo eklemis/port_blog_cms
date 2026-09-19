@@ -10,10 +10,16 @@
 	 * introduces whoever's work a stranger has landed on, and it offers no way
 	 * into the console — "the public reader is not a lapsed author".
 	 *
-	 * Two things the frame draws that are not here, both waiting on an answer
-	 * rather than guessed at: the "Résumé" link, whose route in §03 is
-	 * `/[username]/cv/[id]` and so cannot be written without knowing which CV;
-	 * and the "EN ▾" pill, which no endpoint backs.
+	 * Two things the frame draws that are not here, for two different reasons.
+	 *
+	 * The "Résumé" link is still waiting: its route in §03 is
+	 * `/[username]/cv/[id]`, which cannot be written without knowing which CV an
+	 * author nominated.
+	 *
+	 * The "EN ▾" pill is **not** waiting — it has been ruled out. Ruling A of 20
+	 * September: public pages are not localised, so the pill keeps its 30 places
+	 * on the auth screens and in Settings and loses its 24 here. It is drawn in
+	 * the frames at every public width; do not read the frame and put it back.
 	 */
 	let {
 		username,

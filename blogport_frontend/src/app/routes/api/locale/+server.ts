@@ -7,9 +7,12 @@ import { LOCALE_COOKIE, availableLocales, isLocale } from '$lib/shared/i18n';
  * `POST /api/locale` — where the switcher writes.
  *
  * Career Studio §02. The cookie is written first and always, because the auth
- * and public shells have no session to write to and the choice has to survive
- * the next request either way. When there *is* a session the account is told
- * as well, so the choice follows the person to their other machines.
+ * shell has no session to write to and the choice has to survive the next
+ * request either way. When there *is* a session the account is told as well, so
+ * the choice follows the person to their other machines.
+ *
+ * The public shell never calls this. Ruling A of 20 September: public pages are
+ * not localised, so there is no preference there to record.
  *
  * The account write is best-effort on purpose: losing it costs the other
  * devices, not this page, and a language that failed to switch because a
