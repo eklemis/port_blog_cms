@@ -451,36 +451,19 @@ pub async fn start() -> std::io::Result<()> {
 
     // The addresses the emailed links point at.
     //
-    // These were hardcoded fallbacks of `0.0.0.0:5173/...`, which produced an
-    // email that arrived and a link that did nothing: no scheme, so a browser
-    // reads it as a relative path, and 0.0.0.0 is a bind address rather than one
-    // a client can open. A wrong link is worse than a missing email, because the
-    // user concludes the reset is broken and nothing on our side disagrees.
-    let read_handler_url = |var: &str, development_default: &str| {
-        match mail_config::handler_url(var, env::var(var).ok(), development_default, is_development)
-        {
-            Ok((url, warning)) => {
-                if let Some(warning) = warning {
-                    tracing::warn!("{warning}");
-                }
-                url
-            }
-            // Refusing to start is the point. Serving with a broken link means
-            // every reset and every sign-up verification silently fails.
-            Err(e) => panic!("{e}"),
-        }
+    // Configuration, with no default in any environment — the same treatment
+    // DATABASE_URL gets, for the same reason. These are routes in another
+    // application: this service cannot ask whether one exists, and the two
+    // times it guessed, it shipped a link that went nowhere. Missing stops the
+    // server here, loudly, instead of reaching a user as a 404 they will read
+    // as the frontend being broken.
+    let read_handler_url = |var: &str| match mail_config::handler_url(var, env::var(var).ok()) {
+        Ok(url) => url.to_string(),
+        Err(e) => panic!("{e}"),
     };
 
-    let verification_handler_url = read_handler_url(
-        "VERIFICATION_HANDLER_URL",
-        "http://localhost:5173/email/verification",
-    )
-    .to_string();
-    let password_reset_handler_url = read_handler_url(
-        "PASSWORD_RESET_HANDLER_URL",
-        "http://localhost:5173/password-reset",
-    )
-    .to_string();
+    let verification_handler_url = read_handler_url("VERIFICATION_HANDLER_URL");
+    let password_reset_handler_url = read_handler_url("PASSWORD_RESET_HANDLER_URL");
 
     let user_email_service = UserEmailService::new(
         smtp_sender,

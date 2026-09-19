@@ -130,8 +130,8 @@ The variables worth calling out here:
 | `EMAIL_FROM` | **yes** | — | `From:` address on verification and reset mail. |
 | `SMTP_SERVER`, `SMTP_USERNAME`, `SMTP_PASSWORD` | unless `RUST_ENV=test` | — | Outbound mail. Under `RUST_ENV=test` these are ignored in favour of local Mailpit on `SMTP_HOST`/`SMTP_PORT` (`localhost:1025`). |
 | `CORS_ALLOWED_ORIGINS` | no | `http://localhost:5173`, `http://127.0.0.1:5173` | Comma-separated browser origins allowed to call the API. **Set this in production** — the fallback is development-only and the server logs a warning when it is used. |
-| `PASSWORD_RESET_HANDLER_URL` | no | `0.0.0.0:5173/password-reset` | Frontend route the emailed reset link points at. The token is appended as a path segment. |
-| `VERIFICATION_HANDLER_URL` | no | `0.0.0.0:5173/email/verification` | Frontend route the emailed verification link points at. |
+| `PASSWORD_RESET_HANDLER_URL` | **yes** | — | Frontend route the emailed reset link points at; the token is appended as a path segment. Must include the scheme and must not be `0.0.0.0`. **No default in any environment** — it is a route in another application, this service cannot check that it exists, and both values it once defaulted to sent mail whose link went nowhere. Development: `http://localhost:5173/auth/reset`. |
+| `VERIFICATION_HANDLER_URL` | **yes** | — | As above, for the sign-up link. Development: `http://localhost:5173/email/verification`. |
 | `JWT_PASSWORD_RESET_EXPIRY` | no | `3600` | Reset-token lifetime in seconds. Shorter than verification on purpose — the link is a live credential for the account. |
 | `MULTIMEDIA_UPLOAD_BUCKET` | no | `blogport-cms-upload` | GCS bucket that receives uploads. |
 | `SKIP_REDIS_TESTS` | no | unset | Set to `1` to skip the Redis integration tests. |

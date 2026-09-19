@@ -16,6 +16,18 @@
 //! 3. Nothing was listening on the mail port, so every send failed with
 //!    connection-refused — visible only in a log line, because the endpoint
 //!    answers "if that email is registered, a link has been sent" either way.
+//! 4. The correction to the first fault kept its path. `/password-reset` is not
+//!    a route the frontend has — it serves `auth/reset/[token]` — so the link
+//!    became well-formed and still went nowhere. That failure is worse than a
+//!    malformed one: mail sends, the link opens, the app answers 404, and every
+//!    hop but the last looks right, so the frontend gets blamed for it.
+//!
+//! Hence the rule these functions enforce: **a link target is configuration,
+//! never a default.** It is a frontend route, the backend cannot check that it
+//! exists, and a guess that is wrong produces a product that is broken quietly.
+//! Missing is fatal in every environment, like `DATABASE_URL` — loud, at
+//! startup, in front of whoever deployed. `.env.example` carries the
+//! development values.
 
 use std::time::Duration;
 
@@ -42,7 +54,7 @@ impl std::fmt::Display for HandlerUrl {
 /// What went wrong with a configured link target.
 #[derive(Debug, PartialEq, Eq)]
 pub enum HandlerUrlError {
-    /// Not set, and there is no safe default outside development.
+    /// Not set. There is no default, in any environment.
     Missing {
         /// The variable that was expected.
         var: String,
@@ -63,62 +75,45 @@ impl std::fmt::Display for HandlerUrlError {
         match self {
             Self::Missing { var } => write!(
                 f,
-                "{var} is not set. It is the address the emailed link points at, \
-                 so there is no sensible default outside development — set it to \
-                 the frontend origin plus its route, \
-                 e.g. https://example.com/password-reset"
+                "{var} is not set. It is a frontend route, which this service \
+                 cannot verify and must not guess: a wrong one sends mail whose \
+                 link opens a 404. Set it to the frontend origin plus the route, \
+                 e.g. https://example.com/auth/reset — backend_actix/.env.example \
+                 lists the development values."
             ),
             Self::Unusable { var, value, why } => write!(
                 f,
                 "{var} is set to {value:?}, which a browser cannot follow: {why}. \
-                 Include the scheme, e.g. http://localhost:5173/password-reset"
+                 Include the scheme, e.g. http://localhost:5173/auth/reset"
             ),
         }
     }
 }
 
-/// The link target for one kind of email.
+/// The link target for one kind of email, from configuration only.
 ///
-/// A missing value is fatal outside development, because the alternative is an
-/// email whose link is wrong — which is worse than no email at all: the user
-/// believes the reset is broken on their side, and nothing in the logs says
-/// otherwise.
+/// There is no default, deliberately, and none for development either. The
+/// value is a route belonging to another application: this service cannot ask
+/// whether it exists, so any value it invents is a guess that will be right
+/// until the day the frontend moves a route, and wrong silently after it.
 ///
-/// In development it falls back to the local frontend, and says so, so a fresh
-/// checkout works without configuration while still naming what it assumed.
-pub fn handler_url(
-    var: &str,
-    configured: Option<String>,
-    development_default: &str,
-    is_development: bool,
-) -> Result<(HandlerUrl, Option<String>), HandlerUrlError> {
+/// A missing value stops the server, which is the cheap failure — it happens
+/// once, at startup, in front of the person deploying. The alternative failure
+/// happens to users, one forgotten password at a time, and reads as the
+/// frontend's fault.
+pub fn handler_url(var: &str, configured: Option<String>) -> Result<HandlerUrl, HandlerUrlError> {
     match configured.as_deref().map(str::trim) {
-        Some("") | None => {
-            if is_development {
-                Ok((
-                    HandlerUrl(development_default.to_string()),
-                    Some(format!(
-                        "{var} is not set; using {development_default} because \
-                         RUST_ENV=test. Emails will link there."
-                    )),
-                ))
-            } else {
-                Err(HandlerUrlError::Missing {
-                    var: var.to_string(),
-                })
-            }
-        }
-        Some(value) => {
-            let why = unusable_reason(value);
-            match why {
-                Some(why) => Err(HandlerUrlError::Unusable {
-                    var: var.to_string(),
-                    value: value.to_string(),
-                    why,
-                }),
-                None => Ok((HandlerUrl(value.trim_end_matches('/').to_string()), None)),
-            }
-        }
+        Some("") | None => Err(HandlerUrlError::Missing {
+            var: var.to_string(),
+        }),
+        Some(value) => match unusable_reason(value) {
+            Some(why) => Err(HandlerUrlError::Unusable {
+                var: var.to_string(),
+                value: value.to_string(),
+                why,
+            }),
+            None => Ok(HandlerUrl(value.trim_end_matches('/').to_string())),
+        },
     }
 }
 
@@ -207,46 +202,38 @@ pub async fn smtp_reachable(host: &str, port: u16, timeout: Duration) -> Result<
 mod tests {
     use super::*;
 
-    const DEV_DEFAULT: &str = "http://localhost:5173/password-reset";
-
     #[test]
     fn a_configured_url_is_taken_as_given() {
-        let (url, warning) = handler_url(
+        let url = handler_url(
             "PASSWORD_RESET_HANDLER_URL",
-            Some("https://example.com/password-reset".to_string()),
-            DEV_DEFAULT,
-            false,
+            Some("https://example.com/auth/reset".to_string()),
         )
         .expect("a well-formed url is accepted");
 
-        assert_eq!(url.as_str(), "https://example.com/password-reset");
-        assert_eq!(warning, None, "nothing to warn about");
+        assert_eq!(url.as_str(), "https://example.com/auth/reset");
     }
 
-    /// The trailing slash would otherwise produce `…/password-reset//token`.
+    /// The trailing slash would otherwise produce `…/auth/reset//token`.
     #[test]
     fn a_trailing_slash_is_dropped() {
-        let (url, _) = handler_url(
+        let url = handler_url(
             "PASSWORD_RESET_HANDLER_URL",
-            Some("https://example.com/password-reset/".to_string()),
-            DEV_DEFAULT,
-            false,
+            Some("https://example.com/auth/reset/".to_string()),
         )
         .expect("accepted");
 
-        assert_eq!(url.as_str(), "https://example.com/password-reset");
+        assert_eq!(url.as_str(), "https://example.com/auth/reset");
     }
 
-    /// The failure that shipped: no scheme, so the link is read as relative.
+    /// The first failure that shipped: no scheme, so a browser reads the value
+    /// as a relative path and the link goes nowhere.
     #[test]
     fn a_url_without_a_scheme_is_refused() {
         let err = handler_url(
             "PASSWORD_RESET_HANDLER_URL",
             Some("0.0.0.0:5173/password-reset".to_string()),
-            DEV_DEFAULT,
-            true,
         )
-        .expect_err("must not be accepted, even in development");
+        .expect_err("must not be accepted");
 
         assert!(
             matches!(&err, HandlerUrlError::Unusable { why, .. } if why.contains("scheme")),
@@ -260,8 +247,6 @@ mod tests {
         let err = handler_url(
             "VERIFICATION_HANDLER_URL",
             Some("http://0.0.0.0:5173/email/verification".to_string()),
-            DEV_DEFAULT,
-            true,
         )
         .expect_err("0.0.0.0 cannot be opened by a browser");
 
@@ -271,36 +256,34 @@ mod tests {
         );
     }
 
+    /// No environment gets a default, development included.
+    ///
+    /// A development default is where the last two faults came from: the first
+    /// guess was unusable, the correction guessed a route the frontend does not
+    /// serve, and both shipped because a guess had somewhere to live. The
+    /// server cannot check a route in another application, so it does not try.
     #[test]
-    fn missing_is_fatal_in_production_and_defaulted_in_development() {
-        let err = handler_url("PASSWORD_RESET_HANDLER_URL", None, DEV_DEFAULT, false)
-            .expect_err("production must not guess where a link points");
+    fn missing_is_fatal_in_every_environment() {
+        let err = handler_url("PASSWORD_RESET_HANDLER_URL", None)
+            .expect_err("a link target is configuration, not a guess");
+
         assert!(
             matches!(err, HandlerUrlError::Missing { .. }),
             "got {err:?}"
         );
 
-        let (url, warning) = handler_url("PASSWORD_RESET_HANDLER_URL", None, DEV_DEFAULT, true)
-            .expect("development falls back");
-        assert_eq!(url.as_str(), DEV_DEFAULT);
+        let message = err.to_string();
         assert!(
-            warning
-                .expect("the assumption is stated")
-                .contains(DEV_DEFAULT),
-            "the warning must name what it assumed"
+            message.contains(".env.example"),
+            "the message must say where the values are: {message}"
         );
     }
 
     /// An empty value is a value someone tried to set, and it is unusable.
     #[test]
     fn an_empty_value_is_treated_as_unset() {
-        let err = handler_url(
-            "PASSWORD_RESET_HANDLER_URL",
-            Some("   ".to_string()),
-            DEV_DEFAULT,
-            false,
-        )
-        .expect_err("blank is not configured");
+        let err = handler_url("PASSWORD_RESET_HANDLER_URL", Some("   ".to_string()))
+            .expect_err("blank is not configured");
 
         assert!(
             matches!(err, HandlerUrlError::Missing { .. }),
