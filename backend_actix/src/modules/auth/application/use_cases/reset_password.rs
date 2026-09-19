@@ -1,10 +1,12 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use std::sync::Arc;
 
 use crate::auth::application::ports::incoming::password_policy::{
     PasswordPolicy, PasswordPolicyError,
 };
 use crate::auth::application::ports::outgoing::password_hasher::PasswordHasher;
+use crate::auth::application::ports::outgoing::token_hasher::hash_token;
 use crate::auth::application::ports::outgoing::token_provider::TokenProvider;
 use crate::auth::application::ports::outgoing::token_repository::TokenRepository;
 use crate::auth::application::ports::outgoing::user_repository::UserRepository;
@@ -91,6 +93,30 @@ where
             .verify_password_reset_token(token)
             .map_err(|_| ResetPasswordError::InvalidToken)?;
 
+        // A reset link is a credential, and one that travels through a mailbox
+        // — forwarded, screenshotted, left in a shared browser's history. Until
+        // this check it could be redeemed as many times as it was presented,
+        // for the whole hour it lived, including after the owner had used it
+        // and believed the matter closed. Redeeming it once must spend it.
+        //
+        // The record is the token's own hash, never the token: the same
+        // treatment logout gives a refresh token, in the same store.
+        let redeemed = hash_token(token);
+
+        match self.token_repository.is_token_blacklisted(&redeemed).await {
+            Ok(true) => return Err(ResetPasswordError::InvalidToken),
+            Ok(false) => {}
+            // Fail closed. A reset is the remedy for a compromised account, so
+            // a store that cannot say whether this link was already spent must
+            // not be read as "not spent".
+            Err(e) => {
+                tracing::error!("Could not check whether a reset token was spent: {e}");
+                return Err(ResetPasswordError::RepositoryError(format!(
+                    "could not verify token state: {e}"
+                )));
+            }
+        }
+
         // Same policy registration enforces, so a reset cannot be used to slip
         // past the length bounds.
         self.password_policy
@@ -132,6 +158,36 @@ where
             )));
         }
 
+        // Spent last, and that order is load-bearing rather than tidy.
+        // `revoke_all_user_tokens` deletes this user's blacklist entries, so a
+        // token spent before that call would be un-spent by it and work again.
+        // See the note on that method: it does not do what its name says.
+        //
+        // The entry expires with the token, because after that the token is
+        // refused on its own expiry and the record is dead weight.
+        let expires_at = match self.token_provider.verify_token(token) {
+            Ok(claims) => DateTime::from_timestamp(claims.exp, 0).unwrap_or_else(Utc::now),
+            // Unreachable: the same token verified at the top of this method.
+            Err(_) => return Err(ResetPasswordError::InvalidToken),
+        };
+
+        if let Err(e) = self
+            .token_repository
+            .blacklist_token(redeemed, user_id, expires_at)
+            .await
+        {
+            // The password is already changed and the sessions are already
+            // gone, so failing here would report a reset that did happen as a
+            // failure and invite a retry. It is logged instead — loudly,
+            // because the link stays redeemable until it expires.
+            tracing::error!(
+                "Password reset for {} succeeded but the token could not be marked spent, \
+                 so the emailed link stays usable until it expires: {}",
+                user_id,
+                e
+            );
+        }
+
         Ok(())
     }
 }
@@ -162,7 +218,19 @@ mod tests {
             unimplemented!()
         }
         fn verify_token(&self, _t: &str) -> Result<TokenClaims, TokenError> {
-            unimplemented!()
+            // Read for the expiry, so the record of a spent token can expire
+            // with the token rather than outliving it.
+            match self.result {
+                Ok(sub) => Ok(TokenClaims {
+                    sub,
+                    exp: (Utc::now() + chrono::Duration::hours(1)).timestamp(),
+                    iat: Utc::now().timestamp(),
+                    nbf: Utc::now().timestamp(),
+                    token_type: "password_reset".to_string(),
+                    is_verified: false,
+                }),
+                Err(()) => Err(TokenError::MalformedToken),
+            }
         }
         fn refresh_access_token(&self, _t: &str) -> Result<String, TokenError> {
             unimplemented!()
@@ -235,26 +303,40 @@ mod tests {
     struct SpyTokenRepo {
         revoked: Mutex<Vec<Uuid>>,
         fail: bool,
+        /// Hashes marked spent, in the order they were marked.
+        spent: Mutex<Vec<String>>,
+        /// Treated as already spent when the call comes in.
+        already_spent: Mutex<Vec<String>>,
+        /// What the store reports when asked whether a token was spent.
+        lookup_fails: bool,
     }
 
     #[async_trait]
     impl TokenRepository for SpyTokenRepo {
         async fn blacklist_token(
             &self,
-            _t: String,
+            t: String,
             _u: Uuid,
             _e: DateTime<Utc>,
         ) -> Result<(), TokenRepositoryError> {
-            unimplemented!()
+            self.spent.lock().unwrap().push(t);
+            Ok(())
         }
-        async fn is_token_blacklisted(&self, _t: &str) -> Result<bool, TokenRepositoryError> {
-            unimplemented!()
+        async fn is_token_blacklisted(&self, t: &str) -> Result<bool, TokenRepositoryError> {
+            if self.lookup_fails {
+                return Err(TokenRepositoryError::DatabaseError("redis down".into()));
+            }
+            Ok(self.already_spent.lock().unwrap().iter().any(|h| h == t))
         }
         async fn remove_blacklisted_token(&self, _t: &str) -> Result<(), TokenRepositoryError> {
             unimplemented!()
         }
         async fn revoke_all_user_tokens(&self, user_id: Uuid) -> Result<(), TokenRepositoryError> {
             self.revoked.lock().unwrap().push(user_id);
+            // Mirrors the real Redis implementation, which deletes this user's
+            // blacklist entries. A token spent before this call is un-spent by
+            // it, which is why the order in `execute` matters.
+            self.spent.lock().unwrap().clear();
             if self.fail {
                 return Err(TokenRepositoryError::DatabaseError("redis down".into()));
             }
@@ -370,6 +452,104 @@ mod tests {
         let (updated_id, hash) = repo.updated.lock().unwrap().clone().unwrap();
         assert_eq!(updated_id, user_id);
         assert_eq!(hash, "new-hash");
+    }
+
+    /// Redeeming a link spends it.
+    ///
+    /// The link travels by email: forwarded, screenshotted, left in a shared
+    /// browser's history. Before this it could be redeemed repeatedly for its
+    /// whole hour, including after the owner had used it.
+    #[tokio::test]
+    async fn a_redeemed_token_is_spent() {
+        let user_id = Uuid::new_v4();
+        let repo = Arc::new(SpyRepo::default());
+        let tokens = Arc::new(SpyTokenRepo::default());
+
+        service(Ok(user_id), Arc::clone(&repo), Arc::clone(&tokens))
+            .execute("t", "a-long-enough-password")
+            .await
+            .expect("the first redemption succeeds");
+
+        let spent = tokens.spent.lock().unwrap().clone();
+        assert_eq!(
+            spent,
+            vec![hash_token("t")],
+            "the token's hash is recorded, and the token itself never is"
+        );
+    }
+
+    /// The second attempt with the same link changes nothing.
+    #[tokio::test]
+    async fn a_spent_token_is_refused_and_writes_nothing() {
+        let user_id = Uuid::new_v4();
+        let repo = Arc::new(SpyRepo::default());
+        let tokens = Arc::new(SpyTokenRepo::default());
+        tokens.already_spent.lock().unwrap().push(hash_token("t"));
+
+        let result = service(Ok(user_id), Arc::clone(&repo), Arc::clone(&tokens))
+            .execute("t", "a-different-long-password")
+            .await;
+
+        assert!(
+            matches!(result, Err(ResetPasswordError::InvalidToken)),
+            "a spent link must read as an invalid one: {result:?}"
+        );
+        assert!(
+            repo.updated.lock().unwrap().is_none(),
+            "a refused redemption must not change the password"
+        );
+        assert!(
+            tokens.revoked.lock().unwrap().is_empty(),
+            "nor end anyone's session"
+        );
+    }
+
+    /// Spending is recorded after revocation, not before.
+    ///
+    /// `revoke_all_user_tokens` deletes this user's blacklist entries, so a
+    /// token marked spent before that call is un-spent by it and works again.
+    /// The spy clears its record on revocation for exactly this reason: if the
+    /// order in `execute` is swapped, this test fails.
+    #[tokio::test]
+    async fn spending_survives_the_revocation_that_follows_it() {
+        let user_id = Uuid::new_v4();
+        let repo = Arc::new(SpyRepo::default());
+        let tokens = Arc::new(SpyTokenRepo::default());
+
+        service(Ok(user_id), repo, Arc::clone(&tokens))
+            .execute("t", "a-long-enough-password")
+            .await
+            .unwrap();
+
+        assert_eq!(
+            tokens.spent.lock().unwrap().clone(),
+            vec![hash_token("t")],
+            "the record of a spent token must outlive the revocation step"
+        );
+    }
+
+    /// A store that cannot answer must not be read as "not spent".
+    #[tokio::test]
+    async fn an_unreadable_store_refuses_the_reset() {
+        let user_id = Uuid::new_v4();
+        let repo = Arc::new(SpyRepo::default());
+        let tokens = Arc::new(SpyTokenRepo {
+            lookup_fails: true,
+            ..Default::default()
+        });
+
+        let result = service(Ok(user_id), Arc::clone(&repo), tokens)
+            .execute("t", "a-long-enough-password")
+            .await;
+
+        assert!(
+            matches!(result, Err(ResetPasswordError::RepositoryError(_))),
+            "fail closed: {result:?}"
+        );
+        assert!(
+            repo.updated.lock().unwrap().is_none(),
+            "and change nothing on the way"
+        );
     }
 
     /// A reset is the remedy for a compromised account, so the old sessions
