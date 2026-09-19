@@ -221,9 +221,12 @@
 	-->
 	{#if !(posts.length === 0 && !filtered && !failed && !loading)}
 		<div class="flex flex-wrap items-center gap-2.5 max-md:gap-3">
+			<!-- The search is narrower between md and lg. Tablet / Posts list 166:5098
+			     keeps all four controls on one row, and at 834 the icon rail leaves
+			     710 for a toolbar that wants 726 at the desktop width. -->
 			<div
 				class="flex h-10 w-full items-center gap-[9px] rounded-[9px] border border-arch-line
-				       bg-arch-surface px-[13px] md:h-[38px] md:w-[280px] md:rounded-lg"
+				       bg-arch-surface px-[13px] md:h-[38px] md:w-[240px] md:rounded-lg lg:w-[280px]"
 			>
 				<Search size={16} aria-hidden="true" class="shrink-0 text-arch-muted" />
 				<input
