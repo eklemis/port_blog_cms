@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { PostEditorPage } from '$lib/pages/post-editor';
 	import type { PageProps } from './$types';
@@ -17,6 +17,9 @@
 	username={data.user.username}
 	denied={data.denied}
 	availableTopics={data.availableTopics}
+	cover={data.cover}
+	coverSrc={data.coverSrc}
+	oncoverchange={() => invalidateAll()}
 	onarchived={() => goto(resolve('/studio/posts'))}
 	onpreview={(path) => window.open(path, '_blank', 'noopener')}
 />

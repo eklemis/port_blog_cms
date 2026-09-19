@@ -81,19 +81,37 @@ test('a post that is not yours is refused, not crashed on', async () => {
 
 	const data = await loaded();
 
-	expect(data).toEqual({ post: null, denied: true, availableTopics: [] });
+	expect(data).toEqual({
+		post: null,
+		denied: true,
+		availableTopics: [],
+		cover: null,
+		coverSrc: null
+	});
 });
 
 test('a forbidden post is the same screen', async () => {
 	backend(403, { error: { code: 'POST_UNAUTHORIZED' } });
 
-	expect(await loaded()).toEqual({ post: null, denied: true, availableTopics: [] });
+	expect(await loaded()).toEqual({
+		post: null,
+		denied: true,
+		availableTopics: [],
+		cover: null,
+		coverSrc: null
+	});
 });
 
 test('an unreachable backend does not throw out of the loader', async () => {
 	unreachable = new TypeError('fetch failed');
 
-	expect(await loaded()).toEqual({ post: null, denied: true, availableTopics: [] });
+	expect(await loaded()).toEqual({
+		post: null,
+		denied: true,
+		availableTopics: [],
+		cover: null,
+		coverSrc: null
+	});
 });
 
 test('brings the author’s own topics, for the rail to offer', async () => {
@@ -133,4 +151,99 @@ test('a topics list that could not be had is no topics, not a broken editor', as
 
 	expect(data.post).toBeTruthy();
 	expect(data.availableTopics).toEqual([]);
+});
+
+/**
+ * The cover. Two calls, because neither endpoint can answer alone:
+ * `by-target/blog_post` lists every image on every post this author owns, and
+ * the read URL is a second request that only makes sense once one is `ready`.
+ */
+
+/** Answers each backend path in turn, so the two cover calls can differ. */
+function routes(answers: Record<string, { status?: number; body: unknown }>) {
+	fetchImpl.mockImplementation(async (_event: unknown, path: string) => {
+		const answer = answers[path] ?? { status: 404, body: { error: { code: 'NOT_FOUND' } } };
+		const status = answer.status ?? 200;
+
+		return { ok: status < 400, status, headers: new Headers(), json: async () => answer.body };
+	});
+}
+
+const attachment = (over: Record<string, unknown> = {}) => ({
+	media_id: 'm-1',
+	attachment_target_id: 'post-1',
+	role: 'cover',
+	status: 'ready',
+	alt_text: 'A hexagonal diagram',
+	...over
+});
+
+test('a ready cover arrives with a URL to read it with', async () => {
+	routes({
+		'/api/blog/post-1': { body: { data: POST } },
+		'/api/topics': { body: { data: [] } },
+		'/api/media/by-target/blog_post': { body: { data: { rows: [attachment()] } } },
+		'/api/media/m-1/medium': { body: { data: { url: 'https://signed.example.test/m-1' } } }
+	});
+
+	const data = (await load({ params: { id: 'post-1' } } as never)) as unknown as {
+		cover: { media_id: string } | null;
+		coverSrc: string | null;
+	};
+
+	expect(data.cover?.media_id).toBe('m-1');
+	expect(data.coverSrc).toBe('https://signed.example.test/m-1');
+});
+
+test('a cover still processing is passed on without a URL it does not have', async () => {
+	// There are no variants to read yet. Asking would answer 409, and the card
+	// shows the state rather than a gap.
+	routes({
+		'/api/blog/post-1': { body: { data: POST } },
+		'/api/topics': { body: { data: [] } },
+		'/api/media/by-target/blog_post': {
+			body: { data: { rows: [attachment({ status: 'processing' })] } }
+		}
+	});
+
+	const data = (await load({ params: { id: 'post-1' } } as never)) as unknown as {
+		cover: { status: string } | null;
+		coverSrc: string | null;
+	};
+
+	expect(data.cover?.status).toBe('processing');
+	expect(data.coverSrc).toBe(null);
+	expect(fetchImpl.mock.calls.map((call) => call[1])).not.toContain('/api/media/m-1/medium');
+});
+
+test('another post’s images are not this post’s cover', async () => {
+	// The listing is per target *kind*, not per post.
+	routes({
+		'/api/blog/post-1': { body: { data: POST } },
+		'/api/topics': { body: { data: [] } },
+		'/api/media/by-target/blog_post': {
+			body: { data: { rows: [attachment({ attachment_target_id: 'post-2' })] } }
+		}
+	});
+
+	const data = (await load({ params: { id: 'post-1' } } as never)) as unknown as {
+		cover: unknown | null;
+	};
+
+	expect(data.cover).toBe(null);
+});
+
+test('losing the media listing costs the rail its picture and nothing else', async () => {
+	routes({
+		'/api/blog/post-1': { body: { data: POST } },
+		'/api/topics': { body: { data: [] } }
+	});
+
+	const data = (await load({ params: { id: 'post-1' } } as never)) as unknown as {
+		post: { id: string } | null;
+		cover: unknown | null;
+	};
+
+	expect(data.post?.id).toBe('post-1');
+	expect(data.cover).toBe(null);
 });
