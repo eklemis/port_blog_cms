@@ -23,11 +23,22 @@ test('renders what it wraps', async () => {
 	await expect.element(screen.getByText('The screen')).toBeInTheDocument();
 });
 
-test('offers every console destination', async () => {
+test('offers every console destination that exists, and no others', async () => {
+	// A nav item is a claim that a screen is there. Projects, Résumés, Media,
+	// Topics and Account are drawn in the frames and not yet built, so the
+	// sidebar does not link them: a 404 from inside your own console cannot be
+	// told apart from something being broken.
 	const screen = render(StudioShell, props());
 
-	for (const label of ['Overview', 'Posts', 'Projects', 'Résumés', 'Media', 'Topics', 'Account']) {
+	for (const label of ['Overview', 'Posts', 'Applications']) {
 		expect(screen.getByRole('link', { name: label }).elements().length).toBeGreaterThan(0);
+	}
+
+	for (const label of ['Projects', 'Résumés', 'Media', 'Topics', 'Account']) {
+		expect(
+			screen.getByRole('link', { name: label }).elements(),
+			`${label} has no screen to point at`
+		).toHaveLength(0);
 	}
 });
 
@@ -118,7 +129,7 @@ test('the sheet is shut until it is asked for', async () => {
 	expect(screen.getByRole('dialog').elements()).toHaveLength(0);
 });
 
-test('More opens a sheet holding the four the bar has no room for', async () => {
+test('More opens a sheet holding what the bar has no room for', async () => {
 	const screen = render(StudioShell, props());
 
 	await screen.getByRole('button', { name: 'More' }).click();
@@ -129,7 +140,9 @@ test('More opens a sheet holding the four the bar has no room for', async () => 
 	expect(sheet.getByRole('heading').elements()).toHaveLength(0);
 	await expect.element(sheet).toBeInTheDocument();
 
-	for (const label of ['Overview', 'Résumés', 'Topics', 'Account']) {
+	// Overview is the one that matters: at 390px the sheet is the only way to
+	// it. Résumés, Topics and Account belong here and return with their screens.
+	for (const label of ['Overview']) {
 		expect(
 			sheet.getByRole('link', { name: label }).elements(),
 			`${label} is unreachable at 390px without it`

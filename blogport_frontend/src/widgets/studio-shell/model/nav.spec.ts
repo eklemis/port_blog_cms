@@ -1,19 +1,31 @@
+import { existsSync, readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { expect, test } from 'vitest';
 import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
 import { CircleUser } from '@lucide/svelte';
-import { ACCOUNT, MORE, NAV, TAB_BAR, currentLabel, isCurrent, mobileChrome } from './nav';
+import {
+	ACCOUNT,
+	BELOW,
+	DESIGNED,
+	MORE,
+	NAV,
+	TAB_BAR,
+	currentLabel,
+	isCurrent,
+	mobileChrome
+} from './nav';
 
 /**
  * The console's navigation, defined once so the sidebar, the tablet rail and
  * the mobile tab bar cannot drift from each other.
  */
 
-test('lists the surfaces the route map sanctions, and only those', () => {
+test('names the surfaces the route map sanctions, and only those', () => {
 	// Seven, in the order the Prototype Map's sidebar row gives them. It shipped
 	// with six because the Console Blueprint's route table did not carry the
 	// Career Studio; the designer has since added it, and confirmed the frames
 	// were right all along.
-	expect(NAV.map((item) => item.label)).toEqual([
+	expect(DESIGNED.map((item) => item.label)).toEqual([
 		'Overview',
 		'Posts',
 		'Projects',
@@ -24,21 +36,74 @@ test('lists the surfaces the route map sanctions, and only those', () => {
 	]);
 });
 
+/**
+ * A nav item is a claim that a screen is there.
+ *
+ * §02 makes the rule for the posts table: the Topics column "is not built; it
+ * is never filled with em dashes, which would read as 'no topics' on every
+ * row." A link to a route that does not exist is the same error in navigation
+ * form, and its answer is a 404 from inside the person's own console.
+ *
+ * So the designed seven stay written down, and what is *offered* is what has a
+ * screen. The filesystem is the oracle rather than this file's good intentions.
+ */
+
+const pageFor = (href: string) =>
+	fileURLToPath(new URL(`../../../app/routes${href}/+page.svelte`, import.meta.url));
+
+test('every destination the console offers is a screen that exists', () => {
+	for (const item of [...NAV, ...BELOW]) {
+		expect(existsSync(pageFor(item.href)), `${item.label} promises ${item.href}`).toBe(true);
+	}
+});
+
+test('a console screen that exists is offered', () => {
+	// The other direction: building a screen and forgetting the nav leaves it
+	// reachable only by typing the address.
+	const studio = fileURLToPath(new URL('../../../app/routes/studio', import.meta.url));
+	const built = readdirSync(studio, { withFileTypes: true })
+		.filter((entry) => entry.isDirectory() && !entry.name.startsWith('['))
+		.map((entry) => `/studio/${entry.name}`)
+		.filter((href) => existsSync(pageFor(href)));
+
+	const offered = new Set([...NAV, ...BELOW].map((item) => item.href));
+
+	for (const href of built) expect(offered.has(href), `${href} is built`).toBe(true);
+});
+
+test('the bar and the sheet offer nothing the sidebar does not', () => {
+	const offered = new Set([...NAV, ...BELOW].map((item) => item.href));
+
+	for (const item of [...TAB_BAR, ...MORE]) {
+		expect(offered.has(item.href), `${item.label} in a mobile surface`).toBe(true);
+	}
+});
+
+test('More is still reachable when the bar has lost a tab', () => {
+	// Filtering must never empty the sheet: Overview lives behind More, and at
+	// 390px there is no other way to it.
+	expect(MORE.length).toBeGreaterThan(0);
+});
+
 test('every item points somewhere the map names', () => {
 	const known = Object.values(CONSOLE_ROUTES);
 	for (const item of NAV) expect(known).toContain(item.href);
 });
 
-test('the bar is the four destinations the mobile frames draw', () => {
-	// Identical on all fourteen console frames that carry a bar, which is what
-	// makes it a decision rather than a screenshot artefact. The fifth slot is
-	// More, and More is not a destination — it opens the sheet.
-	expect(TAB_BAR.map((item) => item.short ?? item.label)).toEqual([
-		'Posts',
-		'Projects',
-		'Apps',
-		'Media'
-	]);
+test('the bar keeps the frames’ order, minus what has no screen', () => {
+	// Posts · Projects · Apps · Media, identical on all fourteen console frames
+	// that carry a bar — which is what makes it a decision rather than a
+	// screenshot artefact. The fifth slot is More, and More is not a
+	// destination; it opens the sheet.
+	//
+	// Projects and Media are not built, so the bar is short rather than
+	// backfilled from the sheet. Borrowing a tab would be this file redesigning
+	// the mobile bar because a screen is late.
+	expect(TAB_BAR.map((item) => item.short ?? item.label)).toEqual(['Posts', 'Apps']);
+
+	const intended = ['Posts', 'Projects', 'Apps', 'Media'];
+	const offered = TAB_BAR.map((item) => item.short ?? item.label);
+	expect(offered).toEqual(intended.filter((label) => offered.includes(label)));
 });
 
 test('a slot that cannot fit the full name says the short one', () => {
@@ -51,17 +116,18 @@ test('a slot that cannot fit the full name says the short one', () => {
 	expect(apps?.label).toBe('Applications');
 });
 
-test('More holds the four that do not fit, Overview first', () => {
+test('More holds what does not fit, Overview first', () => {
 	// Overview first because it is the home screen — and until this sheet
-	// exists, Mobile / Overview has no way in at all.
-	expect(MORE.map((item) => item.label)).toEqual(['Overview', 'Résumés', 'Topics', 'Account']);
+	// exists, Mobile / Overview has no way in at all. Résumés, Topics and
+	// Account belong here too and return the day they have screens.
+	expect(MORE.map((item) => item.label)).toEqual(['Overview']);
 });
 
 test('between the bar and the sheet, nothing is unreachable at 390px', () => {
 	// The invariant that matters: eight destinations, five slots. Anything
 	// dropped from the bar has to turn up behind More.
 	const reachable = [...TAB_BAR, ...MORE].map((item) => item.href).sort();
-	const every = [...NAV, ACCOUNT].map((item) => item.href).sort();
+	const every = [...NAV, ...BELOW].map((item) => item.href).sort();
 
 	expect(reachable).toEqual(every);
 });
