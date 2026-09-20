@@ -149,6 +149,39 @@ export async function readState(mediaId: string, fetchFn: Fetch = mine): Promise
 	return body?.data?.status ?? 'failed';
 }
 
+/**
+ * Correct the description after the fact.
+ *
+ * `PATCH /api/media/{id}` exists for this: "alt text, caption and position are
+ * set at upload and were not editable, so a missing or wrong alt text was a
+ * permanent accessibility defect." The picker is still the real moment, but a
+ * card that offers no way back re-creates the defect the endpoint removed.
+ *
+ * Only `alt_text` is sent. PATCH changes what is present, so including a
+ * `caption` key would clear a caption nobody asked to touch.
+ */
+export async function correctAltText(
+	mediaId: string,
+	altText: string,
+	fetchFn: Fetch = mine
+): Promise<Done> {
+	let response: Response;
+
+	try {
+		response = await fetchFn(`/api/media/${encodeURIComponent(mediaId)}`, {
+			method: 'PATCH',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ alt_text: altText })
+		});
+	} catch {
+		return { ok: false, message: UNEXPECTED, kind: 'notOurs' };
+	}
+
+	if (!response.ok) return await readError(response);
+
+	return { ok: true };
+}
+
 /** Take the cover off the post. Soft delete — the stored object is the bucket's. */
 export async function removeCover(mediaId: string, fetchFn: Fetch = mine): Promise<Done> {
 	let response: Response;
