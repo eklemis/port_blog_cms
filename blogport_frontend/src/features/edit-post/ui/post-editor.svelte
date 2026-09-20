@@ -16,7 +16,7 @@
 	import PublishControl from './publish-control.svelte';
 	import { createPreview, patchPost, type EditField, type PostChanges } from '../api/update-post';
 	import { attachTopic, createTopic, detachTopic, type Topic } from '../api/topics';
-	import TopicPicker from './topic-picker.svelte';
+	import { TopicPicker } from '$lib/entities/topic';
 	import AssistCard from './assist-card.svelte';
 	import CoverCard from './cover-card.svelte';
 	import type { MediaState } from '$lib/entities/media';
