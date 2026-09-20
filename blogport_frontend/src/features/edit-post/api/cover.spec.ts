@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vitest';
-import { beginUpload, readState, removeCover, uploadBytes } from './cover';
+import { beginUpload, correctAltText, readState, removeCover, uploadBytes } from './cover';
 
 /**
  * The cover upload, §03's "Inserting an image" flow with `role: cover`.
@@ -154,4 +154,33 @@ test('removing the cover deletes the media, not just the reference', async () =>
 	const [url, init] = sent(fetchFn)[0];
 	expect(url).toBe('/api/media/m-1');
 	expect(init.method).toBe('DELETE');
+});
+
+/**
+ * Correcting a description after the fact.
+ *
+ * `PATCH /api/media/{id}` was added because "a missing or wrong alt text was a
+ * permanent accessibility defect". A card that never offers the fix would
+ * quietly re-create the defect the endpoint removed.
+ */
+
+test('sends only the field being corrected', async () => {
+	// PATCH changes what is present. Sending `caption: null` alongside would
+	// clear a caption nobody asked to touch.
+	const fetchFn = vi.fn(async () => ok({ data: null }));
+
+	await correctAltText('m-1', 'A hexagonal diagram of the API', fetchFn as unknown as typeof fetch);
+
+	const [url, init] = sent(fetchFn)[0];
+	expect(url).toBe('/api/media/m-1');
+	expect(init.method).toBe('PATCH');
+	expect(JSON.parse(String(init.body))).toEqual({ alt_text: 'A hexagonal diagram of the API' });
+});
+
+test('a refused correction says so rather than looking saved', async () => {
+	const fetchFn = vi.fn(async () => ok({ error: { code: 'NOT_FOUND' } }, 404));
+
+	await expect(
+		correctAltText('m-1', 'x', fetchFn as unknown as typeof fetch)
+	).resolves.toMatchObject({ ok: false });
 });

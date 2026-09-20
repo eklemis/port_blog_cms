@@ -13,6 +13,11 @@ import type { components } from '$lib/shared/api/v1';
  *
  * `DELETE` is a soft delete on the backend — the row drops out of every read
  * path at once, and the stored object is the bucket's lifecycle rule to reap.
+ *
+ * `PATCH` corrects the attachment's metadata. It is the endpoint that made the
+ * frame's old "alt text cannot be edited later" false, and the reason the card
+ * offers an Edit: "a missing or wrong alt text was a permanent accessibility
+ * defect".
  */
 
 type ErrorDetail = components['schemas']['ErrorDetail'];
@@ -26,14 +31,21 @@ function detailOf(body: unknown): ErrorDetail {
 
 async function relay(
 	event: Parameters<RequestHandler>[0],
-	method: 'GET' | 'DELETE'
+	method: 'GET' | 'DELETE' | 'PATCH'
 ): Promise<Response> {
 	const path = `/api/media/${encodeURIComponent(event.params.id ?? '')}`;
+
+	// Passed through as text: the body is the caller's, and re-serialising it
+	// here would be this route deciding what a correction may contain.
+	const body = method === 'PATCH' ? await event.request.text() : undefined;
 
 	let response: Response;
 
 	try {
-		response = await authenticatedFetch(event, path, { method });
+		response = await authenticatedFetch(event, path, {
+			method,
+			...(body === undefined ? {} : { headers: { 'content-type': 'application/json' }, body })
+		});
 	} catch {
 		return json({ error: UNSHAPED }, { status: 502 });
 	}
@@ -50,3 +62,5 @@ async function relay(
 export const GET: RequestHandler = (event) => relay(event, 'GET');
 
 export const DELETE: RequestHandler = (event) => relay(event, 'DELETE');
+
+export const PATCH: RequestHandler = (event) => relay(event, 'PATCH');

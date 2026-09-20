@@ -162,12 +162,26 @@ test('removing the cover asks the API to delete it, and tells the page', async (
 	expect(onchanged).toHaveBeenCalled();
 });
 
+test('says what the description is for, in the words the designer chose', async () => {
+	// Copy that was decided rather than drafted: it leans on the stake, which is
+	// permanent, instead of on a constraint the API removed.
+	const screen = render(CoverCard, deps());
+
+	await expect
+		.element(
+			screen.getByText(
+				'This is what a screen reader reads in place of the image — write it while you still know why you chose it.'
+			)
+		)
+		.toBeInTheDocument();
+});
+
 test('does not claim the alt text can never be changed', async () => {
-	// The frame's note says "Alt text is set once and cannot be edited later."
-	// `PATCH /api/media/{id}` exists precisely to undo that: "Alt text, caption
-	// and position are set at upload and were not editable, so a missing or
-	// wrong alt text was a permanent accessibility defect." Raised with the
-	// designer; until the sentence is rewritten this card does not assert it.
+	// 32:1005 used to say "Alt text is set once and cannot be edited later."
+	// `PATCH /api/media/{id}` made that false — it exists because "a missing or
+	// wrong alt text was a permanent accessibility defect" — and the sentence
+	// was rewritten rather than shipped. This guards the retraction: the claim
+	// cannot come back by someone implementing from an older frame.
 	const screen = render(CoverCard, deps());
 
 	expect(screen.container.innerHTML).not.toMatch(/cannot be edited/i);
@@ -177,4 +191,87 @@ test('has no accessibility violations', async () => {
 	render(CoverCard, deps());
 
 	await expectNoA11yViolations(document.body, UNSTYLED_GEOMETRY);
+});
+
+/**
+ * Correcting a description that is already on a cover.
+ *
+ * The designer's ruling of 20 September: "Add Edit beside Remove — `PATCH`
+ * exists precisely so a wrong description can be fixed, and a card that never
+ * offers the fix quietly re-creates the defect the endpoint was added to
+ * remove."
+ */
+
+const withCover = (over: Record<string, unknown> = {}) =>
+	deps({
+		cover: { media_id: 'm-1', status: 'ready', alt_text: 'A diagram' },
+		coverSrc: 'https://signed.example.test/large',
+		...over
+	});
+
+test('a ready cover offers a way to correct its description', async () => {
+	const screen = render(CoverCard, withCover());
+
+	await expect.element(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+});
+
+test('editing opens with what is already there, rather than an empty field', async () => {
+	// Correcting a description usually means changing a word in it, not
+	// writing it again from nothing.
+	const screen = render(CoverCard, withCover());
+
+	await screen.getByRole('button', { name: 'Edit' }).click();
+
+	await expect.element(screen.getByRole('textbox', { name: 'Alt text' })).toHaveValue('A diagram');
+});
+
+test('a correction is sent as a PATCH, and the page is told', async () => {
+	const fetchFn = vi.fn(async () => Response.json({ data: null }));
+	const onchanged = vi.fn();
+	const screen = render(
+		CoverCard,
+		withCover({ fetchFn: fetchFn as unknown as typeof fetch, onchanged })
+	);
+
+	await screen.getByRole('button', { name: 'Edit' }).click();
+	await screen.getByRole('textbox', { name: 'Alt text' }).fill('A hexagonal diagram of the API');
+	await screen.getByRole('button', { name: 'Save' }).click();
+
+	const [url, init] = (fetchFn.mock.calls as unknown as [string, RequestInit][])[0];
+	expect(url).toBe('/api/media/m-1');
+	expect(init.method).toBe('PATCH');
+	expect(onchanged).toHaveBeenCalled();
+});
+
+test('a description cannot be emptied, which is the one thing worse than a wrong one', async () => {
+	const fetchFn = vi.fn();
+	const screen = render(CoverCard, withCover({ fetchFn: fetchFn as unknown as typeof fetch }));
+
+	await screen.getByRole('button', { name: 'Edit' }).click();
+	await screen.getByRole('textbox', { name: 'Alt text' }).fill('   ');
+
+	await expect.element(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+	expect(fetchFn).not.toHaveBeenCalled();
+});
+
+test('cancelling leaves the description as it was', async () => {
+	const fetchFn = vi.fn();
+	const screen = render(CoverCard, withCover({ fetchFn: fetchFn as unknown as typeof fetch }));
+
+	await screen.getByRole('button', { name: 'Edit' }).click();
+	await screen.getByRole('textbox', { name: 'Alt text' }).fill('Something else');
+	await screen.getByRole('button', { name: 'Cancel' }).click();
+
+	expect(fetchFn).not.toHaveBeenCalled();
+	await expect.element(screen.getByText('A diagram')).toBeInTheDocument();
+});
+
+test('a cover with nothing to show yet is not offered an Edit', async () => {
+	// There is no image to describe until there is an image.
+	const screen = render(
+		CoverCard,
+		deps({ cover: { media_id: 'm-1', status: 'processing', alt_text: 'A diagram' } })
+	);
+
+	expect(screen.getByRole('button', { name: 'Edit' }).elements()).toHaveLength(0);
 });

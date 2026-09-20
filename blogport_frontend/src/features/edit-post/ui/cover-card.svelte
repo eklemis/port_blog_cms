@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { StatusPill, Button, Field } from '$lib/shared/ui';
 	import { checkDeclared, checkDimensions, pillFor, type Rejection } from '$lib/entities/media';
-	import { beginUpload, removeCover, uploadBytes } from '../api/cover';
+	import { beginUpload, correctAltText, removeCover, uploadBytes } from '../api/cover';
 	import type { MediaState } from '$lib/entities/media';
 
 	/**
@@ -13,15 +13,18 @@
 	 * indeterminate. failed persists until dismissed — a silently vanishing
 	 * upload is worse than a visible failure."
 	 *
-	 * **One line of the frame is not built, deliberately.** 32:1005 reads "Alt
-	 * text is set once and cannot be edited later." That was true and is not:
-	 * `PATCH /api/media/{id}` exists for exactly this reason — "alt text, caption
-	 * and position are set at upload and were not editable, so a missing or wrong
-	 * alt text was a permanent accessibility defect" — and §03 now says "editable
-	 * afterwards via PATCH, but treat the picker as the real moment." Shipping
-	 * the sentence would talk writers out of fixing bad alt text, which is the
-	 * opposite of what it is there to do. The card keeps the urgency and drops
-	 * the false half; the wording is with the designer.
+	 * **The note under the panel was rewritten, and it is worth knowing why.**
+	 * 32:1005 used to read "Alt text is set once and cannot be edited later."
+	 * That was true when it was drawn and stopped being true when
+	 * `PATCH /api/media/{id}` shipped — an endpoint added because "a missing or
+	 * wrong alt text was a permanent accessibility defect". A sentence written to
+	 * make writers take the field seriously would, kept, have become the reason a
+	 * wrong description stayed wrong.
+	 *
+	 * The replacement leans on the stake rather than on a consequence that no
+	 * longer exists: the description is what a screen reader reads, and the
+	 * reason you chose this image decays long before your ability to edit the
+	 * text does.
 	 *
 	 * Alt text goes up *with* the upload request rather than after it, because
 	 * §03 is right that nobody comes back to it.
@@ -65,12 +68,16 @@
 	let rejection = $state<Rejection | null>(null);
 	let sending = $state(false);
 	let fraction = $state(0);
+	let editing = $state(false);
+	let draft = $state('');
 
 	const pill = $derived(cover ? pillFor(cover.status) : null);
 	const ready = $derived(cover?.status === 'ready');
 	const inFlight = $derived(sending || (cover !== null && !ready && cover.status !== 'failed'));
 
+	// One call per component, so the second field derives its id from the first.
 	const fieldId = $props.id();
+	const editId = `${fieldId}-alt`;
 
 	async function pick(event: Event) {
 		const file = (event.currentTarget as HTMLInputElement).files?.[0] ?? null;
@@ -120,6 +127,26 @@
 		sending = false;
 		chosen = null;
 		altText = '';
+		onchanged();
+	}
+
+	/**
+	 * Correcting a description already on the cover.
+	 *
+	 * Opens with what is there rather than empty: a correction is usually a
+	 * changed word, not a second attempt. It cannot be emptied — an image with
+	 * no description is the one outcome worse than a wrong one.
+	 */
+	function edit() {
+		draft = cover?.alt_text ?? '';
+		editing = true;
+	}
+
+	async function saveAltText() {
+		if (!cover || !draft.trim()) return;
+
+		await correctAltText(cover.media_id, draft.trim(), fetchFn);
+		editing = false;
 		onchanged();
 	}
 
@@ -198,13 +225,35 @@
 	{/if}
 
 	{#if cover && !sending}
-		<div class="flex items-center justify-between gap-3">
-			<p class="min-w-0 truncate text-[10.5px] text-arch-muted">{cover.alt_text}</p>
-			<Button kind="ghost" label="Remove" onclick={drop} />
-		</div>
+		{#if editing}
+			<Field
+				id={editId}
+				label="Alt text"
+				bind:value={draft}
+				help="Describes the image for anyone who cannot see it."
+			/>
+			<div class="flex gap-2">
+				<Button label="Save" disabled={!draft.trim()} onclick={saveAltText} />
+				<Button kind="ghost" label="Cancel" onclick={() => (editing = false)} />
+			</div>
+		{:else}
+			<div class="flex items-center justify-between gap-3">
+				<p class="min-w-0 truncate text-[10.5px] text-arch-muted">{cover.alt_text}</p>
+				<div class="flex shrink-0 items-center gap-1">
+					<!-- Only once there is an image to describe. -->
+					{#if ready}
+						<Button kind="ghost" label="Edit" onclick={edit} />
+					{/if}
+					<Button kind="ghost" label="Remove" onclick={drop} />
+				</div>
+			</div>
+		{/if}
 	{/if}
 
 	{#if !cover && !chosen}
-		<p class="text-[10.5px] text-arch-muted">Alt text is set as you upload.</p>
+		<p class="text-[10.5px] text-arch-muted">
+			This is what a screen reader reads in place of the image — write it while you still know why
+			you chose it.
+		</p>
 	{/if}
 </section>
