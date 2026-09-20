@@ -24,17 +24,17 @@ test('renders what it wraps', async () => {
 });
 
 test('offers every console destination that exists, and no others', async () => {
-	// A nav item is a claim that a screen is there. Résumés, Media, Topics and
-	// Account are drawn in the frames and not yet built, so the sidebar does not
-	// link them: a 404 from inside your own console cannot be told apart from
+	// A nav item is a claim that a screen is there. Résumés, Media and Account
+	// are drawn in the frames and not yet built, so the sidebar does not link
+	// them: a 404 from inside your own console cannot be told apart from
 	// something being broken.
 	const screen = render(StudioShell, props());
 
-	for (const label of ['Overview', 'Posts', 'Projects', 'Applications']) {
+	for (const label of ['Overview', 'Posts', 'Projects', 'Applications', 'Topics']) {
 		expect(screen.getByRole('link', { name: label }).elements().length).toBeGreaterThan(0);
 	}
 
-	for (const label of ['Résumés', 'Media', 'Topics', 'Account']) {
+	for (const label of ['Résumés', 'Media', 'Account']) {
 		expect(
 			screen.getByRole('link', { name: label }).elements(),
 			`${label} has no screen to point at`
