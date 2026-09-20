@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { X } from '@lucide/svelte';
-	import { Button, Field, InlineAlert } from '$lib/shared/ui';
+	import { Button, ChipInput, Field, InlineAlert } from '$lib/shared/ui';
 	import { TopicPicker, createTopic, type Topic } from '$lib/entities/topic';
 	import type { HandlingClass } from '$lib/shared/lib/error-class';
 	import { attachTopic, detachTopic, patchProject, type ProjectChanges } from '../api/project';
@@ -73,7 +72,6 @@
 	let stack = $state<string[]>(untrack(() => [...project.tech_stack]));
 	let topics = $state<Topic[]>(untrack(() => [...project.topics]));
 
-	let chip = $state('');
 	let saving = $state(false);
 	let failure = $state<string | undefined>();
 	let failureKind = $state<HandlingClass>('notOurs');
@@ -118,24 +116,6 @@
 
 		return next;
 	});
-
-	/** §03: "Enter or `,` commits; Backspace on an empty input removes the last." */
-	function commit() {
-		const value = chip.trim().replace(/,$/, '').trim();
-		chip = '';
-
-		if (!value || stack.includes(value)) return;
-
-		stack = [...stack, value];
-	}
-
-	function typedChip(value: string) {
-		chip = value;
-
-		// A comma is how people type a list; committing on it means nobody has to
-		// discover that Enter is the only way.
-		if (value.includes(',')) commit();
-	}
 
 	async function save() {
 		if (!Object.keys(changes).length || saving) return;
@@ -248,48 +228,12 @@
 				></textarea>
 			</div>
 
-			<div class="flex flex-col gap-1.5" role="group" aria-labelledby="project-stack-label">
-				<span id="project-stack-label" class="text-[11.5px] text-arch-muted">Tech stack</span>
-				<div class="flex flex-wrap items-center gap-[7px]">
-					{#each stack as tech (tech)}
-						<span
-							class="flex items-center gap-1.5 rounded-full bg-arch-surface-2 px-2.5 py-[5px]
-							       text-[11px] text-arch-headline"
-						>
-							{tech}
-							<button
-								type="button"
-								aria-label="Remove {tech}"
-								onclick={() => (stack = stack.filter((have) => have !== tech))}
-								class="text-arch-muted hover:text-arch-headline"
-							>
-								<X size={11} aria-hidden="true" />
-							</button>
-						</span>
-					{/each}
-
-					<input
-						type="text"
-						value={chip}
-						aria-label="Add to tech stack"
-						placeholder="Add…"
-						oninput={(event) => typedChip(event.currentTarget.value)}
-						onkeydown={(event) => {
-							if (event.key === 'Enter') {
-								event.preventDefault();
-								commit();
-							}
-							if (event.key === 'Backspace' && chip === '') stack = stack.slice(0, -1);
-						}}
-						class="w-[90px] rounded-full border border-arch-line-control px-2.5 py-[5px]
-						       text-[11px] text-arch-headline placeholder:text-arch-muted"
-					/>
-				</div>
-				<p class="text-[10.5px] text-arch-muted">
-					A chip input, never a comma-separated text field — nobody should have to guess the
-					delimiter.
-				</p>
-			</div>
+			<ChipInput
+				label="Tech stack"
+				values={stack}
+				help="A chip input, never a comma-separated text field — nobody should have to guess the delimiter."
+				onchange={(next) => (stack = next)}
+			/>
 
 			<div class="flex flex-col gap-2.5 md:flex-row md:gap-2.5">
 				<div class="flex-1">

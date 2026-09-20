@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { Button, Field, InlineAlert } from '$lib/shared/ui';
+	import { Button, ChipInput, Field, InlineAlert } from '$lib/shared/ui';
 	import { SLUG_MAX, slugError, slugFrom } from '$lib/shared/lib/slug';
+	import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
 	import type { HandlingClass } from '$lib/shared/lib/error-class';
 	import { SLUG_TAKEN, checkSlug, createProject, type CreateField } from '../api/create-project';
 
@@ -13,11 +14,11 @@
 	 * added.'" So the helper sits under the button, before the press, not in a
 	 * toast after it.
 	 *
-	 * Three fields, for the same reason the post's create form is small: media
-	 * attaches to a `target_id` and topics attach by id, so both need the project
-	 * to exist. These three are what a project needs to *be* one — and since it
-	 * goes live at once, a description is part of that rather than something to
-	 * add later.
+	 * Four fields, and the line is where the id matters: media attaches to a
+	 * `target_id` and topics attach by id, so both need the project to exist
+	 * first. Title, address, description and tech stack are all plain data on
+	 * `CreateProjectRequest`, and the frame puts all four here — which answers
+	 * the question I raised when this screen was undrawn.
 	 *
 	 * The address is checked as it is typed, which matters more here than on a
 	 * post: `PatchProjectRequest` carries no slug, so this is the only moment a
@@ -35,6 +36,7 @@
 	let title = $state('');
 	let slug = $state('');
 	let description = $state('');
+	let stack = $state<string[]>([]);
 
 	/** Once someone edits the address, the title stops writing it. */
 	let slugTouched = $state(false);
@@ -114,7 +116,14 @@
 		failure = undefined;
 
 		const result = await createProject(
-			{ title: title.trim(), slug, description: description.trim() },
+			{
+				title: title.trim(),
+				slug,
+				description: description.trim(),
+				// Omitted when empty rather than sent as [], so the server's default
+				// stands for a project whose stack nobody listed.
+				...(stack.length ? { tech_stack: [...stack] } : {})
+			},
 			fetchFn
 		);
 
@@ -136,8 +145,8 @@
 </script>
 
 <form
-	class="flex w-full max-w-[560px] flex-col gap-3.5 rounded-xl border border-arch-line
-	       bg-arch-surface p-5"
+	class="flex w-full max-w-[560px] flex-col gap-[18px] rounded-xl border border-arch-line
+	       bg-arch-surface p-[22px]"
 	onsubmit={submit}
 	novalidate
 >
@@ -177,32 +186,47 @@
 		{/if}
 	</div>
 
-	<div class="flex flex-col gap-[5px]">
-		<label for="new-project-description" class="text-[11.5px] text-arch-muted">Description</label>
+	<div class="flex flex-col gap-1.5">
+		<label for="new-project-description" class="text-[12px] text-arch-muted">Description</label>
 		<textarea
 			id="new-project-description"
 			bind:value={description}
 			rows="3"
 			aria-invalid={errors.description ? 'true' : undefined}
-			aria-describedby={errors.description ? 'new-project-description-error' : undefined}
-			class="resize-y rounded-[7px] border border-arch-line-control bg-arch-surface px-3 py-2.5
-			       text-[12.5px] leading-[19px] text-arch-headline"
+			aria-describedby="new-project-description-help{errors.description
+				? ' new-project-description-error'
+				: ''}"
+			class="h-[74px] resize-y rounded-lg border border-arch-line bg-arch-surface px-3.5 py-[11px]
+			       text-[13px] leading-[20px] text-arch-headline"
 		></textarea>
 		{#if errors.description}
 			<p id="new-project-description-error" class="text-[11px] text-st-danger">
 				{errors.description}
 			</p>
 		{/if}
+		<p id="new-project-description-help" class="text-[11px] text-arch-muted">
+			Shown under the title on your public page. A project goes live the moment it is added.
+		</p>
 	</div>
 
-	<div class="flex flex-col gap-2">
-		<div>
-			<Button type="submit" label="Add project" loading={saving} />
-		</div>
-		<!-- §02 asks for this to be said here, on the button, rather than
-		     discovered once the project is already public. -->
-		<p class="text-[10.5px] text-arch-muted">
+	<ChipInput
+		label="Tech stack"
+		values={stack}
+		help="A chip input. Press Enter after each one."
+		onchange={(next) => (stack = next)}
+	/>
+
+	<div class="h-px w-full bg-arch-line" role="presentation"></div>
+
+	<!-- The frame puts the warning beside the buttons rather than under them:
+	     it is read in the same glance as the thing it warns about. -->
+	<div class="flex flex-wrap items-center justify-between gap-3">
+		<p class="max-w-[300px] text-[11.5px] text-arch-muted">
 			Projects are visible on your public page as soon as they’re added.
 		</p>
+		<div class="flex items-center gap-2">
+			<Button kind="ghost" label="Cancel" href={CONSOLE_ROUTES.projects} />
+			<Button type="submit" label="Add project" loading={saving} />
+		</div>
 	</div>
 </form>

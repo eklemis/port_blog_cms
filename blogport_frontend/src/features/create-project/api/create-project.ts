@@ -46,7 +46,7 @@ function failed(
 }
 
 export async function createProject(
-	project: { title: string; slug: string; description: string },
+	project: { title: string; slug: string; description: string; tech_stack?: string[] },
 	fetchFn: typeof globalThis.fetch = (...args) => globalThis.fetch(...args)
 ): Promise<CreateResult> {
 	let response: Response;
