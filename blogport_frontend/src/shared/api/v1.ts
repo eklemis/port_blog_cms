@@ -983,7 +983,11 @@ export interface paths {
         };
         /**
          * List the caller's media for one attachment target
-         * @description `target` is matched literally against the lowercase forms
+         * @description `target_id` and `role` narrow it. Asking for one post's cover is
+         *     `?target_id={post_id}&role=cover`, which returns one row rather than every
+         *     image the author has ever attached to a post.
+         *
+         *     `target` is matched literally against the lowercase forms
          *     `user`, `resume`, `project`, and `blog_post`. Note that the same enum
          *     serialises in PascalCase inside response bodies (`Resume`, `BlogPost`),
          *     so the path form and the body form differ.
@@ -9496,7 +9500,22 @@ export interface operations {
     };
     list_media_handler: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description The id of the thing the media hangs off — one post, one project.
+                 *
+                 *     Omit to list the target kind across everything you own, which is what
+                 *     this endpoint did before this parameter existed.
+                 */
+                target_id?: string | null;
+                /**
+                 * @description Keep only this role: `cover`, `screenshot`, `avatar`, `inline`.
+                 *
+                 *     Omit to keep every role. An unknown role is not an error — it simply
+                 *     matches nothing, the same as asking for a post that has no cover.
+                 */
+                role?: string | null;
+            };
             header?: never;
             path: {
                 /** @description Attachment target: user, resume, project, or blog_post */
