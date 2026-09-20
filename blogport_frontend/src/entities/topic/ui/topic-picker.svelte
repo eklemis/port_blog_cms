@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Plus, X } from '@lucide/svelte';
-	import type { Topic } from '../api/topics';
+	import type { Topic } from '../model/topic';
 
 	/**
 	 * The editor rail's topics — the chips a post carries, and the "+ Add" that

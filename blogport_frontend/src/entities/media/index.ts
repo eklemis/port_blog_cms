@@ -1,4 +1,6 @@
 // Public API of the media entity.
+export { moved, repositioned } from './model/order';
+export { patchMedia, type MediaChanges, type PatchResult } from './api/patch';
 export {
 	coverOf,
 	pillFor,
