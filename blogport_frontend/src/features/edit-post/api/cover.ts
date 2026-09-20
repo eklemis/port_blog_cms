@@ -1,6 +1,25 @@
 import { UNEXPECTED } from '$lib/shared/lib/api-failure';
-import { handlingClass, type HandlingClass } from '$lib/shared/lib/error-class';
-import type { MediaState } from '$lib/entities/media';
+import { handlingClass } from '$lib/shared/lib/error-class';
+import {
+	beginUpload as start,
+	type Done as MediaDone,
+	type Failure as MediaFailure,
+	type MediaState
+} from '$lib/entities/media';
+
+/**
+ * Asking for a cover's upload URL is the general call with three values fixed.
+ * `uploadBytes` is re-exported unchanged — the transfer does not care what it
+ * is attached to.
+ */
+export { uploadBytes } from '$lib/entities/media';
+
+export function beginUpload(
+	{ postId, file, altText }: { postId: string; file: File; altText: string },
+	fetchFn?: typeof globalThis.fetch
+) {
+	return start({ target: 'blog_post', targetId: postId, role: 'cover', file, altText }, fetchFn);
+}
 
 /**
  * The post's cover image.
@@ -24,104 +43,15 @@ type Fetch = typeof globalThis.fetch;
 
 const mine: Fetch = (...args) => globalThis.fetch(...args);
 
-export type Failure = { ok: false; message: string; kind: HandlingClass };
+export type { Done, Failure, Started } from '$lib/entities/media';
 
-export type Started = { ok: true; mediaId: string; uploadUrl: string } | Failure;
-
-export type Done = { ok: true } | Failure;
+type Done = MediaDone;
+type Failure = MediaFailure;
 
 async function readError(response: Response): Promise<Failure> {
 	const body = (await response.json().catch(() => null)) as { error?: { code?: string } } | null;
 
 	return { ok: false, message: UNEXPECTED, kind: handlingClass(body?.error?.code) };
-}
-
-/**
- * Ask for somewhere to put the file.
- *
- * Everything the upload policy is written in is declared here — size, type,
- * name — because the service never sees the bytes and cannot check them. Alt
- * text goes up with the request rather than afterwards: §03 treats the picker
- * as the real moment, since nobody comes back to it.
- */
-export async function beginUpload(
-	{ postId, file, altText }: { postId: string; file: File; altText: string },
-	fetchFn: Fetch = mine
-): Promise<Started> {
-	let response: Response;
-
-	try {
-		response = await fetchFn('/api/media/upload-url', {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({
-				attachment_target: 'blog_post',
-				attachment_target_id: postId,
-				role: 'cover',
-				file_name: file.name,
-				file_size_bytes: file.size,
-				mime_type: file.type,
-				alt_text: altText
-			})
-		});
-	} catch {
-		return { ok: false, message: UNEXPECTED, kind: 'notOurs' };
-	}
-
-	if (!response.ok) return await readError(response);
-
-	const body = (await response.json().catch(() => null)) as {
-		data?: { media_id?: string; upload_url?: string };
-	} | null;
-
-	const mediaId = body?.data?.media_id;
-	const uploadUrl = body?.data?.upload_url;
-
-	// Without both there is nothing to PUT to and nothing to poll, so this is a
-	// failure rather than an upload that has quietly started.
-	if (!mediaId || !uploadUrl) return { ok: false, message: UNEXPECTED, kind: 'notOurs' };
-
-	return { ok: true, mediaId, uploadUrl };
-}
-
-/**
- * Send the bytes to storage.
- *
- * The one call in this codebase that is not `fetch`. §03 asks for determinate
- * progress here — "the only honest bar" — and `fetch` cannot report how much of
- * a request body has gone out. An animated bar over a real transfer is a lie
- * with a progress indicator on it, so this uses `XMLHttpRequest` and measures.
- */
-export function uploadBytes(
-	url: string,
-	file: File,
-	{
-		onprogress,
-		open = () => new XMLHttpRequest()
-	}: { onprogress?: (fraction: number) => void; open?: () => XMLHttpRequest } = {}
-): Promise<Done> {
-	return new Promise((resolve) => {
-		const request = open();
-
-		request.upload.onprogress = (event) => {
-			// A length that is not computable is not a number to draw a bar from.
-			if (!event.lengthComputable || !event.total) return;
-
-			onprogress?.(event.loaded / event.total);
-		};
-
-		request.onload = () => {
-			if (request.status >= 200 && request.status < 300) return resolve({ ok: true });
-
-			resolve({ ok: false, message: UNEXPECTED, kind: 'notOurs' });
-		};
-
-		request.onerror = () => resolve({ ok: false, message: UNEXPECTED, kind: 'notOurs' });
-
-		request.open('PUT', url);
-		request.setRequestHeader('content-type', file.type);
-		request.send(file);
-	});
 }
 
 /**

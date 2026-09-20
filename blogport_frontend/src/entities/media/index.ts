@@ -2,6 +2,15 @@
 export { moved, repositioned } from './model/order';
 export { patchMedia, type MediaChanges, type PatchResult } from './api/patch';
 export {
+	beginUpload,
+	uploadBytes,
+	type AttachmentTarget,
+	type Done,
+	type Failure,
+	type Started,
+	type UploadRequest
+} from './api/upload';
+export {
 	coverOf,
 	pillFor,
 	type Attachment,

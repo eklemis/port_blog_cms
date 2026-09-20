@@ -140,3 +140,132 @@ test('has no accessibility violations', async () => {
 
 	await expectNoA11yViolations(document.body, UNSTYLED_GEOMETRY);
 });
+
+/**
+ * Adding one — 70:258 draws "+ Upload" beside the heading.
+ *
+ * The same flow as the post's cover, through the same entity call with three
+ * values changed: target `project`, role `screenshot`, and a position at the
+ * end of the gallery.
+ */
+
+const png = () => new File(['bytes'], 'settings.png', { type: 'image/png' });
+
+const uploadable = (over: Record<string, unknown> = {}) =>
+	props({
+		projectId: 'p-1',
+		measure: async () => ({ width: 1600, height: 900 }),
+		upload: async () => ({ ok: true as const }),
+		...over
+	});
+
+async function choose(screen: ReturnType<typeof render>, file = png()) {
+	const input = screen.container.querySelector('input[type="file"]') as HTMLInputElement;
+	const transfer = new DataTransfer();
+	transfer.items.add(file);
+	input.files = transfer.files;
+	input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+test('offers a way to add one', async () => {
+	const screen = render(ScreenshotsCard, uploadable());
+
+	await expect.element(screen.getByText('+ Upload')).toBeInTheDocument();
+});
+
+test('a file the policy refuses never reaches the network', async () => {
+	// The bytes go straight to storage, so the browser is the only checker.
+	const fetchFn = vi.fn();
+	const screen = render(
+		ScreenshotsCard,
+		uploadable({ fetchFn: fetchFn as unknown as typeof fetch })
+	);
+
+	await choose(screen, new File(['x'], 'loop.gif', { type: 'image/gif' }));
+
+	await expect.element(screen.getByText('Images must be a JPEG, PNG or WebP.')).toBeInTheDocument();
+	expect(fetchFn).not.toHaveBeenCalled();
+});
+
+test('alt text blocks the upload until it is written', async () => {
+	// §03: "alt_text · yes · non-empty (spec rule, not API) · Blocks upload."
+	const screen = render(ScreenshotsCard, uploadable());
+
+	await choose(screen);
+
+	await expect.element(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
+});
+
+test('the upload declares the project, the role and a place at the end', async () => {
+	// ADR 0008: lowercase `screenshot`, snake_case `project`. "Any client
+	// sending the capitalized forms breaks."
+	const fetchFn = vi.fn(async () =>
+		Response.json({ data: { media_id: 'new-1', upload_url: 'https://gcs' } }, { status: 201 })
+	);
+	const screen = render(
+		ScreenshotsCard,
+		uploadable({ fetchFn: fetchFn as unknown as typeof fetch })
+	);
+
+	await choose(screen);
+	await screen.getByRole('textbox', { name: 'Alt text' }).fill('The settings screen');
+	await screen.getByRole('button', { name: 'Add' }).click();
+
+	await vi.waitFor(() => expect(fetchFn).toHaveBeenCalled());
+
+	const [url, init] = (fetchFn.mock.calls as unknown as [string, RequestInit][])[0];
+	expect(url).toBe('/api/media/upload-url');
+	expect(JSON.parse(String(init.body))).toMatchObject({
+		attachment_target: 'project',
+		attachment_target_id: 'p-1',
+		role: 'screenshot',
+		alt_text: 'The settings screen',
+		position: 3
+	});
+});
+
+test('a finished upload hands back to the page rather than guessing the row', async () => {
+	// The new row's filename and processing state are the server's to report.
+	const onchanged = vi.fn();
+	const fetchFn = vi.fn(async () =>
+		Response.json({ data: { media_id: 'new-1', upload_url: 'https://gcs' } }, { status: 201 })
+	);
+	const screen = render(
+		ScreenshotsCard,
+		uploadable({ onchanged, fetchFn: fetchFn as unknown as typeof fetch })
+	);
+
+	await choose(screen);
+	await screen.getByRole('textbox', { name: 'Alt text' }).fill('The settings screen');
+	await screen.getByRole('button', { name: 'Add' }).click();
+
+	await vi.waitFor(() => expect(onchanged).toHaveBeenCalled());
+});
+
+test('a card with no project cannot upload, and does not pretend to', async () => {
+	// The screenshots card renders inside the editor, which always has one —
+	// but a missing id would otherwise POST an attachment to nothing.
+	const screen = render(ScreenshotsCard, props({ projectId: undefined }));
+
+	expect(screen.getByText('+ Upload').elements()).toHaveLength(0);
+});
+
+test('an upload the server refuses does not tell the page anything changed', async () => {
+	// Nothing was attached, so re-reading the gallery would show the same rows
+	// and the refusal would vanish with the reload.
+	const onchanged = vi.fn();
+	const fetchFn = vi.fn(async () =>
+		Response.json({ error: { code: 'FILE_TOO_LARGE' } }, { status: 400 })
+	);
+	const screen = render(
+		ScreenshotsCard,
+		uploadable({ onchanged, fetchFn: fetchFn as unknown as typeof fetch })
+	);
+
+	await choose(screen);
+	await screen.getByRole('textbox', { name: 'Alt text' }).fill('The settings screen');
+	await screen.getByRole('button', { name: 'Add' }).click();
+
+	await vi.waitFor(() => expect(fetchFn).toHaveBeenCalled());
+	expect(onchanged).not.toHaveBeenCalled();
+});

@@ -1,7 +1,17 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { ChevronDown, ChevronUp, GripVertical } from '@lucide/svelte';
-	import { moved, patchMedia, repositioned } from '$lib/entities/media';
+	import {
+		beginUpload,
+		checkDeclared,
+		checkDimensions,
+		moved,
+		patchMedia,
+		repositioned,
+		uploadBytes,
+		type Rejection
+	} from '$lib/entities/media';
+	import { Button, Field } from '$lib/shared/ui';
 
 	/**
 	 * The project editor's screenshots card — Screen / Project editor 70:257.
@@ -20,24 +30,44 @@
 	 * it back, because a rail still showing an order the server rejected is worse
 	 * than one that flickers.
 	 *
-	 * **Upload is not here yet.** The frame draws "+ Upload" beside the heading.
-	 * The upload flow exists but lives in the post editor's feature slice, and
-	 * slices in the same layer may not import each other — so it moves down to
-	 * the media entity first, as its own change. Filed rather than duplicated.
+	 * Adding one is the same flow as a post's cover, through the same entity call
+	 * with three values changed: target `project`, role `screenshot`, and a
+	 * position at the end of the gallery. ADR 0008 fixed those spellings —
+	 * lowercase and snake_case — and says plainly that "any client sending the
+	 * capitalized forms breaks".
+	 *
+	 * All three policy checks run before anything leaves the browser, because
+	 * the bytes go straight to storage and the API never sees them.
 	 */
 	type Shot = { media_id: string; original_filename: string; src?: string | null };
 
 	let {
 		screenshots,
+		projectId = undefined,
 		onchanged = () => {},
-		fetchFn = undefined
+		fetchFn = undefined,
+		upload = uploadBytes,
+		measure = decode
 	}: {
 		/** In display order — `position` ascending, as the server returned them. */
 		screenshots: Shot[];
-		/** The order changed and the server took it. */
+		/** Whose gallery this is. Without one there is nothing to attach to. */
+		projectId?: string;
+		/** The gallery changed and the server took it. */
 		onchanged?: () => void;
 		fetchFn?: typeof globalThis.fetch;
+		/** The two browser capabilities a test has to stand in for. */
+		upload?: typeof uploadBytes;
+		measure?: (file: File) => Promise<{ width: number; height: number }>;
 	} = $props();
+
+	/** The only place an image can be measured: after the browser decodes it. */
+	async function decode(file: File): Promise<{ width: number; height: number }> {
+		const bitmap = await createImageBitmap(file);
+		const size = { width: bitmap.width, height: bitmap.height };
+		bitmap.close();
+		return size;
+	}
 
 	// A seed: this list is the one being dragged, and a loader that re-ran
 	// mid-gesture would otherwise yank it out from under the pointer.
@@ -47,6 +77,69 @@
 	let dragging = $state<number | null>(null);
 
 	const describedId = $props.id();
+	const altId = `${describedId}-alt`;
+
+	let chosen = $state<File | null>(null);
+	let altText = $state('');
+	let rejection = $state<Rejection | null>(null);
+	let sending = $state(false);
+
+	async function pick(event: Event) {
+		const file = (event.currentTarget as HTMLInputElement).files?.[0] ?? null;
+
+		chosen = null;
+		rejection = null;
+		if (!file) return;
+
+		const declared = checkDeclared(file);
+		if (declared) return (rejection = declared);
+
+		try {
+			const { width, height } = await measure(file);
+			const edges = checkDimensions(width, height);
+			if (edges) return (rejection = edges);
+		} catch {
+			// Undecodable is not an image, whatever it claims to be.
+			return (rejection = { code: 'INVALID_MIME_TYPE', message: 'That file is not an image.' });
+		}
+
+		chosen = file;
+	}
+
+	async function add() {
+		if (!chosen || !projectId || !altText.trim()) return;
+
+		sending = true;
+		failure = null;
+
+		const started = await beginUpload(
+			{
+				target: 'project',
+				targetId: projectId,
+				role: 'screenshot',
+				file: chosen,
+				altText: altText.trim(),
+				// The end of the gallery. Reordering is a separate gesture, and
+				// dropping a new image into the middle is not one anybody asked for.
+				position: order.length
+			},
+			fetchFn
+		);
+
+		if (!started.ok) {
+			sending = false;
+			rejection = { code: 'INVALID_MIME_TYPE', message: started.message };
+			return;
+		}
+
+		await upload(started.uploadUrl, chosen);
+
+		// The row's filename and processing state are the server's to report.
+		sending = false;
+		chosen = null;
+		altText = '';
+		onchanged();
+	}
 
 	async function reorder(from: number, to: number) {
 		const before = order;
@@ -84,9 +177,54 @@
 	aria-label="Screenshots"
 	class="flex w-full flex-col gap-2.5 rounded-xl border border-arch-line bg-arch-surface p-5"
 >
-	<h2 class="font-mono text-[9px] font-normal tracking-[0.9px] text-arch-muted uppercase">
-		Screenshots
-	</h2>
+	<div class="flex items-center justify-between gap-3">
+		<h2 class="font-mono text-[9px] font-normal tracking-[0.9px] text-arch-muted uppercase">
+			Screenshots
+		</h2>
+
+		{#if projectId}
+			<label
+				class="cursor-pointer text-[11px] text-arch-accent-ink hover:underline"
+				class:opacity-40={sending}
+			>
+				+ Upload
+				<input
+					type="file"
+					accept="image/jpeg,image/png,image/webp"
+					class="sr-only"
+					disabled={sending}
+					onchange={pick}
+				/>
+			</label>
+		{/if}
+	</div>
+
+	{#if rejection}
+		<p role="status" class="text-[10.5px] text-st-danger">{rejection.message}</p>
+	{/if}
+
+	{#if chosen}
+		<div class="flex flex-col gap-2 rounded-lg bg-arch-surface-2 p-3">
+			<p class="truncate font-mono text-[11px] text-arch-headline">{chosen.name}</p>
+			<Field
+				id={altId}
+				label="Alt text"
+				bind:value={altText}
+				help="Describes the image for anyone who cannot see it."
+			/>
+			<div class="flex gap-2">
+				<Button label="Add" disabled={!altText.trim()} loading={sending} onclick={add} />
+				<Button
+					kind="ghost"
+					label="Cancel"
+					onclick={() => {
+						chosen = null;
+						altText = '';
+					}}
+				/>
+			</div>
+		</div>
+	{/if}
 
 	{#if order.length}
 		<ul class="flex list-none flex-col gap-2.5 p-0">

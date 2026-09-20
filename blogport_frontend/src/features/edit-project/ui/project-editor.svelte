@@ -302,7 +302,12 @@
 		</div>
 
 		<div class="flex w-full flex-col gap-3.5 lg:max-w-[332px]">
-			<ScreenshotsCard {screenshots} {fetchFn} onchanged={() => onchanged()} />
+			<ScreenshotsCard
+				{screenshots}
+				projectId={project.id}
+				{fetchFn}
+				onchanged={() => onchanged()}
+			/>
 
 			<TopicPicker
 				attached={topics}
