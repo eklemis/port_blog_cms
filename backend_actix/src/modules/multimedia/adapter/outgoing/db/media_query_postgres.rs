@@ -180,7 +180,21 @@ impl MediaQueryPostgres {
         )
     }
 
-    fn list_by_target_stmt(owner: Uuid, target: &str) -> Statement {
+    /// Both filters are optional and both are applied in SQL.
+    ///
+    /// Without them the only way to find one post's cover was to fetch every
+    /// image its author had ever attached to a post and pick one row out in the
+    /// client. That is cheap for a new account and grows with the author: two
+    /// hundred posts of covers and inline images, fetched to open one post.
+    ///
+    /// `$3 IS NULL OR …` rather than a built-up string: one statement, one plan
+    /// shape, and no branch in which a filter is silently dropped.
+    fn list_by_target_stmt(
+        owner: Uuid,
+        target: &str,
+        target_id: Option<Uuid>,
+        role: Option<&str>,
+    ) -> Statement {
         Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             r#"
@@ -199,10 +213,17 @@ impl MediaQueryPostgres {
             INNER JOIN media_attachments ma ON m.id = ma.media_id
             WHERE m.user_id = $1
               AND ma.attachable_type = $2
+              AND ($3::uuid IS NULL OR ma.attachable_id = $3::uuid)
+              AND ($4::text IS NULL OR ma.role::text = $4::text)
               AND m.deleted_at IS NULL
             ORDER BY ma.position ASC, ma.created_at ASC
             "#,
-            vec![owner.into(), target.into()],
+            vec![
+                owner.into(),
+                target.into(),
+                target_id.into(),
+                role.map(|r| r.to_string()).into(),
+            ],
         )
     }
 
@@ -541,11 +562,13 @@ impl MediaQuery for MediaQueryPostgres {
         &self,
         owner: UserId,
         target: AttachmentTarget,
+        target_id: Option<Uuid>,
+        role: Option<String>,
     ) -> Result<Vec<MediaAttachment>, MediaQueryError> {
         let owner_uuid: Uuid = owner.into();
         let target_str = target.to_string();
 
-        let stmt = Self::list_by_target_stmt(owner_uuid, &target_str);
+        let stmt = Self::list_by_target_stmt(owner_uuid, &target_str, target_id, role.as_deref());
 
         let results = self.db.query_all(stmt).await.map_err(Self::map_db_err)?;
 
@@ -635,6 +658,58 @@ impl MediaQuery for MediaQueryPostgres {
 // ============================================================================
 // Tests (deterministic, 100% branch coverage)
 // ============================================================================
+
+#[cfg(test)]
+mod filter_tests {
+    use super::*;
+
+    /// The filters must reach SQL, not be applied after the rows come back.
+    ///
+    /// Filtering in the client was the whole problem: finding one post's cover
+    /// meant fetching every image its author had ever attached to a post. A
+    /// statement that ignores the arguments would look identical from the
+    /// outside and cost exactly as much, so the statement itself is checked.
+    #[test]
+    fn both_filters_are_applied_in_the_statement() {
+        let sql = MediaQueryPostgres::list_by_target_stmt(
+            Uuid::new_v4(),
+            "blog_post",
+            Some(Uuid::new_v4()),
+            Some("cover"),
+        )
+        .to_string();
+
+        assert!(
+            sql.contains("ma.attachable_id"),
+            "the target id must narrow the query: {sql}"
+        );
+        assert!(
+            sql.contains("ma.role::text = "),
+            "the role must narrow the query: {sql}"
+        );
+    }
+
+    /// Omitting them lists everything, as it did before they existed.
+    #[test]
+    fn absent_filters_do_not_narrow_anything() {
+        let stmt = MediaQueryPostgres::list_by_target_stmt(Uuid::new_v4(), "blog_post", None, None);
+        let values = stmt
+            .values
+            .as_ref()
+            .expect("the statement is parameterised");
+
+        assert_eq!(values.0.len(), 4, "owner, target, and the two filters");
+        let is_null = |v: &sea_orm::Value| {
+            matches!(v, sea_orm::Value::Uuid(None) | sea_orm::Value::String(None))
+        };
+
+        assert!(
+            is_null(&values.0[2]) && is_null(&values.0[3]),
+            "an omitted filter is NULL, which the WHERE clause reads as no filter: {:?}",
+            values.0
+        );
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -802,7 +877,7 @@ mod tests {
 
         let query = MediaQueryPostgres::new(Arc::new(db));
         let result = query
-            .list_by_target(UserId::from(user_id), AttachmentTarget::Resume)
+            .list_by_target(UserId::from(user_id), AttachmentTarget::Resume, None, None)
             .await;
 
         assert!(result.is_ok());
@@ -835,7 +910,7 @@ mod tests {
 
         let query = MediaQueryPostgres::new(Arc::new(db));
         let result = query
-            .list_by_target(UserId::from(user_id), AttachmentTarget::Project)
+            .list_by_target(UserId::from(user_id), AttachmentTarget::Project, None, None)
             .await;
 
         assert!(result.is_ok());
@@ -853,7 +928,7 @@ mod tests {
 
         let query = MediaQueryPostgres::new(Arc::new(db));
         let err = query
-            .list_by_target(UserId::from(user_id), AttachmentTarget::Resume)
+            .list_by_target(UserId::from(user_id), AttachmentTarget::Resume, None, None)
             .await
             .unwrap_err();
 
@@ -896,7 +971,7 @@ mod tests {
 
         let query = MediaQueryPostgres::new(Arc::new(db));
         let err = query
-            .list_by_target(UserId::from(user_id), AttachmentTarget::Resume)
+            .list_by_target(UserId::from(user_id), AttachmentTarget::Resume, None, None)
             .await
             .unwrap_err();
 
@@ -1152,7 +1227,7 @@ mod tests {
 
         let query = MediaQueryPostgres::new(Arc::new(db));
         let result = query
-            .list_by_target(UserId::from(user_id), AttachmentTarget::Resume)
+            .list_by_target(UserId::from(user_id), AttachmentTarget::Resume, None, None)
             .await;
 
         assert!(result.is_ok());
@@ -1223,7 +1298,7 @@ mod tests {
 
         let query = MediaQueryPostgres::new(Arc::new(db));
         let err = query
-            .list_by_target(UserId::from(user_id), AttachmentTarget::Resume)
+            .list_by_target(UserId::from(user_id), AttachmentTarget::Resume, None, None)
             .await
             .unwrap_err();
 

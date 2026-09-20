@@ -16,11 +16,32 @@ use crate::{
     AppState,
 };
 use utoipa::ToSchema;
+use uuid::Uuid;
 
 /// See the module documentation.
 #[derive(Debug, Deserialize)]
 pub struct ListMediaPath {
     target: String,
+}
+
+/// Narrows the listing to one thing, one role, or both.
+///
+/// Without these the only way to find one post's cover was to fetch every image
+/// its author had ever attached to a post and filter in the client — cheap for
+/// a new account, and growing with the author.
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
+pub struct ListMediaQuery {
+    /// The id of the thing the media hangs off — one post, one project.
+    ///
+    /// Omit to list the target kind across everything you own, which is what
+    /// this endpoint did before this parameter existed.
+    pub target_id: Option<Uuid>,
+
+    /// Keep only this role: `cover`, `screenshot`, `avatar`, `inline`.
+    ///
+    /// Omit to keep every role. An unknown role is not an error — it simply
+    /// matches nothing, the same as asking for a post that has no cover.
+    pub role: Option<String>,
 }
 
 /// Response body returned by this endpoint.
@@ -47,6 +68,10 @@ fn parse_attachment_target(s: &str) -> Result<AttachmentTarget, HttpResponse> {
 
 /// List the caller's media for one attachment target
 ///
+/// `target_id` and `role` narrow it. Asking for one post's cover is
+/// `?target_id={post_id}&role=cover`, which returns one row rather than every
+/// image the author has ever attached to a post.
+///
 /// `target` is matched literally against the lowercase forms
 /// `user`, `resume`, `project`, and `blog_post`. Note that the same enum
 /// serialises in PascalCase inside response bodies (`Resume`, `BlogPost`),
@@ -60,7 +85,8 @@ fn parse_attachment_target(s: &str) -> Result<AttachmentTarget, HttpResponse> {
             "target" = String,
             Path,
             description = "Attachment target: user, resume, project, or blog_post"
-        )
+        ),
+        ListMediaQuery,
     ),
     responses(
         (
@@ -87,6 +113,7 @@ fn parse_attachment_target(s: &str) -> Result<AttachmentTarget, HttpResponse> {
 pub async fn list_media_handler(
     user: VerifiedUser,
     path: web::Path<ListMediaPath>,
+    query: web::Query<ListMediaQuery>,
     data: web::Data<AppState>,
 ) -> impl Responder {
     let attachment_target = match parse_attachment_target(&path.target) {
@@ -94,9 +121,13 @@ pub async fn list_media_handler(
         Err(resp) => return resp,
     };
 
+    let ListMediaQuery { target_id, role } = query.into_inner();
+
     let command = ListMediaCommand {
         owner: UserId::from(user.user_id),
         attachment_target,
+        target_id,
+        role,
     };
     match data.multimedia.list_media.execute(command).await {
         Ok(items) => ApiResponse::success(ListMediaResponse { rows: items }),

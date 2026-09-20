@@ -93,10 +93,15 @@ pub trait MediaQuery: Send + Sync {
     async fn get_state(&self, media_id: Uuid) -> Result<MediaStateInfo, MediaQueryError>;
 
     /// Every media item attached to one target — a CV, a project, a post.
+    /// `target_id` and `role` narrow the listing; `None` for either means "do
+    /// not filter on it". Both are applied in SQL, so a caller after one post's
+    /// cover fetches one row rather than every image its author owns.
     async fn list_by_target(
         &self,
         owner: UserId,
         target: AttachmentTarget,
+        target_id: Option<Uuid>,
+        role: Option<String>,
     ) -> Result<Vec<MediaAttachment>, MediaQueryError>;
 
     /// What a media item is attached to, and in what role.
