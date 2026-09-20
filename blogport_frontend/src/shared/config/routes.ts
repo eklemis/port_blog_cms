@@ -36,3 +36,19 @@ export const CONSOLE_ROUTES = {
 	topics: '/studio/topics',
 	account: '/studio/account'
 } as const;
+
+/**
+ * Where a section's "add one" button goes.
+ *
+ * Named here rather than built as `${CONSOLE_ROUTES.x}/new` at each call site,
+ * because a string assembled in a component is a destination no test can find.
+ * One of these was offered by two buttons on the projects list while no route
+ * answered it — and `/studio/projects/new` did not 404, it matched the editor's
+ * `[id]` and reported that the project being created could not be found.
+ *
+ * The spec beside the nav asserts every value here has a page behind it.
+ */
+export const CONSOLE_CREATE = {
+	posts: `${CONSOLE_ROUTES.posts}/new`,
+	projects: `${CONSOLE_ROUTES.projects}/new`
+} as const;

@@ -1,7 +1,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from 'vitest';
-import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
+import { CONSOLE_CREATE, CONSOLE_ROUTES } from '$lib/shared/config/routes';
 import { CircleUser } from '@lucide/svelte';
 import {
 	ACCOUNT,
@@ -69,6 +69,25 @@ test('a console screen that exists is offered', () => {
 	const offered = new Set([...NAV, ...BELOW].map((item) => item.href));
 
 	for (const href of built) expect(offered.has(href), `${href} is built`).toBe(true);
+});
+
+test('every create screen the console links to exists', () => {
+	// The gap that let a dead link ship: the checks above cover the top-level
+	// sections and nothing below them, so `/studio/projects/new` was offered by
+	// two buttons while no route answered it. Worse than a 404 — it matched the
+	// editor's `[id]` with an id of "new", and told the person the project they
+	// were about to create could not be found.
+	for (const href of Object.values(CONSOLE_CREATE)) {
+		expect(existsSync(pageFor(href)), `${href} is offered`).toBe(true);
+	}
+});
+
+test('a create screen belongs to a section that exists', () => {
+	const sections = new Set(NAV.map((item) => item.href));
+
+	for (const href of Object.values(CONSOLE_CREATE)) {
+		expect(sections.has(href.replace(/\/new$/, '')), `${href}'s section`).toBe(true);
+	}
 });
 
 test('the bar and the sheet offer nothing the sidebar does not', () => {

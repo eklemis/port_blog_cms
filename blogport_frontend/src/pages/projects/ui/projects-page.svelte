@@ -2,7 +2,7 @@
 	import { untrack } from 'svelte';
 	import { Plus, Search } from '@lucide/svelte';
 	import { Button, EmptyState, InlineAlert } from '$lib/shared/ui';
-	import { CONSOLE_ROUTES } from '$lib/shared/config/routes';
+	import { CONSOLE_CREATE, CONSOLE_ROUTES } from '$lib/shared/config/routes';
 	import { relativeDate } from '$lib/shared/lib/relative-time';
 	import { linksOf, type ProjectCard } from '$lib/entities/project';
 	import { Pager } from '$lib/widgets/pager';
@@ -69,7 +69,7 @@
 		timer = setTimeout(() => onquery({ search: value || null, page: null }), 300);
 	}
 
-	const NEW = `${CONSOLE_ROUTES.projects}/new`;
+	const NEW = CONSOLE_CREATE.projects;
 </script>
 
 <!-- eslint-disable svelte/no-navigation-without-resolve --
