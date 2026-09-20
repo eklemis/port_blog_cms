@@ -23,10 +23,18 @@
 	 * **The address is a fact here, not a field.** The frame draws it as an input
 	 * identical to Title, but `CreateProjectRequest` takes a `slug` and
 	 * `PatchProjectRequest` does not: a project's address is fixed when it is
-	 * created. §04 settles the rendering — "Read-only facts render as text, not
-	 * disabled inputs" — and the conflict is reported rather than papered over.
-	 * It matters more than it looks: projects also have no restore, so a typo in
-	 * an address cannot be fixed by deleting and starting again.
+	 * created, where a post's is editable. §04 settles the rendering —
+	 * "Read-only facts render as text, not disabled inputs" — and the departure
+	 * from the frame is reported rather than papered over.
+	 *
+	 * An earlier version of this comment added that projects have no restore, so
+	 * a typo was unfixable. That was wrong, and taken from §02's journey table
+	 * rather than from the API: `POST /api/projects/{id}/restore` exists, and
+	 * §05 of the same document lists it. A typo escapes by creating a
+	 * replacement and archiving the original — at the cost of re-uploading the
+	 * screenshots, which attach to the project's id. The one thing worth
+	 * checking hard is therefore the create form, where
+	 * `GET /api/projects/slug-available` belongs.
 	 */
 	type Project = {
 		id: string;
