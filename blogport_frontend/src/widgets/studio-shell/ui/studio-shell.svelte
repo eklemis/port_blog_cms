@@ -4,7 +4,7 @@
 	import { Button } from '$lib/shared/ui';
 	import { resolve } from '$app/paths';
 	import { PRODUCT_NAME } from '$lib/shared/config/product';
-	import { ACCOUNT, MORE, NAV, TAB_BAR, currentLabel, isCurrent, mobileChrome } from '../model/nav';
+	import { BELOW, MORE, NAV, TAB_BAR, currentLabel, isCurrent, mobileChrome } from '../model/nav';
 
 	/**
 	 * The console's frame: the same navigation at three widths.
@@ -27,7 +27,6 @@
 
 	// In the script rather than the markup: `{@const}` is only legal as the
 	// immediate child of a block, and this one sits inside an element.
-	const accountCurrent = $derived(isCurrent(ACCOUNT.href, path));
 
 	/**
 	 * A native `<dialog>`, opened modally: the focus trap, Escape and the return
@@ -114,22 +113,29 @@
 			</a>
 		{/each}
 
-		<!-- Screen / Overview 68:21: a 20px gap, then the rule, then Account. -->
-		<div class="mt-5 h-px bg-arch-line" role="presentation"></div>
+		<!-- Screen / Overview 68:21: a 20px gap, then the rule, then Account. The
+		     rule divides two groups, so it is not drawn when there is nothing
+		     below it to divide from. -->
+		{#if BELOW.length}
+			<div class="mt-5 h-px bg-arch-line" role="presentation"></div>
+		{/if}
 
-		<a
-			href={ACCOUNT.href}
-			aria-current={accountCurrent ? 'page' : undefined}
-			title={ACCOUNT.label}
-			class="flex h-[34px] items-center gap-2.5 rounded-[7px] px-2.5 text-[13px]
-			       max-lg:justify-center
-			       {accountCurrent
-				? 'bg-arch-surface-2 font-semibold text-arch-accent-ink'
-				: 'text-arch-muted hover:bg-arch-surface-2'}"
-		>
-			<ACCOUNT.icon size={17} aria-hidden="true" />
-			<span class="max-lg:sr-only">{ACCOUNT.label}</span>
-		</a>
+		{#each BELOW as item (item.href)}
+			{@const current = isCurrent(item.href, path)}
+			<a
+				href={item.href}
+				aria-current={current ? 'page' : undefined}
+				title={item.label}
+				class="flex h-[34px] items-center gap-2.5 rounded-[7px] px-2.5 text-[13px]
+				       max-lg:justify-center
+				       {current
+					? 'bg-arch-surface-2 font-semibold text-arch-accent-ink'
+					: 'text-arch-muted hover:bg-arch-surface-2'}"
+			>
+				<item.icon size={17} aria-hidden="true" />
+				<span class="max-lg:sr-only">{item.label}</span>
+			</a>
+		{/each}
 	</nav>
 
 	<main

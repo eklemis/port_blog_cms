@@ -34,7 +34,8 @@ export type NavItem = {
 	short?: string;
 };
 
-export const NAV: NavItem[] = [
+/** The seven the design names, in the Prototype Map's sidebar order. */
+export const DESIGNED: NavItem[] = [
 	{ label: 'Overview', href: CONSOLE_ROUTES.overview, icon: LayoutDashboard },
 	{ label: 'Posts', href: CONSOLE_ROUTES.posts, icon: FileText },
 	{ label: 'Projects', href: CONSOLE_ROUTES.projects, icon: Folder },
@@ -53,6 +54,37 @@ export const ACCOUNT: NavItem = {
 };
 
 /**
+ * Which of them have a screen behind them today.
+ *
+ * **A nav item is a claim that a screen is there.** §02 makes the rule for the
+ * posts table — the Topics column "is not built; it is never filled with em
+ * dashes, which would read as 'no topics' on every row" — and a link to a route
+ * that does not exist is the same error in navigation form. Its cost is worse:
+ * a 404 from inside someone's own console, with no way to tell "not written
+ * yet" from "something is broken".
+ *
+ * This list is what the sidebar offers. It is checked against the route
+ * directories by the spec beside this file, so adding a screen and forgetting
+ * this line fails the gate rather than hiding the screen, and removing a route
+ * without removing its link fails too.
+ *
+ * The designed seven stay in `DESIGNED` above: this is a build-order state, not
+ * a redesign, and the list it is filtering is the one that will come back.
+ */
+const BUILT: readonly string[] = [
+	CONSOLE_ROUTES.overview,
+	CONSOLE_ROUTES.posts,
+	CONSOLE_ROUTES.applications
+];
+
+const built = (item: NavItem) => BUILT.includes(item.href);
+
+export const NAV: NavItem[] = DESIGNED.filter(built);
+
+/** Below the rule, when there is anything to put there. */
+export const BELOW: NavItem[] = [ACCOUNT].filter(built);
+
+/**
  * The mobile bar: four destinations and a fifth slot for More.
  *
  * `Posts · Projects · Apps · Media · More`, identical on all fourteen console
@@ -61,11 +93,13 @@ export const ACCOUNT: NavItem = {
  * fold, so five slots is what there is.
  */
 export const TAB_BAR: NavItem[] = [
-	NAV[1], // Posts
-	NAV[2], // Projects
-	NAV[4], // Applications, printed "Apps"
-	NAV[5] // Media
-];
+	CONSOLE_ROUTES.posts,
+	CONSOLE_ROUTES.projects,
+	CONSOLE_ROUTES.applications,
+	CONSOLE_ROUTES.media
+]
+	.map((href) => DESIGNED.find((item) => item.href === href))
+	.filter((item): item is NavItem => item !== undefined && built(item));
 
 /**
  * Behind More: the four destinations the bar has no room for.
@@ -76,13 +110,17 @@ export const TAB_BAR: NavItem[] = [
  *
  * The Prototype Map's mobile transform table is the ruling. The sheet itself
  * is the one mobile surface with no frame drawn; two are owed.
+ *
+ * Both this and the bar are filtered rather than backfilled. A bar of three
+ * real tabs is honest; a fourth borrowed from the sheet would be this file
+ * redesigning the mobile bar because a screen is late.
  */
 export const MORE: NavItem[] = [
-	NAV[0], // Overview
-	NAV[3], // Résumés
-	NAV[6], // Topics
+	DESIGNED[0], // Overview
+	DESIGNED[3], // Résumés
+	DESIGNED[6], // Topics
 	ACCOUNT
-];
+].filter(built);
 
 /**
  * Whether `path` is inside `href`'s section.
@@ -98,7 +136,9 @@ export const MORE: NavItem[] = [
  * each page was left to declare its own title.
  */
 export function currentLabel(path: string): string {
-	const match = [...NAV, ACCOUNT].find((item) => isCurrent(item.href, path));
+	// `DESIGNED` rather than `NAV`: naming a screen is not offering a link to
+	// it, and a section that exists before its nav entry should still be named.
+	const match = [...DESIGNED, ACCOUNT].find((item) => isCurrent(item.href, path));
 	return match?.label ?? 'Console';
 }
 
