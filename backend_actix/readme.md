@@ -160,6 +160,23 @@ Four documents plus the spec, enough to build against without reading Rust:
 The spec is also served live at `/swagger-ui/` and `/api-docs/openapi.json` when
 the server is running.
 
+### Uploads need a bucket CORS policy
+
+Bytes never pass through this API: `POST /api/media/upload-url` returns a signed
+URL and the browser `PUT`s straight to GCS. That is a cross-origin request, and
+a `PUT` carrying a `Content-Type` is preflighted — so **the bucket must answer
+`OPTIONS`, or the browser refuses to send the upload at all**.
+
+The failure mode is silent and looks like a broken product: the upload-url call
+succeeds, a `media` row is created as `pending`, the transfer is blocked before
+it starts, and **no request ever reaches this API** — so nothing is logged and
+the row stays `pending` for ever.
+
+The policy and the command that applies it are in
+[`infra/README.md`](infra/README.md). It lists development origins only; the
+production origin has to be added before the first production upload, and no
+deploy step applies it.
+
 ### Demo data
 
 An empty database makes every console screen look broken in the same way, so

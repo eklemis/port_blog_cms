@@ -33,7 +33,12 @@ where
     async fn execute(&self, command: ListMediaCommand) -> Result<Vec<MediaItem>, ListMediaError> {
         let attachments = self
             .query
-            .list_by_target(command.owner, command.attachment_target)
+            .list_by_target(
+                command.owner,
+                command.attachment_target,
+                command.target_id,
+                command.role.clone(),
+            )
             .await?;
         let items = attachments
             .into_iter()
@@ -137,6 +142,8 @@ mod tests {
             &self,
             owner: UserId,
             target: AttachmentTarget,
+            _target_id: Option<Uuid>,
+            _role: Option<String>,
         ) -> Result<Vec<MediaAttachment>, MediaQueryError> {
             self.calls.lock().unwrap().push((owner, target));
             // Return the stored result (clone it so repeated calls are safe if you add more tests later).
@@ -184,6 +191,8 @@ mod tests {
         let service = ListMediaService::new(query.clone());
 
         let command = ListMediaCommand {
+            target_id: None,
+            role: None,
             owner,
             attachment_target: target.clone(),
         };
@@ -241,6 +250,8 @@ mod tests {
         let service = ListMediaService::new(query.clone());
 
         let command = ListMediaCommand {
+            target_id: None,
+            role: None,
             owner,
             attachment_target: target.clone(),
         };

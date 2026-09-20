@@ -143,6 +143,8 @@ mod tests {
             &self,
             _owner: crate::auth::application::domain::entities::UserId,
             _target: AttachmentTarget,
+            _target_id: Option<Uuid>,
+            _role: Option<String>,
         ) -> Result<Vec<MediaAttachment>, MediaQueryError> {
             unimplemented!()
         }

@@ -32,6 +32,15 @@ pub struct ListMediaCommand {
     pub owner: UserId,
     /// What kind of thing it is attached to.
     pub attachment_target: AttachmentTarget,
+    /// Which one of them, when the caller wants a single thing's media.
+    ///
+    /// `None` lists the target kind across everything the caller owns, which is
+    /// what this endpoint did unconditionally before.
+    pub target_id: Option<Uuid>,
+    /// Which role to keep — `cover`, `screenshot`, `avatar`, `inline`.
+    ///
+    /// `None` keeps every role.
+    pub role: Option<String>,
 }
 
 /// One media item as it appears in a listing.

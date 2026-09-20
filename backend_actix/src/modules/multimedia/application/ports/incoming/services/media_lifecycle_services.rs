@@ -220,6 +220,8 @@ mod tests {
             &self,
             _o: UserId,
             _t: AttachmentTarget,
+            _target_id: Option<Uuid>,
+            _role: Option<String>,
         ) -> Result<Vec<MediaAttachment>, MediaQueryError> {
             unimplemented!()
         }

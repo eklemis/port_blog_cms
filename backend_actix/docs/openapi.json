@@ -7383,7 +7383,7 @@
           "media"
         ],
         "summary": "List the caller's media for one attachment target",
-        "description": "`target` is matched literally against the lowercase forms\n`user`, `resume`, `project`, and `blog_post`. Note that the same enum\nserialises in PascalCase inside response bodies (`Resume`, `BlogPost`),\nso the path form and the body form differ.",
+        "description": "`target_id` and `role` narrow it. Asking for one post's cover is\n`?target_id={post_id}&role=cover`, which returns one row rather than every\nimage the author has ever attached to a post.\n\n`target` is matched literally against the lowercase forms\n`user`, `resume`, `project`, and `blog_post`. Note that the same enum\nserialises in PascalCase inside response bodies (`Resume`, `BlogPost`),\nso the path form and the body form differ.",
         "operationId": "list_media_handler",
         "parameters": [
           {
@@ -7393,6 +7393,31 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "target_id",
+            "in": "query",
+            "description": "The id of the thing the media hangs off — one post, one project.\n\nOmit to list the target kind across everything you own, which is what\nthis endpoint did before this parameter existed.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "description": "Keep only this role: `cover`, `screenshot`, `avatar`, `inline`.\n\nOmit to keep every role. An unknown role is not an error — it simply\nmatches nothing, the same as asking for a post that has no cover.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
             }
           }
         ],
