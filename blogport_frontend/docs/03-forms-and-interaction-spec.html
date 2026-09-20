@@ -1124,10 +1124,11 @@
 				fine for reuse and impossible to scope tighter until the API offers it.
 			</p>
 			<p>
-				<b>Ordering is upload order, for now.</b> Whether <code>position</code> is patchable
-				alongside <code>alt_text</code> is unconfirmed (filed as C2). In a post it barely matters
-				either way — the markdown line position decides where the image appears. It matters for
-				project galleries, which is where drag-to-reorder would land if the answer is yes.
+				<b>C2 is answered, and the answer is yes.</b> <code>PatchMediaRequest</code> carries
+				<code>alt_text</code>, <code>caption</code> <em>and</em> <code>position</code>, so ordering
+				is editable after upload. In a post it barely matters — the markdown line decides where an
+				image appears — but it is what project galleries were waiting on, so drag-to-reorder is
+				unblocked there, with move-up / move-down beside it per §07 of the Accessibility Spec.
 			</p>
 		</div>
 
@@ -1172,7 +1173,14 @@
 							non-empty <span style="color: var(--st-danger)">(spec rule, not API)</span>
 						</td>
 						<td class="dim">
-							Blocks upload. Editable afterwards via PATCH, but treat the picker as the real moment.
+							Blocks upload. Editable afterwards via <code>PATCH</code>, but treat the picker as the
+							real moment. The card says so in these words:
+							<span class="say">"This is what a screen reader reads in place of the image — write
+							it while you still know why you chose it."</span> It replaced
+							<span class="say">"Alt text is set once and cannot be edited later"</span>, which
+							was true when it was drawn and was made false by the endpoint that exists
+							<em>because</em> a permanent wrong alt text is an accessibility defect. Nothing
+							on screen may claim the description cannot be changed.
 						</td>
 					</tr>
 					<tr>
