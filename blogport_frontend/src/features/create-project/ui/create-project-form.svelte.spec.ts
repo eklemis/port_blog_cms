@@ -149,3 +149,68 @@ test('has no accessibility violations', async () => {
 
 	await expectNoA11yViolations(document.body, UNSTYLED_GEOMETRY);
 });
+
+/**
+ * The frame arrived after this screen shipped — Screen / New project 226:5324 —
+ * and it answered the question I raised while it was undrawn: tech stack does
+ * belong here, alongside the three fields I had chosen.
+ */
+
+test('tech stack is on the form, as the frame draws it', async () => {
+	const fetchFn = vi.fn(async (url: string) =>
+		String(url).includes('slug-available') ? free() : created()
+	);
+	const screen = render(CreateProjectForm, props({ fetchFn: fetchFn as unknown as typeof fetch }));
+
+	await screen.getByRole('textbox', { name: 'Title' }).fill('Blogport CMS');
+	await screen.getByRole('textbox', { name: 'Description' }).fill('A portfolio CMS.');
+
+	const chips = screen.getByRole('textbox', { name: 'Add to tech stack' });
+	await chips.fill('Rust');
+	(chips.element() as HTMLInputElement).dispatchEvent(
+		new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+	);
+
+	await screen.getByRole('button', { name: 'Add project' }).click();
+
+	await vi.waitFor(() => expect(fetchFn).toHaveBeenCalled());
+	const post = sent(fetchFn).find(([url]) => url === '/api/projects');
+	expect(JSON.parse(String(post?.[1]?.body))).toMatchObject({ tech_stack: ['Rust'] });
+});
+
+test('a stack nobody listed is left out rather than sent empty', async () => {
+	// The server has a default; an empty array would overwrite it with a
+	// decision the person never made.
+	const fetchFn = vi.fn(async (url: string) =>
+		String(url).includes('slug-available') ? free() : created()
+	);
+	const screen = render(CreateProjectForm, props({ fetchFn: fetchFn as unknown as typeof fetch }));
+
+	await screen.getByRole('textbox', { name: 'Title' }).fill('Blogport CMS');
+	await screen.getByRole('textbox', { name: 'Description' }).fill('A portfolio CMS.');
+	await screen.getByRole('button', { name: 'Add project' }).click();
+
+	await vi.waitFor(() => expect(fetchFn).toHaveBeenCalled());
+	const post = sent(fetchFn).find(([url]) => url === '/api/projects');
+	expect(JSON.parse(String(post?.[1]?.body))).not.toHaveProperty('tech_stack');
+});
+
+test('says what the description is for, and repeats that it goes live', async () => {
+	const screen = render(CreateProjectForm, props());
+
+	await expect
+		.element(
+			screen.getByText(
+				'Shown under the title on your public page. A project goes live the moment it is added.'
+			)
+		)
+		.toBeInTheDocument();
+});
+
+test('there is a way out that is not the back button', async () => {
+	const screen = render(CreateProjectForm, props());
+
+	await expect
+		.element(screen.getByRole('link', { name: 'Cancel' }))
+		.toHaveAttribute('href', '/studio/projects');
+});
