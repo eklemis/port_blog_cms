@@ -7,4 +7,13 @@
  * `/api/projects/{id}/topics` — so those stay with the feature that owns them,
  * and only the shape and the picker are shared.
  */
-export type Topic = { id: string; title: string };
+export type Topic = {
+	id: string;
+	title: string;
+	/**
+	 * What the word means here. §02 asks for it beside the title wherever a
+	 * topic is created: "a taxonomy of bare words stops being useful at about
+	 * fifteen entries." Empty rather than absent when nothing was written.
+	 */
+	description?: string | null;
+};

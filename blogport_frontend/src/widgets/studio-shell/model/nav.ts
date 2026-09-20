@@ -75,7 +75,8 @@ const BUILT: readonly string[] = [
 	CONSOLE_ROUTES.overview,
 	CONSOLE_ROUTES.posts,
 	CONSOLE_ROUTES.projects,
-	CONSOLE_ROUTES.applications
+	CONSOLE_ROUTES.applications,
+	CONSOLE_ROUTES.topics
 ];
 
 const built = (item: NavItem) => BUILT.includes(item.href);
