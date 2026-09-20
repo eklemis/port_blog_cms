@@ -719,12 +719,18 @@
 						<td class="dim">Chip attaches, popover closes</td>
 					</tr>
 					<tr>
+						<td><b>New project</b></td>
+						<td class="dim">title, slug, description, <b>tech_stack</b></td>
+						<td class="dim">Add project</td>
+						<td class="dim">Live immediately — say so under the button, before the press</td>
+					</tr>
+					<tr>
 						<td><b>Project editor</b></td>
 						<td class="dim">
-							title, slug, description, tech_stack, repo_url, live_demo_url, topics
+							everything above, plus repo_url, live_demo_url, topics and screenshots
 						</td>
-						<td class="dim">Add project</td>
-						<td class="dim">Live immediately — say so on the button helper</td>
+						<td class="dim">Saves per field</td>
+						<td class="dim">Topics and media need the project to exist — they attach by id</td>
 					</tr>
 					<tr>
 						<td><b>CV identity</b></td>
@@ -1123,6 +1129,36 @@
 				target <em>type</em>, not an id, so the list is every image across all your posts. That is
 				fine for reuse and impossible to scope tighter until the API offers it.
 			</p>
+			<div class="callout">
+				<h4>The new-project form is four fields, and the fourth is the interesting one</h4>
+				<p>
+					Title, address and description split off for the same reason the post form does —
+					topics and media attach by id, so the record has to exist first. <b>Tech stack
+					joins them</b>, and it is the one field that would be optional anywhere else.
+				</p>
+				<p>
+					A project has no draft state. <code>published_at</code> does not exist on it, so
+					<em>creating it publishes it</em> — this form is the only moment before a stranger
+					can read the page. A title and a paragraph is a thin thing to put in front of one;
+					a title, a paragraph and a stack is a project. Links and screenshots can follow,
+					because a reader who arrives before them sees something unfinished rather than
+					something empty.
+				</p>
+				<p>
+					<b><code>Screen / New project</code> is owed.</b> This screen was specified in
+					prose and built from it, which is why these decisions had to be made without a
+					frame at all.
+				</p>
+			</div>
+
+			<p>
+				<b>Roles and targets are lowercase on the wire.</b> Six roles, not four, and
+				<code>screenshot</code> — the one a project's gallery uses — was missing from the
+				table above until now. <a href="../../backend_actix/docs/adr/0008-collapse-the-screenshot-rename.md">ADR 0008</a>
+				is blunt about the cost: <span class="say">"Any client sending the capitalized forms
+				breaks."</span> <code>AttachmentTarget</code> is snake_case for the same reason —
+				<code>blog_post</code>, never <code>blogpost</code>.
+			</p>
 			<p>
 				<b>C2 is answered, and the answer is yes.</b> <code>PatchMediaRequest</code> carries
 				<code>alt_text</code>, <code>caption</code> <em>and</em> <code>position</code>, so ordering
@@ -1194,7 +1230,8 @@
 						<td><code>role</code></td>
 						<td class="dim">select</td>
 						<td><span class="req r-yes">yes</span></td>
-						<td class="dim">cover · gallery · inline · avatar</td>
+						<td class="dim">avatar · profile · cover · screenshot · gallery · inline<br>
+						<span style="color:var(--st-danger)">lowercase on the wire</span> — see below</td>
 						<td class="dim">Preset by the calling surface</td>
 					</tr>
 					<tr>
