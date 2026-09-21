@@ -112,6 +112,7 @@ mod tests {
             _target: AttachmentTarget,
             _target_id: Option<Uuid>,
             _role: Option<String>,
+            _include_deleted: bool,
         ) -> Result<Vec<MediaAttachment>, MediaQueryError> {
             unimplemented!()
         }
@@ -125,6 +126,7 @@ mod tests {
 
     fn attachment(owner: UserId, sizes: Vec<MediaSize>) -> MediaAttachment {
         MediaAttachment {
+            deleted_at: None,
             media_id: Uuid::new_v4(),
             owner,
             attachment_target: AttachmentTarget::Resume,

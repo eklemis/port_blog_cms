@@ -38,6 +38,7 @@ where
                 command.attachment_target,
                 command.target_id,
                 command.role.clone(),
+                command.include_deleted,
             )
             .await?;
         let items = attachments
@@ -144,6 +145,7 @@ mod tests {
             target: AttachmentTarget,
             _target_id: Option<Uuid>,
             _role: Option<String>,
+            _include_deleted: bool,
         ) -> Result<Vec<MediaAttachment>, MediaQueryError> {
             self.calls.lock().unwrap().push((owner, target));
             // Return the stored result (clone it so repeated calls are safe if you add more tests later).
@@ -162,6 +164,7 @@ mod tests {
         // Build a MediaAttachment that exercises every mapped field in MediaItem::from_media_attachment.
         // Adjust field names/types if your MediaAttachment differs slightly.
         MediaAttachment {
+            deleted_at: None,
             owner,
             media_id: Uuid::new_v4(),
             original_filename: "photo.png".to_string(),
@@ -193,6 +196,7 @@ mod tests {
         let command = ListMediaCommand {
             target_id: None,
             role: None,
+            include_deleted: false,
             owner,
             attachment_target: target.clone(),
         };
@@ -252,6 +256,7 @@ mod tests {
         let command = ListMediaCommand {
             target_id: None,
             role: None,
+            include_deleted: false,
             owner,
             attachment_target: target.clone(),
         };

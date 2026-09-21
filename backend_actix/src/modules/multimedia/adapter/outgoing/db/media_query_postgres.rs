@@ -194,6 +194,7 @@ impl MediaQueryPostgres {
         target: &str,
         target_id: Option<Uuid>,
         role: Option<&str>,
+        include_deleted: bool,
     ) -> Statement {
         Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
@@ -208,14 +209,15 @@ impl MediaQueryPostgres {
                 ma.position,
                 COALESCE(ma.alt_text, '') as alt_text,
                 COALESCE(ma.caption, '') as caption,
-                m.original_filename
+                m.original_filename,
+                m.deleted_at
             FROM media m
             INNER JOIN media_attachments ma ON m.id = ma.media_id
             WHERE m.user_id = $1
               AND ma.attachable_type = $2
               AND ($3::uuid IS NULL OR ma.attachable_id = $3::uuid)
               AND ($4::text IS NULL OR ma.role::text = $4::text)
-              AND m.deleted_at IS NULL
+              AND ($5::bool OR m.deleted_at IS NULL)
             ORDER BY ma.position ASC, ma.created_at ASC
             "#,
             vec![
@@ -223,6 +225,7 @@ impl MediaQueryPostgres {
                 target.into(),
                 target_id.into(),
                 role.map(|r| r.to_string()).into(),
+                include_deleted.into(),
             ],
         )
     }
@@ -564,11 +567,18 @@ impl MediaQuery for MediaQueryPostgres {
         target: AttachmentTarget,
         target_id: Option<Uuid>,
         role: Option<String>,
+        include_deleted: bool,
     ) -> Result<Vec<MediaAttachment>, MediaQueryError> {
         let owner_uuid: Uuid = owner.into();
         let target_str = target.to_string();
 
-        let stmt = Self::list_by_target_stmt(owner_uuid, &target_str, target_id, role.as_deref());
+        let stmt = Self::list_by_target_stmt(
+            owner_uuid,
+            &target_str,
+            target_id,
+            role.as_deref(),
+            include_deleted,
+        );
 
         let results = self.db.query_all(stmt).await.map_err(Self::map_db_err)?;
 
@@ -589,11 +599,14 @@ impl MediaQuery for MediaQueryPostgres {
             let original_filename: String = row
                 .try_get("", "original_filename")
                 .map_err(Self::map_db_err)?;
+            let deleted_at: Option<chrono::DateTime<chrono::FixedOffset>> =
+                row.try_get("", "deleted_at").map_err(Self::map_db_err)?;
 
             // Fetch variants for this media
             let variants = Self::get_variants(&self.db, media_id).await?;
 
             media_list.push(MediaAttachment {
+                deleted_at: deleted_at.map(|t| t.with_timezone(&chrono::Utc)),
                 media_id,
                 owner: UserId::from(user_id),
                 attachment_target: Self::parse_attachment_target(&attachable_type)?,
@@ -641,6 +654,9 @@ impl MediaQuery for MediaQueryPostgres {
 
         Ok(MediaAttachment {
             media_id,
+            // This statement filters `deleted_at IS NULL`, so a row it returns
+            // is live by construction.
+            deleted_at: None,
             owner: UserId::from(user_id),
             attachment_target: Self::parse_attachment_target(&attachable_type)?,
             attachment_target_id: attachable_id,
@@ -676,6 +692,7 @@ mod filter_tests {
             "blog_post",
             Some(Uuid::new_v4()),
             Some("cover"),
+            false,
         )
         .to_string();
 
@@ -689,16 +706,55 @@ mod filter_tests {
         );
     }
 
+    /// Archived rows are excluded unless asked for.
+    ///
+    /// Archived media could already be restored and purged, but not *found* —
+    /// the listing excluded it and the row said nothing about it — so a Restore
+    /// control had nothing to act on. `include_deleted` brings them back
+    /// alongside the live ones, marked by `deleted_at`.
+    #[test]
+    fn archived_rows_are_excluded_unless_asked_for() {
+        let live =
+            MediaQueryPostgres::list_by_target_stmt(Uuid::new_v4(), "blog_post", None, None, false);
+        let with_archived =
+            MediaQueryPostgres::list_by_target_stmt(Uuid::new_v4(), "blog_post", None, None, true);
+
+        // The clause is the same in both; what changes is the argument, so the
+        // statement has one plan shape rather than two.
+        assert!(
+            live.to_string().contains("m.deleted_at IS NULL"),
+            "the live listing must still exclude archived rows"
+        );
+
+        let arg = |s: &Statement| match s.values.as_ref().expect("parameterised").0[4] {
+            sea_orm::Value::Bool(v) => v,
+            ref other => panic!("the archive switch must be a bool, got {other:?}"),
+        };
+
+        assert_eq!(arg(&live), Some(false), "default excludes archived rows");
+        assert_eq!(arg(&with_archived), Some(true), "asking includes them");
+
+        assert!(
+            live.to_string().contains("m.deleted_at"),
+            "and the timestamp is selected, so a caller can tell them apart"
+        );
+    }
+
     /// Omitting them lists everything, as it did before they existed.
     #[test]
     fn absent_filters_do_not_narrow_anything() {
-        let stmt = MediaQueryPostgres::list_by_target_stmt(Uuid::new_v4(), "blog_post", None, None);
+        let stmt =
+            MediaQueryPostgres::list_by_target_stmt(Uuid::new_v4(), "blog_post", None, None, false);
         let values = stmt
             .values
             .as_ref()
             .expect("the statement is parameterised");
 
-        assert_eq!(values.0.len(), 4, "owner, target, and the two filters");
+        assert_eq!(
+            values.0.len(),
+            5,
+            "owner, target, the two filters, and the archive switch"
+        );
         let is_null = |v: &sea_orm::Value| {
             matches!(v, sea_orm::Value::Uuid(None) | sea_orm::Value::String(None))
         };
@@ -877,7 +933,13 @@ mod tests {
 
         let query = MediaQueryPostgres::new(Arc::new(db));
         let result = query
-            .list_by_target(UserId::from(user_id), AttachmentTarget::Resume, None, None)
+            .list_by_target(
+                UserId::from(user_id),
+                AttachmentTarget::Resume,
+                None,
+                None,
+                false,
+            )
             .await;
 
         assert!(result.is_ok());
@@ -910,7 +972,13 @@ mod tests {
 
         let query = MediaQueryPostgres::new(Arc::new(db));
         let result = query
-            .list_by_target(UserId::from(user_id), AttachmentTarget::Project, None, None)
+            .list_by_target(
+                UserId::from(user_id),
+                AttachmentTarget::Project,
+                None,
+                None,
+                false,
+            )
             .await;
 
         assert!(result.is_ok());
@@ -928,7 +996,13 @@ mod tests {
 
         let query = MediaQueryPostgres::new(Arc::new(db));
         let err = query
-            .list_by_target(UserId::from(user_id), AttachmentTarget::Resume, None, None)
+            .list_by_target(
+                UserId::from(user_id),
+                AttachmentTarget::Resume,
+                None,
+                None,
+                false,
+            )
             .await
             .unwrap_err();
 
@@ -971,7 +1045,13 @@ mod tests {
 
         let query = MediaQueryPostgres::new(Arc::new(db));
         let err = query
-            .list_by_target(UserId::from(user_id), AttachmentTarget::Resume, None, None)
+            .list_by_target(
+                UserId::from(user_id),
+                AttachmentTarget::Resume,
+                None,
+                None,
+                false,
+            )
             .await
             .unwrap_err();
 
@@ -1227,7 +1307,13 @@ mod tests {
 
         let query = MediaQueryPostgres::new(Arc::new(db));
         let result = query
-            .list_by_target(UserId::from(user_id), AttachmentTarget::Resume, None, None)
+            .list_by_target(
+                UserId::from(user_id),
+                AttachmentTarget::Resume,
+                None,
+                None,
+                false,
+            )
             .await;
 
         assert!(result.is_ok());
@@ -1298,7 +1384,13 @@ mod tests {
 
         let query = MediaQueryPostgres::new(Arc::new(db));
         let err = query
-            .list_by_target(UserId::from(user_id), AttachmentTarget::Resume, None, None)
+            .list_by_target(
+                UserId::from(user_id),
+                AttachmentTarget::Resume,
+                None,
+                None,
+                false,
+            )
             .await
             .unwrap_err();
 

@@ -145,6 +145,7 @@ mod tests {
             _target: AttachmentTarget,
             _target_id: Option<Uuid>,
             _role: Option<String>,
+            _include_deleted: bool,
         ) -> Result<Vec<MediaAttachment>, MediaQueryError> {
             unimplemented!()
         }
