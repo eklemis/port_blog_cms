@@ -1,6 +1,8 @@
 // Public API of the media entity.
 export { moved, repositioned } from './model/order';
+export { tileStatus, type Tile, type TileStatus } from './model/tile';
 export { patchMedia, type MediaChanges, type PatchResult } from './api/patch';
+export { archiveMedia, purgeMedia, restoreMedia, type LifecycleResult } from './api/lifecycle';
 export {
 	beginUpload,
 	uploadBytes,
