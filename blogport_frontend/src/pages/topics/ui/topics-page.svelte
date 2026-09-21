@@ -1,6 +1,7 @@
 <script lang="ts">
+	import { Plus } from '@lucide/svelte';
 	import { Button, EmptyState, Field, InlineAlert } from '$lib/shared/ui';
-	import { retireQuestion, type Topic, type TopicUsage } from '$lib/entities/topic';
+	import { createTopic, retireQuestion, type Topic, type TopicUsage } from '$lib/entities/topic';
 	import { renameTopic, retireTopic, topicUsage } from '$lib/features/manage-topics';
 	import type { HandlingClass } from '$lib/shared/lib/error-class';
 
@@ -19,11 +20,12 @@
 	 * projects.' Never drop a topic off eight pages silently." The count is asked
 	 * for when Retire is pressed, which is the moment it is needed.
 	 *
-	 * **No usage column, and no sort by usage.** §02 asks for both, from a line
-	 * written before the usage endpoint existed — "assembled client-side from the
-	 * post and project topic endpoints". One call per row is the same N+1 that
-	 * §02 itself refused for the posts table's Topics column, and it refused it
-	 * in the stronger case. Filed rather than built.
+	 * **The USED ON column is drawn and not built.** 70:382 shows a count per
+	 * row; `GET /api/topics/{id}/usage` takes one topic, so that is one request
+	 * per row on every load — the same N+1 §02 itself refused for the posts
+	 * table's Topics column, in the weaker case, since topics are not paged at
+	 * all. Asked rather than guessed; the counts still appear where they change a
+	 * decision, on the retire confirmation.
 	 *
 	 * Retiring is a soft delete and reads as one: a plain confirmation in the
 	 * row, not the type-to-confirm dialog, which is for things that do not come
@@ -40,6 +42,9 @@
 		fetchFn?: typeof globalThis.fetch;
 	} = $props();
 
+	let creating = $state(false);
+	let newTitle = $state('');
+	let newDescription = $state('');
 	let renaming = $state<string | null>(null);
 	let draft = $state('');
 	let retiring = $state<string | null>(null);
@@ -48,6 +53,25 @@
 	let working = $state(false);
 	let failure = $state<string | undefined>();
 	let failureKind = $state<HandlingClass>('notOurs');
+
+	async function create() {
+		if (!newTitle.trim() || working) return;
+
+		working = true;
+		const result = await createTopic(newTitle.trim(), fetchFn, newDescription);
+		working = false;
+
+		if (!result.ok) {
+			failure = result.message;
+			failureKind = result.kind;
+			return;
+		}
+
+		creating = false;
+		newTitle = '';
+		newDescription = '';
+		onchanged();
+	}
 
 	function openRename(topic: Topic) {
 		retiring = null;
@@ -103,95 +127,157 @@
 </script>
 
 <div class="flex flex-col gap-4">
-	<h1 class="font-display text-[19px] font-bold text-arch-headline">Topics</h1>
+	<div class="flex flex-wrap items-center justify-between gap-3">
+		<h1 class="font-display text-[19px] font-bold text-arch-headline">Topics</h1>
+		<Button
+			label="New topic"
+			onclick={() => {
+				renaming = null;
+				retiring = null;
+				creating = !creating;
+			}}
+		>
+			{#snippet icon()}<Plus size={15} aria-hidden="true" />{/snippet}
+		</Button>
+	</div>
 
 	<p class="text-[11.5px] text-arch-muted">
-		One vocabulary across posts and projects. Renaming a topic keeps it on everything already tagged
-		with it.
+		One vocabulary across posts and projects. Most topics are born inside an editor — this screen is
+		for tidying.
 	</p>
 
 	<InlineAlert message={failure} kind={failureKind} />
 
-	{#if topics.length}
-		<ul class="flex list-none flex-col gap-2.5 p-0">
-			{#each topics as topic (topic.id)}
-				<li class="rounded-xl border border-arch-line bg-arch-surface px-4 py-3.5">
-					{#if renaming === topic.id}
-						<div class="flex flex-col gap-2.5">
-							<Field id="topic-{topic.id}-title" label="Title" bind:value={draft} />
-							<div class="flex gap-2">
-								<Button
-									label="Save"
-									disabled={!draft.trim()}
-									loading={working}
-									onclick={() => saveName(topic)}
-								/>
-								<Button kind="ghost" label="Cancel" onclick={() => (renaming = null)} />
-							</div>
-						</div>
-					{:else}
-						<div class="flex flex-wrap items-center justify-between gap-3">
-							<div class="flex min-w-0 flex-col gap-0.5">
-								<span class="text-[13px] font-medium text-arch-headline">{topic.title}</span>
-								{#if topic.description}
-									<span class="text-[11.5px] text-arch-muted">{topic.description}</span>
-								{/if}
-							</div>
+	{#if creating}
+		<!-- §02: "title and description in the same popover — a taxonomy of bare
+		     words stops being useful at about fifteen entries." -->
+		<div class="flex flex-col gap-3 rounded-xl border border-arch-line bg-arch-surface p-5">
+			<Field id="new-topic-title" label="Title" bind:value={newTitle} />
+			<Field
+				id="new-topic-description"
+				label="Description"
+				bind:value={newDescription}
+				help="What belongs under this word. Optional, and worth writing."
+			/>
+			<div class="flex gap-2">
+				<Button
+					label="Create topic"
+					disabled={!newTitle.trim()}
+					loading={working}
+					onclick={create}
+				/>
+				<Button kind="ghost" label="Cancel" onclick={() => (creating = false)} />
+			</div>
+		</div>
+	{/if}
 
-							<!-- Raw buttons rather than the kit's: every row has a Rename
-							     and a Retire, so the visible word alone names three
-							     controls the same thing. The accessible name carries the
-							     topic; the label stays as drawn. -->
-							<div class="flex shrink-0 items-center gap-1.5">
-								<button
-									type="button"
-									aria-label="Rename {topic.title}"
-									onclick={() => openRename(topic)}
-									class="rounded-md px-2.5 py-1.5 text-[12px] text-arch-muted
-									       hover:bg-arch-surface-2 hover:text-arch-headline"
-								>
-									Rename
-								</button>
-								<button
-									type="button"
-									aria-label="Retire {topic.title}"
-									onclick={() => askRetire(topic)}
-									class="rounded-md px-2.5 py-1.5 text-[12px] text-arch-muted
-									       hover:bg-arch-surface-2 hover:text-arch-headline"
-								>
-									Retire
-								</button>
-							</div>
-						</div>
+	{#if topics.length}
+		<div class="overflow-x-auto rounded-xl border border-arch-line bg-arch-surface">
+			<table class="w-full border-collapse text-left">
+				<thead>
+					<tr class="border-b border-arch-line">
+						<th
+							scope="col"
+							class="px-5 py-3 font-mono text-[9px] font-normal tracking-[0.9px] text-arch-muted
+							       uppercase"
+						>
+							Topic
+						</th>
+						<th
+							scope="col"
+							class="px-5 py-3 font-mono text-[9px] font-normal tracking-[0.9px] text-arch-muted
+							       uppercase"
+						>
+							Description
+						</th>
+						<!-- USED ON belongs here. It is a call per row until the count can
+						     be asked for in one, so the header is empty rather than
+						     labelling a column with nothing under it. -->
+						<th scope="col" class="px-5 py-3"><span class="sr-only">Actions</span></th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each topics as topic (topic.id)}
+						<tr class="border-b border-arch-line last:border-0">
+							{#if renaming === topic.id}
+								<td colspan="3" class="px-5 py-3.5">
+									<div class="flex flex-col gap-2.5">
+										<Field id="topic-{topic.id}-title" label="Title" bind:value={draft} />
+										<div class="flex gap-2">
+											<Button
+												label="Save"
+												disabled={!draft.trim()}
+												loading={working}
+												onclick={() => saveName(topic)}
+											/>
+											<Button kind="ghost" label="Cancel" onclick={() => (renaming = null)} />
+										</div>
+									</div>
+								</td>
+							{:else}
+								<td class="px-5 py-3.5 text-[13px] font-medium text-arch-headline">
+									{topic.title}
+								</td>
+								<td class="px-5 py-3.5 text-[12.5px] text-arch-muted">
+									{topic.description ?? ''}
+								</td>
+								<td class="px-5 py-3.5">
+									<div class="flex items-center justify-end gap-1.5">
+										<button
+											type="button"
+											aria-label="Rename {topic.title}"
+											onclick={() => openRename(topic)}
+											class="rounded-md px-2.5 py-1.5 text-[12px] text-arch-accent-ink
+											       hover:underline"
+										>
+											Rename
+										</button>
+										<button
+											type="button"
+											aria-label="Retire {topic.title}"
+											onclick={() => askRetire(topic)}
+											class="rounded-md px-2.5 py-1.5 text-[12px] text-arch-muted
+											       hover:text-arch-headline"
+										>
+											Retire
+										</button>
+									</div>
+								</td>
+							{/if}
+						</tr>
 
 						{#if retiring === topic.id}
-							<!-- A soft delete, asked plainly. The counted sentence sits where
-							     the action is rather than behind a modal. -->
-							<div class="mt-3 flex flex-col gap-2.5 rounded-lg bg-arch-surface-2 px-3 py-2.5">
-								<p class="text-[12.5px] text-arch-headline" role="status">
-									{counting ? `Retire «${topic.title}»?` : retireQuestion(topic.title, counted)}
-								</p>
-								<div class="flex gap-2">
-									<Button
-										kind="danger"
-										size="compact"
-										label="Retire topic"
-										loading={working}
-										onclick={() => confirmRetire(topic)}
-									/>
-									<Button
-										kind="ghost"
-										size="compact"
-										label="Cancel"
-										onclick={() => (retiring = null)}
-									/>
-								</div>
-							</div>
+							<tr class="border-b border-arch-line last:border-0">
+								<td colspan="3" class="px-5 pb-3.5">
+									<!-- A soft delete, asked plainly. The counted sentence sits
+									     where the action is rather than behind a modal. -->
+									<div class="flex flex-col gap-2.5 rounded-lg bg-arch-surface-2 px-3 py-2.5">
+										<p class="text-[12.5px] text-arch-headline" role="status">
+											{counting ? `Retire «${topic.title}»?` : retireQuestion(topic.title, counted)}
+										</p>
+										<div class="flex gap-2">
+											<Button
+												kind="danger"
+												size="compact"
+												label="Retire topic"
+												loading={working}
+												onclick={() => confirmRetire(topic)}
+											/>
+											<Button
+												kind="ghost"
+												size="compact"
+												label="Cancel"
+												onclick={() => (retiring = null)}
+											/>
+										</div>
+									</div>
+								</td>
+							</tr>
 						{/if}
-					{/if}
-				</li>
-			{/each}
-		</ul>
+					{/each}
+				</tbody>
+			</table>
+		</div>
 	{:else}
 		<EmptyState
 			title="No topics yet."
