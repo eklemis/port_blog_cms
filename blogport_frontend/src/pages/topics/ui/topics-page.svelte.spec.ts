@@ -137,3 +137,89 @@ test('has no accessibility violations', async () => {
 
 	await expectNoA11yViolations(document.body, UNSTYLED_GEOMETRY);
 });
+
+/**
+ * Brought to Screen / Topics 70:382 once Figma was reachable again.
+ *
+ * The frame is a table — TOPIC · DESCRIPTION · USED ON — with a "+ New topic"
+ * primary. The USED ON column is not built: `GET /api/topics/{id}/usage` takes
+ * one topic, so a count per row is a call per row. Asked in Slack; the other
+ * two columns and the button are not in question.
+ */
+
+test('is the table the frame draws, minus the column that is a call per row', async () => {
+	const screen = render(TopicsPage, props());
+
+	const headers = [...screen.container.querySelectorAll('thead th')].map((cell) =>
+		cell.textContent?.trim()
+	);
+
+	// The third column's header is empty on screen and named for a screen
+	// reader: a column of controls still needs saying what it is.
+	expect(headers).toEqual(['Topic', 'Description', 'Actions']);
+});
+
+test('says what the screen is for, in the words the frame uses', async () => {
+	const screen = render(TopicsPage, props());
+
+	await expect
+		.element(
+			screen.getByText(
+				'One vocabulary across posts and projects. Most topics are born inside an editor — this screen is for tidying.'
+			)
+		)
+		.toBeInTheDocument();
+});
+
+test('a topic can be started here, not only inside an editor', async () => {
+	const screen = render(TopicsPage, props());
+
+	await screen.getByRole('button', { name: 'New topic' }).click();
+
+	await expect.element(screen.getByRole('textbox', { name: 'Title' })).toBeInTheDocument();
+	await expect.element(screen.getByRole('textbox', { name: 'Description' })).toBeInTheDocument();
+});
+
+test('creating sends both halves together', async () => {
+	// §02: "title and description in the same popover — a taxonomy of bare
+	// words stops being useful at about fifteen entries."
+	const onchanged = vi.fn();
+	const fetchFn = vi.fn(async () => json({ data: { id: 't-9', title: 'Kafka' } }, 201));
+	const screen = render(
+		TopicsPage,
+		props({ onchanged, fetchFn: fetchFn as unknown as typeof fetch })
+	);
+
+	await screen.getByRole('button', { name: 'New topic' }).click();
+	await screen.getByRole('textbox', { name: 'Title' }).fill('Kafka');
+	await screen.getByRole('textbox', { name: 'Description' }).fill('Streams and queues.');
+	await screen.getByRole('button', { name: 'Create topic' }).click();
+
+	await vi.waitFor(() => expect(onchanged).toHaveBeenCalled());
+	expect(JSON.parse(String(sent(fetchFn)[0][1]?.body))).toEqual({
+		title: 'Kafka',
+		description: 'Streams and queues.'
+	});
+});
+
+test('a name already in the vocabulary is a near-miss, and names it', async () => {
+	const fetchFn = vi.fn(async () => json({ error: { code: 'TOPIC_ALREADY_EXISTS' } }, 409));
+	const screen = render(TopicsPage, props({ fetchFn: fetchFn as unknown as typeof fetch }));
+
+	await screen.getByRole('button', { name: 'New topic' }).click();
+	await screen.getByRole('textbox', { name: 'Title' }).fill('Rust');
+	await screen.getByRole('button', { name: 'Create topic' }).click();
+
+	await expect
+		.element(screen.getByText('You already have a topic called Rust.'))
+		.toBeInTheDocument();
+});
+
+test('a topic with no title is not created', async () => {
+	const fetchFn = vi.fn(async () => json({ data: { id: 't-9' } }, 201));
+	const screen = render(TopicsPage, props({ fetchFn: fetchFn as unknown as typeof fetch }));
+
+	await screen.getByRole('button', { name: 'New topic' }).click();
+	await expect.element(screen.getByRole('button', { name: 'Create topic' })).toBeDisabled();
+	expect(fetchFn).not.toHaveBeenCalled();
+});
