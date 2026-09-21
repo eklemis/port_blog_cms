@@ -13,9 +13,9 @@ import type { Topic } from '$lib/entities/topic';
  *
  * Screenshots come from the media listing rather than from the project, which
  * carries only a `screenshots: string[]` of addresses with no ids, no filenames
- * and nothing to reorder by. The listing takes the target *kind* with no id and
- * no role, so this narrows it here — the same gap as the post editor's cover,
- * and the same backend ask.
+ * and nothing to reorder by. The listing now takes `target_id` and `role`, so
+ * it asks for this project's screenshots rather than every image on every
+ * project and filtering here.
  */
 
 type Project = {
@@ -62,7 +62,8 @@ async function screenshotsFor(
 	// neither. Widened here rather than there, so the narrow type stays narrow.
 	type Row = Attachment & { position?: number; original_filename?: string };
 
-	const body = await read<{ rows?: Row[] }>(event, '/api/media/by-target/project');
+	const query = new URLSearchParams({ target_id: projectId, role: 'screenshot' });
+	const body = await read<{ rows?: Row[] }>(event, `/api/media/by-target/project?${query}`);
 
 	return (body?.data?.rows ?? [])
 		.filter((row) => row.attachment_target_id === projectId && row.role !== 'cover')

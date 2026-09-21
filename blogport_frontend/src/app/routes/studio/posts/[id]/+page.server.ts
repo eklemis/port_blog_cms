@@ -43,11 +43,14 @@ async function myTopics(event: Parameters<PageServerLoad>[0]): Promise<Topic[]> 
  * The post's cover, and a URL to read it with.
  *
  * Two calls, because neither endpoint can do it alone.
- * `GET /api/media/by-target/blog_post` takes the target *kind* and no id and no
- * role, so it answers with every image on every post this author has written
- * and the narrowing happens here. `BlogPostResponse` would be the obvious place
- * for a cover — `BlogPostCardResponse` already carries one — but it does not
- * have the field. Both are filed with the backend.
+ * `GET /api/media/by-target/blog_post?target_id=…&role=cover` asks for this
+ * post's cover and nothing else. The parameters shipped as "Let a caller ask
+ * for one thing's media", and this used to fetch every image on every post the
+ * author had ever written and narrow it here — a comment in this file claimed
+ * the parameters did not exist, hours after they did.
+ *
+ * `BlogPostResponse` still has no `cover` field, where `BlogPostCardResponse`
+ * does, so it is still two calls. One narrow call is the part that matters.
  *
  * The read URL is short-lived by design, which is why it is resolved with the
  * page rather than stored: a signed URL written into anything outlives its own
@@ -63,10 +66,14 @@ async function coverFor(
 	const none = { cover: null, coverSrc: null };
 
 	try {
-		const response = await authenticatedFetch(event, '/api/media/by-target/blog_post');
+		const query = new URLSearchParams({ target_id: postId, role: 'cover' });
+		const response = await authenticatedFetch(event, `/api/media/by-target/blog_post?${query}`);
 		if (!response.ok) return none;
 
 		const body = (await response.json()) as { data?: { rows?: Attachment[] } };
+		// Still narrowed here: asking for one post's cover should return one row,
+		// and a loader that trusts that is a loader that breaks on the day it
+		// does not.
 		const cover = coverOf(body.data?.rows ?? [], postId);
 
 		// A cover that is still processing is still the cover. It has no variants

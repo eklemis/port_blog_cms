@@ -28,10 +28,10 @@ export type Attachment = {
 /**
  * This post's cover, out of every blog-post attachment the caller owns.
  *
- * `GET /api/media/by-target/{target}` takes the target *kind* — `blog_post` —
- * and no id and no role, so it answers with every image on every post the
- * author has ever written. Narrowing it is the client's job until the API can
- * do it, which is filed.
+ * The listing can be asked for one target and one role now, so callers get a
+ * short list rather than the author's whole library. This still narrows it:
+ * asking for one post's cover should return one row, and code that assumes the
+ * server filtered perfectly is code that breaks the day it does not.
  */
 export function coverOf(rows: readonly Attachment[], postId: string): Attachment | null {
 	return rows.find((row) => row.attachment_target_id === postId && row.role === 'cover') ?? null;
