@@ -42,6 +42,14 @@ pub struct ListMediaQuery {
     /// Omit to keep every role. An unknown role is not an error — it simply
     /// matches nothing, the same as asking for a post that has no cover.
     pub role: Option<String>,
+
+    /// Include archived items alongside live ones. Defaults to `false`.
+    ///
+    /// Archived media could already be restored and purged, but not *found*:
+    /// the listing excluded it and the row carried no sign it existed, so a
+    /// Restore control had nothing to act on. With this, one grid can draw
+    /// both and tell them apart by `deleted_at`.
+    pub include_deleted: Option<bool>,
 }
 
 /// Response body returned by this endpoint.
@@ -121,13 +129,18 @@ pub async fn list_media_handler(
         Err(resp) => return resp,
     };
 
-    let ListMediaQuery { target_id, role } = query.into_inner();
+    let ListMediaQuery {
+        target_id,
+        role,
+        include_deleted,
+    } = query.into_inner();
 
     let command = ListMediaCommand {
         owner: UserId::from(user.user_id),
         attachment_target,
         target_id,
         role,
+        include_deleted: include_deleted.unwrap_or(false),
     };
     match data.multimedia.list_media.execute(command).await {
         Ok(items) => ApiResponse::success(ListMediaResponse { rows: items }),
@@ -215,6 +228,7 @@ mod tests {
     fn sample_media_item() -> MediaItem {
         // !!! adjust this to match your MediaItem shape
         MediaItem {
+            deleted_at: None,
             media_id: Uuid::new_v4(),
             original_filename: "test.jpg".to_string(),
             status: crate::multimedia::application::domain::entities::MediaState::Ready, // adjust if needed

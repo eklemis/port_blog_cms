@@ -105,6 +105,8 @@ mod tests {
             title: title.to_string(),
             description: "desc".to_string(),
             created_at: chrono::Utc::now(),
+            post_count: 0,
+            project_count: 0,
             updated_at: chrono::Utc::now(),
         }
     }

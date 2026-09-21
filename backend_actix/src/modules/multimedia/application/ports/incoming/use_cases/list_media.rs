@@ -41,6 +41,17 @@ pub struct ListMediaCommand {
     ///
     /// `None` keeps every role.
     pub role: Option<String>,
+    /// Whether archived items are included alongside live ones.
+    ///
+    /// Archived media can already be restored and purged, but until this there
+    /// was no way to *find* an archived item: the listing excluded it and the
+    /// row carried no sign it existed. So a Restore button had nothing to act
+    /// on.
+    ///
+    /// This includes them rather than showing them alone — the screen that
+    /// wants them draws one grid with archived tiles marked, and `deleted_at`
+    /// on the row is what marks them.
+    pub include_deleted: bool,
 }
 
 /// One media item as it appears in a listing.
@@ -69,6 +80,13 @@ pub struct MediaItem {
     pub alt_text: String,
     /// Caption. Empty rather than absent when unset.
     pub caption: String,
+
+    /// When this item was archived, or `null` while it is live.
+    ///
+    /// Only present at all when the listing was asked for archived items; a
+    /// live listing returns `null` on every row. It is what lets one grid draw
+    /// live and archived tiles differently, and what a Restore control acts on.
+    pub deleted_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 impl MediaItem {
     /// Projects a full attachment row down to the listing shape.
@@ -83,6 +101,7 @@ impl MediaItem {
             position: media.position,
             alt_text: media.alt_text,
             caption: media.caption,
+            deleted_at: media.deleted_at,
         }
     }
 }

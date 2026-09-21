@@ -53,6 +53,8 @@ pub struct MediaAttachment {
     pub caption: String,
     /// The name the file was uploaded under.
     pub original_filename: String,
+    /// When the item was archived, or `None` while it is live.
+    pub deleted_at: Option<chrono::DateTime<chrono::Utc>>,
     /// Generated sizes. Empty while the item is still processing.
     pub variants: Vec<StoredVariant>,
 }
@@ -102,6 +104,7 @@ pub trait MediaQuery: Send + Sync {
         target: AttachmentTarget,
         target_id: Option<Uuid>,
         role: Option<String>,
+        include_deleted: bool,
     ) -> Result<Vec<MediaAttachment>, MediaQueryError>;
 
     /// What a media item is attached to, and in what role.

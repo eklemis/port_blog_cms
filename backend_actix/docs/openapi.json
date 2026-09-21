@@ -7419,6 +7419,18 @@
                 "null"
               ]
             }
+          },
+          {
+            "name": "include_deleted",
+            "in": "query",
+            "description": "Include archived items alongside live ones. Defaults to `false`.\n\nArchived media could already be restored and purged, but not *found*:\nthe listing excluded it and the row carried no sign it existed, so a\nRestore control had nothing to act on. With this, one grid can draw\nboth and tell them apart by `deleted_at`.",
+            "required": false,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
           }
         ],
         "responses": {
@@ -11388,7 +11400,9 @@
                         "required": [
                           "id",
                           "title",
-                          "description"
+                          "description",
+                          "post_count",
+                          "project_count"
                         ],
                         "properties": {
                           "description": {
@@ -11401,6 +11415,20 @@
                             "format": "uuid",
                             "description": "Topic identifier",
                             "example": "9f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d"
+                          },
+                          "post_count": {
+                            "type": "integer",
+                            "format": "int64",
+                            "description": "How many of your posts carry this topic.\n\nSoft-deleted posts are not counted, which is the same rule\n`GET /api/topics/{topic_id}/usage` applies — so this number and the one\nin the retire confirmation always agree.",
+                            "example": 6,
+                            "minimum": 0
+                          },
+                          "project_count": {
+                            "type": "integer",
+                            "format": "int64",
+                            "description": "How many of your projects carry it, by the same rule.",
+                            "example": 2,
+                            "minimum": 0
                           },
                           "title": {
                             "type": "string",
@@ -14630,6 +14658,14 @@
             "type": "string",
             "description": "Caption. Empty rather than absent when unset."
           },
+          "deleted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When this item was archived, or `null` while it is live.\n\nOnly present at all when the listing was asked for archived items; a\nlive listing returns `null` on every row. It is what lets one grid draw\nlive and archived tiles differently, and what a Restore control acts on."
+          },
           "media_id": {
             "type": "string",
             "format": "uuid",
@@ -16393,7 +16429,9 @@
         "required": [
           "id",
           "title",
-          "description"
+          "description",
+          "post_count",
+          "project_count"
         ],
         "properties": {
           "description": {
@@ -16406,6 +16444,20 @@
             "format": "uuid",
             "description": "Topic identifier",
             "example": "9f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d"
+          },
+          "post_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How many of your posts carry this topic.\n\nSoft-deleted posts are not counted, which is the same rule\n`GET /api/topics/{topic_id}/usage` applies — so this number and the one\nin the retire confirmation always agree.",
+            "example": 6,
+            "minimum": 0
+          },
+          "project_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How many of your projects carry it, by the same rule.",
+            "example": 2,
+            "minimum": 0
           },
           "title": {
             "type": "string",

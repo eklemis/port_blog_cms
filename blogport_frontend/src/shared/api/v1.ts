@@ -3051,6 +3051,15 @@ export interface components {
             /** @description Caption. Empty rather than absent when unset. */
             caption: string;
             /**
+             * Format: date-time
+             * @description When this item was archived, or `null` while it is live.
+             *
+             *     Only present at all when the listing was asked for archived items; a
+             *     live listing returns `null` on every row. It is what lets one grid draw
+             *     live and archived tiles differently, and what a Restore control acts on.
+             */
+            deleted_at?: string | null;
+            /**
              * Format: uuid
              * @description The media item.
              */
@@ -4076,6 +4085,22 @@ export interface components {
              * @example 9f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d
              */
             id: string;
+            /**
+             * Format: int64
+             * @description How many of your posts carry this topic.
+             *
+             *     Soft-deleted posts are not counted, which is the same rule
+             *     `GET /api/topics/{topic_id}/usage` applies — so this number and the one
+             *     in the retire confirmation always agree.
+             * @example 6
+             */
+            post_count: number;
+            /**
+             * Format: int64
+             * @description How many of your projects carry it, by the same rule.
+             * @example 2
+             */
+            project_count: number;
             /**
              * @description Topic title
              * @example Distributed Systems
@@ -9515,6 +9540,15 @@ export interface operations {
                  *     matches nothing, the same as asking for a post that has no cover.
                  */
                 role?: string | null;
+                /**
+                 * @description Include archived items alongside live ones. Defaults to `false`.
+                 *
+                 *     Archived media could already be restored and purged, but not *found*:
+                 *     the listing excluded it and the row carried no sign it existed, so a
+                 *     Restore control had nothing to act on. With this, one grid can draw
+                 *     both and tell them apart by `deleted_at`.
+                 */
+                include_deleted?: boolean | null;
             };
             header?: never;
             path: {
@@ -12268,6 +12302,22 @@ export interface operations {
                              * @example 9f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d
                              */
                             id: string;
+                            /**
+                             * Format: int64
+                             * @description How many of your posts carry this topic.
+                             *
+                             *     Soft-deleted posts are not counted, which is the same rule
+                             *     `GET /api/topics/{topic_id}/usage` applies — so this number and the one
+                             *     in the retire confirmation always agree.
+                             * @example 6
+                             */
+                            post_count: number;
+                            /**
+                             * Format: int64
+                             * @description How many of your projects carry it, by the same rule.
+                             * @example 2
+                             */
+                            project_count: number;
                             /**
                              * @description Topic title
                              * @example Distributed Systems

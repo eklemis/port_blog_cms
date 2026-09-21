@@ -49,6 +49,11 @@ impl Model {
             description: self.description.clone().unwrap_or(String::from("")),
             created_at: self.created_at.into(),
             updated_at: self.updated_at.into(),
+            // A single topic row cannot say how many things use it; the
+            // listing computes that in SQL. Zero here means "not counted",
+            // which is why no caller of this conversion renders the counts.
+            post_count: 0,
+            project_count: 0,
         }
     }
 }
