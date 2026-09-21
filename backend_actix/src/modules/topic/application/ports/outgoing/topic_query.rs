@@ -21,6 +21,15 @@ pub struct TopicQueryResult {
     pub description: String,
     /// When the topic was created.
     pub created_at: chrono::DateTime<chrono::Utc>,
+    /// How many of the owner's posts carry this topic.
+    ///
+    /// Counted by the same rule `get_topic_usage` uses — soft-deleted posts are
+    /// excluded — so the number on a listing row and the number in
+    /// "Retire «Rust»? It's on 6 posts and 2 projects." are the same number,
+    /// not two counts that agree until someone archives a post.
+    pub post_count: u64,
+    /// How many of the owner's projects carry it, by the same rule.
+    pub project_count: u64,
     /// When it was last edited.
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }

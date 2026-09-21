@@ -142,6 +142,8 @@ mod tests {
             title: "Rust".into(),
             description: "d".into(),
             created_at: Utc::now(),
+            post_count: 0,
+            project_count: 0,
             updated_at: Utc::now(),
         }
     }

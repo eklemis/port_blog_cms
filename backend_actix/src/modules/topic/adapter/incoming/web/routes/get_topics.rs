@@ -28,6 +28,18 @@ pub struct TopicResponse {
     /// Topic description
     #[schema(example = "Notes and projects on consensus and replication")]
     description: String,
+
+    /// How many of your posts carry this topic.
+    ///
+    /// Soft-deleted posts are not counted, which is the same rule
+    /// `GET /api/topics/{topic_id}/usage` applies — so this number and the one
+    /// in the retire confirmation always agree.
+    #[schema(example = 6)]
+    post_count: u64,
+
+    /// How many of your projects carry it, by the same rule.
+    #[schema(example = 2)]
+    project_count: u64,
 }
 
 /// List the authenticated user's topics
@@ -61,6 +73,8 @@ pub async fn get_topics_handler(user: VerifiedUser, data: web::Data<AppState>) -
                     id: topic.id,
                     title: topic.title,
                     description: topic.description,
+                    post_count: topic.post_count,
+                    project_count: topic.project_count,
                 })
                 .collect::<Vec<_>>();
 
@@ -163,6 +177,8 @@ mod tests {
             title: title.to_string(),
             description: "desc".to_string(),
             created_at: Utc::now(),
+            post_count: 0,
+            project_count: 0,
             updated_at: Utc::now(),
         }
     }
