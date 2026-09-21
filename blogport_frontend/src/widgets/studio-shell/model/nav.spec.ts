@@ -115,10 +115,15 @@ test('the bar keeps the frames’ order, minus what has no screen', () => {
 	// screenshot artefact. The fifth slot is More, and More is not a
 	// destination; it opens the sheet.
 	//
-	// Media is not built, so the bar is short rather than backfilled from the
-	// sheet. Borrowing a tab would be this file redesigning the mobile bar
-	// because a screen is late.
-	expect(TAB_BAR.map((item) => item.short ?? item.label)).toEqual(['Posts', 'Projects', 'Apps']);
+	// All four are built now, so the bar is the bar the frames draw. It got
+	// here by filtering rather than backfilling, which is why it is the right
+	// four in the right order rather than whatever happened to be ready.
+	expect(TAB_BAR.map((item) => item.short ?? item.label)).toEqual([
+		'Posts',
+		'Projects',
+		'Apps',
+		'Media'
+	]);
 
 	const intended = ['Posts', 'Projects', 'Apps', 'Media'];
 	const offered = TAB_BAR.map((item) => item.short ?? item.label);
