@@ -182,7 +182,9 @@ test('a ready cover arrives with a URL to read it with', async () => {
 	routes({
 		'/api/blog/post-1': { body: { data: POST } },
 		'/api/topics': { body: { data: [] } },
-		'/api/media/by-target/blog_post': { body: { data: { rows: [attachment()] } } },
+		'/api/media/by-target/blog_post?target_id=post-1&role=cover': {
+			body: { data: { rows: [attachment()] } }
+		},
 		'/api/media/m-1/medium': { body: { data: { url: 'https://signed.example.test/m-1' } } }
 	});
 
@@ -201,7 +203,7 @@ test('a cover still processing is passed on without a URL it does not have', asy
 	routes({
 		'/api/blog/post-1': { body: { data: POST } },
 		'/api/topics': { body: { data: [] } },
-		'/api/media/by-target/blog_post': {
+		'/api/media/by-target/blog_post?target_id=post-1&role=cover': {
 			body: { data: { rows: [attachment({ status: 'processing' })] } }
 		}
 	});
@@ -221,7 +223,7 @@ test('another post’s images are not this post’s cover', async () => {
 	routes({
 		'/api/blog/post-1': { body: { data: POST } },
 		'/api/topics': { body: { data: [] } },
-		'/api/media/by-target/blog_post': {
+		'/api/media/by-target/blog_post?target_id=post-1&role=cover': {
 			body: { data: { rows: [attachment({ attachment_target_id: 'post-2' })] } }
 		}
 	});
@@ -246,4 +248,24 @@ test('losing the media listing costs the rail its picture and nothing else', asy
 
 	expect(data.post?.id).toBe('post-1');
 	expect(data.cover).toBe(null);
+});
+
+test('asks for this post’s cover rather than the author’s whole library', async () => {
+	// `target_id` and `role` shipped as "Let a caller ask for one thing's
+	// media". Before them this fetched every image on every post ever written
+	// and filtered client-side.
+	routes({
+		'/api/blog/post-1': { body: { data: POST } },
+		'/api/topics': { body: { data: [] } },
+		'/api/media/by-target/blog_post?target_id=post-1&role=cover': {
+			body: { data: { rows: [] } }
+		}
+	});
+
+	await load({ params: { id: 'post-1' } } as never);
+
+	const asked = fetchImpl.mock.calls.map((call) => String(call[1]));
+
+	expect(asked).toContain('/api/media/by-target/blog_post?target_id=post-1&role=cover');
+	expect(asked).not.toContain('/api/media/by-target/blog_post');
 });
