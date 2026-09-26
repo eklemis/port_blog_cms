@@ -30,7 +30,14 @@ const CV = {
 		{ title: 'Data', description: 'Kafka' }
 	],
 	educations: [{ institution: 'ITB', degree: 'BSc Informatics', graduation_year: 2019 }],
-	highlighted_projects: [{}, {}],
+	highlighted_projects: [
+		{
+			id: 'p-1',
+			slug: 'blogport-cms',
+			title: 'Blogport CMS',
+			short_description: 'A portfolio CMS.'
+		}
+	],
 	contact_info: [
 		{ contact_type: 'phone_number' as const, title: 'Mobile', content: '+62…' },
 		{ contact_type: 'web_page' as const, title: 'Site', content: 'https://example.test' },
@@ -76,10 +83,9 @@ test('identity opens with what is on the document', async () => {
 		.toHaveValue('Jane Doe');
 });
 
-test('the rail carries the collections, three of them editable', async () => {
-	// The three short collections list their rows. Highlighted projects still
-	// shows a count: its DTO carries an id and a slug, so it picks from the
-	// author's own projects and the loader does not fetch them yet.
+test('the rail carries all four collections', async () => {
+	// All four list their rows now. Highlighted projects is the one that picks
+	// rather than types, because its identity belongs to the project.
 	const screen = render(CvBuilderPage, props());
 
 	await expect
@@ -92,7 +98,7 @@ test('the rail carries the collections, three of them editable', async () => {
 		.element(screen.getByRole('region', { name: 'Contact details' }).getByText('Mobile'))
 		.toBeInTheDocument();
 	await expect
-		.element(screen.getByRole('region', { name: 'Highlighted projects' }).getByText('2 entries'))
+		.element(screen.getByRole('region', { name: 'Highlighted projects' }).getByText('Blogport CMS'))
 		.toBeInTheDocument();
 });
 

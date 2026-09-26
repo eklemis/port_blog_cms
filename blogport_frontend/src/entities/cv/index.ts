@@ -8,5 +8,6 @@ export {
 	type ContactDetail,
 	type CoreSkill,
 	type Education,
-	type Experience
+	type Experience,
+	type HighlightedProject
 } from './model/experience';

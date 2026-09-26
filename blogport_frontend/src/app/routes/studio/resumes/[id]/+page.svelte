@@ -11,4 +11,9 @@
 	<title>{data.cv ? data.cv.role || 'Résumé' : 'Résumé'}</title>
 </svelte:head>
 
-<CvBuilderPage cv={data.cv} denied={data.denied} onsaved={() => invalidateAll()} />
+<CvBuilderPage
+	cv={data.cv}
+	projects={data.projects}
+	denied={data.denied}
+	onsaved={() => invalidateAll()}
+/>
