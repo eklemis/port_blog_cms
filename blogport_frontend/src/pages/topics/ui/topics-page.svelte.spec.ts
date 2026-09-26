@@ -142,12 +142,10 @@ test('has no accessibility violations', async () => {
  * Brought to Screen / Topics 70:382 once Figma was reachable again.
  *
  * The frame is a table — TOPIC · DESCRIPTION · USED ON — with a "+ New topic"
- * primary. The USED ON column is not built: `GET /api/topics/{id}/usage` takes
- * one topic, so a count per row is a call per row. Asked in Slack; the other
- * two columns and the button are not in question.
+ * primary. The counts arrive on the listing now, so the column is a render.
  */
 
-test('is the table the frame draws, minus the column that is a call per row', async () => {
+test('is the table the frame draws', async () => {
 	const screen = render(TopicsPage, props());
 
 	const headers = [...screen.container.querySelectorAll('thead th')].map((cell) =>
@@ -156,7 +154,7 @@ test('is the table the frame draws, minus the column that is a call per row', as
 
 	// The third column's header is empty on screen and named for a screen
 	// reader: a column of controls still needs saying what it is.
-	expect(headers).toEqual(['Topic', 'Description', 'Actions']);
+	expect(headers).toEqual(['Topic', 'Description', 'Used on', 'Actions']);
 });
 
 test('says what the screen is for, in the words the frame uses', async () => {
@@ -222,4 +220,49 @@ test('a topic with no title is not created', async () => {
 	await screen.getByRole('button', { name: 'New topic' }).click();
 	await expect.element(screen.getByRole('button', { name: 'Create topic' })).toBeDisabled();
 	expect(fetchFn).not.toHaveBeenCalled();
+});
+
+test('each row says what it is used on, from the listing’s own counts', async () => {
+	const screen = render(
+		TopicsPage,
+		props({
+			topics: [{ id: 't-1', title: 'Rust', description: '', post_count: 6, project_count: 2 }]
+		})
+	);
+
+	await expect.element(screen.getByText('6 posts · 2 projects')).toBeInTheDocument();
+});
+
+test('a topic on nothing says so rather than showing two zeroes', async () => {
+	const screen = render(
+		TopicsPage,
+		props({
+			topics: [{ id: 't-9', title: 'Kafka', description: '', post_count: 0, project_count: 0 }]
+		})
+	);
+
+	await expect.element(screen.getByText('Not used yet')).toBeInTheDocument();
+});
+
+test('the column and the retire question never disagree', async () => {
+	// Both read the same counts through the same formatter: the row says
+	// "6 posts · 2 projects" and the confirmation "It's on 6 posts and 2
+	// projects", which is one number stated two ways rather than two numbers.
+	const screen = render(
+		TopicsPage,
+		props({
+			topics: [{ id: 't-1', title: 'Rust', description: '', post_count: 6, project_count: 2 }],
+			fetchFn: vi.fn(async () =>
+				json({ data: { posts: 6, projects: 2 } })
+			) as unknown as typeof fetch
+		})
+	);
+
+	await expect.element(screen.getByText('6 posts · 2 projects')).toBeInTheDocument();
+
+	await screen.getByRole('button', { name: 'Retire Rust' }).click();
+
+	await expect
+		.element(screen.getByText('Retire «Rust»? It’s on 6 posts and 2 projects.'))
+		.toBeInTheDocument();
 });

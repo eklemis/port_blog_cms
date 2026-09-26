@@ -19,6 +19,32 @@ function count(n: number, noun: 'post' | 'project'): string {
 	return `${n} ${noun}${n === 1 ? '' : 's'}`;
 }
 
+/**
+ * The counted kinds, each named once.
+ *
+ * Shared by the column and the confirmation on purpose. When the counts shipped
+ * on the listing, the backend's warning was that the row and the retire
+ * sentence must be "the same number from the same rule — not two counts that
+ * agree until someone archives a post". One formatter is how that is
+ * guaranteed rather than hoped for.
+ *
+ * A kind with nothing in it is left out rather than written as a zero: "6 posts
+ * and 0 projects" makes a reader stop and check the zero.
+ */
+export function usageParts(usage: TopicUsage): string[] {
+	return [
+		usage.posts > 0 ? count(usage.posts, 'post') : null,
+		usage.projects > 0 ? count(usage.projects, 'project') : null
+	].filter((part): part is string => part !== null);
+}
+
+/** The Used on cell — 70:382 writes it "6 posts · 2 projects". */
+export function usageLine(usage: TopicUsage): string {
+	const parts = usageParts(usage);
+
+	return parts.length ? parts.join(' · ') : 'Not used yet';
+}
+
 export function retireQuestion(title: string, usage: TopicUsage | null): string {
 	const asked = `Retire «${title}»?`;
 
@@ -26,13 +52,8 @@ export function retireQuestion(title: string, usage: TopicUsage | null): string 
 	// replaced. Saying nothing about numbers beats saying a wrong one.
 	if (!usage) return asked;
 
-	const parts = [
-		usage.posts > 0 ? count(usage.posts, 'post') : null,
-		usage.projects > 0 ? count(usage.projects, 'project') : null
-	].filter((part): part is string => part !== null);
+	const parts = usageParts(usage);
 
-	// A kind with nothing in it is left out rather than written as a zero: "on
-	// 6 posts and 0 projects" makes a reader stop and check the zero.
 	if (!parts.length) return `${asked} Nothing is using it.`;
 
 	return `${asked} It’s on ${parts.join(' and ')}.`;

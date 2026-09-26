@@ -80,7 +80,9 @@ test('scoping is by target, because the listing is', async () => {
 
 	await screen.getByRole('button', { name: 'Projects' }).click();
 
-	expect(onquery).toHaveBeenCalledWith('project');
+	// The archive setting rides along, so switching target does not silently
+	// drop it.
+	expect(onquery).toHaveBeenCalledWith('project', false);
 });
 
 test('the target being shown is marked, and is not a button to itself', async () => {
@@ -165,4 +167,115 @@ test('has no accessibility violations', async () => {
 	render(MediaPage, props());
 
 	await expectNoA11yViolations(document.body, UNSTYLED_GEOMETRY);
+});
+
+/**
+ * Archived tiles — unblocked by `?include_deleted=true` and `deleted_at`.
+ *
+ * "Archived media could already be restored and purged, but not *found*: the
+ * listing excluded it and the row carried no sign it existed, so a Restore
+ * control had nothing to act on."
+ *
+ * One grid, as 69:242 draws it: archived tiles sit among the live ones and are
+ * told apart by `deleted_at`.
+ */
+
+const ARCHIVED = {
+	media_id: 'm-9',
+	original_filename: 'old-diagram.png',
+	role: 'inline' as const,
+	status: 'ready' as const,
+	alt_text: 'An older diagram',
+	src: null,
+	deleted_at: '2026-09-01T09:00:00Z'
+};
+
+test('showing archived is offered, and asks the listing for them', async () => {
+	const onquery = vi.fn();
+	const screen = render(MediaPage, props({ onquery }));
+
+	await screen.getByRole('checkbox', { name: 'Showing archived' }).click();
+
+	expect(onquery).toHaveBeenCalledWith('blog_post', true);
+});
+
+test('an archived tile is marked, and offers the two rungs it has left', async () => {
+	const screen = render(MediaPage, props({ items: [...ITEMS, ARCHIVED], archived: true }));
+
+	// Scoped: "Showing archived" is on the same screen and contains the word.
+	await expect.element(screen.getByText('Archived', { exact: true })).toBeInTheDocument();
+	await expect
+		.element(screen.getByRole('button', { name: 'Restore old-diagram.png' }))
+		.toBeInTheDocument();
+	await expect
+		.element(screen.getByRole('button', { name: 'Purge old-diagram.png' }))
+		.toBeInTheDocument();
+});
+
+test('an archived tile is not asked to fix its alt text', async () => {
+	// It is not on anything. Describing it better is not the job in front of
+	// whoever is looking at it.
+	const screen = render(MediaPage, props({ items: [ARCHIVED], archived: true }));
+
+	expect(
+		screen.getByRole('button', { name: 'Edit alt text for old-diagram.png' }).elements()
+	).toHaveLength(0);
+});
+
+test('restoring puts it back, and tells the page', async () => {
+	const fetchFn = vi.fn(async () => json({ data: null }));
+	const onchanged = vi.fn();
+	const screen = render(
+		MediaPage,
+		props({
+			items: [ARCHIVED],
+			archived: true,
+			onchanged,
+			fetchFn: fetchFn as unknown as typeof fetch
+		})
+	);
+
+	await screen.getByRole('button', { name: 'Restore old-diagram.png' }).click();
+
+	await vi.waitFor(() => expect(onchanged).toHaveBeenCalled());
+	const [url, init] = sent(fetchFn)[0];
+	expect(url).toBe('/api/media/m-9/restore');
+	expect(init?.method).toBe('POST');
+});
+
+test('purging asks harder than archiving did, because it is the rung that stays', async () => {
+	const fetchFn = vi.fn(async () => json({ data: null }));
+	const screen = render(
+		MediaPage,
+		props({ items: [ARCHIVED], archived: true, fetchFn: fetchFn as unknown as typeof fetch })
+	);
+
+	await screen.getByRole('button', { name: 'Purge old-diagram.png' }).click();
+
+	expect(sent(fetchFn)).toHaveLength(0);
+	await expect
+		.element(screen.getByText('Purge this image? This one does not come back.'))
+		.toBeInTheDocument();
+});
+
+test('confirming a purge is the hard delete', async () => {
+	const fetchFn = vi.fn(async () => json({ data: null }));
+	const onchanged = vi.fn();
+	const screen = render(
+		MediaPage,
+		props({
+			items: [ARCHIVED],
+			archived: true,
+			onchanged,
+			fetchFn: fetchFn as unknown as typeof fetch
+		})
+	);
+
+	await screen.getByRole('button', { name: 'Purge old-diagram.png' }).click();
+	await screen.getByRole('button', { name: 'Purge for good' }).click();
+
+	await vi.waitFor(() => expect(onchanged).toHaveBeenCalled());
+	const [url, init] = sent(fetchFn)[0];
+	expect(url).toBe('/api/media/m-9/hard');
+	expect(init?.method).toBe('DELETE');
 });
