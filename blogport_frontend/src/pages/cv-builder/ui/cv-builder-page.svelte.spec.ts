@@ -24,10 +24,18 @@ const CV = {
 			description: 'Led the platform team.'
 		}
 	],
-	core_skills: [{}, {}, {}],
-	educations: [{}],
+	core_skills: [
+		{ title: 'Backend', description: 'Rust, Postgres' },
+		{ title: 'Infra', description: 'GCP, Terraform' },
+		{ title: 'Data', description: 'Kafka' }
+	],
+	educations: [{ institution: 'ITB', degree: 'BSc Informatics', graduation_year: 2019 }],
 	highlighted_projects: [{}, {}],
-	contact_info: [{}, {}, {}]
+	contact_info: [
+		{ contact_type: 'phone_number' as const, title: 'Mobile', content: '+62…' },
+		{ contact_type: 'web_page' as const, title: 'Site', content: 'https://example.test' },
+		{ contact_type: 'web_page' as const, title: 'GitHub', content: 'https://github.test' }
+	]
 };
 
 const json = (body: unknown, status = 200) => Response.json(body, { status });
@@ -68,18 +76,20 @@ test('identity opens with what is on the document', async () => {
 		.toHaveValue('Jane Doe');
 });
 
-test('the four other collections are named and counted, as the frame shows them', async () => {
-	// Their editors are the next slice. The frame's "+ Add" is not here,
-	// because a control that opens nothing is worse than one that is missing.
+test('the rail carries the collections, three of them editable', async () => {
+	// The three short collections list their rows. Highlighted projects still
+	// shows a count: its DTO carries an id and a slug, so it picks from the
+	// author's own projects and the loader does not fetch them yet.
 	const screen = render(CvBuilderPage, props());
 
-	// Scoped per region: core skills and contact details both happen to hold
-	// three, which is exactly what a real document looks like.
 	await expect
-		.element(screen.getByRole('region', { name: 'Core skills' }).getByText('3 entries'))
+		.element(screen.getByRole('region', { name: 'Core skills' }).getByText('Backend'))
 		.toBeInTheDocument();
 	await expect
-		.element(screen.getByRole('region', { name: 'Education' }).getByText('1 entry'))
+		.element(screen.getByRole('region', { name: 'Education' }).getByText('ITB'))
+		.toBeInTheDocument();
+	await expect
+		.element(screen.getByRole('region', { name: 'Contact details' }).getByText('Mobile'))
 		.toBeInTheDocument();
 	await expect
 		.element(screen.getByRole('region', { name: 'Highlighted projects' }).getByText('2 entries'))
