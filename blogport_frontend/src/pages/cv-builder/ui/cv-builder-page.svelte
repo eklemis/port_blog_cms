@@ -5,6 +5,7 @@
 	import {
 		CollectionCard,
 		ExperienceList,
+		HighlightedProjectsCard,
 		patchCv,
 		replaceExperiences
 	} from '$lib/features/edit-cv';
@@ -14,7 +15,8 @@
 		type ContactDetail,
 		type CoreSkill,
 		type Education,
-		type Experience
+		type Experience,
+		type HighlightedProject
 	} from '$lib/entities/cv';
 	import type { HandlingClass } from '$lib/shared/lib/error-class';
 
@@ -23,10 +25,10 @@
 	 *
 	 * §02 calls it "the heaviest form in the product: five repeatable collections
 	 * in one document". This pass builds the two the frame draws in full —
-	 * identity, experience, and the three short collections. Highlighted projects
-	 * is the one still showing a count alone: its DTO carries an `id` and a
-	 * `slug`, so it picks from the author's own projects rather than being typed,
-	 * and a picker needs the projects list the loader does not fetch yet.
+	 * identity, experience, and all four collections. Highlighted projects is the
+	 * odd one: its DTO carries an `id` and a `slug`, so it picks from the
+	 * author's own projects rather than being typed, and the loader fetches them
+	 * for it.
 	 *
 	 * **No frame shows a collection open.** 69:2 draws the four as a name, a
 	 * count and "+ Add", so the open state is borrowed from the experience list
@@ -45,17 +47,20 @@
 		experiences: Experience[];
 		core_skills: CoreSkill[];
 		educations: Education[];
-		highlighted_projects: unknown[];
+		highlighted_projects: HighlightedProject[];
 		contact_info: ContactDetail[];
 	};
 
 	let {
 		cv,
+		projects = [],
 		onsaved = () => {},
 		fetchFn = undefined,
 		denied = false
 	}: {
 		cv: Cv | null;
+		/** Every project the author owns, for the highlight picker. */
+		projects?: { id: string; title: string; slug: string }[];
 		onsaved?: () => void;
 		fetchFn?: typeof globalThis.fetch;
 		denied?: boolean;
@@ -68,13 +73,12 @@
 	let skills = $state<CoreSkill[]>(untrack(() => cv?.core_skills ?? []));
 	let educations = $state<Education[]>(untrack(() => cv?.educations ?? []));
 	let contacts = $state<ContactDetail[]>(untrack(() => cv?.contact_info ?? []));
+	let highlights = $state<HighlightedProject[]>(untrack(() => cv?.highlighted_projects ?? []));
 
 	let saving = $state(false);
 	let saved = $state(false);
 	let failure = $state<string | undefined>();
 	let failureKind = $state<HandlingClass>('notOurs');
-
-	const highlighted = $derived(cv?.highlighted_projects.length ?? 0);
 
 	async function save() {
 		if (!cv || saving) return;
@@ -90,6 +94,7 @@
 				experiences: replaceExperiences(experiences),
 				core_skills: { replace: skills },
 				educations: { replace: educations },
+				highlighted_projects: { replace: highlights },
 				contact_info: { replace: contacts }
 			},
 			fetchFn
@@ -213,21 +218,11 @@
 					{/snippet}
 				</CollectionCard>
 
-				<!-- Highlighted projects picks from the author's own projects — its DTO
-				     carries an id and a slug — so it waits on the projects list the
-				     loader does not fetch yet. -->
-				<section
-					aria-label="Highlighted projects"
-					class="flex flex-col gap-2 rounded-xl border border-arch-line bg-arch-surface p-5"
-				>
-					<h2 class="font-mono text-[9px] font-normal tracking-[0.9px] text-arch-muted uppercase">
-						Highlighted projects
-					</h2>
-					<p class="text-[12px] text-arch-muted">
-						{highlighted}
-						{highlighted === 1 ? 'entry' : 'entries'}
-					</p>
-				</section>
+				<HighlightedProjectsCard
+					chosen={highlights}
+					{projects}
+					onchange={(next) => (highlights = next)}
+				/>
 
 				<CollectionCard
 					label="Contact details"

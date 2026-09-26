@@ -18,6 +18,7 @@ export type Experience = components['schemas']['ExperienceDto'];
 export type CoreSkill = components['schemas']['CoreSkillDto'];
 export type Education = components['schemas']['EducationDto'];
 export type ContactDetail = components['schemas']['ContactDetailDto'];
+export type HighlightedProject = components['schemas']['HighlightedProjectDto'];
 
 /**
  * Which kinds of contact row exist: `phone_number` and `web_page`.
