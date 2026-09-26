@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { Plus } from '@lucide/svelte';
 	import { Button, EmptyState, Field, InlineAlert } from '$lib/shared/ui';
-	import { createTopic, retireQuestion, type Topic, type TopicUsage } from '$lib/entities/topic';
+	import {
+		createTopic,
+		retireQuestion,
+		usageLine,
+		type Topic,
+		type TopicUsage
+	} from '$lib/entities/topic';
 	import { renameTopic, retireTopic, topicUsage } from '$lib/features/manage-topics';
 	import type { HandlingClass } from '$lib/shared/lib/error-class';
 
@@ -20,12 +26,16 @@
 	 * projects.' Never drop a topic off eight pages silently." The count is asked
 	 * for when Retire is pressed, which is the moment it is needed.
 	 *
-	 * **The USED ON column is drawn and not built.** 70:382 shows a count per
-	 * row; `GET /api/topics/{id}/usage` takes one topic, so that is one request
-	 * per row on every load — the same N+1 §02 itself refused for the posts
-	 * table's Topics column, in the weaker case, since topics are not paged at
-	 * all. Asked rather than guessed; the counts still appear where they change a
-	 * decision, on the retire confirmation.
+	 * **The USED ON column is a render, not a fetch.** It was parked while
+	 * `…/usage` was the only source — one topic per request, on an unpaged list,
+	 * is the N+1 §02 refused for the posts table in the weaker case. The counts
+	 * now come back on the listing itself, computed in the statement that
+	 * already runs.
+	 *
+	 * The column and the retire confirmation share one formatter deliberately.
+	 * Both counts exclude soft-deleted rows, and two call sites doing their own
+	 * arithmetic is how a row and a dialog agree right up until somebody
+	 * archives a post.
 	 *
 	 * Retiring is a soft delete and reads as one: a plain confirmation in the
 	 * row, not the type-to-confirm dialog, which is for things that do not come
@@ -190,9 +200,13 @@
 						>
 							Description
 						</th>
-						<!-- USED ON belongs here. It is a call per row until the count can
-						     be asked for in one, so the header is empty rather than
-						     labelling a column with nothing under it. -->
+						<th
+							scope="col"
+							class="px-5 py-3 font-mono text-[9px] font-normal tracking-[0.9px] text-arch-muted
+							       uppercase"
+						>
+							Used on
+						</th>
 						<th scope="col" class="px-5 py-3"><span class="sr-only">Actions</span></th>
 					</tr>
 				</thead>
@@ -200,7 +214,7 @@
 					{#each topics as topic (topic.id)}
 						<tr class="border-b border-arch-line last:border-0">
 							{#if renaming === topic.id}
-								<td colspan="3" class="px-5 py-3.5">
+								<td colspan="4" class="px-5 py-3.5">
 									<div class="flex flex-col gap-2.5">
 										<Field id="topic-{topic.id}-title" label="Title" bind:value={draft} />
 										<div class="flex gap-2">
@@ -220,6 +234,12 @@
 								</td>
 								<td class="px-5 py-3.5 text-[12.5px] text-arch-muted">
 									{topic.description ?? ''}
+								</td>
+								<td class="px-5 py-3.5 font-mono text-[11.5px] text-arch-muted">
+									{usageLine({
+										posts: topic.post_count ?? 0,
+										projects: topic.project_count ?? 0
+									})}
 								</td>
 								<td class="px-5 py-3.5">
 									<div class="flex items-center justify-end gap-1.5">
@@ -248,7 +268,7 @@
 
 						{#if retiring === topic.id}
 							<tr class="border-b border-arch-line last:border-0">
-								<td colspan="3" class="px-5 pb-3.5">
+								<td colspan="4" class="px-5 pb-3.5">
 									<!-- A soft delete, asked plainly. The counted sentence sits
 									     where the action is rather than behind a modal. -->
 									<div class="flex flex-col gap-2.5 rounded-lg bg-arch-surface-2 px-3 py-2.5">

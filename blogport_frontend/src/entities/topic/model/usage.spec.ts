@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { retireQuestion } from './usage';
+import { retireQuestion, usageLine, usageParts } from './usage';
 
 /**
  * What a retire confirmation asks.
@@ -47,4 +47,34 @@ test('counts that never arrived are not invented', () => {
 
 test('the title is quoted as the blueprint quotes it, whatever is in it', () => {
 	expect(retireQuestion('C++', { posts: 1, projects: 0 })).toContain('«C++»');
+});
+
+/**
+ * The column and the sentence share their arithmetic.
+ *
+ * The backend's warning when it shipped the counts: the row and the retire
+ * confirmation must be "the same number from the same rule — not two counts
+ * that agree until someone archives a post". Sharing the parts is how that is
+ * guaranteed here rather than hoped for.
+ */
+
+test('the column lists the same parts the sentence does', () => {
+	expect(usageParts({ posts: 6, projects: 2 })).toEqual(['6 posts', '2 projects']);
+});
+
+test('a kind with nothing in it is left out of both', () => {
+	expect(usageParts({ posts: 6, projects: 0 })).toEqual(['6 posts']);
+	expect(usageParts({ posts: 0, projects: 0 })).toEqual([]);
+});
+
+test('the column reads as the frame writes it', () => {
+	// 70:382: "6 posts · 2 projects", "3 posts", "1 post".
+	expect(usageLine({ posts: 6, projects: 2 })).toBe('6 posts · 2 projects');
+	expect(usageLine({ posts: 1, projects: 0 })).toBe('1 post');
+});
+
+test('a topic on nothing says so rather than showing a zero', () => {
+	// "0 posts · 0 projects" is a row that makes a reader check two numbers to
+	// learn one thing.
+	expect(usageLine({ posts: 0, projects: 0 })).toBe('Not used yet');
 });

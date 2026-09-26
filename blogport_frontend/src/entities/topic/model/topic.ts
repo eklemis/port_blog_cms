@@ -16,4 +16,12 @@ export type Topic = {
 	 * fifteen entries." Empty rather than absent when nothing was written.
 	 */
 	description?: string | null;
+	/**
+	 * How many live posts and projects carry this topic, counted in the same
+	 * statement that lists them. Soft-deleted ones are excluded, which is the
+	 * rule `…/usage` applies — so the column and the retire confirmation are one
+	 * number from one definition.
+	 */
+	post_count?: number;
+	project_count?: number;
 };

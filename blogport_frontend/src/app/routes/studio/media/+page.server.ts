@@ -10,17 +10,21 @@ import type { Tile } from '$lib/entities/media';
  * The target comes from the URL so a scoped library is a link somebody can
  * send, and the back button steps out of it.
  *
- * **A signed URL per ready image is a call per image.** Unlike a count column,
- * a grid of pictures cannot be drawn without them — so they are fetched here,
- * in parallel, rather than from the browser one tile at a time. Worth a batched
- * signing endpoint if this screen ever pages.
+ * **A signed URL per ready image is a call per image**, and the calls are
+ * bounded by what the page renders — which is the line worth keeping: a count
+ * column was information the screen survived without, and unbounded besides.
+ * A grid of pictures cannot be drawn without the URLs. Worth a batched signing
+ * endpoint if this screen ever pages.
+ *
+ * An archived row is not signed for. It is drawn as a marked tile rather than a
+ * picture, so a URL for it would be a request for something never shown.
  */
 
 const TARGETS = ['blog_post', 'project', 'resume', 'user'];
 
-type Row = Tile & { attachment_target_id: string };
+type Row = Tile & { attachment_target_id: string; deleted_at?: string | null };
 
-type Item = Tile & { src: string | null };
+type Item = Tile & { src: string | null; deleted_at: string | null };
 
 async function read<T>(
 	event: Parameters<PageServerLoad>[0],
@@ -52,10 +56,14 @@ async function srcFor(
 export const load: PageServerLoad = async (event) => {
 	const asked = event.url.searchParams.get('target');
 	const scope = asked && TARGETS.includes(asked) ? asked : 'blog_post';
+	const archived = event.url.searchParams.get('archived') === 'true';
 
-	const body = await read<{ rows?: Row[] }>(event, `/api/media/by-target/${scope}`);
+	// One grid, as the frame draws it: archived rows come back alongside the
+	// live ones and `deleted_at` tells them apart.
+	const query = archived ? '?include_deleted=true' : '';
+	const body = await read<{ rows?: Row[] }>(event, `/api/media/by-target/${scope}${query}`);
 
-	if (!body) return { items: [] as Item[], scope, failed: true };
+	if (!body) return { items: [] as Item[], scope, archived, failed: true };
 
 	const rows = body.data?.rows ?? [];
 
@@ -66,10 +74,11 @@ export const load: PageServerLoad = async (event) => {
 			role: row.role,
 			status: row.status,
 			alt_text: row.alt_text,
-			// Only what is ready has variants to point at.
-			src: row.status === 'ready' ? await srcFor(event, row.media_id) : null
+			deleted_at: row.deleted_at ?? null,
+			// Only what is ready and still live has variants worth signing for.
+			src: row.status === 'ready' && !row.deleted_at ? await srcFor(event, row.media_id) : null
 		}))
 	);
 
-	return { items, scope, failed: false };
+	return { items, scope, archived, failed: false };
 };

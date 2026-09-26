@@ -7,12 +7,11 @@
 	/** `/studio/media` — Console Blueprint §03, scoped by attachment target. */
 	let { data }: PageProps = $props();
 
-	function choose(target: string) {
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- one query parameter
-		goto(`${page.url.pathname}?target=${encodeURIComponent(target)}`, {
-			keepFocus: true,
-			noScroll: true
-		});
+	function choose(target: string, archived: boolean) {
+		const query = `target=${encodeURIComponent(target)}${archived ? '&archived=true' : ''}`;
+
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- query only
+		goto(`${page.url.pathname}?${query}`, { keepFocus: true, noScroll: true });
 	}
 </script>
 
@@ -23,6 +22,7 @@
 <MediaPage
 	items={data.items}
 	scope={data.scope}
+	archived={data.archived}
 	onquery={choose}
 	onchanged={() => invalidateAll()}
 />
