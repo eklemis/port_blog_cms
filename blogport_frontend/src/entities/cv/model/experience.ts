@@ -15,6 +15,26 @@ import type { components } from '$lib/shared/api/v1';
  */
 
 export type Experience = components['schemas']['ExperienceDto'];
+export type CoreSkill = components['schemas']['CoreSkillDto'];
+export type Education = components['schemas']['EducationDto'];
+export type ContactDetail = components['schemas']['ContactDetailDto'];
+
+/**
+ * Which kinds of contact row exist: `phone_number` and `web_page`.
+ *
+ * **There is no email.** `ContactDetailDto.content` gives
+ * `john@example.com` as its own example, and the designer's ruling on the
+ * public profile was that an address belongs "on a résumé the author chose to
+ * publish, where `contact_info` is part of a document they nominated" — so an
+ * email on a CV is the intended case and the enum cannot express it. Raised;
+ * until it changes, the two that exist are the two offered.
+ */
+export const CONTACT_TYPES = ['phone_number', 'web_page'] as const;
+
+/** What a contact row is called on screen. */
+export function contactTypeLabel(type: ContactDetail['contact_type']): string {
+	return type === 'phone_number' ? 'Phone' : 'Web page';
+}
 
 /** What it was, then where. A row nobody has filled in is still findable. */
 export function experienceSummary(role: Pick<Experience, 'company' | 'position'>): string {

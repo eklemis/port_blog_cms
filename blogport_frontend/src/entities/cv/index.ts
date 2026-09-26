@@ -1,2 +1,12 @@
 // Public API of the cv entity.
-export { experienceSummary, isCurrent, years, type Experience } from './model/experience';
+export {
+	CONTACT_TYPES,
+	contactTypeLabel,
+	experienceSummary,
+	isCurrent,
+	years,
+	type ContactDetail,
+	type CoreSkill,
+	type Education,
+	type Experience
+} from './model/experience';

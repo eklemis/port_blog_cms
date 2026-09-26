@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { authenticatedFetch } from '$lib/shared/api/backend.server';
-import type { Experience } from '$lib/entities/cv';
+import type { ContactDetail, CoreSkill, Education, Experience } from '$lib/entities/cv';
 
 /**
  * `/studio/resumes/[id]` — the builder's document.
@@ -15,10 +15,11 @@ type Cv = {
 	role: string;
 	display_name: string;
 	experiences: Experience[];
-	core_skills: unknown[];
-	educations: unknown[];
+	core_skills: CoreSkill[];
+	educations: Education[];
+	/** Still `unknown` here: nothing renders it until the picker exists. */
 	highlighted_projects: unknown[];
-	contact_info: unknown[];
+	contact_info: ContactDetail[];
 };
 
 export const load: PageServerLoad = async (event) => {
