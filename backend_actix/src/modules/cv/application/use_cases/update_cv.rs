@@ -136,6 +136,7 @@ mod tests {
                 .ok_or(CVRepositoryError::NotFound)?;
 
             Ok(CVInfo {
+                language: "en".to_string(),
                 id: existing.id,
                 user_id: existing.user_id,
                 display_name: existing.display_name,
@@ -171,6 +172,7 @@ mod tests {
         let cv_id = Uuid::new_v4();
         let user_id = Uuid::new_v4();
         let existing_cv = CVInfo {
+            language: "en".to_string(),
             id: cv_id,
             display_name: "Rob Stark".to_string(),
             user_id,
@@ -193,6 +195,7 @@ mod tests {
 
         // Create UpdateCVData (no id field)
         let update_data = UpdateCVData {
+            language: Some("en".to_string()),
             role: "Senior Software Engineer".to_string(), // Can also update role
             display_name: "Robinson Bright".to_string(),
             bio: "Updated bio".to_string(),
@@ -232,6 +235,7 @@ mod tests {
         let use_case = UpdateCVUseCase::new(mock_repo);
 
         let update_data = UpdateCVData {
+            language: Some("en".to_string()),
             role: "Senior Software Engineer".to_string(), // Can also update role
             display_name: "Robinson Bright".to_string(),
             bio: "Updated bio".to_string(),
@@ -261,6 +265,7 @@ mod tests {
 
         // Existing CV belongs to the user
         let existing_cv = CVInfo {
+            language: "en".to_string(),
             id: cv_id,
             display_name: "Rob Stark".to_string(),
             user_id,
@@ -283,6 +288,7 @@ mod tests {
         let use_case = UpdateCVUseCase::new(mock_repo);
 
         let update_data = UpdateCVData {
+            language: Some("en".to_string()),
             role: "Senior Software Engineer".to_string(), // Can also update role
             display_name: "Robinson Bright".to_string(),
             bio: "Updated bio".to_string(),

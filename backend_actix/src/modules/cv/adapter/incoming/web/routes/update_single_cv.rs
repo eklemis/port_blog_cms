@@ -34,6 +34,14 @@ pub struct UpdateCVRequest {
     pub highlighted_projects: Vec<HighlightedProjectDto>,
     /// Contact rows. Public on a published CV.
     pub contact_info: Vec<ContactDetailDto>,
+
+    /// The language this CV is written in, as a short code — `en`, `id`.
+    ///
+    /// Omitted on a full update leaves the language alone rather than resetting
+    /// it: a client written before this field existed sends every other field,
+    /// and would otherwise silently re-label an Indonesian CV as English.
+    #[schema(example = "en")]
+    pub language: Option<String>,
 }
 
 /// Replace a CV
@@ -81,6 +89,7 @@ pub async fn update_cv_handler(
     let cv_id = path.into_inner();
 
     let cv_data = UpdateCVData {
+        language: req.language.clone(),
         bio: req.bio.clone(),
         role: req.role.clone(),
         display_name: req.display_name.clone(),
@@ -147,6 +156,7 @@ mod tests {
 
     fn base_update_request() -> UpdateCVRequest {
         UpdateCVRequest {
+            language: None,
             display_name: "Jonathan Verguso".to_string(),
             role: "New role".to_string(),
             bio: "Updated bio".to_string(),
@@ -162,6 +172,7 @@ mod tests {
     impl CVInfo {
         fn from_update(cv_id: Uuid, user_id: Uuid, data: UpdateCVData) -> Self {
             Self {
+                language: data.language.clone().unwrap_or_else(|| "en".to_string()),
                 id: cv_id,
                 user_id,
                 display_name: data.display_name,
@@ -235,6 +246,7 @@ mod tests {
         let cv_id = Uuid::new_v4();
 
         let updated_cv = CVInfo {
+            language: "en".to_string(),
             id: cv_id,
             user_id,
             display_name: "Berto Fang".to_string(),
@@ -275,6 +287,7 @@ mod tests {
             .uri(&format!("/api/cvs/{}", cv_id))
             .insert_header(("Authorization", format!("Bearer {}", token)))
             .set_json(UpdateCVRequest {
+                language: None,
                 display_name: "Berto Fang".to_string(),
                 bio: "Software Engineer with 5 years of experience".to_string(),
                 role: "Software Engineer".to_string(),
@@ -306,6 +319,7 @@ mod tests {
         let cv_id = Uuid::new_v4();
 
         let updated_cv = CVInfo {
+            language: "en".to_string(),
             id: cv_id,
             user_id,
             display_name: "Mapping Test".to_string(),
@@ -367,6 +381,7 @@ mod tests {
             .uri(&format!("/api/cvs/{}", cv_id))
             .insert_header(("Authorization", format!("Bearer {}", token)))
             .set_json(UpdateCVRequest {
+                language: None,
                 display_name: "Mapping Test".to_string(),
                 role: "QA Engineer".to_string(),
                 bio: "Testing specialist".to_string(),

@@ -40,6 +40,13 @@ pub struct Model {
     #[sea_orm(column_type = "JsonBinary")]
     pub contact_info: JsonValue,
 
+    /// The language this CV is written in, as a short code — `en`, `id`.
+    ///
+    /// The column has existed since `m20260903_000002_add_language_settings`,
+    /// with `NOT NULL DEFAULT 'en'`. Nothing above this line carried it, so
+    /// every CV has had a language and no caller could read or set it.
+    pub language: String,
+
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 
@@ -61,10 +68,14 @@ impl Model {
             highlighted_projects: serde_json::from_value(self.highlighted_projects.clone())
                 .unwrap_or_default(),
             contact_info: serde_json::from_value(self.contact_info.clone()).unwrap_or_default(),
+            language: self.language.clone(),
         }
     }
     pub fn from_create_data(user_id: Uuid, cv: &CreateCVData) -> Self {
         Self {
+            // The column is NOT NULL DEFAULT 'en'; an absent value means the
+            // caller did not say, which is the same thing.
+            language: cv.language.clone().unwrap_or_else(|| "en".to_string()),
             id: Uuid::new_v4(),
             user_id,
             role: cv.role.clone(),

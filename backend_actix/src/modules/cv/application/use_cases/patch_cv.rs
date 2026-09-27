@@ -83,6 +83,11 @@ where
                 .highlighted_projects
                 .unwrap_or(existing.highlighted_projects),
             contact_info: data.contact_info.unwrap_or(existing.contact_info),
+            // Absent keeps the CV's own language. A patch that omitted it and
+            // reset to "en" would re-label an Indonesian CV as English on any
+            // edit — including edits made by a client that has never heard of
+            // the field.
+            language: Some(data.language.unwrap_or(existing.language)),
         };
 
         // 4️⃣ Delegate to existing update logic
@@ -153,6 +158,12 @@ mod patch_tests {
                 .ok_or(CVRepositoryError::NotFound)?;
 
             Ok(CVInfo {
+                // Echoes what the merge handed over. Hardcoding "en" here
+                // would hide exactly the bug these tests exist to catch.
+                language: cv_data
+                    .language
+                    .clone()
+                    .unwrap_or_else(|| existing.language.clone()),
                 id: existing.id,
                 user_id: existing.user_id,
                 display_name: cv_data.display_name,
@@ -185,6 +196,7 @@ mod patch_tests {
         let user_id = Uuid::new_v4();
 
         let existing_cv = CVInfo {
+            language: "en".to_string(),
             id: cv_id,
             user_id,
             display_name: "Robin Hood".to_string(),
@@ -206,6 +218,7 @@ mod patch_tests {
         let use_case = PatchCVUseCase::new(mock_repo);
 
         let patch_data = PatchCVData {
+            language: None,
             bio: Some("Patched bio".to_string()),
             display_name: Some("Gandalf in The Wood".to_string()),
             role: None,
@@ -247,6 +260,7 @@ mod patch_tests {
         let use_case = PatchCVUseCase::new(mock_repo);
 
         let patch_data = PatchCVData {
+            language: None,
             bio: Some("Patched bio".to_string()),
             display_name: None,
             role: None,
@@ -274,6 +288,7 @@ mod patch_tests {
         let cv_id = Uuid::new_v4();
 
         let existing_cv = CVInfo {
+            language: "en".to_string(),
             id: cv_id,
             display_name: "Rob Stark".to_string(),
             user_id: Uuid::new_v4(), // different owner
@@ -295,6 +310,7 @@ mod patch_tests {
         let use_case = PatchCVUseCase::new(mock_repo);
 
         let patch_data = PatchCVData {
+            language: None,
             bio: Some("Hacked bio".to_string()),
             display_name: None,
             role: None,
@@ -324,6 +340,7 @@ mod patch_tests {
         let cv_id = Uuid::new_v4();
 
         let existing_cv = CVInfo {
+            language: "en".to_string(),
             id: cv_id,
             display_name: "Rob Stark".to_string(),
             user_id,
@@ -345,6 +362,7 @@ mod patch_tests {
         let use_case = PatchCVUseCase::new(mock_repo);
 
         let patch_data = PatchCVData {
+            language: None,
             bio: Some("Hacked bio".to_string()),
             display_name: None,
             role: None,
@@ -364,5 +382,84 @@ mod patch_tests {
             }
             other => panic!("Expected RepositoryError, got {:?}", other),
         }
+    }
+
+    fn cv_written_in(language: &str) -> CVInfo {
+        CVInfo {
+            language: language.to_string(),
+            id: Uuid::new_v4(),
+            user_id: Uuid::new_v4(),
+            role: String::new(),
+            display_name: String::new(),
+            bio: String::new(),
+            photo_url: String::new(),
+            core_skills: vec![],
+            educations: vec![],
+            experiences: vec![],
+            highlighted_projects: vec![],
+            contact_info: vec![],
+        }
+    }
+
+    fn patch_saying_nothing_but(language: Option<String>) -> PatchCVData {
+        PatchCVData {
+            language,
+            bio: None,
+            role: None,
+            photo_url: None,
+            display_name: None,
+            core_skills: None,
+            educations: None,
+            experiences: None,
+            highlighted_projects: None,
+            contact_info: None,
+        }
+    }
+
+    /// A patch that says nothing about language must not change it.
+    ///
+    /// Every other field here means "absent leaves it alone", and the console
+    /// has been sending patches since before this field existed. If absent
+    /// meant `en`, the first edit to an Indonesian CV would re-label it, with
+    /// nothing on screen to say so.
+    #[tokio::test]
+    async fn an_absent_language_leaves_the_cv_as_it_was() {
+        let existing = cv_written_in("id");
+        let (cv_id, user_id) = (existing.id, existing.user_id);
+
+        let use_case = PatchCVUseCase::new(MockCVRepository {
+            existing_cvs: vec![existing],
+            should_fail_update: false,
+        });
+
+        let updated = use_case
+            .execute(user_id, cv_id, patch_saying_nothing_but(None))
+            .await
+            .expect("the patch applies");
+
+        assert_eq!(updated.language, "id", "an unmentioned language is kept");
+    }
+
+    /// And one that does say is honoured.
+    #[tokio::test]
+    async fn a_supplied_language_is_written() {
+        let existing = cv_written_in("id");
+        let (cv_id, user_id) = (existing.id, existing.user_id);
+
+        let use_case = PatchCVUseCase::new(MockCVRepository {
+            existing_cvs: vec![existing],
+            should_fail_update: false,
+        });
+
+        let updated = use_case
+            .execute(
+                user_id,
+                cv_id,
+                patch_saying_nothing_but(Some("en".to_string())),
+            )
+            .await
+            .expect("the patch applies");
+
+        assert_eq!(updated.language, "en");
     }
 }

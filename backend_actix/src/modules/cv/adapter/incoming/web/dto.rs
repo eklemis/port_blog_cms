@@ -110,6 +110,8 @@ pub enum ContactTypeDto {
     PhoneNumber,
     /// A link — a site, a profile, a repository.
     WebPage,
+    /// An email address.
+    Email,
 }
 
 /// Request or response shape for the HTTP layer.
@@ -164,6 +166,17 @@ pub struct CvResponse {
     pub highlighted_projects: Vec<HighlightedProjectDto>,
     /// Contact rows. Public on a published CV.
     pub contact_info: Vec<ContactDetailDto>,
+
+    /// The language the CV is written in, as a short code — `en`, `id`.
+    ///
+    /// The language of the **document**, not of the interface. Someone reading
+    /// the console in Indonesian while writing an English CV is the ordinary
+    /// case, which is why `users.locale` is a separate setting.
+    ///
+    /// Always present. Every CV has had one since the column was added; until
+    /// now nothing carried it up to here.
+    #[schema(example = "en")]
+    pub language: String,
 }
 
 //
@@ -222,6 +235,7 @@ impl From<ContactType> for ContactTypeDto {
         match v {
             ContactType::PhoneNumber => ContactTypeDto::PhoneNumber,
             ContactType::WebPage => ContactTypeDto::WebPage,
+            ContactType::Email => ContactTypeDto::Email,
         }
     }
 }
@@ -239,6 +253,7 @@ impl From<ContactDetail> for ContactDetailDto {
 impl From<CVInfo> for CvResponse {
     fn from(cv: CVInfo) -> Self {
         Self {
+            language: cv.language,
             id: cv.id,
             user_id: cv.user_id,
             role: cv.role,
@@ -314,6 +329,7 @@ impl From<ContactTypeDto> for ContactType {
         match v {
             ContactTypeDto::PhoneNumber => ContactType::PhoneNumber,
             ContactTypeDto::WebPage => ContactType::WebPage,
+            ContactTypeDto::Email => ContactType::Email,
         }
     }
 }
@@ -334,6 +350,7 @@ mod tests {
 
     fn sample_domain_cv() -> CVInfo {
         CVInfo {
+            language: "en".to_string(),
             id: Uuid::new_v4(),
             user_id: Uuid::new_v4(),
             role: "Senior Software Engineer".into(),
@@ -442,6 +459,7 @@ mod tests {
         for (domain, wire) in [
             (ContactType::PhoneNumber, ContactTypeDto::PhoneNumber),
             (ContactType::WebPage, ContactTypeDto::WebPage),
+            (ContactType::Email, ContactTypeDto::Email),
         ] {
             let to_wire: ContactTypeDto = domain.clone().into();
             assert_eq!(to_wire, wire);

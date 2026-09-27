@@ -205,6 +205,7 @@ mod tests {
 
     fn sample_cv(owner_id: Uuid, cv_id: Uuid) -> CVInfo {
         CVInfo {
+            language: "en".to_string(),
             id: cv_id,
             user_id: owner_id,
             display_name: "Public CV".to_string(),

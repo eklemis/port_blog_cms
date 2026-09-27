@@ -126,6 +126,7 @@ mod tests {
 
     fn cv_owned_by(cv_id: Uuid, user_id: Uuid, role: &str) -> CVInfo {
         CVInfo {
+            language: "en".to_string(),
             id: cv_id,
             user_id,
             role: role.to_string(),

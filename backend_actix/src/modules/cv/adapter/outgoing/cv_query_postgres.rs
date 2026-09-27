@@ -136,6 +136,7 @@ mod tests {
         let now = Utc::now().fixed_offset();
 
         ResumeModel {
+            language: "en".to_string(),
             id,
             user_id,
             display_name: display_name.to_string(),
