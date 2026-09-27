@@ -137,6 +137,7 @@ mod tests {
 
     fn create_cv_info(cv_id: Uuid, user_id: Uuid) -> CVInfo {
         CVInfo {
+            language: "en".to_string(),
             id: cv_id,
             user_id,
             role: "Developer".to_string(),

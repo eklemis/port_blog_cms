@@ -191,6 +191,7 @@ mod tests {
     fn sample_page_result() -> CVPageResult<CVInfo> {
         CVPageResult {
             items: vec![CVInfo {
+                language: "en".to_string(),
                 id: Uuid::new_v4(),
                 user_id: Uuid::new_v4(),
                 display_name: "John Doe".to_string(),

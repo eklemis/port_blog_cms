@@ -48,6 +48,13 @@ pub struct CVInfo {
 
     /// Contact information
     pub contact_info: Vec<ContactDetail>,
+
+    /// The language the CV is written in, as a short code — `en`, `id`.
+    ///
+    /// The language of the *document*, not of the interface: someone reading
+    /// the console in Indonesian while writing an English CV is the ordinary
+    /// case, which is why `users.locale` is a separate thing and says so.
+    pub language: String,
 }
 
 /// A headline skill shown near the top of a CV.
@@ -156,6 +163,12 @@ pub enum ContactType {
     PhoneNumber,
     /// A link — a site, a profile, a repository.
     WebPage,
+    /// An email address.
+    ///
+    /// Added after the fact: the two above could not express the row the
+    /// `content` field's own example shows, `john@example.com`, and a CV is
+    /// where the public-profile ruling said an address belongs.
+    Email,
 }
 
 /// One contact row on a CV. Public on a published CV.

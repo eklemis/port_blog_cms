@@ -95,6 +95,7 @@ mod tests {
 
         fn default_cv_info() -> CVInfo {
             CVInfo {
+                language: "en".to_string(),
                 id: Uuid::new_v4(),
                 user_id: Uuid::new_v4(),
                 display_name: "Test User".to_string(),
@@ -130,6 +131,7 @@ mod tests {
         ) -> Result<CVInfo, CVRepositoryError> {
             match &self.create_result {
                 Ok(_) => Ok(CVInfo {
+                    language: "en".to_string(),
                     id: Uuid::new_v4(),
                     user_id,
                     display_name: cv_data.display_name,
@@ -161,6 +163,7 @@ mod tests {
 
     fn create_valid_cv_data() -> CreateCVData {
         CreateCVData {
+            language: Some("en".to_string()),
             display_name: "John Doe".to_string(),
             role: "Software Engineer".to_string(),
             bio: "Experienced software engineer with passion for clean code".to_string(),
@@ -216,6 +219,7 @@ mod tests {
         ];
 
         let cv_data = CreateCVData {
+            language: Some("en".to_string()),
             display_name: "Jane Smith".to_string(),
             role: "Senior Developer".to_string(),
             bio: "10 years of experience in web development".to_string(),
@@ -246,6 +250,7 @@ mod tests {
         let user_id = Uuid::new_v4();
 
         let cv_data = CreateCVData {
+            language: Some("en".to_string()),
             display_name: "Min User".to_string(),
             role: "Developer".to_string(),
             bio: "".to_string(),
@@ -361,6 +366,7 @@ mod tests {
 
         let long_bio = "a".repeat(5000);
         let cv_data = CreateCVData {
+            language: Some("en".to_string()),
             display_name: "Test User".to_string(),
             role: "Developer".to_string(),
             bio: long_bio.clone(),
@@ -385,6 +391,7 @@ mod tests {
         let user_id = Uuid::new_v4();
 
         let cv_data = CreateCVData {
+            language: Some("en".to_string()),
             display_name: "José María O'Brien-Smith".to_string(),
             role: "Software Engineer".to_string(),
             bio: "Developer with international experience".to_string(),
@@ -432,6 +439,7 @@ mod tests {
         let user_id = Uuid::new_v4();
 
         let cv_data1 = CreateCVData {
+            language: Some("en".to_string()),
             display_name: "First CV".to_string(),
             role: "Junior Developer".to_string(),
             bio: "First version".to_string(),
@@ -444,6 +452,7 @@ mod tests {
         };
 
         let cv_data2 = CreateCVData {
+            language: Some("en".to_string()),
             display_name: "Second CV".to_string(),
             role: "Senior Developer".to_string(),
             bio: "Second version".to_string(),

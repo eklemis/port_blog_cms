@@ -63,6 +63,15 @@ pub struct CreateCVData {
     pub experiences: Vec<Experience>,
     /// Projects featured on the CV, in display order.
     pub highlighted_projects: Vec<HighlightedProject>,
+    /// The language the CV is written in, as a short code — `en`, `id`.
+    ///
+    /// The language of the **document**, not of the interface. Someone reading
+    /// the console in Indonesian while writing an English CV is the ordinary
+    /// case, which is why `users.locale` is a separate setting.
+    ///
+    /// Absent means `en`, which is what every row already holds: the column has
+    /// defaulted to it since it was added.
+    pub language: Option<String>,
     /// Contact rows — email, links, phone. Public on a published CV.
     pub contact_info: Vec<ContactDetail>,
 }
@@ -91,6 +100,14 @@ pub struct PatchCVData {
     pub experiences: Option<Vec<Experience>>,
     /// Replaces the whole list when present.
     pub highlighted_projects: Option<Vec<HighlightedProject>>,
+    /// The language the CV is written in, as a short code — `en`, `id`.
+    ///
+    /// The language of the **document**, not of the interface. Someone reading
+    /// the console in Indonesian while writing an English CV is the ordinary
+    /// case, which is why `users.locale` is a separate setting.
+    ///
+    /// Absent leaves it as it was, like every other field here.
+    pub language: Option<String>,
     /// Replaces the whole list when present.
     pub contact_info: Option<Vec<ContactDetail>>,
 }

@@ -145,6 +145,7 @@ mod tests {
         let cv_id = Uuid::new_v4();
 
         let expected_cv = CVInfo {
+            language: "en".to_string(),
             id: cv_id,
             user_id,
             display_name: "Berto Fang".to_string(),

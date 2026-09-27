@@ -66,7 +66,7 @@ impl CVRepository for CVRepoPostgres {
         cv_id: Uuid,
         cv_data: UpdateCVData,
     ) -> Result<CVInfo, CVRepositoryError> {
-        let active_model = CvActiveModel {
+        let mut active_model = CvActiveModel {
             id: Set(cv_id),
             role: Set(cv_data.role),
             bio: Set(cv_data.bio),
@@ -80,6 +80,13 @@ impl CVRepository for CVRepoPostgres {
             updated_at: Set(chrono::Utc::now().into()),
             ..Default::default()
         };
+
+        // Set only when supplied. An unset ActiveValue is left alone by the
+        // UPDATE, which is what keeps a client that predates this field from
+        // re-labelling a CV's language by sending everything else.
+        if let Some(language) = cv_data.language {
+            active_model.language = Set(language);
+        }
 
         let updated = active_model.update(&*self.db).await.map_err(|err| {
             let err_msg = err.to_string();
@@ -112,6 +119,7 @@ mod tests {
         let fixed_offset_now = now.fixed_offset();
 
         CvModel {
+            language: "en".to_string(),
             id: Uuid::new_v4(), // Add id field
             user_id,
             bio: "Test bio".to_string(),
@@ -263,6 +271,7 @@ mod tests {
 
         // Use CreateCVData instead of CVInfo
         let cv_data = CreateCVData {
+            language: Some("en".to_string()),
             bio: "Test bio".to_string(),
             role: "Test role".to_string(),
             photo_url: "https://example.com/photo.jpg".to_string(),
@@ -310,6 +319,7 @@ mod tests {
         let now = Utc::now();
         let fixed_offset_now = now.fixed_offset();
         let inserted_model = CvModel {
+            language: "en".to_string(),
             id: cv_id,
             user_id,
             display_name: cv_data.display_name.clone(),
@@ -364,6 +374,7 @@ mod tests {
         let cv_id = Uuid::new_v4();
 
         let updated_cv_data = UpdateCVData {
+            language: Some("en".to_string()),
             bio: "Updated bio".to_string(),
             role: "Updated role".to_string(),
             display_name: "Robin Hood".to_string(),
@@ -410,6 +421,7 @@ mod tests {
         // Build the expected result model directly - NO cloning from existing_cv_model
         let now = Utc::now().fixed_offset();
         let updated_model = CvModel {
+            language: "en".to_string(),
             id: cv_id,
             user_id,
             bio: "Updated bio".to_string(), // ← Direct value, not from clone
@@ -463,6 +475,7 @@ mod tests {
 
         // Use UpdateCVData instead of CVInfo
         let cv_data = UpdateCVData {
+            language: Some("en".to_string()),
             bio: "Updated bio".to_string(),
             role: "Updated role".to_string(),
             display_name: "Robin Hood".to_string(),
@@ -581,6 +594,7 @@ mod tests {
             .create_cv(
                 Uuid::new_v4(),
                 CreateCVData {
+                    language: Some("en".to_string()),
                     bio: "b".into(),
                     role: "r".into(),
                     display_name: "d".into(),

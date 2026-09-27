@@ -5068,7 +5068,8 @@
                               "educations",
                               "experiences",
                               "highlighted_projects",
-                              "contact_info"
+                              "contact_info",
+                              "language"
                             ],
                             "properties": {
                               "bio": {
@@ -5121,6 +5122,11 @@
                                 "format": "uuid",
                                 "description": "Primary key.",
                                 "example": "123e4567-e89b-12d3-a456-426614174000"
+                              },
+                              "language": {
+                                "type": "string",
+                                "description": "The language the CV is written in, as a short code — `en`, `id`.\n\nThe language of the **document**, not of the interface. Someone reading\nthe console in Indonesian while writing an English CV is the ordinary\ncase, which is why `users.locale` is a separate setting.\n\nAlways present. Every CV has had one since the column was added; until\nnow nothing carried it up to here.",
+                                "example": "en"
                               },
                               "photo_url": {
                                 "type": "string",
@@ -5267,7 +5273,8 @@
                         "educations",
                         "experiences",
                         "highlighted_projects",
-                        "contact_info"
+                        "contact_info",
+                        "language"
                       ],
                       "properties": {
                         "bio": {
@@ -5320,6 +5327,11 @@
                           "format": "uuid",
                           "description": "Primary key.",
                           "example": "123e4567-e89b-12d3-a456-426614174000"
+                        },
+                        "language": {
+                          "type": "string",
+                          "description": "The language the CV is written in, as a short code — `en`, `id`.\n\nThe language of the **document**, not of the interface. Someone reading\nthe console in Indonesian while writing an English CV is the ordinary\ncase, which is why `users.locale` is a separate setting.\n\nAlways present. Every CV has had one since the column was added; until\nnow nothing carried it up to here.",
+                          "example": "en"
                         },
                         "photo_url": {
                           "type": "string",
@@ -5445,7 +5457,8 @@
                         "educations",
                         "experiences",
                         "highlighted_projects",
-                        "contact_info"
+                        "contact_info",
+                        "language"
                       ],
                       "properties": {
                         "bio": {
@@ -5498,6 +5511,11 @@
                           "format": "uuid",
                           "description": "Primary key.",
                           "example": "123e4567-e89b-12d3-a456-426614174000"
+                        },
+                        "language": {
+                          "type": "string",
+                          "description": "The language the CV is written in, as a short code — `en`, `id`.\n\nThe language of the **document**, not of the interface. Someone reading\nthe console in Indonesian while writing an English CV is the ordinary\ncase, which is why `users.locale` is a separate setting.\n\nAlways present. Every CV has had one since the column was added; until\nnow nothing carried it up to here.",
+                          "example": "en"
                         },
                         "photo_url": {
                           "type": "string",
@@ -5637,7 +5655,8 @@
                         "educations",
                         "experiences",
                         "highlighted_projects",
-                        "contact_info"
+                        "contact_info",
+                        "language"
                       ],
                       "properties": {
                         "bio": {
@@ -5690,6 +5709,11 @@
                           "format": "uuid",
                           "description": "Primary key.",
                           "example": "123e4567-e89b-12d3-a456-426614174000"
+                        },
+                        "language": {
+                          "type": "string",
+                          "description": "The language the CV is written in, as a short code — `en`, `id`.\n\nThe language of the **document**, not of the interface. Someone reading\nthe console in Indonesian while writing an English CV is the ordinary\ncase, which is why `users.locale` is a separate setting.\n\nAlways present. Every CV has had one since the column was added; until\nnow nothing carried it up to here.",
+                          "example": "en"
                         },
                         "photo_url": {
                           "type": "string",
@@ -5923,7 +5947,8 @@
                         "educations",
                         "experiences",
                         "highlighted_projects",
-                        "contact_info"
+                        "contact_info",
+                        "language"
                       ],
                       "properties": {
                         "bio": {
@@ -5976,6 +6001,11 @@
                           "format": "uuid",
                           "description": "Primary key.",
                           "example": "123e4567-e89b-12d3-a456-426614174000"
+                        },
+                        "language": {
+                          "type": "string",
+                          "description": "The language the CV is written in, as a short code — `en`, `id`.\n\nThe language of the **document**, not of the interface. Someone reading\nthe console in Indonesian while writing an English CV is the ordinary\ncase, which is why `users.locale` is a separate setting.\n\nAlways present. Every CV has had one since the column was added; until\nnow nothing carried it up to here.",
+                          "example": "en"
                         },
                         "photo_url": {
                           "type": "string",
@@ -6203,7 +6233,8 @@
                         "educations",
                         "experiences",
                         "highlighted_projects",
-                        "contact_info"
+                        "contact_info",
+                        "language"
                       ],
                       "properties": {
                         "bio": {
@@ -6256,6 +6287,11 @@
                           "format": "uuid",
                           "description": "Primary key.",
                           "example": "123e4567-e89b-12d3-a456-426614174000"
+                        },
+                        "language": {
+                          "type": "string",
+                          "description": "The language the CV is written in, as a short code — `en`, `id`.\n\nThe language of the **document**, not of the interface. Someone reading\nthe console in Indonesian while writing an English CV is the ordinary\ncase, which is why `users.locale` is a separate setting.\n\nAlways present. Every CV has had one since the column was added; until\nnow nothing carried it up to here.",
+                          "example": "en"
                         },
                         "photo_url": {
                           "type": "string",
@@ -10675,7 +10711,8 @@
                         "educations",
                         "experiences",
                         "highlighted_projects",
-                        "contact_info"
+                        "contact_info",
+                        "language"
                       ],
                       "properties": {
                         "bio": {
@@ -10728,6 +10765,11 @@
                           "format": "uuid",
                           "description": "Primary key.",
                           "example": "123e4567-e89b-12d3-a456-426614174000"
+                        },
+                        "language": {
+                          "type": "string",
+                          "description": "The language the CV is written in, as a short code — `en`, `id`.\n\nThe language of the **document**, not of the interface. Someone reading\nthe console in Indonesian while writing an English CV is the ordinary\ncase, which is why `users.locale` is a separate setting.\n\nAlways present. Every CV has had one since the column was added; until\nnow nothing carried it up to here.",
+                          "example": "en"
                         },
                         "photo_url": {
                           "type": "string",
@@ -13160,7 +13202,8 @@
                 "educations",
                 "experiences",
                 "highlighted_projects",
-                "contact_info"
+                "contact_info",
+                "language"
               ],
               "properties": {
                 "bio": {
@@ -13213,6 +13256,11 @@
                   "format": "uuid",
                   "description": "Primary key.",
                   "example": "123e4567-e89b-12d3-a456-426614174000"
+                },
+                "language": {
+                  "type": "string",
+                  "description": "The language the CV is written in, as a short code — `en`, `id`.\n\nThe language of the **document**, not of the interface. Someone reading\nthe console in Indonesian while writing an English CV is the ordinary\ncase, which is why `users.locale` is a separate setting.\n\nAlways present. Every CV has had one since the column was added; until\nnow nothing carried it up to here.",
+                  "example": "en"
                 },
                 "photo_url": {
                   "type": "string",
@@ -13297,7 +13345,8 @@
         "description": "See the module documentation.",
         "enum": [
           "phone_number",
-          "web_page"
+          "web_page",
+          "email"
         ]
       },
       "CoreSkillDto": {
@@ -13498,6 +13547,14 @@
             },
             "description": "Projects featured on the CV, in display order."
           },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The language this CV is written in, as a short code — `en`, `id`.\n\nThe document's language, not the interface's. Omit it and the CV is\n`en`, which is what every existing row already holds.",
+            "example": "en"
+          },
           "photo_url": {
             "type": "string",
             "description": "URL to profile photo",
@@ -13686,7 +13743,8 @@
           "educations",
           "experiences",
           "highlighted_projects",
-          "contact_info"
+          "contact_info",
+          "language"
         ],
         "properties": {
           "bio": {
@@ -13739,6 +13797,11 @@
             "format": "uuid",
             "description": "Primary key.",
             "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "language": {
+            "type": "string",
+            "description": "The language the CV is written in, as a short code — `en`, `id`.\n\nThe language of the **document**, not of the interface. Someone reading\nthe console in Indonesian while writing an English CV is the ordinary\ncase, which is why `users.locale` is a separate setting.\n\nAlways present. Every CV has had one since the column was added; until\nnow nothing carried it up to here.",
+            "example": "en"
           },
           "photo_url": {
             "type": "string",
@@ -15065,6 +15128,14 @@
                 "description": "Replaces the featured projects when present."
               }
             ]
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The language this CV is written in, as a short code — `en`, `id`.\n\nAbsent leaves it as it was, like every other field here.",
+            "example": "id"
           },
           "photo_url": {
             "type": [
@@ -16580,6 +16651,14 @@
               "$ref": "#/components/schemas/HighlightedProjectDto"
             },
             "description": "Projects featured on the CV, in display order."
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The language this CV is written in, as a short code — `en`, `id`.\n\nOmitted on a full update leaves the language alone rather than resetting\nit: a client written before this field existed sends every other field,\nand would otherwise silently re-label an Indonesian CV as English.",
+            "example": "en"
           },
           "photo_url": {
             "type": "string",

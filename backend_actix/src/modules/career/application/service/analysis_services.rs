@@ -215,6 +215,7 @@ mod tests {
 
     fn a_cv(role: &str) -> CVInfo {
         CVInfo {
+            language: "en".to_string(),
             id: Uuid::new_v4(),
             user_id: Uuid::new_v4(),
             role: role.into(),

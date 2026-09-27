@@ -2256,6 +2256,18 @@ export interface components {
                  */
                 id: string;
                 /**
+                 * @description The language the CV is written in, as a short code — `en`, `id`.
+                 *
+                 *     The language of the **document**, not of the interface. Someone reading
+                 *     the console in Indonesian while writing an English CV is the ordinary
+                 *     case, which is why `users.locale` is a separate setting.
+                 *
+                 *     Always present. Every CV has had one since the column was added; until
+                 *     now nothing carried it up to here.
+                 * @example en
+                 */
+                language: string;
+                /**
                  * @description Portrait image. Empty when unset.
                  * @example https://example.com/photos/profile.jpg
                  */
@@ -2315,7 +2327,7 @@ export interface components {
          * @description See the module documentation.
          * @enum {string}
          */
-        ContactTypeDto: "phone_number" | "web_page";
+        ContactTypeDto: "phone_number" | "web_page" | "email";
         /** @description Request or response shape for the HTTP layer. */
         CoreSkillDto: {
             /**
@@ -2420,6 +2432,14 @@ export interface components {
             experiences: components["schemas"]["ExperienceDto"][];
             /** @description Projects featured on the CV, in display order. */
             highlighted_projects: components["schemas"]["HighlightedProjectDto"][];
+            /**
+             * @description The language this CV is written in, as a short code — `en`, `id`.
+             *
+             *     The document's language, not the interface's. Omit it and the CV is
+             *     `en`, which is what every existing row already holds.
+             * @example en
+             */
+            language?: string | null;
             /**
              * @description URL to profile photo
              * @example https://example.com/photos/profile.jpg
@@ -2533,6 +2553,18 @@ export interface components {
              * @example 123e4567-e89b-12d3-a456-426614174000
              */
             id: string;
+            /**
+             * @description The language the CV is written in, as a short code — `en`, `id`.
+             *
+             *     The language of the **document**, not of the interface. Someone reading
+             *     the console in Indonesian while writing an English CV is the ordinary
+             *     case, which is why `users.locale` is a separate setting.
+             *
+             *     Always present. Every CV has had one since the column was added; until
+             *     now nothing carried it up to here.
+             * @example en
+             */
+            language: string;
             /**
              * @description Portrait image. Empty when unset.
              * @example https://example.com/photos/profile.jpg
@@ -3277,6 +3309,13 @@ export interface components {
             educations?: null | components["schemas"]["ReplaceOp_EducationDto"];
             experiences?: null | components["schemas"]["ReplaceOp_ExperienceDto"];
             highlighted_projects?: null | components["schemas"]["ReplaceOp_HighlightedProjectDto"];
+            /**
+             * @description The language this CV is written in, as a short code — `en`, `id`.
+             *
+             *     Absent leaves it as it was, like every other field here.
+             * @example id
+             */
+            language?: string | null;
             /** @description New portrait URL, or `None` to leave it. */
             photo_url?: string | null;
             /** @description New role, or `None` to leave it. */
@@ -4168,6 +4207,15 @@ export interface components {
             experiences: components["schemas"]["ExperienceDto"][];
             /** @description Projects featured on the CV, in display order. */
             highlighted_projects: components["schemas"]["HighlightedProjectDto"][];
+            /**
+             * @description The language this CV is written in, as a short code — `en`, `id`.
+             *
+             *     Omitted on a full update leaves the language alone rather than resetting
+             *     it: a client written before this field existed sends every other field,
+             *     and would otherwise silently re-label an Indonesian CV as English.
+             * @example en
+             */
+            language?: string | null;
             /** @description Portrait image. Empty when unset. */
             photo_url: string;
             /** @description Job title shown under the display name. */
@@ -8014,6 +8062,18 @@ export interface operations {
                                  */
                                 id: string;
                                 /**
+                                 * @description The language the CV is written in, as a short code — `en`, `id`.
+                                 *
+                                 *     The language of the **document**, not of the interface. Someone reading
+                                 *     the console in Indonesian while writing an English CV is the ordinary
+                                 *     case, which is why `users.locale` is a separate setting.
+                                 *
+                                 *     Always present. Every CV has had one since the column was added; until
+                                 *     now nothing carried it up to here.
+                                 * @example en
+                                 */
+                                language: string;
+                                /**
                                  * @description Portrait image. Empty when unset.
                                  * @example https://example.com/photos/profile.jpg
                                  */
@@ -8149,6 +8209,18 @@ export interface operations {
                              */
                             id: string;
                             /**
+                             * @description The language the CV is written in, as a short code — `en`, `id`.
+                             *
+                             *     The language of the **document**, not of the interface. Someone reading
+                             *     the console in Indonesian while writing an English CV is the ordinary
+                             *     case, which is why `users.locale` is a separate setting.
+                             *
+                             *     Always present. Every CV has had one since the column was added; until
+                             *     now nothing carried it up to here.
+                             * @example en
+                             */
+                            language: string;
+                            /**
                              * @description Portrait image. Empty when unset.
                              * @example https://example.com/photos/profile.jpg
                              */
@@ -8240,6 +8312,18 @@ export interface operations {
                              * @example 123e4567-e89b-12d3-a456-426614174000
                              */
                             id: string;
+                            /**
+                             * @description The language the CV is written in, as a short code — `en`, `id`.
+                             *
+                             *     The language of the **document**, not of the interface. Someone reading
+                             *     the console in Indonesian while writing an English CV is the ordinary
+                             *     case, which is why `users.locale` is a separate setting.
+                             *
+                             *     Always present. Every CV has had one since the column was added; until
+                             *     now nothing carried it up to here.
+                             * @example en
+                             */
+                            language: string;
                             /**
                              * @description Portrait image. Empty when unset.
                              * @example https://example.com/photos/profile.jpg
@@ -8363,6 +8447,18 @@ export interface operations {
                              * @example 123e4567-e89b-12d3-a456-426614174000
                              */
                             id: string;
+                            /**
+                             * @description The language the CV is written in, as a short code — `en`, `id`.
+                             *
+                             *     The language of the **document**, not of the interface. Someone reading
+                             *     the console in Indonesian while writing an English CV is the ordinary
+                             *     case, which is why `users.locale` is a separate setting.
+                             *
+                             *     Always present. Every CV has had one since the column was added; until
+                             *     now nothing carried it up to here.
+                             * @example en
+                             */
+                            language: string;
                             /**
                              * @description Portrait image. Empty when unset.
                              * @example https://example.com/photos/profile.jpg
@@ -8571,6 +8667,18 @@ export interface operations {
                              */
                             id: string;
                             /**
+                             * @description The language the CV is written in, as a short code — `en`, `id`.
+                             *
+                             *     The language of the **document**, not of the interface. Someone reading
+                             *     the console in Indonesian while writing an English CV is the ordinary
+                             *     case, which is why `users.locale` is a separate setting.
+                             *
+                             *     Always present. Every CV has had one since the column was added; until
+                             *     now nothing carried it up to here.
+                             * @example en
+                             */
+                            language: string;
+                            /**
                              * @description Portrait image. Empty when unset.
                              * @example https://example.com/photos/profile.jpg
                              */
@@ -8773,6 +8881,18 @@ export interface operations {
                              * @example 123e4567-e89b-12d3-a456-426614174000
                              */
                             id: string;
+                            /**
+                             * @description The language the CV is written in, as a short code — `en`, `id`.
+                             *
+                             *     The language of the **document**, not of the interface. Someone reading
+                             *     the console in Indonesian while writing an English CV is the ordinary
+                             *     case, which is why `users.locale` is a separate setting.
+                             *
+                             *     Always present. Every CV has had one since the column was added; until
+                             *     now nothing carried it up to here.
+                             * @example en
+                             */
+                            language: string;
                             /**
                              * @description Portrait image. Empty when unset.
                              * @example https://example.com/photos/profile.jpg
@@ -11855,6 +11975,18 @@ export interface operations {
                              * @example 123e4567-e89b-12d3-a456-426614174000
                              */
                             id: string;
+                            /**
+                             * @description The language the CV is written in, as a short code — `en`, `id`.
+                             *
+                             *     The language of the **document**, not of the interface. Someone reading
+                             *     the console in Indonesian while writing an English CV is the ordinary
+                             *     case, which is why `users.locale` is a separate setting.
+                             *
+                             *     Always present. Every CV has had one since the column was added; until
+                             *     now nothing carried it up to here.
+                             * @example en
+                             */
+                            language: string;
                             /**
                              * @description Portrait image. Empty when unset.
                              * @example https://example.com/photos/profile.jpg

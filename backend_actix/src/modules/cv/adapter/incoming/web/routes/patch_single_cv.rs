@@ -48,6 +48,12 @@ pub struct PatchCVRequest {
     pub highlighted_projects: Option<ReplaceOp<HighlightedProjectDto>>,
     /// Replaces the contact rows when present.
     pub contact_info: Option<ReplaceOp<ContactDetailDto>>,
+
+    /// The language this CV is written in, as a short code — `en`, `id`.
+    ///
+    /// Absent leaves it as it was, like every other field here.
+    #[schema(example = "id")]
+    pub language: Option<String>,
 }
 
 /// Partially update a CV
@@ -95,6 +101,7 @@ pub async fn patch_cv_handler(
     let cv_id = path.into_inner();
 
     let patch_data = PatchCVData {
+        language: req.language.clone(),
         bio: req.bio.clone(),
         display_name: req.display_name.clone(),
         role: req.role.clone(),
@@ -161,6 +168,7 @@ mod tests {
 
     fn base_patch_request() -> PatchCVRequest {
         PatchCVRequest {
+            language: None,
             bio: None,
             role: None,
             display_name: None,
@@ -221,6 +229,7 @@ mod tests {
                 .expect("MockPatchCvUseCase called without set_success");
 
             Ok(CVInfo {
+                language: "en".to_string(),
                 id: cv_id,
                 user_id: existing.user_id,
                 display_name: data.display_name.unwrap_or(existing.display_name),
@@ -250,6 +259,7 @@ mod tests {
         let patch_uc = MockPatchCvUseCase::new();
 
         let expected_cv = CVInfo {
+            language: "en".to_string(),
             id: Uuid::new_v4(),
             user_id,
             display_name: "Initial Name".to_string(),
@@ -294,6 +304,7 @@ mod tests {
             .uri(&format!("/api/cvs/{}", cv_id))
             .insert_header(("Authorization", format!("Bearer {}", token)))
             .set_json(PatchCVRequest {
+                language: None,
                 bio: Some("Updated bio".to_string()),
                 role: Some("Engineer".to_string()),
                 display_name: Some("Berto Fang".to_string()),
@@ -327,6 +338,7 @@ mod tests {
         let patch_uc = MockPatchCvUseCase::new();
 
         let expected_cv = CVInfo {
+            language: "en".to_string(),
             id: cv_id,
             user_id,
             display_name: "Berto Fang".to_string(),
@@ -366,6 +378,7 @@ mod tests {
             .uri(&format!("/api/cvs/{}", cv_id))
             .insert_header(("Authorization", format!("Bearer {}", token)))
             .set_json(PatchCVRequest {
+                language: None,
                 display_name: Some("Updated name here".to_string()),
                 role: Some("Updated role here".to_string()),
                 ..base_patch_request()

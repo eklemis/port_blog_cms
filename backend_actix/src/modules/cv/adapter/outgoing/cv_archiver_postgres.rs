@@ -138,6 +138,7 @@ mod tests {
     fn create_cv_model(cv_id: Uuid, user_id: Uuid, is_deleted: bool) -> CvModel {
         let now = Utc::now().fixed_offset();
         CvModel {
+            language: "en".to_string(),
             id: cv_id,
             user_id,
             bio: "Test bio".to_string(),

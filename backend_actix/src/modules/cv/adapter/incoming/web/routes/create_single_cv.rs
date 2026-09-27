@@ -41,6 +41,13 @@ pub struct CreateCVRequest {
     pub highlighted_projects: Vec<HighlightedProjectDto>,
     /// Contact rows. Public on a published CV.
     pub contact_info: Vec<ContactDetailDto>,
+
+    /// The language this CV is written in, as a short code — `en`, `id`.
+    ///
+    /// The document's language, not the interface's. Omit it and the CV is
+    /// `en`, which is what every existing row already holds.
+    #[schema(example = "en")]
+    pub language: Option<String>,
 }
 
 #[utoipa::path(
@@ -99,6 +106,7 @@ pub async fn create_cv_handler(
     let req = req.into_inner();
 
     let cv_data = CreateCVData {
+        language: req.language.clone(),
         role: req.role,
         bio: req.bio,
         display_name: req.display_name,
@@ -195,6 +203,7 @@ mod tests {
 
     fn base_create_request() -> CreateCVRequest {
         CreateCVRequest {
+            language: None,
             display_name: "John Doe".to_string(),
             role: "Software Engineer".to_string(),
             bio: "Experienced developer passionate about clean code".to_string(),
@@ -209,6 +218,7 @@ mod tests {
 
     fn full_request() -> CreateCVRequest {
         CreateCVRequest {
+            language: None,
             core_skills: vec![
                 CoreSkillDto {
                     title: "Rust".to_string(),
@@ -258,6 +268,7 @@ mod tests {
 
     fn full_cv(user_id: Uuid) -> CVInfo {
         CVInfo {
+            language: "en".to_string(),
             id: Uuid::new_v4(),
             user_id,
             display_name: "John Doe".to_string(),
