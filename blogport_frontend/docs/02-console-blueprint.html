@@ -489,7 +489,7 @@ footer .prose { max-width: 62ch; }
           <tr><td><code>/studio/posts/archive</code></td><td>Archived posts — restore or purge</td><td class="dim mono">GET /api/blog?deleted=true<br>POST /api/blog/{id}/restore<br>DELETE /api/blog/{id}/hard<br>POST /api/blog/bulk — Restore both · Purge both</td></tr>
           <tr><td><code>/studio/projects</code></td><td>Projects — search, topic filter, sort, paging</td><td class="dim mono">GET /api/projects</td></tr>
           <tr><td><code>/studio/projects/[id]</code></td><td>Project editor — stack, links, screenshots, topics</td><td class="dim mono">GET·PATCH /api/projects/{id}<br>GET·POST·DELETE /api/projects/{id}/topics</td></tr>
-          <tr><td><code>/studio/resumes</code></td><td>Résumés — list, search, sort</td><td class="dim mono">GET /api/cvs</td></tr>
+          <tr><td><code>/studio/resumes</code></td><td>Résumés — role, summary, section counts. Search and sort; no topic filter, because a CV carries no topics</td><td class="dim mono">GET /api/cvs?search=&amp;sort=&amp;page=&amp;per_page=</td></tr>
           <tr><td><code>/studio/resumes/[id]</code></td><td>Résumé builder — five repeatable sections</td><td class="dim mono">GET·PATCH·PUT /api/cvs/{id}</td></tr>
           <tr><td><code>/studio/topics</code></td><td>Topics — the shared vocabulary</td><td class="dim mono">GET·POST /api/topics · DELETE /api/topics/{id}</td></tr>
           <tr><td><code>/studio/media</code></td><td>Media library, filtered by attachment target</td><td class="dim mono">GET /api/media/by-target/{target}<br>GET /api/media/{id} · /{id}/{size}<br>POST /api/media/upload-url · DELETE /api/media/{id}</td></tr>
@@ -1627,6 +1627,19 @@ footer .prose { max-width: 62ch; }
         request per row. That is not a column, it is an N+1. Filed as a backend ask: batch the
         topics for a page of cards into the list query. Until it lands the column is <b>not
         built</b>; it is never filled with em dashes, which would read as "no topics" on every row.</p>
+      </div>
+      <div class="gap">
+        <h4>Three things a CV cannot say about itself</h4>
+        <span class="sev sev-block">blocks</span>
+        <p><code>CvResponse</code> carries no <code>language</code>, so §06's <span class="say">"Written
+        in English"</span> control has nothing behind it — the frame draws it and the field does not
+        exist. <code>ContactTypeDto</code> is <code>phone_number | web_page</code> with no
+        <code>email</code>, while <code>ContactDetailDto.content</code>'s own example is
+        <code>john@example.com</code> — and an email on a nominated résumé is exactly where §03 ruled
+        a public address belongs. And <code>CVSort</code> offers <code>updated_newest</code> while
+        the row carries no <code>updated_at</code>: the list can be <em>sorted</em> by a date it
+        cannot <em>show</em>, which is why the Résumés list has a SECTIONS column where every other
+        list has UPDATED. Three fields, one document, worth taking together.</p>
       </div>
       <div class="gap">
         <h4>An application's job posting has nowhere to be read</h4>
