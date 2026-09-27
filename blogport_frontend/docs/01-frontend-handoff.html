@@ -753,6 +753,10 @@
 				<p>
 					Listing is <code>by-target</code> only. A combined library means four parallel calls
 					merged client-side with no paging — scope it as a per-target picker instead.
+					<b>This stands, and the frame was the stale one.</b> <code>Screen / Media library</code>
+					drew an <em>All</em> tab and annotated it with the same fact this entry refuses it
+					for; the tab is gone from all six Media frames. Where a frame and this list
+					disagree about something with no endpoint behind it, the endpoint decides.
 				</p>
 			</div>
 			<div class="nope-row">
@@ -803,9 +807,10 @@
 				copy calling it permanent, and give the media library an edit affordance.
 			</p>
 			<p>
-				Whether <code>position</code> is patchable alongside <code>alt_text</code> is still
-				unconfirmed. Until it is, treat upload order as display order and do not build
-				drag-to-reorder.
+				<b>And <code>position</code> is patchable too</b> — <code>PatchMediaRequest</code> carries all
+				three of <code>alt_text</code>, <code>caption</code> and <code>position</code>. Upload order is
+				no longer display order, so drag-to-reorder is buildable for project galleries — with
+				move-up / move-down beside it, per §07 of the Accessibility Spec.
 			</p>
 		</div>
 	</div>
