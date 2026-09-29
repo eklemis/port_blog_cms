@@ -75,6 +75,7 @@ const BUILT: readonly string[] = [
 	CONSOLE_ROUTES.overview,
 	CONSOLE_ROUTES.posts,
 	CONSOLE_ROUTES.projects,
+	CONSOLE_ROUTES.resumes,
 	CONSOLE_ROUTES.applications,
 	CONSOLE_ROUTES.media,
 	CONSOLE_ROUTES.topics
