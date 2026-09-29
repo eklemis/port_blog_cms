@@ -1,4 +1,5 @@
 // Public API of the cv entity.
+export { sectionsLine } from './model/sections';
 export {
 	CONTACT_TYPES,
 	contactTypeLabel,

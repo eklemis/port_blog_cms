@@ -142,9 +142,10 @@ test('a slot that cannot fit the full name says the short one', () => {
 
 test('More holds what does not fit, Overview first', () => {
 	// Overview first because it is the home screen — and until this sheet
-	// exists, Mobile / Overview has no way in at all. Résumés and Account
-	// belong here too and return the day they have screens.
-	expect(MORE.map((item) => item.label)).toEqual(['Overview', 'Topics']);
+	// exists, Mobile / Overview has no way in at all. Account belongs here too
+	// and returns the day it has a screen; Résumés now has one, and arrived in
+	// the Prototype Map's order rather than at the end of the sheet.
+	expect(MORE.map((item) => item.label)).toEqual(['Overview', 'Résumés', 'Topics']);
 });
 
 test('between the bar and the sheet, nothing is unreachable at 390px', () => {
