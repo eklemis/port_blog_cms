@@ -10,6 +10,7 @@
 //! in — so each is used for both request and response bodies and converts in
 //! both directions.
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -177,6 +178,14 @@ pub struct CvResponse {
     /// now nothing carried it up to here.
     #[schema(example = "en")]
     pub language: String,
+
+    /// When the CV was last written to, in RFC 3339.
+    ///
+    /// The value `sort=updated_newest` and `sort=updated_oldest` order by, so
+    /// a list sorted that way can show the date it is sorted on. Moves on
+    /// every write, including archive and restore.
+    #[schema(example = "2026-09-30T06:12:44.123456Z")]
+    pub updated_at: DateTime<Utc>,
 }
 
 //
@@ -254,6 +263,7 @@ impl From<CVInfo> for CvResponse {
     fn from(cv: CVInfo) -> Self {
         Self {
             language: cv.language,
+            updated_at: cv.updated_at,
             id: cv.id,
             user_id: cv.user_id,
             role: cv.role,
@@ -350,6 +360,7 @@ mod tests {
 
     fn sample_domain_cv() -> CVInfo {
         CVInfo {
+            updated_at: chrono::Utc::now(),
             language: "en".to_string(),
             id: Uuid::new_v4(),
             user_id: Uuid::new_v4(),

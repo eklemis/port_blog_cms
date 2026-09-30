@@ -229,6 +229,7 @@ mod tests {
                 .expect("MockPatchCvUseCase called without set_success");
 
             Ok(CVInfo {
+                updated_at: chrono::Utc::now(),
                 language: "en".to_string(),
                 id: cv_id,
                 user_id: existing.user_id,
@@ -259,6 +260,7 @@ mod tests {
         let patch_uc = MockPatchCvUseCase::new();
 
         let expected_cv = CVInfo {
+            updated_at: chrono::Utc::now(),
             language: "en".to_string(),
             id: Uuid::new_v4(),
             user_id,
@@ -338,6 +340,7 @@ mod tests {
         let patch_uc = MockPatchCvUseCase::new();
 
         let expected_cv = CVInfo {
+            updated_at: chrono::Utc::now(),
             language: "en".to_string(),
             id: cv_id,
             user_id,

@@ -435,7 +435,11 @@ mod tests {
                 .unwrap(),
             contact_info: serde_json::to_value(&updated_cv_data.contact_info).unwrap(),
             created_at: now,
-            updated_at: now,
+            // What the `update_resumes_updated_at` trigger stamped, as the
+            // row comes back from `RETURNING`. Deliberately not `now` and not
+            // UTC, so the assertion below can only pass if the value is read
+            // from the row and converted, not taken from the Rust clock.
+            updated_at: chrono::DateTime::parse_from_rfc3339("2026-09-30T14:12:44+08:00").unwrap(),
             is_deleted: false,
         };
 
@@ -466,6 +470,11 @@ mod tests {
         assert_eq!(updated_cv.photo_url, "https://example.com/updated.jpg");
         assert_eq!(updated_cv.core_skills.len(), 1);
         assert_eq!(updated_cv.core_skills[0].title, "Advanced Rust");
+        assert_eq!(
+            updated_cv.updated_at.to_rfc3339(),
+            "2026-09-30T06:12:44+00:00",
+            "updated_at must be the row's own value, in UTC"
+        );
     }
 
     #[tokio::test]

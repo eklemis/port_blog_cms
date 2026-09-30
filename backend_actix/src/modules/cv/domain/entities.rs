@@ -5,6 +5,7 @@
 //! `cv::adapter::incoming::web::dto`, which converts to and from these types,
 //! so the API shape can change without touching the domain and vice versa.
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -55,6 +56,13 @@ pub struct CVInfo {
     /// the console in Indonesian while writing an English CV is the ordinary
     /// case, which is why `users.locale` is a separate thing and says so.
     pub language: String,
+
+    /// When the CV was last written to.
+    ///
+    /// Stamped by the `update_resumes_updated_at` trigger on every `UPDATE`,
+    /// so it moves on edit, archive and restore alike. This is the column
+    /// `CVSort::UpdatedNewest` / `UpdatedOldest` order by.
+    pub updated_at: DateTime<Utc>,
 }
 
 /// A headline skill shown near the top of a CV.

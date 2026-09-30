@@ -69,6 +69,7 @@ impl Model {
                 .unwrap_or_default(),
             contact_info: serde_json::from_value(self.contact_info.clone()).unwrap_or_default(),
             language: self.language.clone(),
+            updated_at: self.updated_at.with_timezone(&chrono::Utc),
         }
     }
     pub fn from_create_data(user_id: Uuid, cv: &CreateCVData) -> Self {
