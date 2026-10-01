@@ -191,6 +191,7 @@ mod tests {
     fn sample_page_result() -> CVPageResult<CVInfo> {
         CVPageResult {
             items: vec![CVInfo {
+                updated_at: "2026-09-30T06:12:44Z".parse().unwrap(),
                 language: "en".to_string(),
                 id: Uuid::new_v4(),
                 user_id: Uuid::new_v4(),
@@ -245,6 +246,13 @@ mod tests {
         let body: JsonValue = test::read_body_json(resp).await;
         assert_eq!(body["success"], true);
         assert!(body["error"].is_null());
+
+        // The date a list sorted by `updated_newest` is sorted on, read off
+        // the wire where the console reads it.
+        assert_eq!(
+            body["data"]["items"][0]["updated_at"],
+            "2026-09-30T06:12:44Z"
+        );
 
         let page: CVPageResult<CVInfo> = serde_json::from_value(body["data"].clone()).unwrap();
         assert_eq!(page.total, 1);

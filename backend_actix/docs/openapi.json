@@ -5069,7 +5069,8 @@
                               "experiences",
                               "highlighted_projects",
                               "contact_info",
-                              "language"
+                              "language",
+                              "updated_at"
                             ],
                             "properties": {
                               "bio": {
@@ -5137,6 +5138,12 @@
                                 "type": "string",
                                 "description": "Job title shown under the display name.",
                                 "example": "Senior Software Engineer"
+                              },
+                              "updated_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "description": "When the CV was last written to, in RFC 3339.\n\nThe value `sort=updated_newest` and `sort=updated_oldest` order by, so\na list sorted that way can show the date it is sorted on. Moves on\nevery write, including archive and restore.",
+                                "example": "2026-09-30T06:12:44.123456Z"
                               },
                               "user_id": {
                                 "type": "string",
@@ -5274,7 +5281,8 @@
                         "experiences",
                         "highlighted_projects",
                         "contact_info",
-                        "language"
+                        "language",
+                        "updated_at"
                       ],
                       "properties": {
                         "bio": {
@@ -5342,6 +5350,12 @@
                           "type": "string",
                           "description": "Job title shown under the display name.",
                           "example": "Senior Software Engineer"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "When the CV was last written to, in RFC 3339.\n\nThe value `sort=updated_newest` and `sort=updated_oldest` order by, so\na list sorted that way can show the date it is sorted on. Moves on\nevery write, including archive and restore.",
+                          "example": "2026-09-30T06:12:44.123456Z"
                         },
                         "user_id": {
                           "type": "string",
@@ -5458,7 +5472,8 @@
                         "experiences",
                         "highlighted_projects",
                         "contact_info",
-                        "language"
+                        "language",
+                        "updated_at"
                       ],
                       "properties": {
                         "bio": {
@@ -5526,6 +5541,12 @@
                           "type": "string",
                           "description": "Job title shown under the display name.",
                           "example": "Senior Software Engineer"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "When the CV was last written to, in RFC 3339.\n\nThe value `sort=updated_newest` and `sort=updated_oldest` order by, so\na list sorted that way can show the date it is sorted on. Moves on\nevery write, including archive and restore.",
+                          "example": "2026-09-30T06:12:44.123456Z"
                         },
                         "user_id": {
                           "type": "string",
@@ -5656,7 +5677,8 @@
                         "experiences",
                         "highlighted_projects",
                         "contact_info",
-                        "language"
+                        "language",
+                        "updated_at"
                       ],
                       "properties": {
                         "bio": {
@@ -5724,6 +5746,12 @@
                           "type": "string",
                           "description": "Job title shown under the display name.",
                           "example": "Senior Software Engineer"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "When the CV was last written to, in RFC 3339.\n\nThe value `sort=updated_newest` and `sort=updated_oldest` order by, so\na list sorted that way can show the date it is sorted on. Moves on\nevery write, including archive and restore.",
+                          "example": "2026-09-30T06:12:44.123456Z"
                         },
                         "user_id": {
                           "type": "string",
@@ -5948,7 +5976,8 @@
                         "experiences",
                         "highlighted_projects",
                         "contact_info",
-                        "language"
+                        "language",
+                        "updated_at"
                       ],
                       "properties": {
                         "bio": {
@@ -6016,6 +6045,12 @@
                           "type": "string",
                           "description": "Job title shown under the display name.",
                           "example": "Senior Software Engineer"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "When the CV was last written to, in RFC 3339.\n\nThe value `sort=updated_newest` and `sort=updated_oldest` order by, so\na list sorted that way can show the date it is sorted on. Moves on\nevery write, including archive and restore.",
+                          "example": "2026-09-30T06:12:44.123456Z"
                         },
                         "user_id": {
                           "type": "string",
@@ -6234,7 +6269,8 @@
                         "experiences",
                         "highlighted_projects",
                         "contact_info",
-                        "language"
+                        "language",
+                        "updated_at"
                       ],
                       "properties": {
                         "bio": {
@@ -6302,6 +6338,12 @@
                           "type": "string",
                           "description": "Job title shown under the display name.",
                           "example": "Senior Software Engineer"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "When the CV was last written to, in RFC 3339.\n\nThe value `sort=updated_newest` and `sort=updated_oldest` order by, so\na list sorted that way can show the date it is sorted on. Moves on\nevery write, including archive and restore.",
+                          "example": "2026-09-30T06:12:44.123456Z"
                         },
                         "user_id": {
                           "type": "string",
@@ -10712,7 +10754,8 @@
                         "experiences",
                         "highlighted_projects",
                         "contact_info",
-                        "language"
+                        "language",
+                        "updated_at"
                       ],
                       "properties": {
                         "bio": {
@@ -10780,6 +10823,12 @@
                           "type": "string",
                           "description": "Job title shown under the display name.",
                           "example": "Senior Software Engineer"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "When the CV was last written to, in RFC 3339.\n\nThe value `sort=updated_newest` and `sort=updated_oldest` order by, so\na list sorted that way can show the date it is sorted on. Moves on\nevery write, including archive and restore.",
+                          "example": "2026-09-30T06:12:44.123456Z"
                         },
                         "user_id": {
                           "type": "string",
@@ -13203,7 +13252,8 @@
                 "experiences",
                 "highlighted_projects",
                 "contact_info",
-                "language"
+                "language",
+                "updated_at"
               ],
               "properties": {
                 "bio": {
@@ -13271,6 +13321,12 @@
                   "type": "string",
                   "description": "Job title shown under the display name.",
                   "example": "Senior Software Engineer"
+                },
+                "updated_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "When the CV was last written to, in RFC 3339.\n\nThe value `sort=updated_newest` and `sort=updated_oldest` order by, so\na list sorted that way can show the date it is sorted on. Moves on\nevery write, including archive and restore.",
+                  "example": "2026-09-30T06:12:44.123456Z"
                 },
                 "user_id": {
                   "type": "string",
@@ -13744,7 +13800,8 @@
           "experiences",
           "highlighted_projects",
           "contact_info",
-          "language"
+          "language",
+          "updated_at"
         ],
         "properties": {
           "bio": {
@@ -13812,6 +13869,12 @@
             "type": "string",
             "description": "Job title shown under the display name.",
             "example": "Senior Software Engineer"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the CV was last written to, in RFC 3339.\n\nThe value `sort=updated_newest` and `sort=updated_oldest` order by, so\na list sorted that way can show the date it is sorted on. Moves on\nevery write, including archive and restore.",
+            "example": "2026-09-30T06:12:44.123456Z"
           },
           "user_id": {
             "type": "string",

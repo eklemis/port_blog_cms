@@ -95,6 +95,7 @@ mod tests {
 
         fn default_cv_info() -> CVInfo {
             CVInfo {
+                updated_at: chrono::Utc::now(),
                 language: "en".to_string(),
                 id: Uuid::new_v4(),
                 user_id: Uuid::new_v4(),
@@ -131,6 +132,7 @@ mod tests {
         ) -> Result<CVInfo, CVRepositoryError> {
             match &self.create_result {
                 Ok(_) => Ok(CVInfo {
+                    updated_at: chrono::Utc::now(),
                     language: "en".to_string(),
                     id: Uuid::new_v4(),
                     user_id,

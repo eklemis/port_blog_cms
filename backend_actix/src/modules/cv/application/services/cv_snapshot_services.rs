@@ -74,6 +74,7 @@ mod tests {
 
     fn a_cv(id: Uuid, role: &str) -> CVInfo {
         CVInfo {
+            updated_at: chrono::Utc::now(),
             language: "en".to_string(),
             id,
             user_id: Uuid::new_v4(),

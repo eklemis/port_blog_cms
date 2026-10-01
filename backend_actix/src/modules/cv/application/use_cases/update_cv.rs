@@ -136,7 +136,13 @@ mod tests {
                 .ok_or(CVRepositoryError::NotFound)?;
 
             Ok(CVInfo {
-                language: "en".to_string(),
+                updated_at: chrono::Utc::now(),
+                // As the repository does: set only when supplied, so a full
+                // update that omits it keeps the CV's own language.
+                language: cv_data
+                    .language
+                    .clone()
+                    .unwrap_or_else(|| existing.language.clone()),
                 id: existing.id,
                 user_id: existing.user_id,
                 display_name: existing.display_name,
@@ -172,6 +178,7 @@ mod tests {
         let cv_id = Uuid::new_v4();
         let user_id = Uuid::new_v4();
         let existing_cv = CVInfo {
+            updated_at: chrono::Utc::now(),
             language: "en".to_string(),
             id: cv_id,
             display_name: "Rob Stark".to_string(),
@@ -265,6 +272,7 @@ mod tests {
 
         // Existing CV belongs to the user
         let existing_cv = CVInfo {
+            updated_at: chrono::Utc::now(),
             language: "en".to_string(),
             id: cv_id,
             display_name: "Rob Stark".to_string(),

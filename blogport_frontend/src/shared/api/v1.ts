@@ -2278,6 +2278,16 @@ export interface components {
                  */
                 role: string;
                 /**
+                 * Format: date-time
+                 * @description When the CV was last written to, in RFC 3339.
+                 *
+                 *     The value `sort=updated_newest` and `sort=updated_oldest` order by, so
+                 *     a list sorted that way can show the date it is sorted on. Moves on
+                 *     every write, including archive and restore.
+                 * @example 2026-09-30T06:12:44.123456Z
+                 */
+                updated_at: string;
+                /**
                  * Format: uuid
                  * @description The owning user.
                  * @example 987e6543-e21b-12d3-a456-426614174000
@@ -2575,6 +2585,16 @@ export interface components {
              * @example Senior Software Engineer
              */
             role: string;
+            /**
+             * Format: date-time
+             * @description When the CV was last written to, in RFC 3339.
+             *
+             *     The value `sort=updated_newest` and `sort=updated_oldest` order by, so
+             *     a list sorted that way can show the date it is sorted on. Moves on
+             *     every write, including archive and restore.
+             * @example 2026-09-30T06:12:44.123456Z
+             */
+            updated_at: string;
             /**
              * Format: uuid
              * @description The owning user.
@@ -8084,6 +8104,16 @@ export interface operations {
                                  */
                                 role: string;
                                 /**
+                                 * Format: date-time
+                                 * @description When the CV was last written to, in RFC 3339.
+                                 *
+                                 *     The value `sort=updated_newest` and `sort=updated_oldest` order by, so
+                                 *     a list sorted that way can show the date it is sorted on. Moves on
+                                 *     every write, including archive and restore.
+                                 * @example 2026-09-30T06:12:44.123456Z
+                                 */
+                                updated_at: string;
+                                /**
                                  * Format: uuid
                                  * @description The owning user.
                                  * @example 987e6543-e21b-12d3-a456-426614174000
@@ -8231,6 +8261,16 @@ export interface operations {
                              */
                             role: string;
                             /**
+                             * Format: date-time
+                             * @description When the CV was last written to, in RFC 3339.
+                             *
+                             *     The value `sort=updated_newest` and `sort=updated_oldest` order by, so
+                             *     a list sorted that way can show the date it is sorted on. Moves on
+                             *     every write, including archive and restore.
+                             * @example 2026-09-30T06:12:44.123456Z
+                             */
+                            updated_at: string;
+                            /**
                              * Format: uuid
                              * @description The owning user.
                              * @example 987e6543-e21b-12d3-a456-426614174000
@@ -8334,6 +8374,16 @@ export interface operations {
                              * @example Senior Software Engineer
                              */
                             role: string;
+                            /**
+                             * Format: date-time
+                             * @description When the CV was last written to, in RFC 3339.
+                             *
+                             *     The value `sort=updated_newest` and `sort=updated_oldest` order by, so
+                             *     a list sorted that way can show the date it is sorted on. Moves on
+                             *     every write, including archive and restore.
+                             * @example 2026-09-30T06:12:44.123456Z
+                             */
+                            updated_at: string;
                             /**
                              * Format: uuid
                              * @description The owning user.
@@ -8469,6 +8519,16 @@ export interface operations {
                              * @example Senior Software Engineer
                              */
                             role: string;
+                            /**
+                             * Format: date-time
+                             * @description When the CV was last written to, in RFC 3339.
+                             *
+                             *     The value `sort=updated_newest` and `sort=updated_oldest` order by, so
+                             *     a list sorted that way can show the date it is sorted on. Moves on
+                             *     every write, including archive and restore.
+                             * @example 2026-09-30T06:12:44.123456Z
+                             */
+                            updated_at: string;
                             /**
                              * Format: uuid
                              * @description The owning user.
@@ -8689,6 +8749,16 @@ export interface operations {
                              */
                             role: string;
                             /**
+                             * Format: date-time
+                             * @description When the CV was last written to, in RFC 3339.
+                             *
+                             *     The value `sort=updated_newest` and `sort=updated_oldest` order by, so
+                             *     a list sorted that way can show the date it is sorted on. Moves on
+                             *     every write, including archive and restore.
+                             * @example 2026-09-30T06:12:44.123456Z
+                             */
+                            updated_at: string;
+                            /**
                              * Format: uuid
                              * @description The owning user.
                              * @example 987e6543-e21b-12d3-a456-426614174000
@@ -8903,6 +8973,16 @@ export interface operations {
                              * @example Senior Software Engineer
                              */
                             role: string;
+                            /**
+                             * Format: date-time
+                             * @description When the CV was last written to, in RFC 3339.
+                             *
+                             *     The value `sort=updated_newest` and `sort=updated_oldest` order by, so
+                             *     a list sorted that way can show the date it is sorted on. Moves on
+                             *     every write, including archive and restore.
+                             * @example 2026-09-30T06:12:44.123456Z
+                             */
+                            updated_at: string;
                             /**
                              * Format: uuid
                              * @description The owning user.
@@ -11997,6 +12077,16 @@ export interface operations {
                              * @example Senior Software Engineer
                              */
                             role: string;
+                            /**
+                             * Format: date-time
+                             * @description When the CV was last written to, in RFC 3339.
+                             *
+                             *     The value `sort=updated_newest` and `sort=updated_oldest` order by, so
+                             *     a list sorted that way can show the date it is sorted on. Moves on
+                             *     every write, including archive and restore.
+                             * @example 2026-09-30T06:12:44.123456Z
+                             */
+                            updated_at: string;
                             /**
                              * Format: uuid
                              * @description The owning user.

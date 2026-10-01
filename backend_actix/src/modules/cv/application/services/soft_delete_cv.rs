@@ -127,6 +127,7 @@ mod tests {
 
     fn cv_owned_by(cv_id: Uuid, user_id: Uuid) -> CVInfo {
         CVInfo {
+            updated_at: chrono::Utc::now(),
             language: "en".to_string(),
             id: cv_id,
             user_id,

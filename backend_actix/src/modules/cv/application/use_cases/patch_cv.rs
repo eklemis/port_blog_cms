@@ -158,6 +158,7 @@ mod patch_tests {
                 .ok_or(CVRepositoryError::NotFound)?;
 
             Ok(CVInfo {
+                updated_at: chrono::Utc::now(),
                 // Echoes what the merge handed over. Hardcoding "en" here
                 // would hide exactly the bug these tests exist to catch.
                 language: cv_data
@@ -196,6 +197,7 @@ mod patch_tests {
         let user_id = Uuid::new_v4();
 
         let existing_cv = CVInfo {
+            updated_at: chrono::Utc::now(),
             language: "en".to_string(),
             id: cv_id,
             user_id,
@@ -288,6 +290,7 @@ mod patch_tests {
         let cv_id = Uuid::new_v4();
 
         let existing_cv = CVInfo {
+            updated_at: chrono::Utc::now(),
             language: "en".to_string(),
             id: cv_id,
             display_name: "Rob Stark".to_string(),
@@ -340,6 +343,7 @@ mod patch_tests {
         let cv_id = Uuid::new_v4();
 
         let existing_cv = CVInfo {
+            updated_at: chrono::Utc::now(),
             language: "en".to_string(),
             id: cv_id,
             display_name: "Rob Stark".to_string(),
@@ -386,6 +390,7 @@ mod patch_tests {
 
     fn cv_written_in(language: &str) -> CVInfo {
         CVInfo {
+            updated_at: chrono::Utc::now(),
             language: language.to_string(),
             id: Uuid::new_v4(),
             user_id: Uuid::new_v4(),

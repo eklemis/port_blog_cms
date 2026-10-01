@@ -268,6 +268,7 @@ mod tests {
 
     fn full_cv(user_id: Uuid) -> CVInfo {
         CVInfo {
+            updated_at: chrono::Utc::now(),
             language: "en".to_string(),
             id: Uuid::new_v4(),
             user_id,

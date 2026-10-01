@@ -172,6 +172,7 @@ mod tests {
     impl CVInfo {
         fn from_update(cv_id: Uuid, user_id: Uuid, data: UpdateCVData) -> Self {
             Self {
+                updated_at: chrono::Utc::now(),
                 language: data.language.clone().unwrap_or_else(|| "en".to_string()),
                 id: cv_id,
                 user_id,
@@ -246,6 +247,7 @@ mod tests {
         let cv_id = Uuid::new_v4();
 
         let updated_cv = CVInfo {
+            updated_at: chrono::Utc::now(),
             language: "en".to_string(),
             id: cv_id,
             user_id,
@@ -319,6 +321,7 @@ mod tests {
         let cv_id = Uuid::new_v4();
 
         let updated_cv = CVInfo {
+            updated_at: chrono::Utc::now(),
             language: "en".to_string(),
             id: cv_id,
             user_id,

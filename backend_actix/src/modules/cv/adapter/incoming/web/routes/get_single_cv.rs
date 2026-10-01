@@ -145,6 +145,7 @@ mod tests {
         let cv_id = Uuid::new_v4();
 
         let expected_cv = CVInfo {
+            updated_at: chrono::Utc::now(),
             language: "en".to_string(),
             id: cv_id,
             user_id,
